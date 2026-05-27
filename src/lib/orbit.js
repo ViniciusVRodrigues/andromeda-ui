@@ -22,11 +22,11 @@ export function polarToXY(angleDeg, r, cx, cy) {
    ──────────────────────────────────────────────────────────────── */
 export const ORBIT_PATH = "M 16 92 Q 88 50 16 8";
 
-/* Trecho da órbita que recebe o BRILHO: da base (16,92) até o MEIO (52,50),
-   onde fica a etapa ativa. É a metade inferior da Bézier original, obtida por
-   De Casteljau em t=0.5 — um único traço contínuo (sem dash), por isso não se
-   fragmenta nem ultrapassa o meio. */
-export const ORBIT_FILL_PATH = "M 16 92 Q 52 71 52 50";
+/* Trecho da órbita que recebe o BRILHO: do TOPO (16,8) descendo até o MEIO
+   (52,50), onde fica a etapa ativa. É a metade SUPERIOR da Bézier original,
+   obtida por De Casteljau em t=0.5 — um único traço contínuo (sem dash), por
+   isso o brilho vem de cima para baixo sem fragmentar nem ultrapassar o meio. */
+export const ORBIT_FILL_PATH = "M 52 50 Q 52 29 16 8";
 
 /** y (em %) do meio da órbita — onde a etapa ATIVA fica sempre fixada. */
 export const ORBIT_MIDDLE_Y = 50;

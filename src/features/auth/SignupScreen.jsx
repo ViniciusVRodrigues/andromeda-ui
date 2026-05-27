@@ -4,8 +4,7 @@
  * esquerdo até o superior esquerdo, logo abaixo do logo. A etapa ativa
  * (= página atual do formulário) fica "amarrada" verticalmente ao card:
  * conforme as etapas avançam, o marcador ativo sobe e o card sobe junto.
- * O brilho (.orbit-fill) ESPERA a subida assentar (transition-delay) e só
- * então se estende até a nova parada ativa.
+ * O brilho (.orbit-fill) desce do TOPO da órbita até a parada ativa no meio.
  */
 
 import React from "react";
@@ -117,9 +116,8 @@ function SignupScreen({ onCancel, onDone }) {
    - A etapa ATIVA fica SEMPRE no meio da órbita.
    - Etapas concluídas sobem (acima do meio); futuras ficam abaixo.
    - Ao avançar, todas as etapas deslizam suavemente para a nova posição.
-   - O brilho (fill) é contínuo, da base até o MEIO (etapa atual), nunca
-     ultrapassando o meio; o transition-delay o faz esperar a etapa nova
-     assentar no meio antes de reanchorar.                                    */
+   - O brilho (fill) é contínuo, do TOPO até o MEIO (etapa atual), descendo
+     de cima para baixo e nunca ultrapassando o meio.                         */
 function OrbitFrame({ steps, step, onJump }) {
   const mid = orbitPointAtY(ORBIT_MIDDLE_Y);
 

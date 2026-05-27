@@ -2415,9 +2415,7 @@ h1, h2, h3, .serif {
   opacity: 0.65;
 }
 
-/* brilho: preenche da base até a parada ATIVA.
-   O transition-delay (--rise-ms) faz o brilho ESPERAR a subida do item
-   assentar antes de se estender até a nova etapa. */
+/* brilho: desce do TOPO da órbita até a parada ATIVA no meio. */
 .orbit-fill {
   fill: none;
   stroke: url(#orbitFillGrad);
