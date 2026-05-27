@@ -10,7 +10,32 @@
 import React from "react";
 import { Wordmark } from "../../components/Wordmark.jsx";
 import { PLANS } from "../../data/plans.js";
-import { ORBIT_PATH, ORBIT_FILL_PATH, ORBIT_MIDDLE_Y, orbitItemPoint, orbitPointAtY } from "../../lib/orbit.js";
+import { ORBIT_PATH, ORBIT_GAP, ORBIT_MIDDLE_Y, orbitFillPathTo, orbitItemPoint, orbitPointAtY } from "../../lib/orbit.js";
+
+/* A órbita é animada por uma MOLA criticamente amortecida (sem overshoot):
+   acelera a partir do repouso e desacelera ao chegar — dá o "peso" orbital,
+   sem rigidez. A velocidade é carregada entre fases e entre redirecionamentos,
+   então cliques sobrepostos fluem em vez de cortar seco.
+   - ALCANÇAR (reach):  a ponta do brilho dispara até a etapa-alvo (mais ágil).
+   - REUNIR   (gather): o item-alvo é trazido ao meio, mais encorpado/lento.
+   ω = rigidez (rad/ms): maior = mais rápido/firme.                           */
+const OMEGA_REACH  = 0.0135;
+const OMEGA_GATHER = 0.0092;
+const REACH_SNAP   = 0.8;     // y%: perto o bastante do item p/ começar a reunir
+const END_SNAP     = 0.12;    // y%: tolerância p/ assentar no meio
+const VEL_SNAP     = 0.004;   // y%/ms: velocidade baixa o bastante p/ parar
+const EPS = 1e-3;
+
+/* Passo analítico (exato p/ qualquer dt) de uma mola criticamente amortecida:
+   x(t) = alvo + (c1 + c2·t)·e^(−ω·t). Retorna [nova posição, nova velocidade]. */
+function springStep(x, v, target, dt, omega) {
+  const e  = Math.exp(-omega * dt);
+  const c1 = x - target;
+  const c2 = v + omega * c1;
+  const nx = target + (c1 + c2 * dt) * e;
+  const nv = (c2 - omega * (c1 + c2 * dt)) * e;
+  return [nx, nv];
+}
 
 const SIGNUP_STEPS = [
   { id: "pessoal",   label: "Pessoal",      title: "Conte sobre",  accent: "você",        lede: "Você será o administrador da organização. Pode adicionar outros admins depois." },
@@ -40,9 +65,88 @@ function SignupScreen({ onCancel, onDone }) {
   const total    = SIGNUP_STEPS.length;
   const meta     = SIGNUP_STEPS[step];
 
-  const next   = () => { if (!valid[step]) return; setDir(1);  setStep((s) => Math.min(total - 1, s + 1)); };
-  const back   = () => {                            setDir(-1); setStep((s) => Math.max(0, s - 1)); };
-  const jump   = (i) => { if (i <= step && i !== step) { setDir(i < step ? -1 : 1); setStep(i); } };
+  // Órbita: estado animado, DESACOPLADO do formulário.
+  //   orbitPos — qual etapa está (continuamente) ancorada no meio. As pills são
+  //              posicionadas por (i − orbitPos).
+  //   glowY    — y% da ponta do brilho (= marcador).
+  // O alvo é sempre `step` (que troca na hora ao clicar). Um laço rAF leva a
+  // órbita até lá em duas fases: ALCANÇAR a etapa-alvo, depois REUNIR no meio.
+  const [orbitPos, setOrbitPos] = React.useState(0);
+  const [glowY, setGlowY]       = React.useState(ORBIT_MIDDLE_Y);
+
+  const posRef    = React.useRef(0);                 // orbitPos vivo
+  const glowRef   = React.useRef(ORBIT_MIDDLE_Y);    // glowY vivo
+  const velRef    = React.useRef(0);                 // velocidade da mola (y%/ms)
+  const frozenRef = React.useRef(0);                 // pos congelado na fase reach
+  const goalRef   = React.useRef(0);                 // etapa-alvo
+  const phaseRef  = React.useRef("idle");            // "idle" | "reach" | "gather"
+  const rafRef    = React.useRef(0);
+  const lastRef   = React.useRef(0);
+
+  const frame = (now) => {
+    const dt   = Math.min(48, now - lastRef.current); // clampa após aba inativa
+    lastRef.current = now;
+    const goal = goalRef.current;
+    let pos    = posRef.current;
+    let glow   = glowRef.current;
+    let vel    = velRef.current;
+
+    if (phaseRef.current === "reach") {
+      // a ponta dispara até a posição ATUAL da etapa-alvo (pos fica congelado)
+      pos = frozenRef.current;
+      const target = ORBIT_MIDDLE_Y + (goal - pos) * ORBIT_GAP;
+      [glow, vel] = springStep(glow, vel, target, dt, OMEGA_REACH);
+      if (Math.abs(glow - target) < REACH_SNAP) {
+        if (Math.abs(goal - pos) < EPS) {            // já estava no lugar
+          glow = ORBIT_MIDDLE_Y; pos = goal; vel = 0;
+          phaseRef.current = "idle";
+        } else {
+          phaseRef.current = "gather";               // mantém a velocidade
+        }
+      }
+    } else if (phaseRef.current === "gather") {
+      // traz a etapa-alvo ao meio; a ponta a acompanha (pos derivado de glow)
+      [glow, vel] = springStep(glow, vel, ORBIT_MIDDLE_Y, dt, OMEGA_GATHER);
+      pos = goal - (glow - ORBIT_MIDDLE_Y) / ORBIT_GAP;
+      if (Math.abs(glow - ORBIT_MIDDLE_Y) < END_SNAP && Math.abs(vel) < VEL_SNAP) {
+        glow = ORBIT_MIDDLE_Y; pos = goal; vel = 0;  // assenta exato no meio
+        phaseRef.current = "idle";
+      }
+    }
+
+    posRef.current = pos; glowRef.current = glow; velRef.current = vel;
+    setOrbitPos(pos);     setGlowY(glow);
+
+    if (phaseRef.current === "idle") {
+      rafRef.current = 0;                            // assentou no meio: para
+    } else {
+      rafRef.current = requestAnimationFrame(frame);
+    }
+  };
+
+  const runOrbit = () => {
+    if (rafRef.current) return;                      // laço já rodando
+    lastRef.current = performance.now();
+    rafRef.current = requestAnimationFrame(frame);
+  };
+
+  // Navega para a etapa `s`: troca o formulário NA HORA e (re)mira a órbita.
+  const goTo = (s) => {
+    s = Math.max(0, Math.min(total - 1, s));
+    if (s === step && phaseRef.current === "idle") return;
+    setDir(s >= step ? 1 : -1);
+    setStep(s);                                      // formulário troca imediato
+    goalRef.current   = s;
+    frozenRef.current = posRef.current;              // congela pos p/ a fase reach
+    phaseRef.current  = "reach";                     // sempre realcança o alvo
+    runOrbit();                                      // velocidade é preservada
+  };
+
+  React.useEffect(() => () => cancelAnimationFrame(rafRef.current), []);
+
+  const next   = () => { if (valid[step]) goTo(step + 1); };
+  const back   = () => goTo(step - 1);
+  const jump   = (i) => { if (i <= step) goTo(i); };
   const finish = () => onDone({ personal, account, org, plan });
 
   // suggest slug from org name
@@ -68,7 +172,7 @@ function SignupScreen({ onCancel, onDone }) {
       <span className="signup-orbit-versionmark mono">v0.1 · onboarding</span>
 
       <div className="signup-orbit-scene">
-        <OrbitFrame steps={SIGNUP_STEPS} step={step} onJump={jump} />
+        <OrbitFrame steps={SIGNUP_STEPS} step={step} orbitPos={orbitPos} glowY={glowY} onJump={jump} />
 
         {/* A estrutura interna do card permanece intacta — só sua posição é animada. */}
         <div className="signup-orbit-card">
@@ -113,37 +217,36 @@ function SignupScreen({ onCancel, onDone }) {
 }
 
 /* ─── Órbita: régua vertical na borda esquerda ─────────────────────────────
-   - A etapa ATIVA fica SEMPRE no meio da órbita.
-   - Etapas concluídas sobem (acima do meio); futuras ficam abaixo.
-   - Ao avançar, todas as etapas deslizam suavemente para a nova posição.
-   - O brilho (fill) é contínuo, do TOPO até o MEIO (etapa atual), descendo
-     de cima para baixo e nunca ultrapassando o meio.                         */
-function OrbitFrame({ steps, step, onJump }) {
-  const mid = orbitPointAtY(ORBIT_MIDDLE_Y);
+   - As pills são posicionadas por (i − orbitPos), contínuo e animado por rAF.
+   - A etapa ancorada no meio é orbitPos; ao assentar, a etapa ativa fica nele.
+   - O brilho (fill) vai do TOPO até a ponta (glowY): alcança a etapa-alvo e
+     depois recua ao meio trazendo o item junto.                              */
+function OrbitFrame({ steps, step, orbitPos, glowY, onJump }) {
+  const tip = orbitPointAtY(glowY);             // ponta do brilho = marcador
 
   return (
     <div className="signup-orbit-rail" aria-hidden="false">
       <svg className="signup-orbit-svg" viewBox="0 0 100 100" preserveAspectRatio="none">
         <defs>
-          <linearGradient id="orbitFillGrad" x1="0" y1="1" x2="0" y2="0">
-            <stop offset="0%"   stopColor="var(--accent-deep)" />
-            <stop offset="60%"  stopColor="var(--accent)" />
-            <stop offset="100%" stopColor="var(--accent-soft)" />
+          <linearGradient id="orbitFillGrad" x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%"   stopColor="var(--accent-soft)" />
+            <stop offset="40%"  stopColor="var(--accent)" />
+            <stop offset="100%" stopColor="var(--accent-deep)" />
           </linearGradient>
         </defs>
         {/* trilha pontilhada (órbita inteira, esmaecida) */}
         <path d={ORBIT_PATH} className="orbit-track" vectorEffect="non-scaling-stroke" />
-        {/* brilho ÚNICO e contínuo: da base até o meio (etapa ativa) */}
-        <path d={ORBIT_FILL_PATH} className="orbit-fill" vectorEffect="non-scaling-stroke" />
+        {/* brilho: do topo até a ponta (glowY) — desce de cima para baixo */}
+        <path d={orbitFillPathTo(glowY)} className="orbit-fill" vectorEffect="non-scaling-stroke" />
       </svg>
 
-      {/* marcador do meio (atrás das pills, não tampa o texto da etapa) */}
-      <span className="signup-orbit-marker" style={{ left: `${mid.x}%`, top: `${mid.y}%` }}>
+      {/* ponta do brilho (atrás das pills, não tampa o texto da etapa) */}
+      <span className="signup-orbit-marker" style={{ left: `${tip.x}%`, top: `${tip.y}%` }}>
         <span className="signup-orbit-marker-core" />
       </span>
 
       {steps.map((s, i) => {
-        const offset = i - step;                      // <0 concluída (sobe) · 0 ativa · >0 futura
+        const offset = i - orbitPos;                  // posição contínua na órbita
         const pt = orbitItemPoint(offset);
         const state = i === step ? "active" : i < step ? "done" : "idle";
         const visible = pt.y >= 2 && pt.y <= 98;

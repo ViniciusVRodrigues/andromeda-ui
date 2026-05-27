@@ -22,11 +22,27 @@ export function polarToXY(angleDeg, r, cx, cy) {
    ──────────────────────────────────────────────────────────────── */
 export const ORBIT_PATH = "M 16 92 Q 88 50 16 8";
 
-/* Trecho da órbita que recebe o BRILHO: do TOPO (16,8) descendo até o MEIO
-   (52,50), onde fica a etapa ativa. É a metade SUPERIOR da Bézier original,
-   obtida por De Casteljau em t=0.5 — um único traço contínuo (sem dash), por
-   isso o brilho vem de cima para baixo sem fragmentar nem ultrapassar o meio. */
-export const ORBIT_FILL_PATH = "M 52 50 Q 52 29 16 8";
+/* Bézier do BRILHO desenhada do TOPO (16,8) para a base (16,92) — mesma curva
+   da órbita, só percorrida de cima para baixo, para que o traço "cresça"
+   descendo. A ponta do brilho para na etapa ativa (meio) e, durante a transição,
+   avança até a próxima etapa antes de recuar de volta ao meio. */
+const FILL_P0 = [16, 8];
+const FILL_P1 = [88, 50];
+const FILL_P2 = [16, 92];
+
+/**
+ * Caminho (atributo `d`) do brilho, do TOPO até o ponto da órbita no `y` dado.
+ * Subdivisão de De Casteljau da Bézier em t = (y−8)/84: o subtrecho [0, t]
+ * termina EXATAMENTE no ponto da órbita em `y`, garantindo que a ponta do
+ * brilho coincida com o marcador. */
+export function orbitFillPathTo(y) {
+  const t = Math.min(1, Math.max(0, (y - 8) / 84));
+  const lerp = (a, b) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
+  const a = lerp(FILL_P0, FILL_P1);
+  const b = lerp(FILL_P1, FILL_P2);
+  const end = lerp(a, b);                       // = B(t) = ponto da órbita em y
+  return `M ${FILL_P0[0]} ${FILL_P0[1]} Q ${a[0]} ${a[1]} ${end[0]} ${end[1]}`;
+}
 
 /** y (em %) do meio da órbita — onde a etapa ATIVA fica sempre fixada. */
 export const ORBIT_MIDDLE_Y = 50;
