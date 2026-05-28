@@ -11,6 +11,7 @@ import { TeamDashboard } from "./features/dashboard/TeamDashboard.jsx";
 import { ManagerDashboard } from "./features/dashboard/ManagerDashboard.jsx";
 import { Wordmark } from "./components/Wordmark.jsx";
 import { ThemeSwitcher } from "./components/ThemeSwitcher.jsx";
+import { ThemePickerModal } from "./components/ThemePickerModal.jsx";
 import {
   useTweaks,
   TweaksPanel,
@@ -25,6 +26,7 @@ function App() {
   const [role, setRole] = React.useState("dev"); // dev | team | manager
   const [variation, setVariation] = React.useState({ dev: 0, team: 0, manager: 0 });
   const [profile, setProfile] = React.useState(null);
+  const [themePickerOpen, setThemePickerOpen] = React.useState(false);
 
   const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
     "palette": "default",
@@ -106,7 +108,7 @@ function App() {
             />
           )}
           {page === "onboard" && (
-            <OnboardingScreen onDone={() => goPage("dashboard")} />
+            <OnboardingScreen onDone={() => { setThemePickerOpen(true); goPage("dashboard"); }} />
           )}
           {page === "dashboard" && role === "dev" && (
             <DevDashboard
@@ -132,6 +134,13 @@ function App() {
           <RoleSwitcher role={role} setRole={goRole} />
         )}
       </div>
+
+      <ThemePickerModal
+        open={themePickerOpen && page === "dashboard"}
+        palette={palette}
+        setPalette={setPalette}
+        onClose={() => setThemePickerOpen(false)}
+      />
 
       <TweaksPanel title="Tweaks">
         <TweakSection label="Papel do usuário">
