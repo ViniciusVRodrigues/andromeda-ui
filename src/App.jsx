@@ -58,7 +58,16 @@ function App() {
   };
 
   const handleSignupDone = (data) => {
-    setProfile(data);
+    // mantém compatibilidade com AdminSettings (que ainda referencia plan/size)
+    setProfile({
+      personal:    data.personal,
+      org:         { ...data.org, size: "—" },
+      plan:        "galaxia",
+      cargos:      data.cargos,
+      senioridade: data.senioridade,
+      invites:     data.invites,
+    });
+    setThemePickerOpen(true);
     goPage("admin");
   };
 
@@ -136,7 +145,7 @@ function App() {
       </div>
 
       <ThemePickerModal
-        open={themePickerOpen && page === "dashboard"}
+        open={themePickerOpen && (page === "dashboard" || page === "admin")}
         palette={palette}
         setPalette={setPalette}
         onClose={() => setThemePickerOpen(false)}

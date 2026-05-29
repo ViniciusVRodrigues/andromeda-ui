@@ -10,9 +10,10 @@
  * meio: ao navegar, a ponta do brilho ALCANÇA a etapa e depois a REÚNE no meio.
  *
  * Props:
- *   steps        [{ id, label, title, accent, lede }]  — etapas da órbita
+ *   steps        [{ id, label, title, accent, lede, noContinue? }]  — etapas da órbita
+ *                noContinue: esconde o botão "Continuar" (etapa avança por outro caminho)
  *   validity     boolean[]   — se é permitido avançar DE cada etapa (default: tudo true)
- *   renderStep   (i) => Node — conteúdo do corpo do card para a etapa i
+ *   renderStep   (i, nav) => Node — conteúdo do corpo do card; nav = { next, back, goTo }
  *   continueLabel string     — rótulo do botão de avançar (default "Continuar →")
  *   finalLabel    string     — rótulo do botão da última etapa (default "Concluir →")
  *   onComplete   () => void   — chamado ao concluir a última etapa
@@ -177,7 +178,7 @@ function OrbitWizard({
           <p className="signup-orbit-sub">{meta.lede}</p>
 
           <div className={"signup-orbit-body sd-" + (direction > 0 ? "fwd" : "back")} key={step}>
-            {renderStep(step)}
+            {renderStep(step, { next, back, goTo })}
           </div>
 
           <div className="signup-orbit-actions">
@@ -185,7 +186,7 @@ function OrbitWizard({
                     style={{ visibility: step === 0 ? "hidden" : "visible" }}>
               ← Voltar
             </button>
-            {step < total - 1 ? (
+            {!meta.noContinue && (step < total - 1 ? (
               <button className="btn signup-orbit-cta" onClick={next} type="button" disabled={!canAdvance}
                       style={{ opacity: canAdvance ? 1 : 0.45 }}>
                 {continueLabel}
@@ -195,7 +196,7 @@ function OrbitWizard({
                       style={{ opacity: canAdvance ? 1 : 0.45 }}>
                 {finalLabel}
               </button>
-            )}
+            ))}
           </div>
         </div>
       </div>
