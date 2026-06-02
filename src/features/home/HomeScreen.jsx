@@ -36,7 +36,7 @@ const FEATURES = [
   },
 ];
 
-function HomeHeader({ palette, setPalette, onLogin, onSignup }) {
+function HomeHeader({ onLogin, onSignup }) {
   return (
     <header className="home-nav">
       <div className="home-nav-inner">
@@ -58,10 +58,10 @@ function HomeHeader({ palette, setPalette, onLogin, onSignup }) {
   );
 }
 
-function HomeScreen({ palette, setPalette, onLogin, onSignup }) {
+function HomeScreen({ onLogin, onSignup }) {
   return (
     <div className="home-stage" id="top">
-      <HomeHeader palette={palette} setPalette={setPalette} onLogin={onLogin} onSignup={onSignup} />
+      <HomeHeader onLogin={onLogin} onSignup={onSignup} />
 
       {/* Hero */}
       <section className="home-hero">

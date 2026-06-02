@@ -155,8 +155,34 @@ function OrbitWizard({
   const jump   = (i) => { if (i <= step) goTo(i); };
   const finish = () => { if (canAdvance && onComplete) onComplete(); };
 
+  // Foca o primeiro campo ao entrar em cada etapa — o usuário preenche o
+  // formulário inteiro sem tocar no mouse. O corpo remonta a cada etapa
+  // (key={step}), então o ref já aponta para o nó recém-montado.
+  const bodyRef = React.useRef(null);
+  React.useEffect(() => {
+    const first = bodyRef.current?.querySelector(
+      'input:not([type="checkbox"]):not([type="radio"]):not([readonly]):not([disabled]),'
+      + ' select:not([disabled]), textarea:not([disabled])'
+    );
+    first?.focus({ preventScroll: true });
+  }, [step]);
+
+  // Enter avança para a próxima etapa sempre que o botão estiver desbloqueado.
+  // Ignora: textarea (Enter = quebra de linha), botões (o clique nativo já
+  // navega) e eventos já tratados por um filho (ex.: adicionar chip/convite,
+  // que chamam preventDefault). next()/finish() já respeitam canAdvance.
+  const onKeyDownAdvance = (e) => {
+    if (e.key !== "Enter" || e.defaultPrevented) return;
+    const tag = e.target.tagName;
+    if (tag === "TEXTAREA" || tag === "BUTTON") return;
+    if (meta.noContinue) return;       // etapa sem botão de avançar (ex.: verificação)
+    e.preventDefault();
+    if (step < total - 1) next();
+    else finish();
+  };
+
   return (
-    <div className="signup-stage signup-stage--orbital">
+    <div className="signup-stage signup-stage--orbital" onKeyDown={onKeyDownAdvance}>
       {onCancel && (
         <button className="signup-orbit-exit" onClick={onCancel} aria-label="Voltar ao início" type="button">
           <span aria-hidden="true">←</span>
@@ -177,7 +203,7 @@ function OrbitWizard({
           </h1>
           <p className="signup-orbit-sub">{meta.lede}</p>
 
-          <div className={"signup-orbit-body sd-" + (direction > 0 ? "fwd" : "back")} key={step}>
+          <div ref={bodyRef} className={"signup-orbit-body sd-" + (direction > 0 ? "fwd" : "back")} key={step}>
             {renderStep(step, { next, back, goTo })}
           </div>
 
