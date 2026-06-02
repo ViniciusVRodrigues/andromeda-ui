@@ -1752,119 +1752,173 @@ h1, h2, h3, .serif {
 /* ─────────────────────────────────────────────────────────── */
 /*  ADMIN SETTINGS                                              */
 /* ─────────────────────────────────────────────────────────── */
+/* O admin ocupa a tela inteira e não rola — só a seção principal rola. */
+.page-layer:has(.admin-stage) { overflow: hidden; }
 .admin-stage {
-  min-height: 100%;
-  display: flex; flex-direction: column;
-  background: var(--bg);
-}
-.admin-header {
+  height: 100%;
+  min-height: 0;
   display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 18px 32px;
-  border-bottom: 1px solid var(--line);
-  background: linear-gradient(180deg, rgba(0,0,0,0.25), rgba(0,0,0,0));
-}
-:root[data-palette="light"] .admin-header {
-  background: linear-gradient(180deg, rgba(250,246,236,0.92), rgba(250,246,236,0));
-}
-.admin-header-left, .admin-header-right { display: flex; align-items: center; gap: 14px; }
-.admin-crumb {
-  font-size: 11px;
-  color: var(--fg-dim);
-  letter-spacing: 0.12em;
+  background: var(--bg);
+  overflow: hidden;
 }
 
-.admin-welcome {
-  max-width: 1240px;
-  width: 100%;
-  margin: 0 auto;
-  padding: 56px 32px 32px;
-  display: flex;
-  align-items: flex-end;
-  justify-content: space-between;
-  gap: 32px;
-}
 .admin-eyebrow {
   font-size: 10px;
   letter-spacing: 0.30em;
   color: var(--accent);
   margin-bottom: 12px;
 }
-.admin-title {
-  font-size: clamp(38px, 4.8vw, 64px);
-  line-height: 1.0;
-  letter-spacing: -0.02em;
-  margin-bottom: 14px;
-}
-.admin-title .ital { font-style: italic; }
-.admin-title .accent { color: var(--accent); }
-.admin-sub {
-  font-size: 13px;
-  line-height: 1.65;
-  color: var(--fg-muted);
-  max-width: 580px;
-  margin: 0;
-}
-.admin-sub strong { color: var(--fg); font-style: italic; font-family: "DM Serif Display", serif; font-weight: 400; }
 
-.admin-shell {
-  max-width: 1240px;
-  width: 100%;
-  margin: 0 auto;
-  padding: 24px 32px 80px;
+/* ─── Admin · estrutura emoldurada (menu lateral + seção) ───── */
+/* A estrutura é um azul escuro contínuo (sem bordas externas nem
+   divisória). O menu compartilha esse fundo; só a seção principal tem
+   borda. O cobre entra como acento de contraste no item ativo.        */
+.admin-frame {
+  position: relative;
+  flex: 1;
+  min-height: 0;
   display: grid;
-  grid-template-columns: 260px 1fr;
-  gap: 28px;
+  grid-template-columns: 248px 1fr;
+  background: var(--bg-deep);
+  transition: grid-template-columns 0.24s ease;
 }
+.admin-frame.is-collapsed { grid-template-columns: 76px 1fr; }
+
+/* menu lateral — sem divisória; compartilha o azul escuro da estrutura */
 .admin-side {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  position: sticky;
-  top: 90px;
-  align-self: start;
-}
-.admin-side-item {
-  text-align: left;
+  min-height: 0;
+  overflow: hidden;
   background: transparent;
+}
+.admin-side-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 18px 16px;
+  min-height: 66px;
+}
+.admin-frame.is-collapsed .admin-side-top { justify-content: center; padding: 18px 0; }
+.admin-side-brand { display: flex; align-items: center; min-width: 0; overflow: hidden; }
+.admin-frame.is-collapsed .admin-side-brand { display: none; }
+.admin-side-collapse {
+  flex: 0 0 auto;
+  width: 32px; height: 32px;
+  display: inline-flex; align-items: center; justify-content: center;
+  border: 1px solid var(--line); border-radius: 9px;
+  background: transparent; color: var(--fg-muted);
+  cursor: pointer;
+  transition: color 0.18s, border-color 0.18s;
+}
+.admin-side-collapse:hover { color: var(--fg); border-color: var(--fg-muted); }
+.admin-side-collapse svg { transition: transform 0.24s ease; }
+.admin-frame.is-collapsed .admin-side-collapse svg { transform: rotate(180deg); }
+
+.admin-side-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 10px 12px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+.admin-side-foot {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 12px;
+}
+
+.admin-side-item {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  width: 100%;
+  padding: 11px 13px;
   border: 0;
-  border-left: 1px solid var(--line);
+  border-radius: 10px;
+  background: transparent;
   color: var(--fg-muted);
   font-family: inherit;
   font-size: var(--mono-sm);
-  letter-spacing: 0.05em;
-  padding: 14px 18px;
+  letter-spacing: 0.02em;
+  text-align: left;
   cursor: pointer;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  transition: all 0.2s;
+  transition: background 0.18s, color 0.18s;
 }
-.admin-side-item:hover { color: var(--fg); border-left-color: var(--fg-muted); }
-.admin-side-item .admin-side-arrow { opacity: 0; transition: opacity 0.2s; font-size: 10px; }
-.admin-side-item:hover .admin-side-arrow { opacity: 1; }
+.admin-side-item:hover {
+  color: var(--fg);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
 .admin-side-item.is-active {
-  color: var(--accent);
-  border-left-color: var(--accent);
-  background: linear-gradient(90deg, rgba(198,139,102,0.10), transparent);
+  color: var(--fg);
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
 }
-:root[data-palette="light"] .admin-side-item.is-active {
-  background: linear-gradient(90deg, rgba(166,102,71,0.14), transparent);
+.admin-side-item.is-active .admin-side-icon { color: var(--accent); }
+.admin-side-icon {
+  flex: 0 0 auto;
+  width: 20px; height: 20px;
+  display: inline-flex; align-items: center; justify-content: center;
+  color: currentColor;
 }
-.admin-side-item.is-active .admin-side-arrow { opacity: 1; color: var(--accent); }
+.admin-side-label { white-space: nowrap; overflow: hidden; }
+.admin-side-foot .admin-side-item { color: var(--fg-dim); }
+.admin-side-foot .admin-side-item:hover { color: var(--fg); }
+.admin-frame.is-collapsed .admin-side-item { justify-content: center; gap: 0; padding: 11px 0; }
+.admin-frame.is-collapsed .admin-side-label { width: 0; opacity: 0; pointer-events: none; }
 
+/* troca de tema — três marcadores discretos no rodapé do menu */
+.admin-side-theme {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  padding: 10px 13px 4px;
+  margin-top: 4px;
+}
+.admin-side-theme-label {
+  font-size: 9px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--fg-dim);
+}
+.admin-side-theme-dots { display: inline-flex; align-items: center; gap: 9px; }
+.admin-theme-dot {
+  width: 13px; height: 13px;
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  cursor: pointer;
+  background: var(--sw);
+  box-shadow: inset 0 0 0 1px rgba(0,0,0,0.35);
+  opacity: 0.5;
+  transition: opacity 0.18s, transform 0.18s, box-shadow 0.18s;
+}
+.admin-theme-dot:hover { opacity: 1; transform: scale(1.14); }
+.admin-theme-dot.is-active {
+  opacity: 1;
+  box-shadow: 0 0 0 2px var(--bg-deep), 0 0 0 3px var(--sw);
+}
+.admin-frame.is-collapsed .admin-side-theme { justify-content: center; gap: 7px; padding: 10px 0 4px; }
+.admin-frame.is-collapsed .admin-side-theme-label { display: none; }
+
+/* seção principal — mesma cor de fundo do dashboard (mais escura);
+   único elemento com borda, em cobre suave para contraste. */
 .admin-main {
-  border: 1px solid var(--line);
-  border-radius: 18px;
-  padding: 36px 36px;
-  background: linear-gradient(180deg, rgba(0,0,0,0.18), rgba(0,0,0,0.04));
-  min-height: 480px;
+  margin: 16px;
+  min-height: 0;
+  overflow-y: auto;
+  border: 1px solid color-mix(in srgb, var(--accent) 24%, var(--line-strong));
+  border-radius: 16px;
+  background: var(--bg);
+  padding: 32px 34px;
 }
-:root[data-palette="light"] .admin-main {
-  background: var(--bg-elev);
-  border-color: rgba(34,26,16,0.14);
-}
+.admin-main::-webkit-scrollbar { width: 8px; }
+.admin-main::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 4px; }
+.admin-main::-webkit-scrollbar-track { background: transparent; }
 .admin-section-head { margin-bottom: 28px; }
 .admin-section-title { font-size: 32px; line-height: 1.05; margin-bottom: 8px; }
 .admin-section-sub {
@@ -1967,20 +2021,15 @@ h1, h2, h3, .serif {
   line-height: 1.6;
 }
 
-@media (max-width: 900px) {
-  .admin-welcome { flex-direction: column; align-items: flex-start; }
-  .admin-shell { grid-template-columns: 1fr; }
-  .admin-side { position: static; flex-direction: row; overflow-x: auto; }
+/* Em telas estreitas o menu já entra recolhido (só ícones). */
+@media (max-width: 760px) {
+  .admin-frame { grid-template-columns: 76px 1fr; }
+  .admin-frame .admin-side-brand { display: none; }
+  .admin-frame .admin-side-top { justify-content: center; padding: 18px 0; }
+  .admin-frame .admin-side-label { width: 0; opacity: 0; pointer-events: none; }
+  .admin-frame .admin-side-item { justify-content: center; gap: 0; padding: 11px 0; }
+  .admin-main { margin: 10px; padding: 22px 18px; }
   .admin-row { grid-template-columns: 1fr; gap: 6px; }
-}
-
-/* ─── Compact admin layout (no welcome banner) ───────────── */
-.admin-stage--compact {
-  padding: 0 0 64px;
-  align-items: stretch;
-}
-.admin-shell--compact {
-  padding-top: 32px;
 }
 
 /* ─── Section head: header + action button on the right ───── */
@@ -1997,6 +2046,12 @@ h1, h2, h3, .serif {
   display: flex;
   flex-direction: column;
   gap: 10px;
+}
+/* Projetos em duas colunas */
+.role-list--cols {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
 }
 .role-card {
   display: grid;
@@ -2046,6 +2101,27 @@ h1, h2, h3, .serif {
   color: var(--fg-dim);
 }
 .role-card-access-value { color: var(--fg-muted); }
+
+/* ─── Project cards (Projetos) ────────────────────────────── */
+.role-card--clickable {
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  color: inherit;
+  font-family: inherit;
+  align-items: start;
+}
+/* o "editar" (texto puro) só aparece no hover do card, centralizado na vertical */
+.role-card-manage {
+  align-self: center;
+  white-space: nowrap;
+}
+.role-card--clickable:hover .role-card-manage { opacity: 1; color: var(--accent); }
+.project-card-desc {
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--fg-muted);
+}
 
 /* ─── Role edit / create modal ────────────────────────────── */
 .role-modal-backdrop {
@@ -2184,6 +2260,226 @@ h1, h2, h3, .serif {
   cursor: not-allowed;
 }
 
+/* ─── Project modal (manage people / links / description) ─── */
+/* mais largo e mais baixo que os demais modais */
+.project-modal {
+  max-width: 880px;
+  max-height: calc(100vh - 120px);
+}
+.project-modal .role-modal-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  gap: 14px;
+  padding-right: 4px;
+}
+.project-modal .role-modal-body::-webkit-scrollbar { width: 8px; }
+.project-modal .role-modal-body::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 4px; }
+.project-modal .role-modal-body::-webkit-scrollbar-track { background: transparent; }
+
+/* o nome do projeto é um campo de texto no lugar do título */
+.project-name-input {
+  width: 100%;
+  margin-top: 4px;
+  border: 0;
+  background: transparent;
+  color: var(--fg);
+  font-family: "DM Serif Display", "Times New Roman", serif;
+  font-size: 30px;
+  line-height: 1.05;
+  letter-spacing: -0.01em;
+  padding: 2px 0 6px;
+  border-bottom: 1px solid var(--line);
+  transition: border-color 0.2s;
+}
+.project-name-input::placeholder { color: var(--fg-dim); font-style: italic; }
+.project-name-input:focus { outline: none; border-bottom-color: var(--accent); }
+.project-modal .role-modal-textarea { min-height: 58px; }
+
+/* dois selects lado a lado (cargo · senioridade) */
+.role-modal-duo {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+/* texto com as permissões do cargo selecionado */
+.role-perm-hint {
+  margin: 0;
+  padding: 11px 14px;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  font-size: 11px;
+  line-height: 1.6;
+  color: var(--fg-muted);
+}
+.role-perm-hint-label {
+  display: block;
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--accent);
+  margin-bottom: 4px;
+}
+
+.role-modal-textarea {
+  resize: vertical;
+  min-height: 72px;
+  line-height: 1.55;
+  font-family: inherit;
+}
+
+/* integrações uma ao lado da outra (duas colunas) */
+.project-links {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+.project-link {
+  display: flex;
+  align-items: center;
+  gap: 13px;
+  padding: 13px 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(0,0,0,0.10);
+}
+:root[data-palette="light"] .project-link { background: #FFFBF1; }
+.project-link-icon {
+  flex-shrink: 0;
+  width: 36px; height: 36px;
+  border-radius: 9px;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid var(--line);
+  background: rgba(0,0,0,0.20);
+}
+:root[data-palette="light"] .project-link-icon { background: rgba(34,26,16,0.05); }
+.project-link-info { flex: 1; min-width: 0; }
+.project-link-label {
+  font-size: 9px;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--fg-dim);
+  margin-bottom: 4px;
+}
+.project-link-value {
+  font-size: 12px;
+  color: var(--fg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.project-link-status {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--good, #6fae5a);
+}
+.project-link-status::before {
+  content: "";
+  width: 6px; height: 6px;
+  border-radius: 50%;
+  background: var(--good, #6fae5a);
+}
+/* estado não vinculado (projeto novo) — vira botão de conectar via OAuth */
+.project-link--connect {
+  width: 100%;
+  text-align: left;
+  cursor: pointer;
+  font-family: inherit;
+  transition: border-color 0.18s, background 0.18s;
+}
+.project-link.is-unlinked { border-style: dashed; }
+.project-link.is-unlinked .project-link-icon { opacity: 0.55; transition: opacity 0.18s; }
+.project-link.is-unlinked .project-link-value { color: var(--fg-dim); font-style: italic; }
+.project-link--connect:hover {
+  border-color: var(--accent);
+  border-style: solid;
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+.project-link--connect:hover .project-link-icon { opacity: 1; }
+.project-link-status--cta { color: var(--accent); }
+.project-link-status--cta::before { background: var(--accent); }
+
+/* ── busca + lista de pessoas (modal de projeto) ── */
+.project-people-search { position: relative; display: flex; align-items: center; }
+.project-people-search-icon {
+  position: absolute;
+  left: 13px;
+  font-size: 15px;
+  color: var(--fg-dim);
+  pointer-events: none;
+}
+.project-people-search .role-modal-input { padding-left: 34px; }
+.project-people-list {
+  margin-top: 8px;
+  max-height: 232px;
+  overflow-y: auto;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(0,0,0,0.10);
+}
+:root[data-palette="light"] .project-people-list { background: #FFFBF1; }
+.project-people-list::-webkit-scrollbar { width: 8px; }
+.project-people-list::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 4px; }
+.project-people-list::-webkit-scrollbar-track { background: transparent; }
+.project-people-empty { padding: 18px; text-align: center; color: var(--fg-dim); font-size: 11px; }
+.project-person {
+  display: grid;
+  grid-template-columns: 22px 1.3fr 1.9fr 1.2fr 0.8fr;
+  align-items: center;
+  gap: 14px;
+  width: 100%;
+  padding: 11px 14px;
+  border: 0;
+  border-bottom: 1px solid var(--line);
+  background: transparent;
+  color: var(--fg);
+  font-family: inherit;
+  font-size: 12px;
+  text-align: left;
+  cursor: pointer;
+  transition: background 0.16s;
+}
+:root[data-palette="light"] .project-person { border-bottom-color: rgba(34,26,16,0.08); }
+.project-person:last-child { border-bottom: 0; }
+.project-person:hover { background: color-mix(in srgb, var(--accent) 8%, transparent); }
+.project-person.is-active { background: color-mix(in srgb, var(--accent) 12%, transparent); }
+.project-person-check {
+  width: 18px; height: 18px;
+  border-radius: 5px;
+  border: 1px solid var(--line-strong);
+  background: rgba(0,0,0,0.30);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 12px;
+  color: var(--bg-deep);
+  transition: background 0.16s, border-color 0.16s;
+}
+:root[data-palette="light"] .project-person-check { background: #FFFFFF; }
+.project-person-check.is-on {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--bg-deep);
+}
+.project-person-name { color: var(--fg); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.project-person-email { color: var(--fg-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.project-person-role { color: var(--fg-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.project-person-sen {
+  justify-self: start;
+  font-size: 10px;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--fg-dim);
+  padding: 2px 8px;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+}
+
 @media (max-width: 720px) {
   .role-card { grid-template-columns: 1fr; }
   .role-card .admin-row-edit { justify-self: start; }
@@ -2205,7 +2501,7 @@ h1, h2, h3, .serif {
 }
 .member-row {
   display: grid;
-  grid-template-columns: 1.2fr 1.8fr 1.2fr 1fr;
+  grid-template-columns: 1.3fr 1.9fr 1.2fr 1fr 1fr 58px;
   align-items: center;
   gap: 18px;
   padding: 16px 22px;
@@ -2217,6 +2513,18 @@ h1, h2, h3, .serif {
   background: transparent;
   font-family: inherit;
 }
+.member-cell-sen { color: var(--fg-muted); font-size: var(--mono-sm); }
+/* "editar" (texto puro) só aparece no hover da linha */
+.member-cell-edit { justify-self: end; }
+.edit-hint {
+  font-size: 9px;
+  letter-spacing: 0.20em;
+  text-transform: uppercase;
+  color: var(--fg-dim);
+  opacity: 0;
+  transition: opacity 0.16s, color 0.16s;
+}
+.member-row--clickable:hover .edit-hint { opacity: 1; color: var(--accent); }
 :root[data-palette="light"] .member-row {
   border-bottom-color: rgba(34,26,16,0.08);
 }
@@ -2282,6 +2590,7 @@ h1, h2, h3, .serif {
   padding-top: 16px;
   border-top: 1px dashed var(--line);
 }
+.member-modal-actions--single { grid-template-columns: 1fr; }
 .member-modal-danger {
   background: transparent;
   border: 1px solid var(--line);
@@ -2308,16 +2617,27 @@ h1, h2, h3, .serif {
     grid-template-columns: 1fr 1fr;
     grid-template-areas:
       "name email"
-      "role status";
+      "role sen"
+      "status status";
     gap: 8px 14px;
   }
   .member-row--head { display: none; }
   .member-row > div:nth-child(1) { grid-area: name; }
   .member-row > div:nth-child(2) { grid-area: email; }
   .member-row > div:nth-child(3) { grid-area: role; }
-  .member-row > div:nth-child(4) { grid-area: status; }
+  .member-row > div:nth-child(4) { grid-area: sen; }
+  .member-row > div:nth-child(5) { grid-area: status; }
+  .member-cell-edit { display: none; }
   .role-modal-options--grid { grid-template-columns: 1fr; }
+  .role-modal-duo { grid-template-columns: 1fr; }
   .member-modal-actions { grid-template-columns: 1fr; }
+  .project-links { grid-template-columns: 1fr; }
+  .role-list--cols { grid-template-columns: 1fr; }
+  .project-person {
+    grid-template-columns: 20px minmax(0, 1fr) auto auto;
+    gap: 6px 10px;
+  }
+  .project-person-email { display: none; }
 }
 
 /* ─── Landing page: same mono tokens as everywhere else ─── */
@@ -3095,6 +3415,31 @@ h1, h2, h3, .serif {
 :root[data-palette="light"] .signup-perms-cargo { background: rgba(248,240,222,0.96); }
 :root[data-palette="mono"] .signup-perms-cargo    { background: rgba(0,0,0,0.92); }
 .signup-perms-cargo.is-first { border-top: 0; }
+
+/* No admin, a célula do cargo é um botão (renomear / remover). */
+button.signup-perms-cargo {
+  border-left: 0;
+  border-right: 0;
+  border-bottom: 0;
+  width: 100%;
+  font-family: inherit;
+  cursor: pointer;
+  justify-content: space-between;
+  gap: 8px;
+  transition: color 0.16s, background 0.16s;
+}
+button.signup-perms-cargo:hover { color: var(--accent); background: rgba(198,139,102,0.08); }
+.signup-perms-cargo-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.signup-perms-cargo-edit {
+  flex: 0 0 auto;
+  font-size: 9px;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--fg-dim);
+  opacity: 0;
+  transition: opacity 0.16s, color 0.16s;
+}
+button.signup-perms-cargo:hover .signup-perms-cargo-edit { opacity: 1; color: var(--accent); }
 
 .signup-perms-cell {
   position: relative;

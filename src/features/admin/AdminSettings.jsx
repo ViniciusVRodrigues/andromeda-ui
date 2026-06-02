@@ -2,6 +2,8 @@
 
 import React from "react";
 import { Wordmark } from "../../components/Wordmark.jsx";
+import { Icon } from "../../components/charts/Charts.jsx";
+import { OAuthPopup } from "../../components/OAuthPopup.jsx";
 import { PLANS } from "../../data/plans.js";
 
 /* ──────────────────────────────────────────── */
@@ -16,35 +18,147 @@ const DEFAULT_ROLES = [
   { id: "r-admin",  name: "Administrador",         people: 1,  dashboard: "manager", description: "Acesso total à organização e configurações de billing." },
 ];
 
-const DASHBOARD_OPTIONS = [
-  { id: "dev",     label: "Painel do Desenvolvedor",        sub: "Métricas individuais · sprint pessoal · histórico de PRs." },
-  { id: "team",    label: "Painel do Time",                 sub: "Visão consolidada · distribuição · velocidade do squad." },
-  { id: "manager", label: "Painel Estratégico (Gestor)",    sub: "DORA · custos agregados · sem dados individuais." },
+/* Colunas da matriz de permissões — as mesmas do onboarding de criação da conta. */
+const PERMISSION_FEATURES = [
+  { id: "dashPessoal", full: "Dashboard Pessoal" },
+  { id: "dashEquipe",  full: "Dashboard da Equipe" },
+  { id: "dashOrg",     full: "Dashboard da Organização" },
+  { id: "gerProjeto",  full: "Gerenciar Projeto" },
+  { id: "gerEquipe",   full: "Gerenciar Equipe" },
+];
+
+/* Permissões iniciais derivadas do tipo de painel de cada cargo. */
+const PERMS_BY_DASHBOARD = {
+  dev:     { dashPessoal: true },
+  team:    { dashPessoal: true, dashEquipe: true, gerEquipe: true },
+  manager: { dashPessoal: true, dashEquipe: true, dashOrg: true, gerProjeto: true, gerEquipe: true },
+};
+function seedPermissions(roles) {
+  const map = {};
+  for (const r of roles) map[r.id] = { ...(PERMS_BY_DASHBOARD[r.dashboard] || { dashPessoal: true }) };
+  return map;
+}
+
+const SENIORITIES = ["Júnior", "Pleno", "Sênior"];
+
+/* Pool de pessoas da organização, usado para compor os projetos. */
+const PROJECT_PEOPLE = [
+  { id: "u-ana",      name: "Ana Ribeiro",    email: "ana.ribeiro@andromeda.app",    role: "Tech Lead",          seniority: "Sênior" },
+  { id: "u-bruno",    name: "Bruno Costa",    email: "bruno.costa@andromeda.app",    role: "Senior Backend",     seniority: "Sênior" },
+  { id: "u-carla",    name: "Carla Mendes",   email: "carla.mendes@andromeda.app",   role: "Senior Frontend",    seniority: "Sênior" },
+  { id: "u-diego",    name: "Diego Alves",    email: "diego.alves@andromeda.app",    role: "Pleno",              seniority: "Pleno" },
+  { id: "u-elena",    name: "Elena Souza",    email: "elena.souza@andromeda.app",    role: "Pleno",              seniority: "Pleno" },
+  { id: "u-felipe",   name: "Felipe Lima",    email: "felipe.lima@andromeda.app",    role: "Júnior",             seniority: "Júnior" },
+  { id: "u-gabriela", name: "Gabriela Nunes", email: "gabriela.nunes@andromeda.app", role: "Scrum Master",       seniority: "Pleno" },
+  { id: "u-hugo",     name: "Hugo Pereira",   email: "hugo.pereira@andromeda.app",   role: "Gestor de Projetos", seniority: "Sênior" },
+];
+
+/* Provedores OAuth para vincular um projeto novo (mock — copiado do onboarding). */
+const PROJECT_PROVIDERS = {
+  github: {
+    id: "github",
+    name: "GitHub",
+    authName: "GitHub",
+    authDomain: "github.com/login/oauth/authorize",
+    description: "Repositórios, commits, pull requests e code reviews — em uma órbita só.",
+    permissions: ["Ler repositórios e branches", "Ler commits, PRs e reviews", "Ler membros da organização"],
+    icon: <Icon name="github" size={32} color="var(--fg)" />,
+    sample: "andromeda-org/novo-repo",
+  },
+  azure: {
+    id: "azure",
+    name: "Azure DevOps",
+    authName: "Microsoft",
+    authDomain: "login.microsoftonline.com/oauth2/authorize",
+    description: "Acesse os boards, sprints e issues do seu time direto no Azure DevOps.",
+    permissions: ["Ler boards, work items e iterações", "Ler membros e times da organização", "Ler histórico de sprints e velocity"],
+    icon: <Icon name="azure" size={32} color="var(--fg)" />,
+    sample: "Novo Projeto · Board",
+  },
+};
+
+const DEFAULT_PROJECTS = [
+  { id: "p-orion",  name: "Orion Core",        description: "Plataforma central de ingestão de métricas e processamento de sprints.",       repo: "andromeda-org/orion-core",        board: "Orion · Sprint Board", memberIds: ["u-ana", "u-bruno", "u-diego", "u-felipe"] },
+  { id: "p-nebula", name: "Nebula Dashboard",  description: "Camada de visualização — dashboards de dev, time e gestão estratégica.",        repo: "andromeda-org/nebula-web",        board: "Nebula · Delivery",    memberIds: ["u-carla", "u-elena", "u-gabriela"] },
+  { id: "p-pulsar", name: "Pulsar Connectors", description: "Conectores com GitHub, Azure DevOps e provedores de IA para coleta de dados.",  repo: "andromeda-org/pulsar-connectors", board: "Pulsar · Integrações", memberIds: ["u-bruno", "u-hugo"] },
+  { id: "p-vega",   name: "Vega Insights",     description: "Modelos DORA, previsão de velocidade e detecção de gargalos do fluxo.",         repo: "andromeda-org/vega-insights",     board: "Vega · Analytics",     memberIds: ["u-ana", "u-carla", "u-diego", "u-elena", "u-felipe"] },
+  { id: "p-atlas",  name: "Atlas Billing",     description: "Faturamento, gestão de assentos e medição de custos por entrega.",             repo: "andromeda-org/atlas-billing",     board: "Atlas · Financeiro",   memberIds: ["u-gabriela", "u-hugo"] },
+];
+
+/* Ícones de linha (stroke) para o menu lateral. */
+const svgIcon = (children) => (
+  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
+       strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+    {children}
+  </svg>
+);
+const TAB_ICONS = {
+  projects: svgIcon(<path d="M3 7a2 2 0 0 1 2-2h3.6l2 2H19a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z" />),
+  team: svgIcon(<><circle cx="9" cy="8" r="3" /><path d="M2.5 20a6.5 6.5 0 0 1 13 0" /><path d="M16 5.4a3 3 0 0 1 0 5.6" /><path d="M17.5 14.2A6.5 6.5 0 0 1 21.5 20" /></>),
+  roles: svgIcon(<><path d="M12 3l7 3v5c0 4.6-3 7.7-7 9-4-1.3-7-4.4-7-9V6l7-3z" /><path d="M9 12l2 2 4-4.5" /></>),
+  billing: svgIcon(<><rect x="3" y="5" width="18" height="14" rx="2" /><path d="M3 10h18" /><path d="M7 15h4" /></>),
+  org: svgIcon(<><path d="M4 21V4h9v17" /><path d="M13 9.5h7V21" /><path d="M7 8h3M7 12h3M7 16h3M16 13h1.5M16 17h1.5" /></>),
+};
+const ICON_DASH = svgIcon(<><rect x="3" y="3" width="7" height="9" rx="1" /><rect x="14" y="3" width="7" height="5" rx="1" /><rect x="14" y="12" width="7" height="9" rx="1" /><rect x="3" y="16" width="7" height="5" rx="1" /></>);
+const ICON_LOGOUT = svgIcon(<><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><path d="M16 17l5-5-5-5" /><path d="M21 12H9" /></>);
+const ICON_CHEVRON = svgIcon(<path d="M15 6l-6 6 6 6" />);
+
+/* Ordem do menu: projetos · pessoas · cargos · plano · organização */
+const TABS = [
+  { id: "projects", label: "Projetos",            icon: TAB_ICONS.projects },
+  { id: "team",     label: "Pessoas",             icon: TAB_ICONS.team },
+  { id: "roles",    label: "Cargos e Permissões", icon: TAB_ICONS.roles },
+  { id: "billing",  label: "Plano & Cobrança",    icon: TAB_ICONS.billing },
+  { id: "org",      label: "Organização",         icon: TAB_ICONS.org },
+];
+
+/* Troca de tema — apenas três marcadores discretos no rodapé do menu. */
+const THEME_OPTS = [
+  { id: "default", label: "Cósmica",    swatch: "#C68B66" },
+  { id: "mono",    label: "Mono",       swatch: "#E9E9E9" },
+  { id: "light",   label: "Pergaminho", swatch: "#E8D5A8" },
 ];
 
 function AdminSettings({ profile, palette, setPalette, onContinue, onLogout }) {
-  const [tab, setTab] = React.useState("team");
+  const [tab, setTab] = React.useState("projects");
+  const [collapsed, setCollapsed] = React.useState(false);
   const [roles, setRoles] = React.useState(DEFAULT_ROLES);
-  const [editingRole, setEditingRole] = React.useState(null); // {id?, name, dashboard, people}
-  const [members, setMembers] = React.useState([]); // {id, name, email, roleId, status}
+  const [permissions, setPermissions] = React.useState(() => seedPermissions(DEFAULT_ROLES));
+  const [editingRole, setEditingRole] = React.useState(null); // {id?, name, dashboard}
+  const [members, setMembers] = React.useState([]); // {id, name, email, roleId, seniority, status}
   const [invitingMember, setInvitingMember] = React.useState(false);
-  const [inviteDraft, setInviteDraft] = React.useState({ email: "", roleId: "" });
+  const [inviteDraft, setInviteDraft] = React.useState({ email: "", roleId: "", seniority: SENIORITIES[0] });
   const [editingMember, setEditingMember] = React.useState(null);
+  const [projects, setProjects] = React.useState(DEFAULT_PROJECTS);
+  const [editingProject, setEditingProject] = React.useState(null); // {...project, memberIds: [...]}
+  const [projectSearch, setProjectSearch] = React.useState("");
+  const [oauthProvider, setOauthProvider] = React.useState(null); // null | "azure" | "github"
   const planName = PLANS.find((p) => p.id === profile.plan)?.name || "—";
 
+  // mantém a matriz de permissões em sincronia com a lista de cargos:
+  // novos cargos entram com o default; cargos removidos somem do mapa.
+  React.useEffect(() => {
+    setPermissions((p) => {
+      const next = {};
+      for (const r of roles) next[r.id] = p[r.id] || { dashPessoal: true };
+      return next;
+    });
+  }, [roles]);
+
   const openInvite = () => {
-    setInviteDraft({ email: "", roleId: roles[0]?.id || "" });
+    setInviteDraft({ email: "", roleId: roles[0]?.id || "", seniority: SENIORITIES[0] });
     setInvitingMember(true);
   };
   const closeInvite = () => setInvitingMember(false);
   const sendInvite = () => {
     const email = inviteDraft.email.trim();
-    if (!email || !inviteDraft.roleId) return;
+    if (!email || !inviteDraft.roleId || !inviteDraft.seniority) return;
     const newMember = {
       id: "m-" + Date.now(),
       name: "",
       email,
       roleId: inviteDraft.roleId,
+      seniority: inviteDraft.seniority,
       status: "pendente",
     };
     setMembers((prev) => [...prev, newMember]);
@@ -85,56 +199,129 @@ function AdminSettings({ profile, palette, setPalette, onContinue, onLogout }) {
 
   const roleName = (id) => roles.find((r) => r.id === id)?.name || "—";
 
-  const tabs = [
-    { id: "team", label: "Time" },
-    { id: "roles", label: "Cargos e Permissões" },
-    { id: "integrations", label: "Integrações" },
-    { id: "billing", label: "Plano & Cobrança" },
-    { id: "security", label: "Segurança" },
-    { id: "org", label: "Organização" },
-  ];
+  // ── Cargos e permissões ───────────────────────────────────
+  const togglePermission = (roleId, featId) => {
+    setPermissions((p) => ({
+      ...p,
+      [roleId]: { ...(p[roleId] || {}), [featId]: !p[roleId]?.[featId] },
+    }));
+  };
+  const permissionList = (roleId) => {
+    const p = permissions[roleId] || {};
+    const names = PERMISSION_FEATURES.filter((f) => p[f.id]).map((f) => f.full);
+    return names.length ? names.join(" · ") : "Nenhum acesso liberado";
+  };
 
   const openEdit = (role) => setEditingRole({ ...role });
-  const openCreate = () => setEditingRole({ id: null, name: "", dashboard: "dev", people: 0, description: "" });
+  const openCreate = () => setEditingRole({ id: null, name: "", dashboard: "dev", people: 0 });
   const closeModal = () => setEditingRole(null);
-
   const saveRole = () => {
-    if (!editingRole) return;
-    if (!editingRole.name.trim()) return;
-    setRoles((prev) => {
-      if (editingRole.id) {
-        return prev.map((r) => (r.id === editingRole.id ? { ...editingRole } : r));
-      }
-      return [...prev, { ...editingRole, id: "r-" + Date.now() }];
-    });
+    if (!editingRole || !editingRole.name.trim()) return;
+    setRoles((prev) => (editingRole.id
+      ? prev.map((r) => (r.id === editingRole.id ? { ...editingRole } : r))
+      : [...prev, { ...editingRole, id: "r-" + Date.now() }]));
+    setEditingRole(null);
+  };
+  const deleteRole = () => {
+    if (!editingRole?.id) return;
+    const id = editingRole.id;
+    setRoles((prev) => prev.filter((r) => r.id !== id));
     setEditingRole(null);
   };
 
-  const dashboardLabel = (id) => DASHBOARD_OPTIONS.find((d) => d.id === id)?.label || "—";
+  const permsGridCols = `minmax(140px, 1.2fr) repeat(${PERMISSION_FEATURES.length}, minmax(96px, 1fr))`;
+
+  // ── Projetos ──────────────────────────────────────────────
+  const openProject = (p) => { setProjectSearch(""); setEditingProject({ ...p, memberIds: [...p.memberIds] }); };
+  const openCreateProject = () => { setProjectSearch(""); setEditingProject({ id: null, name: "", description: "", repo: "", board: "", memberIds: [] }); };
+  const closeProject = () => { setEditingProject(null); setOauthProvider(null); };
+  const onOAuthAuthenticate = () => {
+    const prov = PROJECT_PROVIDERS[oauthProvider];
+    if (prov) {
+      setEditingProject((proj) => (proj
+        ? { ...proj, ...(oauthProvider === "github" ? { repo: prov.sample } : { board: prov.sample }) }
+        : proj));
+    }
+    setOauthProvider(null);
+  };
+  const toggleProjectMember = (uid) => {
+    setEditingProject((proj) => {
+      if (!proj) return proj;
+      const has = proj.memberIds.includes(uid);
+      return {
+        ...proj,
+        memberIds: has ? proj.memberIds.filter((id) => id !== uid) : [...proj.memberIds, uid],
+      };
+    });
+  };
+  const saveProject = () => {
+    if (!editingProject || !editingProject.name.trim()) return;
+    setProjects((prev) => (editingProject.id
+      ? prev.map((p) => (p.id === editingProject.id ? { ...editingProject } : p))
+      : [...prev, { ...editingProject, id: "p-" + Date.now() }]));
+    setEditingProject(null);
+  };
+  const projectQuery = projectSearch.trim().toLowerCase();
+  const filteredPeople = projectQuery
+    ? PROJECT_PEOPLE.filter((u) => `${u.name} ${u.email} ${u.role} ${u.seniority}`.toLowerCase().includes(projectQuery))
+    : PROJECT_PEOPLE;
 
   return (
-    <div className="admin-stage admin-stage--compact">
-      <header className="admin-header">
-        <div className="admin-header-left">
-          <Wordmark size="sm" />
-          <span className="admin-crumb mono">/ {profile.org.slug || "org"} / configurações</span>
-        </div>
-        <div className="admin-header-right">
-          <button className="btn-ghost btn" onClick={onContinue}>Ir para o dashboard →</button>
-          <button className="btn-ghost btn" onClick={onLogout}>Sair</button>
-        </div>
-      </header>
-
-      <div className="admin-shell admin-shell--compact">
+    <div className="admin-stage">
+      <div className={"admin-frame" + (collapsed ? " is-collapsed" : "")}>
         <aside className="admin-side">
-          {tabs.map((t) => (
-            <button key={t.id}
-              className={"admin-side-item" + (tab === t.id ? " is-active" : "")}
-              onClick={() => setTab(t.id)}>
-              <span>{t.label}</span>
-              <span className="admin-side-arrow">→</span>
+          <div className="admin-side-top">
+            <div className="admin-side-brand">
+              <Wordmark size="md" />
+            </div>
+            <button
+              className="admin-side-collapse"
+              onClick={() => setCollapsed((c) => !c)}
+              aria-label={collapsed ? "Expandir menu" : "Recolher menu"}
+              title={collapsed ? "Expandir menu" : "Recolher menu"}>
+              {ICON_CHEVRON}
             </button>
-          ))}
+          </div>
+
+          <nav className="admin-side-nav">
+            {TABS.map((t) => (
+              <button key={t.id}
+                className={"admin-side-item" + (tab === t.id ? " is-active" : "")}
+                onClick={() => setTab(t.id)}
+                title={t.label}>
+                <span className="admin-side-icon">{t.icon}</span>
+                <span className="admin-side-label">{t.label}</span>
+              </button>
+            ))}
+          </nav>
+
+          <div className="admin-side-foot">
+            <button className="admin-side-item admin-side-item--action" onClick={onContinue} title="Ir para o dashboard">
+              <span className="admin-side-icon">{ICON_DASH}</span>
+              <span className="admin-side-label">Ir para o dashboard</span>
+            </button>
+            <button className="admin-side-item admin-side-item--action" onClick={onLogout} title="Sair">
+              <span className="admin-side-icon">{ICON_LOGOUT}</span>
+              <span className="admin-side-label">Sair</span>
+            </button>
+            <div className="admin-side-theme" role="group" aria-label="Trocar tema">
+              <span className="admin-side-theme-label">tema</span>
+              <div className="admin-side-theme-dots">
+                {THEME_OPTS.map((o) => (
+                  <button
+                    key={o.id}
+                    type="button"
+                    className={"admin-theme-dot" + (palette === o.id ? " is-active" : "")}
+                    style={{ "--sw": o.swatch }}
+                    onClick={() => setPalette(o.id)}
+                    title={o.label}
+                    aria-label={o.label}
+                    aria-pressed={palette === o.id}
+                  />
+                ))}
+              </div>
+            </div>
+          </div>
         </aside>
 
         <main className="admin-main">
@@ -163,7 +350,7 @@ function AdminSettings({ profile, palette, setPalette, onContinue, onLogout }) {
               {members.length === 0 ? (
                 <>
                   <div className="admin-section-head">
-                    <h2 className="serif admin-section-title">Time</h2>
+                    <h2 className="serif admin-section-title">Pessoas</h2>
                     <p className="admin-section-sub">Convide pessoas e atribua papéis.</p>
                   </div>
                   <div className="admin-team-empty">
@@ -177,7 +364,7 @@ function AdminSettings({ profile, palette, setPalette, onContinue, onLogout }) {
                 <>
                   <div className="admin-section-head admin-section-head--row">
                     <div>
-                      <h2 className="serif admin-section-title">Time</h2>
+                      <h2 className="serif admin-section-title">Pessoas</h2>
                       <p className="admin-section-sub">{members.length} {members.length === 1 ? "pessoa convidada" : "pessoas convidadas"}.</p>
                     </div>
                     <button className="btn" onClick={openInvite}>+ Convidar pessoas</button>
@@ -188,7 +375,9 @@ function AdminSettings({ profile, palette, setPalette, onContinue, onLogout }) {
                       <div>Nome</div>
                       <div>Email</div>
                       <div>Cargo</div>
+                      <div>Senioridade</div>
                       <div>Status</div>
+                      <div></div>
                     </div>
                     {members.map((m) => (
                       <button key={m.id} type="button" className="member-row member-row--clickable" onClick={() => openMemberEdit(m)}>
@@ -197,12 +386,14 @@ function AdminSettings({ profile, palette, setPalette, onContinue, onLogout }) {
                         </div>
                         <div className="member-cell-email mono">{m.email}</div>
                         <div className="member-cell-role">{roleName(m.roleId)}</div>
+                        <div className="member-cell-sen mono">{m.seniority || "—"}</div>
                         <div>
                           <span className={"member-status member-status--" + m.status}>
                             <span className="member-status-dot"></span>
                             {m.status}
                           </span>
                         </div>
+                        <div className="member-cell-edit"><span className="edit-hint">editar</span></div>
                       </button>
                     ))}
                   </div>
@@ -216,28 +407,72 @@ function AdminSettings({ profile, palette, setPalette, onContinue, onLogout }) {
               <div className="admin-section-head admin-section-head--row">
                 <div>
                   <h2 className="serif admin-section-title">Cargos e Permissões</h2>
-                  <p className="admin-section-sub">Defina quais painéis cada cargo da organização pode acessar.</p>
+                  <p className="admin-section-sub">Marque o que cada cargo enxerga na Andrômeda. Clique no nome do cargo para renomear ou remover.</p>
                 </div>
                 <button className="btn" onClick={openCreate}>+ Novo cargo</button>
               </div>
 
-              <div className="role-list">
-                {roles.map((r) => (
-                  <div key={r.id} className="role-card">
+              <div className="signup-perms">
+                <div className="signup-perms-scroll">
+                  <div className="signup-perms-grid" style={{ gridTemplateColumns: permsGridCols }}>
+                    <div className="signup-perms-head is-corner mono">Cargos</div>
+                    {PERMISSION_FEATURES.map((f) => (
+                      <div key={f.id} className="signup-perms-head mono">{f.full}</div>
+                    ))}
+                    {roles.map((r, rowIdx) => (
+                      <React.Fragment key={r.id}>
+                        <button type="button"
+                          className={"signup-perms-cargo" + (rowIdx === 0 ? " is-first" : "")}
+                          onClick={() => openEdit(r)} title="Editar cargo">
+                          <span className="signup-perms-cargo-name">{r.name}</span>
+                          <span className="signup-perms-cargo-edit mono">editar</span>
+                        </button>
+                        {PERMISSION_FEATURES.map((f) => {
+                          const on = !!permissions[r.id]?.[f.id];
+                          return (
+                            <label key={f.id}
+                              className={"signup-perms-cell" + (on ? " is-on" : "") + (rowIdx === 0 ? " is-first" : "")}
+                              aria-label={`${r.name} · ${f.full}`}>
+                              <input type="checkbox" checked={on} onChange={() => togglePermission(r.id, f.id)} />
+                              <span className="signup-perms-check" aria-hidden="true">{on ? "✓" : ""}</span>
+                            </label>
+                          );
+                        })}
+                      </React.Fragment>
+                    ))}
+                  </div>
+                </div>
+                <p className="signup-step-footer mono">
+                  Por padrão, todo cargo enxerga o próprio dashboard pessoal.
+                </p>
+              </div>
+            </section>
+          )}
+
+          {tab === "projects" && (
+            <section>
+              <div className="admin-section-head admin-section-head--row">
+                <div>
+                  <h2 className="serif admin-section-title">Projetos</h2>
+                  <p className="admin-section-sub">Gerencie as pessoas, descrição e integrações de cada projeto da organização.</p>
+                </div>
+                <button className="btn" onClick={openCreateProject}>+ Novo projeto</button>
+              </div>
+
+              <div className="role-list role-list--cols">
+                {projects.map((p) => (
+                  <button key={p.id} type="button" className="role-card role-card--clickable" onClick={() => openProject(p)}>
                     <div className="role-card-main">
                       <div className="role-card-head">
-                        <div className="serif role-card-name">{r.name}</div>
+                        <div className="serif role-card-name">{p.name}</div>
                         <span className="role-card-count mono">
-                          {r.people} {r.people === 1 ? "pessoa" : "pessoas"}
+                          {p.memberIds.length} {p.memberIds.length === 1 ? "pessoa" : "pessoas"}
                         </span>
                       </div>
-                      <div className="role-card-access mono">
-                        <span className="role-card-access-label">acesso →</span>
-                        <span className="role-card-access-value">{dashboardLabel(r.dashboard)}</span>
-                      </div>
+                      <div className="project-card-desc">{p.description}</div>
                     </div>
-                    <button className="admin-row-edit" onClick={() => openEdit(r)}>editar</button>
-                  </div>
+                    <span className="edit-hint role-card-manage">editar</span>
+                  </button>
                 ))}
               </div>
             </section>
@@ -263,32 +498,6 @@ function AdminSettings({ profile, palette, setPalette, onContinue, onLogout }) {
             </section>
           )}
 
-          {tab === "integrations" && (
-            <section>
-              <div className="admin-section-head">
-                <h2 className="serif admin-section-title">Integrações</h2>
-                <p className="admin-section-sub">Conecte fontes de dados — GitHub, Azure DevOps e provedores de IA.</p>
-              </div>
-              <div className="admin-placeholder mono">
-                + lista de integrações virá aqui (pulado do onboarding)
-              </div>
-              <button className="btn" style={{ marginTop: 18 }} onClick={onContinue}>
-                Pular para o dashboard →
-              </button>
-            </section>
-          )}
-
-          {tab === "security" && (
-            <section>
-              <div className="admin-section-head">
-                <h2 className="serif admin-section-title">Segurança</h2>
-                <p className="admin-section-sub">SSO, sessões ativas, política de senha e auditoria.</p>
-              </div>
-              <div className="admin-placeholder mono">
-                + opções de segurança virão aqui
-              </div>
-            </section>
-          )}
         </main>
       </div>
 
@@ -301,7 +510,7 @@ function AdminSettings({ profile, palette, setPalette, onContinue, onLogout }) {
               </div>
               <h3 className="serif role-modal-title">
                 {editingRole.id ? (
-                  <>Editar <span className="ital accent">{editingRole.name}</span></>
+                  <>Editar <span className="ital accent">{editingRole.name || "cargo"}</span></>
                 ) : (
                   <>Criar <span className="ital accent">novo cargo</span></>
                 )}
@@ -314,30 +523,21 @@ function AdminSettings({ profile, palette, setPalette, onContinue, onLogout }) {
                 <input
                   className="role-modal-input"
                   type="text"
+                  autoFocus
                   value={editingRole.name}
                   placeholder="ex: Product Owner"
                   onChange={(e) => setEditingRole({ ...editingRole, name: e.target.value })}
+                  onKeyDown={(e) => { if (e.key === "Enter") saveRole(); }}
                 />
               </label>
 
-              <div className="role-modal-field">
-                <span className="role-modal-label">Tipo de dashboard que este cargo acessa</span>
-                <div className="role-modal-options">
-                  {DASHBOARD_OPTIONS.map((opt) => (
-                    <button
-                      key={opt.id}
-                      type="button"
-                      className={"role-modal-option" + (editingRole.dashboard === opt.id ? " is-active" : "")}
-                      onClick={() => setEditingRole({ ...editingRole, dashboard: opt.id })}>
-                      <div className="role-modal-option-mark"></div>
-                      <div>
-                        <div className="role-modal-option-label">{opt.label}</div>
-                        <div className="role-modal-option-sub">{opt.sub}</div>
-                      </div>
-                    </button>
-                  ))}
+              {editingRole.id && (
+                <div className="member-modal-actions member-modal-actions--single">
+                  <button className="member-modal-danger member-modal-danger--strong" onClick={deleteRole}>
+                    Remover cargo
+                  </button>
                 </div>
-              </div>
+              )}
             </div>
 
             <div className="role-modal-foot">
@@ -352,7 +552,7 @@ function AdminSettings({ profile, palette, setPalette, onContinue, onLogout }) {
 
       {invitingMember && (
         <div className="role-modal-backdrop" onClick={closeInvite}>
-          <div className="role-modal role-modal--wide" onClick={(e) => e.stopPropagation()}>
+          <div className="role-modal" onClick={(e) => e.stopPropagation()}>
             <div className="role-modal-head">
               <div className="admin-eyebrow mono">novo convite</div>
               <h3 className="serif role-modal-title">
@@ -373,29 +573,38 @@ function AdminSettings({ profile, palette, setPalette, onContinue, onLogout }) {
                 />
               </label>
 
-              <div className="role-modal-field">
-                <span className="role-modal-label">Cargo</span>
-                <div className="role-modal-options role-modal-options--grid">
-                  {roles.map((r) => (
-                    <button
-                      key={r.id}
-                      type="button"
-                      className={"role-modal-option" + (inviteDraft.roleId === r.id ? " is-active" : "")}
-                      onClick={() => setInviteDraft({ ...inviteDraft, roleId: r.id })}>
-                      <div className="role-modal-option-mark"></div>
-                      <div>
-                        <div className="role-modal-option-label">{r.name}</div>
-                        <div className="role-modal-option-sub">{DASHBOARD_OPTIONS.find((d) => d.id === r.dashboard)?.label}</div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
+              <div className="role-modal-duo">
+                <label className="role-modal-field">
+                  <span className="role-modal-label">Cargo</span>
+                  <div className="signup-select">
+                    <select value={inviteDraft.roleId} onChange={(e) => setInviteDraft({ ...inviteDraft, roleId: e.target.value })}>
+                      {roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+                    </select>
+                    <span className="signup-select-caret">▾</span>
+                  </div>
+                </label>
+                <label className="role-modal-field">
+                  <span className="role-modal-label">Senioridade</span>
+                  <div className="signup-select">
+                    <select value={inviteDraft.seniority} onChange={(e) => setInviteDraft({ ...inviteDraft, seniority: e.target.value })}>
+                      {SENIORITIES.map((s) => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                    <span className="signup-select-caret">▾</span>
+                  </div>
+                </label>
               </div>
+
+              {inviteDraft.roleId && (
+                <p className="role-perm-hint mono">
+                  <span className="role-perm-hint-label">permissões deste cargo</span>
+                  {permissionList(inviteDraft.roleId)}
+                </p>
+              )}
             </div>
 
             <div className="role-modal-foot">
               <button className="btn-ghost btn" onClick={closeInvite}>Cancelar</button>
-              <button className="btn" onClick={sendInvite} disabled={!inviteDraft.email.trim() || !inviteDraft.roleId}>
+              <button className="btn" onClick={sendInvite} disabled={!inviteDraft.email.trim() || !inviteDraft.roleId || !inviteDraft.seniority}>
                 Enviar convite por email →
               </button>
             </div>
@@ -405,7 +614,7 @@ function AdminSettings({ profile, palette, setPalette, onContinue, onLogout }) {
 
       {editingMember && (
         <div className="role-modal-backdrop" onClick={closeMemberEdit}>
-          <div className="role-modal role-modal--wide" onClick={(e) => e.stopPropagation()}>
+          <div className="role-modal" onClick={(e) => e.stopPropagation()}>
             <div className="role-modal-head">
               <div className="admin-eyebrow mono">editar membro · {editingMember.status}</div>
               <h3 className="serif role-modal-title">
@@ -417,24 +626,33 @@ function AdminSettings({ profile, palette, setPalette, onContinue, onLogout }) {
             </div>
 
             <div className="role-modal-body">
-              <div className="role-modal-field">
-                <span className="role-modal-label">Cargo</span>
-                <div className="role-modal-options role-modal-options--grid">
-                  {roles.map((r) => (
-                    <button
-                      key={r.id}
-                      type="button"
-                      className={"role-modal-option" + (editingMember.roleId === r.id ? " is-active" : "")}
-                      onClick={() => setEditingMember({ ...editingMember, roleId: r.id })}>
-                      <div className="role-modal-option-mark"></div>
-                      <div>
-                        <div className="role-modal-option-label">{r.name}</div>
-                        <div className="role-modal-option-sub">{DASHBOARD_OPTIONS.find((d) => d.id === r.dashboard)?.label}</div>
-                      </div>
-                    </button>
-                  ))}
-                </div>
+              <div className="role-modal-duo">
+                <label className="role-modal-field">
+                  <span className="role-modal-label">Cargo</span>
+                  <div className="signup-select">
+                    <select value={editingMember.roleId} onChange={(e) => setEditingMember({ ...editingMember, roleId: e.target.value })}>
+                      {roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+                    </select>
+                    <span className="signup-select-caret">▾</span>
+                  </div>
+                </label>
+                <label className="role-modal-field">
+                  <span className="role-modal-label">Senioridade</span>
+                  <div className="signup-select">
+                    <select value={editingMember.seniority || ""} onChange={(e) => setEditingMember({ ...editingMember, seniority: e.target.value })}>
+                      {SENIORITIES.map((s) => <option key={s} value={s}>{s}</option>)}
+                    </select>
+                    <span className="signup-select-caret">▾</span>
+                  </div>
+                </label>
               </div>
+
+              {editingMember.roleId && (
+                <p className="role-perm-hint mono">
+                  <span className="role-perm-hint-label">permissões deste cargo</span>
+                  {permissionList(editingMember.roleId)}
+                </p>
+              )}
 
               <div className="member-modal-actions">
                 <button className="member-modal-danger" onClick={deactivateMember} disabled={editingMember.status === "desativado"}>
@@ -453,7 +671,132 @@ function AdminSettings({ profile, palette, setPalette, onContinue, onLogout }) {
           </div>
         </div>
       )}
+
+      {editingProject && (
+        <div className="role-modal-backdrop" onClick={closeProject}>
+          <div className="role-modal role-modal--wide project-modal" onClick={(e) => e.stopPropagation()}>
+            <div className="role-modal-head">
+              <div className="admin-eyebrow mono">{editingProject.id ? "gerenciar projeto" : "novo projeto"}</div>
+              <input
+                className="project-name-input serif"
+                type="text"
+                autoFocus={!editingProject.id}
+                value={editingProject.name}
+                placeholder="Nome do novo projeto"
+                onChange={(e) => setEditingProject({ ...editingProject, name: e.target.value })}
+              />
+            </div>
+
+            <div className="role-modal-body">
+              <label className="role-modal-field">
+                <span className="role-modal-label">Descrição</span>
+                <textarea
+                  className="role-modal-input role-modal-textarea"
+                  rows={2}
+                  value={editingProject.description}
+                  placeholder="Para que serve este projeto?"
+                  onChange={(e) => setEditingProject({ ...editingProject, description: e.target.value })}
+                />
+              </label>
+
+              <div className="project-links">
+                <ProjectLink
+                  icon={<Icon name="github" size={20} color="var(--fg)" />}
+                  label="Repositório GitHub"
+                  value={editingProject.repo}
+                  onConnect={() => setOauthProvider("github")}
+                />
+                <ProjectLink
+                  icon={<Icon name="azure" size={20} color="var(--fg)" />}
+                  label="Board do Azure"
+                  value={editingProject.board}
+                  onConnect={() => setOauthProvider("azure")}
+                />
+              </div>
+
+              <div className="role-modal-field">
+                <span className="role-modal-label">
+                  Pessoas no projeto · {editingProject.memberIds.length}
+                </span>
+                <div className="project-people-search">
+                  <span className="project-people-search-icon" aria-hidden="true">⌕</span>
+                  <input
+                    className="role-modal-input"
+                    type="text"
+                    value={projectSearch}
+                    placeholder="Buscar por nome, email, cargo ou senioridade…"
+                    onChange={(e) => setProjectSearch(e.target.value)}
+                  />
+                </div>
+                <div className="project-people-list">
+                  {filteredPeople.length === 0 ? (
+                    <div className="project-people-empty mono">nenhuma pessoa encontrada</div>
+                  ) : filteredPeople.map((u) => {
+                    const active = editingProject.memberIds.includes(u.id);
+                    return (
+                      <button
+                        key={u.id}
+                        type="button"
+                        className={"project-person" + (active ? " is-active" : "")}
+                        onClick={() => toggleProjectMember(u.id)}
+                        aria-pressed={active}>
+                        <span className={"project-person-check" + (active ? " is-on" : "")} aria-hidden="true">
+                          {active ? "✓" : ""}
+                        </span>
+                        <span className="project-person-name">{u.name}</span>
+                        <span className="project-person-email mono">{u.email}</span>
+                        <span className="project-person-role">{u.role}</span>
+                        <span className="project-person-sen mono">{u.seniority}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            </div>
+
+            <div className="role-modal-foot">
+              <button className="btn-ghost btn" onClick={closeProject}>Cancelar</button>
+              <button className="btn" onClick={saveProject} disabled={!editingProject.name.trim()}>
+                {editingProject.id ? "Salvar alterações" : "Criar projeto"} →
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <OAuthPopup
+        open={oauthProvider !== null}
+        provider={oauthProvider ? PROJECT_PROVIDERS[oauthProvider] : null}
+        onAuthenticate={onOAuthAuthenticate}
+        onClose={() => setOauthProvider(null)}
+      />
     </div>
+  );
+}
+
+/* Linha de integração no modal de projeto: conecta via OAuth quando vazia. */
+function ProjectLink({ icon, label, value, onConnect }) {
+  if (value) {
+    return (
+      <div className="project-link">
+        <div className="project-link-icon">{icon}</div>
+        <div className="project-link-info">
+          <div className="project-link-label">{label}</div>
+          <div className="project-link-value mono">{value}</div>
+        </div>
+        <span className="project-link-status mono">vinculado</span>
+      </div>
+    );
+  }
+  return (
+    <button type="button" className="project-link project-link--connect is-unlinked" onClick={onConnect}>
+      <div className="project-link-icon">{icon}</div>
+      <div className="project-link-info">
+        <div className="project-link-label">{label}</div>
+        <div className="project-link-value mono">não vinculado</div>
+      </div>
+      <span className="project-link-status project-link-status--cta mono">conectar →</span>
+    </button>
   );
 }
 
