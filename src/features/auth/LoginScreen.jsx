@@ -3,10 +3,9 @@
 import React from "react";
 import { Wordmark } from "../../components/Wordmark.jsx";
 
-function LoginScreen({ palette, setPalette, onLogin, onHome }) {
+function LoginScreen({ onLogin, onHome }) {
   const [email, setEmail] = React.useState("lead@andromeda.tcc");
   const [password, setPassword] = React.useState("galaxia2026");
-  const [shaking, setShaking] = React.useState(false);
 
   const submit = (e) => {
     e.preventDefault();
@@ -42,7 +41,8 @@ function LoginScreen({ palette, setPalette, onLogin, onHome }) {
               type="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="voce@empresa.com" />
+              placeholder="voce@empresa.com"
+              autoFocus />
             
           </div>
           <div className="field">

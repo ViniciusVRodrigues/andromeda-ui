@@ -8,7 +8,7 @@ import React from "react";
 import { OrbitWizard } from "../../components/OrbitWizard.jsx";
 import { Field, SelectField } from "../../components/Field.jsx";
 import { OAuthPopup } from "../../components/OAuthPopup.jsx";
-import { Icon } from "../../components/charts/Charts.jsx";
+import { PROVIDERS } from "../../data/providers.jsx";
 
 const ADMIN_ROLE = "Administrador";
 
@@ -47,42 +47,6 @@ function defaultPermissionsFor(cargos) {
 const VERIFY_CODE = "123456";  // mock — em produção viria do backend
 const DEFAULT_CARGOS       = ["Desenvolvedor", "Designer", "Product Manager"];
 const DEFAULT_SENIORIDADES = ["Junior", "Pleno", "Sênior"];
-
-/* Configuração dos provedores OAuth (rótulos, ícone, permissões).
-   Reaproveitado entre signup e onboarding. */
-const PROVIDERS = {
-  azure: {
-    id: "azure",
-    name: "Azure DevOps",
-    authName: "Microsoft",
-    authDomain: "login.microsoftonline.com/oauth2/authorize",
-    description: "Acesse os boards, sprints e issues do seu time direto no Azure DevOps.",
-    permissions: ["Ler boards, work items e iterações", "Ler membros e times da organização", "Ler histórico de sprints e velocity"],
-    icon: <Icon name="azure" size={32} color="var(--fg)" />,
-  },
-  github: {
-    id: "github",
-    name: "GitHub",
-    authName: "GitHub",
-    authDomain: "github.com/login/oauth/authorize",
-    description: "Repositórios, commits, pull requests e code reviews — em uma órbita só.",
-    permissions: ["Ler repositórios e branches", "Ler commits, PRs e reviews", "Ler membros da organização"],
-    icon: <Icon name="github" size={32} color="var(--fg)" />,
-  },
-  ai: {
-    id: "ai",
-    name: "Provedor de IA",
-    authName: "OAuth",
-    authDomain: "accounts.ai-provider.com/o/authorize",
-    description: "Coletamos o consumo de tokens por entrega — OpenAI, Anthropic, Google, e outros.",
-    permissions: ["Ler consumo de tokens (input/output)", "Ler metadados de chamadas e modelos", "Receber webhooks de uso"],
-    icon: (
-      <svg width="32" height="32" viewBox="0 0 24 24" fill="var(--fg)">
-        <path d="M12 2l2.4 7.4H22l-6.2 4.5L18.2 22 12 17.5 5.8 22l2.4-8.1L2 9.4h7.6L12 2z" />
-      </svg>
-    ),
-  },
-};
 
 function SignupScreen({ onCancel, onDone }) {
   const [personal,    setPersonal]    = React.useState({ fullName: "", email: "" });
@@ -540,6 +504,11 @@ function StepConvidar({ invites, setInvites, cargos, senioridade }) {
                type="email"
                value={draft.email}
                onChange={(e) => setDraft({ ...draft, email: e.target.value })}
+               onKeyDown={(e) => {
+                 // compondo um convite: Enter adiciona (não avança a etapa).
+                 // campo vazio: deixa o Enter borbulhar p/ avançar normalmente.
+                 if (e.key === "Enter" && draft.email.trim()) { e.preventDefault(); add(); }
+               }}
                placeholder="e-mail@empresa.com" />
         <select value={draft.cargo} onChange={(e) => setDraft({ ...draft, cargo: e.target.value })}>
           {cargos.map((c) => <option key={c} value={c}>{c}</option>)}
