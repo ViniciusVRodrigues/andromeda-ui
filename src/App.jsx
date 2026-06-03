@@ -1,32 +1,104 @@
-/* Main app — roteamento (react-router-dom) + troca de papel + tweaks.
+/* Main app — roteamento (react-router-dom) + tweaks.
  *
- * Cada tela é uma rota real (URL própria, Voltar/Avançar do navegador e
- * deep-link funcionam). As etapas internas dos wizards (signup/onboarding)
- * seguem como estado do <OrbitWizard>: por isso o Voltar do navegador sai da
- * página inteira do wizard, e não etapa por etapa. */
+ * Telas públicas/lineares: home, login, signup, onboarding.
+ * App autenticado: a MESMA casca (AdminSettings) servida em rotas por função
+ * (/projetos, /pessoas, /cargos, /senioridade, /organizacao, /dashboard). O menu é
+ * filtrado pela identidade (admin x membro) e o dashboard mora dentro da casca
+ * — ao abri-lo, o menu colapsa e ele ocupa a área de conteúdo.
+ *
+ * Identidade no protótipo (sem backend): signup ⇒ admin; login ⇒ membro. Em
+ * produção viria do /api/me da sessão (e sobreviveria a um refresh). */
 
 import React from "react";
 import {
-  BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation,
+  BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation, useParams,
 } from "react-router-dom";
 import { HomeScreen } from "./features/home/HomeScreen.jsx";
 import { SignupScreen } from "./features/auth/SignupScreen.jsx";
 import { LoginScreen } from "./features/auth/LoginScreen.jsx";
 import { OnboardingScreen } from "./features/onboarding/OnboardingScreen.jsx";
 import { AdminSettings } from "./features/admin/AdminSettings.jsx";
-import { DevDashboard } from "./features/dashboard/DevDashboard.jsx";
-import { TeamDashboard } from "./features/dashboard/TeamDashboard.jsx";
-import { ManagerDashboard } from "./features/dashboard/ManagerDashboard.jsx";
-import { Wordmark } from "./components/Wordmark.jsx";
-import { ThemeSwitcher } from "./components/ThemeSwitcher.jsx";
+import { DashboardView } from "./features/dashboard/DashboardView.jsx";
 import { ThemePickerModal } from "./components/ThemePickerModal.jsx";
 import {
   useTweaks,
   TweaksPanel,
   TweakSection,
-  TweakSelect,
   TweakButton,
 } from "./components/tweaks/TweaksPanel.jsx";
+
+/* ── Funções da casca: rota (URL) ↔ aba interna da AdminSettings ── */
+const SHELL_SECTIONS = [
+  { route: "projetos",    tab: "projects" },
+  { route: "pessoas",     tab: "team" },
+  { route: "cargos",      tab: "roles" },
+  { route: "senioridade", tab: "seniority" },
+  { route: "organizacao", tab: "org" },
+  { route: "dashboard",   tab: "dashboard" },
+];
+const ROUTE_TO_TAB = Object.fromEntries(SHELL_SECTIONS.map((s) => [s.route, s.tab]));
+const TAB_TO_ROUTE = Object.fromEntries(SHELL_SECTIONS.map((s) => [s.tab, s.route]));
+const SHELL_ROUTES = SHELL_SECTIONS.map((s) => s.route);
+
+/* Projetos que cada identidade enxerga no dashboard. No backend viria do
+ * /api/me (os projetos dos quais o usuário faz parte). */
+const ALL_PROJECTS = [
+  { id: "p-orion",  name: "Orion Core" },
+  { id: "p-nebula", name: "Nebula Dashboard" },
+  { id: "p-pulsar", name: "Pulsar Connectors" },
+  { id: "p-vega",   name: "Vega Insights" },
+  { id: "p-atlas",  name: "Atlas Billing" },
+];
+const VIEWER_PROJECTS = [ALL_PROJECTS[0], ALL_PROJECTS[3]]; // só os que ele faz parte
+
+/* ── Identidades simuladas (no backend, vêm do cargo via /api/me) ── */
+const IDENTITIES = {
+  admin:  { isAdmin: true,  perms: ["gerProjeto", "gerEquipe", "dashPessoal", "dashEquipe", "dashOrg"], projects: ALL_PROJECTS },
+  member: { isAdmin: false, perms: ["gerProjeto", "gerEquipe", "dashPessoal", "dashEquipe", "dashOrg"], projects: ALL_PROJECTS },
+  viewer: { isAdmin: false, perms: ["dashPessoal"], projects: VIEWER_PROJECTS }, // só o dashboard individual
+};
+
+/* Quais abas/áreas cada identidade enxerga. Projetos/Pessoas/Dashboard por
+ * feature; Cargos/Plano/Organização só admin. */
+function canSee(identity, tab) {
+  if (!identity) return false;
+  if (tab === "projects")  return identity.perms.includes("gerProjeto");
+  if (tab === "team")      return identity.perms.includes("gerEquipe");
+  if (tab === "dashboard") return identity.perms.some((p) => p.startsWith("dash"));
+  return identity.isAdmin; // roles, seniority, org
+}
+function firstAllowedRoute(identity) {
+  const first = SHELL_SECTIONS.find((s) => canSee(identity, s.tab));
+  return "/" + (first ? first.route : "");
+}
+
+/* Tem alguma gestão (projeto/pessoas/admin)? Se não, não há barra lateral —
+ * o usuário vê só o dashboard com a pílula inferior. */
+function hasManage(identity) {
+  return identity.isAdmin
+    || identity.perms.includes("gerProjeto")
+    || identity.perms.includes("gerEquipe");
+}
+/* Acesso de dashboard (escopos/visões) derivado das permissões. */
+function dashAccess(identity) {
+  return {
+    projects:   identity.projects || [],
+    individual: identity.perms.includes("dashPessoal"),
+    equipe:     identity.perms.includes("dashEquipe"),
+    org:        identity.perms.includes("dashOrg"),
+  };
+}
+
+const MEMBER_PROFILE = {
+  personal: { fullName: "João Pereira", email: "joao@andromeda.tcc", role: "Tech Lead" },
+  org: { name: "Andrômeda Core", slug: "andromeda-core", sector: "Tecnologia", country: "Brasil", size: "16-80" },
+  plan: "galaxia",
+};
+const ADMIN_PROFILE_FALLBACK = {
+  personal: { fullName: "Maria Andrade", email: "maria@andromeda.tcc", role: "Head of Engineering" },
+  org: { name: "Andrômeda Core", slug: "andromeda-core", sector: "Tecnologia", country: "Brasil", size: "16-80" },
+  plan: "galaxia",
+};
 
 function App() {
   return (
@@ -40,68 +112,62 @@ function AppShell() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const [role, setRole] = React.useState("dev"); // dev | team | manager
-  const [variation, setVariation] = React.useState({ dev: 0, team: 0, manager: 0 });
+  const [identityKey, setIdentityKey] = React.useState(null); // "admin" | "member" | null
   const [profile, setProfile] = React.useState(null);
   const [themePickerOpen, setThemePickerOpen] = React.useState(false);
 
   const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
-    "palette": "default",
-    "role": "dev"
+    "palette": "default"
   }/*EDITMODE-END*/;
 
   const [tweaks, setTweak] = useTweaks(TWEAK_DEFAULTS);
   const palette = tweaks.palette || "default";
   const setPalette = (v) => setTweak("palette", v);
 
+  const identity = identityKey ? IDENTITIES[identityKey] : null;
+
   // apply palette to root
   React.useEffect(() => {
     document.documentElement.setAttribute("data-palette", palette);
   }, [palette]);
 
-  // sync role from tweaks
-  React.useEffect(() => {
-    if (tweaks.role && tweaks.role !== role) {
-      goRole(tweaks.role);
-    }
-  }, [tweaks.role]);
-
-  const goRole = (r) => {
-    if (r === role) return;
-    setRole(r);
-    setTweak("role", r);
+  // entra no app autenticado com uma identidade + perfil
+  const enterApp = (key, prof, route = "/projetos") => {
+    setIdentityKey(key);
+    setProfile(prof);
+    navigate(route);
+  };
+  const exitApp = () => {
+    setIdentityKey(null);
+    setProfile(null);
+    navigate("/");
   };
 
   const handleSignupDone = (data) => {
-    // mantém compatibilidade com AdminSettings (que ainda referencia plan/size)
-    setProfile({
+    // mantém compatibilidade com AdminSettings (que referencia plan/size)
+    const adminProfile = {
       personal:    data.personal,
       org:         { ...data.org, size: "—" },
       plan:        "galaxia",
       cargos:      data.cargos,
       senioridade: data.senioridade,
       invites:     data.invites,
-    });
+    };
     setThemePickerOpen(true);
-    navigate("/admin");
+    enterApp("admin", adminProfile);
   };
 
-  const onDashboard = location.pathname === "/dashboard";
-  const screenLabel = location.pathname === "/" ? "home" : location.pathname.slice(1);
+  // segmento de topo: estável dentro da casca (todas as áreas compartilham a
+  // key "shell"), então a AdminSettings NÃO remonta ao trocar de área — só ao
+  // sair da casca. Isso preserva o estado interno (projetos, pessoas, etc.).
+  const seg = location.pathname === "/" ? "home" : location.pathname.split("/")[1];
+  const inShell = SHELL_ROUTES.includes(seg);
+  const keyBase = inShell ? "shell" : seg;
 
   return (
     <>
       <div className="app-shell">
-        {onDashboard && (
-          <TopBar
-            role={role}
-            palette={palette}
-            setPalette={setPalette}
-            onLogout={() => navigate("/")}
-          />
-        )}
-
-        <div className="page-layer" data-screen-label={`page-${screenLabel}`} key={location.pathname + role + variation[role]}>
+        <div className="page-layer" data-screen-label={`page-${keyBase}`} key={keyBase}>
           <Routes>
             <Route path="/" element={
               <HomeScreen
@@ -117,147 +183,86 @@ function AppShell() {
             } />
             <Route path="/login" element={
               <LoginScreen
-                onLogin={() => navigate("/onboard")}
+                onLogin={() => enterApp("member", MEMBER_PROFILE)}
                 onHome={() => navigate("/")}
               />
             } />
             <Route path="/onboard" element={
-              <OnboardingScreen onDone={() => { setThemePickerOpen(true); navigate("/dashboard"); }} />
+              <OnboardingScreen onDone={() => enterApp("member", MEMBER_PROFILE)} />
             } />
-            <Route path="/admin" element={
-              profile ? (
-                <AdminSettings
-                  profile={profile}
-                  palette={palette}
-                  setPalette={setPalette}
-                  onContinue={() => navigate("/dashboard")}
-                  onLogout={() => { setProfile(null); navigate("/"); }}
-                />
-              ) : (
-                <Navigate to="/" replace />
-              )
+
+            {/* app autenticado: uma rota por função, todas na mesma casca */}
+            <Route path="/:section" element={
+              <ShellRoute
+                identity={identity}
+                profile={profile}
+                palette={palette}
+                setPalette={setPalette}
+                onLogout={exitApp}
+              />
             } />
-            <Route path="/dashboard" element={
-              <DashboardView role={role} variation={variation} setVariation={setVariation} />
-            } />
+
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </div>
-
-        {onDashboard && (
-          <RoleSwitcher role={role} setRole={goRole} />
-        )}
       </div>
 
       <ThemePickerModal
-        open={themePickerOpen && (location.pathname === "/dashboard" || location.pathname === "/admin")}
+        open={themePickerOpen && inShell}
         palette={palette}
         setPalette={setPalette}
         onClose={() => setThemePickerOpen(false)}
       />
 
       <TweaksPanel title="Tweaks">
-        <TweakSection label="Papel do usuário">
-          <TweakSelect
-            label="Visualizar como"
-            value={role}
-            onChange={(v) => goRole(v)}
-            options={[
-              { value: "dev",     label: "Desenvolvedor" },
-              { value: "team",    label: "Tech Lead / Scrum Master" },
-              { value: "manager", label: "Gestor de Projetos" },
-            ]}
-          />
-        </TweakSection>
-
         <TweakSection label="Navegação">
           <TweakButton label="Home (landing)" onClick={() => navigate("/")} />
           <TweakButton label="Criar conta" onClick={() => navigate("/signup")} />
-          <TweakButton label="Admin · configurações" onClick={() => {
-            if (!profile) {
-              setProfile({
-                personal: { fullName: "Maria Andrade", email: "maria@andromeda.tcc", role: "Head of Engineering" },
-                org: { name: "Andrômeda Core", slug: "andromeda-core", sector: "Tecnologia", country: "Brasil", size: "16-80" },
-                plan: "galaxia",
-              });
-            }
-            navigate("/admin");
-          }} />
           <TweakButton label="Tela de login" onClick={() => navigate("/login")} />
           <TweakButton label="Onboarding" onClick={() => navigate("/onboard")} />
-          <TweakButton label="Dashboard" onClick={() => navigate("/dashboard")} />
+          <TweakButton label="Entrar no app · admin" onClick={() => enterApp("admin", ADMIN_PROFILE_FALLBACK)} />
+          <TweakButton label="Entrar no app · membro" onClick={() => enterApp("member", MEMBER_PROFILE)} />
+          <TweakButton label="Entrar no app · só dashboard" onClick={() => enterApp("viewer", MEMBER_PROFILE, "/dashboard")} />
         </TweakSection>
       </TweaksPanel>
     </>
   );
 }
 
-function DashboardView({ role, variation, setVariation }) {
-  if (role === "team") {
+/* Resolve a rota /:section na casca, com guarda por permissão. Como é UMA só
+ * rota, a AdminSettings é a mesma instância ao trocar de área (estado preservado). */
+function ShellRoute({ identity, profile, palette, setPalette, onLogout }) {
+  const { section } = useParams();
+  const navigate = useNavigate();
+
+  if (!identity) return <Navigate to="/" replace />;
+
+  // sem permissão de gestão → sem barra lateral: só o dashboard com a pílula
+  // inferior (que aqui ganha o botão de Sair, separado por um divisor).
+  if (!hasManage(identity)) {
+    if (section !== "dashboard") return <Navigate to="/dashboard" replace />;
     return (
-      <TeamDashboard
-        variation={variation.team}
-        setVariation={(v) => setVariation(s => ({ ...s, team: v }))}
-      />
+      <div className="dash-only">
+        <DashboardView dash={dashAccess(identity)} onLogout={onLogout} />
+      </div>
     );
   }
-  if (role === "manager") {
-    return (
-      <ManagerDashboard
-        variation={variation.manager}
-        setVariation={(v) => setVariation(s => ({ ...s, manager: v }))}
-      />
-    );
-  }
+
+  if (!profile) return <Navigate to="/" replace />;
+  const tab = ROUTE_TO_TAB[section];
+  if (!tab || !canSee(identity, tab)) return <Navigate to={firstAllowedRoute(identity)} replace />;
+
   return (
-    <DevDashboard
-      variation={variation.dev}
-      setVariation={(v) => setVariation(s => ({ ...s, dev: v }))}
+    <AdminSettings
+      section={tab}
+      can={(t) => canSee(identity, t)}
+      dash={dashAccess(identity)}
+      profile={profile}
+      palette={palette}
+      setPalette={setPalette}
+      onNavigate={(t) => navigate("/" + TAB_TO_ROUTE[t])}
+      onLogout={onLogout}
     />
-  );
-}
-
-function TopBar({ role, palette, setPalette, onLogout }) {
-  const roleLabel = role === "dev" ? "Dev C · Senior" : role === "team" ? "Squad Orion · Tech Lead" : "Andrômeda Core · Gestor";
-
-  return (
-    <div className="topbar">
-      <div className="topbar-left">
-        <Wordmark size="md" />
-        <span className="brand-tag">SEI · v0.1</span>
-      </div>
-
-      <div className="topbar-right">
-        <span className="chip"><span className="dot"></span>sincronizado · há 6m</span>
-        <span className="role-pill">
-          <span className="dot"></span>
-          {roleLabel}
-        </span>
-        <ThemeSwitcher palette={palette} setPalette={setPalette} compact />
-        <button className="btn-ghost btn" style={{ padding: "8px 14px", fontSize: 10 }} onClick={onLogout}>
-          Sair
-        </button>
-      </div>
-    </div>
-  );
-}
-
-function RoleSwitcher({ role, setRole }) {
-  const roles = [
-    { id: "dev",     label: "Desenvolvedor" },
-    { id: "team",    label: "Tech Lead" },
-    { id: "manager", label: "Gestor" },
-  ];
-  return (
-    <div className="role-switcher">
-      {roles.map(r => (
-        <button key={r.id}
-          className={role === r.id ? "is-active" : ""}
-          onClick={() => setRole(r.id)}>
-          {r.label}
-        </button>
-      ))}
-    </div>
   );
 }
 
