@@ -260,6 +260,20 @@ function TweaksPanel({ title = 'Tweaks', noDeckControls = false, children }) {
     return () => window.removeEventListener('message', onMsg);
   }, []);
 
+  // Atalho de dev p/ abrir/fechar o painel sem depender do host de edição:
+  // Cmd+. (Mac) ou Ctrl+. (demais). Só em desenvolvimento.
+  React.useEffect(() => {
+    if (!import.meta.env.DEV) return undefined;
+    const onKey = (e) => {
+      if ((e.metaKey || e.ctrlKey) && e.key === '.') {
+        e.preventDefault();
+        setOpen((o) => !o);
+      }
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, []);
+
   const dismiss = () => {
     setOpen(false);
     window.parent.postMessage({ type: '__edit_mode_dismissed' }, '*');

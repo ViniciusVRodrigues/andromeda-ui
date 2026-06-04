@@ -3,7 +3,10 @@
  *
  * Reutiliza o mesmo <OrbitWizard> do signup. Aqui só descrevemos os passos
  * específicos do usuário: boas-vindas, terminar conta (campos pré-preenchidos
- * pelo admin + senha), três OAuths (Azure / GitHub / IA), e a tela de pronto. */
+ * pelo admin + senha), o OAuth do provedor de IA, e a tela de pronto.
+ *
+ * As integrações de Azure/GitHub são gerenciadas pelo admin (por projeto), não
+ * pelo usuário comum — por isso não aparecem aqui. */
 
 import React from "react";
 import { OrbitWizard } from "../../components/OrbitWizard.jsx";
@@ -14,8 +17,6 @@ import { PROVIDERS } from "../../data/providers.jsx";
 const ONBOARDING_STEPS = [
   { id: "bem-vindo",   label: "Início",  title: "Bem-vindo à",     accent: "Andrômeda",      lede: "Correlacionamos o esforço computacional da IA — em tokens — com as métricas clássicas de desenvolvimento ágil." },
   { id: "conta",       label: "Conta",   title: "Termine sua",     accent: "conta",          lede: "Seu admin já preencheu parte. Complete os dados que faltam." },
-  { id: "azure",       label: "Azure",   title: "Conecte o",       accent: "Azure DevOps",   lede: "Boards, sprints e issues — sincronizados pela sua conta Microsoft." },
-  { id: "github",      label: "GitHub",  title: "Conecte o",       accent: "GitHub",         lede: "Repositórios, commits, PRs e code reviews em órbita." },
   { id: "ia",          label: "IA",      title: "Conecte um",      accent: "provedor de IA", lede: "Tokens consumidos por entrega — a dimensão que faltava nas métricas ágeis." },
   { id: "pronto",      label: "Pronto",  title: "Sincronizando o", accent: "cosmos",         lede: "Os primeiros dados chegam em breve. Você já pode explorar com dados de demonstração." },
 ];
@@ -30,18 +31,16 @@ const ADMIN_PREFILL = {
 
 function OnboardingScreen({ onDone }) {
   const [account, setAccount] = React.useState({ fullName: "", password: "", confirm: "" });
-  const [connections, setConnections] = React.useState({ azure: false, github: false, ai: false });
-  const [openOauth, setOpenOauth] = React.useState(null);  // null | "azure" | "github" | "ai"
+  const [connections, setConnections] = React.useState({ ai: false });
+  const [openOauth, setOpenOauth] = React.useState(null);  // null | "ai"
 
   const valid = [
     true,                                                                 // 0 · boas-vindas
     account.fullName.trim().length >= 3
       && account.password.length >= 6
       && account.password === account.confirm,                            // 1 · conta
-    true,                                                                 // 2 · Azure (opcional)
-    true,                                                                 // 3 · GitHub (opcional)
-    true,                                                                 // 4 · IA (opcional)
-    true,                                                                 // 5 · pronto
+    true,                                                                 // 2 · IA (opcional)
+    true,                                                                 // 3 · pronto
   ];
 
   const onAuth = (providerId) => {
@@ -61,10 +60,8 @@ function OnboardingScreen({ onDone }) {
           <>
             {step === 0 && <StepWelcome />}
             {step === 1 && <StepAccount account={account} setAccount={setAccount} />}
-            {step === 2 && <StepProvider provider={PROVIDERS.azure}  connected={connections.azure}  onConnect={() => setOpenOauth("azure")}  />}
-            {step === 3 && <StepProvider provider={PROVIDERS.github} connected={connections.github} onConnect={() => setOpenOauth("github")} />}
-            {step === 4 && <StepProvider provider={PROVIDERS.ai}     connected={connections.ai}     onConnect={() => setOpenOauth("ai")}     />}
-            {step === 5 && <StepReady connections={connections} />}
+            {step === 2 && <StepProvider provider={PROVIDERS.ai} connected={connections.ai} onConnect={() => setOpenOauth("ai")} />}
+            {step === 3 && <StepReady connections={connections} />}
           </>
         )}
       />
@@ -143,10 +140,8 @@ function StepProvider({ provider, connected, onConnect }) {
 
 function StepReady({ connections }) {
   const rows = [
-    { l: "Azure DevOps",          v: connections.azure  ? "✓ conectado" : "não conectado", done: connections.azure  },
-    { l: "GitHub",                v: connections.github ? "✓ conectado" : "não conectado", done: connections.github },
-    { l: "Provedor de IA",        v: connections.ai     ? "✓ conectado" : "não conectado", done: connections.ai     },
-    { l: "Histórico de 90 dias",  v: "será processado",                                    done: true               },
+    { l: "Provedor de IA",        v: connections.ai ? "✓ conectado" : "não conectado", done: connections.ai },
+    { l: "Histórico de 90 dias",  v: "será processado",                                done: true           },
   ];
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
