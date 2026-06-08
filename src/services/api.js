@@ -57,4 +57,8 @@ export const api = {
   delete: (path, opts) => request(path, { ...opts, method: "DELETE" }),
 };
 
+export function getAllocationsPending() {
+  return api.get("/v1/ai-usage/allocations");
+}
+
 export default api;

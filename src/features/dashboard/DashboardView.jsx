@@ -13,6 +13,9 @@ import React from "react";
 import { DevDashboard } from "./DevDashboard.jsx";
 import { TeamDashboard } from "./TeamDashboard.jsx";
 import { ManagerDashboard } from "./ManagerDashboard.jsx";
+import PendingAllocationsBanner from "../../components/PendingAllocationsBanner.jsx";
+import AllocationPanel from "../ai-usage/AllocationPanel.jsx";
+import { getAllocationsPending } from "../../services/api.js";
 
 const IconLogout = () => (
   <svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor"
@@ -28,6 +31,14 @@ function DashboardView({ dash, onLogout }) {
   const [variation, setVariation] = React.useState(0);
   const [scope, setScope] = React.useState(projects[0]?.id || (org ? "org" : ""));
   const [view, setView] = React.useState("individual");
+  const [pendingDays, setPendingDays] = React.useState([]);
+  const [allocationPanelOpen, setAllocationPanelOpen] = React.useState(false);
+
+  React.useEffect(() => {
+    getAllocationsPending()
+      .then(setPendingDays)
+      .catch(() => {});
+  }, []);
 
   const scopeOptions = [
     ...(org ? [{ value: "org", label: "Organização" }] : []),
@@ -47,6 +58,17 @@ function DashboardView({ dash, onLogout }) {
 
   return (
     <>
+      <PendingAllocationsBanner
+        count={pendingDays.length}
+        onReview={() => setAllocationPanelOpen(true)}
+      />
+      {allocationPanelOpen && (
+        <AllocationPanel
+          pendingDays={pendingDays}
+          onClose={() => setAllocationPanelOpen(false)}
+          onSaved={(savedDay) => setPendingDays(prev => prev.filter(d => d.day !== savedDay))}
+        />
+      )}
       <Dash variation={variation} setVariation={setVariation} />
 
       <div className="dash-switcher">
