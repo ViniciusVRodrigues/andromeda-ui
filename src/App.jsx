@@ -20,6 +20,7 @@ import { OnboardingScreen } from "./features/onboarding/OnboardingScreen.jsx";
 import { AdminSettings } from "./features/admin/AdminSettings.jsx";
 import { DashboardView } from "./features/dashboard/DashboardView.jsx";
 import { ThemePickerModal } from "./components/ThemePickerModal.jsx";
+import api, { setToken, clearToken } from "./services/api.js";
 import {
   useTweaks,
   TweaksPanel,
@@ -35,6 +36,7 @@ const SHELL_SECTIONS = [
   { route: "senioridade", tab: "seniority" },
   { route: "organizacao", tab: "org" },
   { route: "dashboard",   tab: "dashboard" },
+  { route: "integracoes", tab: "integrations" },
 ];
 const ROUTE_TO_TAB = Object.fromEntries(SHELL_SECTIONS.map((s) => [s.route, s.tab]));
 const TAB_TO_ROUTE = Object.fromEntries(SHELL_SECTIONS.map((s) => [s.tab, s.route]));
@@ -62,9 +64,10 @@ const IDENTITIES = {
  * feature; Cargos/Plano/Organização só admin. */
 function canSee(identity, tab) {
   if (!identity) return false;
-  if (tab === "projects")  return identity.perms.includes("gerProjeto");
-  if (tab === "team")      return identity.perms.includes("gerEquipe");
-  if (tab === "dashboard") return identity.perms.some((p) => p.startsWith("dash"));
+  if (tab === "projects")     return identity.perms.includes("gerProjeto");
+  if (tab === "team")         return identity.perms.includes("gerEquipe");
+  if (tab === "dashboard")    return identity.perms.some((p) => p.startsWith("dash"));
+  if (tab === "integrations") return identity.perms.includes("AZURE_CONFIGURE") || identity.perms.includes("AZURE_READ") || identity.isAdmin;
   return identity.isAdmin; // roles, seniority, org
 }
 function firstAllowedRoute(identity) {
@@ -140,21 +143,24 @@ function AppShell() {
   const exitApp = () => {
     setIdentityKey(null);
     setProfile(null);
+    clearToken();
     navigate("/");
   };
 
-  const handleSignupDone = (data) => {
-    // mantém compatibilidade com AdminSettings (que referencia plan/size)
-    const adminProfile = {
-      personal:    data.personal,
-      org:         { ...data.org, size: "—" },
-      plan:        "galaxia",
-      cargos:      data.cargos,
-      senioridade: data.senioridade,
-      invites:     data.invites,
-    };
-    setThemePickerOpen(true);
-    enterApp("admin", adminProfile);
+  const handleSignupDone = async (payload) => {
+    try {
+      const response = await api.post("/v1/organizations", payload);
+      setToken(response.token);
+      const adminProfile = {
+        personal: { fullName: payload.admin.name, email: payload.admin.email, role: "Administrador" },
+        org: { name: response.orgName, slug: response.orgSlug, sector: payload.org.sector, country: payload.org.country, size: "—" },
+        plan: "galaxia",
+      };
+      setThemePickerOpen(true);
+      enterApp("admin", adminProfile, "/projetos");
+    } catch (err) {
+      console.error("[handleSignupDone] onboarding failed:", err);
+    }
   };
 
   // segmento de topo: estável dentro da casca (todas as áreas compartilham a

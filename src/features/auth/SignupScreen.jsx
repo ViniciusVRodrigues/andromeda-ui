@@ -12,14 +12,20 @@ import { PROVIDERS } from "../../data/providers.jsx";
 
 const ADMIN_ROLE = "Administrador";
 
+const FLAG_TO_PERMISSION_CODE = {
+  dashPessoal: "DASHBOARD_INDIVIDUAL",
+  dashEquipe:  "DASHBOARD_TEAM",
+  dashOrg:     "DASHBOARD_STRATEGIC",
+  gerEquipe:   "USER_MANAGE",
+  gerProjeto:  "PROJECT_MANAGE",
+};
+
 const SIGNUP_STEPS = [
   { id: "pessoal",     label: "Pessoal",      title: "Conte sobre",   accent: "você",        lede: "Você será o administrador da organização." },
   { id: "verificar",   label: "Verificação",  title: "Verifique seu", accent: "e-mail",      lede: "Enviamos um código de 6 dígitos para o e-mail informado. Cole abaixo.", noContinue: true },
   { id: "senha",       label: "Senha",        title: "Crie sua",      accent: "senha",       lede: "Mínimo 6 caracteres, com pelo menos uma maiúscula e um caractere especial." },
   { id: "org",         label: "Organização",  title: "Sua",           accent: "organização", lede: "É aqui que os dados do seu time vão orbitar." },
   { id: "projeto",     label: "Projeto",      title: "Crie seu",      accent: "primeiro projeto", lede: "Tudo o que a Andrômeda coletar — Azure, GitHub e uso de IA — será associado a um projeto." },
-  { id: "azure",       label: "Azure",        title: "Conecte o",     accent: "Azure DevOps", lede: "Boards, sprints e issues — sincronizados pela sua conta Microsoft." },
-  { id: "github",      label: "GitHub",       title: "Conecte o",     accent: "GitHub",      lede: "Repositórios, commits, PRs e code reviews em órbita." },
   { id: "ia",          label: "IA",           title: "Conecte um",    accent: "provedor de IA", lede: "Tokens consumidos por entrega — a dimensão que faltava nas métricas ágeis." },
   { id: "senioridade", label: "Senioridade",  title: "Defina os",     accent: "níveis",      lede: "Os níveis de senioridade adotados pela organização." },
   { id: "cargos",      label: "Cargos",       title: "Defina os",     accent: "cargos",      lede: "Os papéis funcionais do seu time. Adicione ou remova conforme precisar." },
@@ -55,8 +61,6 @@ function SignupScreen({ onCancel, onDone }) {
   const [org,         setOrg]         = React.useState({ name: "", slug: "", sector: "Tecnologia", country: "Brasil" });
   const [project,     setProject]     = React.useState({ name: "", description: "" });
   const [connections, setConnections] = React.useState({
-    azure:  { connected: false, project: "" },
-    github: { connected: false, project: "" },
     ai:     { connected: false, project: "" },
   });
   const [openOauth,   setOpenOauth]   = React.useState(null);
@@ -87,16 +91,15 @@ function SignupScreen({ onCancel, onDone }) {
     personal.fullName.trim().length >= 3 && /\S+@\S+\.\S+/.test(personal.email),  // 0 pessoal
     verify.code === VERIFY_CODE,                                                   // 1 verificar
     pwOk,                                                                           // 2 senha
-    org.name.trim().length >= 2 && org.slug.trim().length >= 2,                    // 3 org
+    org.name.trim().length >= 2 && org.slug.trim().length >= 2
+      && org.sector.trim().length >= 1 && org.country.trim().length >= 1, // 3 org
     project.name.trim().length >= 2 && project.description.trim().length >= 4,     // 4 projeto
-    true,                                                                           // 5 azure (opcional)
-    true,                                                                           // 6 github (opcional)
-    true,                                                                           // 7 ia (opcional)
-    senioridade.length >= 1,                                                        // 8 senioridade
-    cargos.length >= 1,                                                             // 9 cargos
-    true,                                                                           // 10 permissões (opcional)
-    true,                                                                           // 11 equipe (opcional)
-    accept,                                                                         // 12 confirmar
+    true,                                                                           // 5 ia (opcional)
+    senioridade.length >= 1,                                                        // 6 senioridade
+    cargos.length >= 1,                                                             // 7 cargos
+    true,                                                                           // 8 permissões (opcional)
+    true,                                                                           // 9 equipe (opcional)
+    accept,                                                                         // 10 confirmar
   ];
 
   // sugere slug a partir do nome da organização
@@ -112,8 +115,6 @@ function SignupScreen({ onCancel, onDone }) {
   React.useEffect(() => {
     const only = projects[0] || "";
     setConnections((c) => ({
-      azure:  c.azure.connected  ? c.azure  : { ...c.azure,  project: only },
-      github: c.github.connected ? c.github : { ...c.github, project: only },
       ai:     c.ai.connected     ? c.ai     : { ...c.ai,     project: only },
     }));
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -141,14 +142,33 @@ function SignupScreen({ onCancel, onDone }) {
         validity={valid}
         finalLabel="Criar organização →"
         onComplete={() => onDone({
-          personal: { ...personal, role: ADMIN_ROLE },
-          password: password.value,
-          org,
-          projects: [{ ...project, connections }],
-          cargos,
-          senioridade,
-          permissions,
-          invites,
+          org: {
+            name:    org.name,
+            sector:  org.sector,
+            country: org.country,
+          },
+          admin: {
+            email:    personal.email,
+            name:     personal.fullName,
+            password: password.value,
+          },
+          project: {
+            name:        project.name,
+            description: project.description,
+          },
+          seniorities: senioridade,
+          roles: Object.entries(permissions).map(([roleName, flags]) => ({
+            name: roleName,
+            permissionCodes: Object.entries(flags)
+              .filter(([, enabled]) => enabled)
+              .map(([flag]) => FLAG_TO_PERMISSION_CODE[flag])
+              .filter(Boolean),
+          })),
+          invites: invites.map((inv) => ({
+            email:    inv.email,
+            roleName: inv.cargo,
+            seniority: inv.seniority || null,
+          })),
         })}
         onCancel={onCancel}
         versionmark="v0.1 · onboarding"
@@ -160,16 +180,14 @@ function SignupScreen({ onCancel, onDone }) {
             {step === 2  && <StepPassword v={password} onChange={setPassword} rules={pwRules} />}
             {step === 3  && <StepOrganization v={org} onChange={setOrg} />}
             {step === 4  && <StepProject v={project} onChange={setProject} />}
-            {step === 5  && <StepProvider provider={PROVIDERS.azure}  state={connections.azure}  projects={projects} onConnect={() => setOpenOauth("azure")}  onSetProject={(p) => setProviderProject("azure", p)} />}
-            {step === 6  && <StepProvider provider={PROVIDERS.github} state={connections.github} projects={projects} onConnect={() => setOpenOauth("github")} onSetProject={(p) => setProviderProject("github", p)} />}
-            {step === 7  && <StepProvider provider={PROVIDERS.ai}     state={connections.ai}     projects={projects} onConnect={() => setOpenOauth("ai")}     onSetProject={(p) => setProviderProject("ai", p)} />}
-            {step === 8  && <StepChipList items={senioridade} setItems={setSenioridade} placeholder="ex.: Pleno"              emptyMsg="Adicione pelo menos um nível."
+            {step === 5  && <StepProvider provider={PROVIDERS.ai}     state={connections.ai}     projects={projects} onConnect={() => setOpenOauth("ai")}     onSetProject={(p) => setProviderProject("ai", p)} />}
+            {step === 6  && <StepChipList items={senioridade} setItems={setSenioridade} placeholder="ex.: Pleno"              emptyMsg="Adicione pelo menos um nível."
                                           footer="Você poderá adicionar mais níveis de senioridade depois, nas configurações da organização." />}
-            {step === 9  && <StepChipList items={cargos}      setItems={setCargos}      placeholder="ex.: Desenvolvedor"     emptyMsg="Adicione pelo menos um cargo."
+            {step === 7  && <StepChipList items={cargos}      setItems={setCargos}      placeholder="ex.: Desenvolvedor"     emptyMsg="Adicione pelo menos um cargo."
                                           footer="Você poderá adicionar mais cargos depois, nas configurações da organização." />}
-            {step === 10 && <StepPermissoes cargos={cargos} permissions={permissions} setPermissions={setPermissions} />}
-            {step === 11 && <StepConvidar invites={invites} setInvites={setInvites} cargos={cargos} senioridade={senioridade} />}
-            {step === 12 && <StepConfirm personal={personal} org={org} project={project} connections={connections} cargos={cargos} senioridade={senioridade} permissions={permissions} invites={invites} accept={accept} setAccept={setAccept} />}
+            {step === 8  && <StepPermissoes cargos={cargos} permissions={permissions} setPermissions={setPermissions} />}
+            {step === 9  && <StepConvidar invites={invites} setInvites={setInvites} cargos={cargos} senioridade={senioridade} />}
+            {step === 10 && <StepConfirm personal={personal} org={org} project={project} connections={connections} cargos={cargos} senioridade={senioridade} permissions={permissions} invites={invites} accept={accept} setAccept={setAccept} />}
           </>
         )}
       />
@@ -537,9 +555,7 @@ function StepConvidar({ invites, setInvites, cargos, senioridade }) {
 
 function StepConfirm({ personal, org, project, connections, cargos, senioridade, permissions, invites, accept, setAccept }) {
   const connRows = [
-    { k: "Azure",  c: connections.azure  },
-    { k: "GitHub", c: connections.github },
-    { k: "IA",     c: connections.ai     },
+    { k: "IA", c: connections.ai },
   ];
   return (
     <div className="signup-orbit-confirm">

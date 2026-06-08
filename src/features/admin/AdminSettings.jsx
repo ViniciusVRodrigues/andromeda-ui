@@ -5,6 +5,8 @@ import { Wordmark } from "../../components/Wordmark.jsx";
 import { Icon } from "../../components/charts/Charts.jsx";
 import { OAuthPopup } from "../../components/OAuthPopup.jsx";
 import { DashboardView } from "../dashboard/DashboardView.jsx";
+import { IntegrationTab } from "./IntegrationTab.jsx";
+import api from "../../services/api.js";
 
 /* ──────────────────────────────────────────── */
 /*  Admin Settings (post-signup landing)        */
@@ -119,18 +121,20 @@ const TAB_ICONS = {
   roles: svgIcon(<><path d="M12 3l7 3v5c0 4.6-3 7.7-7 9-4-1.3-7-4.4-7-9V6l7-3z" /><path d="M9 12l2 2 4-4.5" /></>),
   seniority: svgIcon(<><rect x="4" y="13" width="4" height="7" rx="1" /><rect x="10" y="9" width="4" height="11" rx="1" /><rect x="16" y="4" width="4" height="16" rx="1" /></>),
   org: svgIcon(<><path d="M4 21V4h9v17" /><path d="M13 9.5h7V21" /><path d="M7 8h3M7 12h3M7 16h3M16 13h1.5M16 17h1.5" /></>),
+  integrations: svgIcon(<><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></>),
 };
 const ICON_DASH = svgIcon(<><rect x="3" y="3" width="7" height="9" rx="1" /><rect x="14" y="3" width="7" height="5" rx="1" /><rect x="14" y="12" width="7" height="9" rx="1" /><rect x="3" y="16" width="7" height="5" rx="1" /></>);
 const ICON_LOGOUT = svgIcon(<><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><path d="M16 17l5-5-5-5" /><path d="M21 12H9" /></>);
 const ICON_CHEVRON = svgIcon(<path d="M15 6l-6 6 6 6" />);
 
-/* Ordem do menu: projetos · pessoas · cargos · senioridade · organização */
+/* Ordem do menu: projetos · pessoas · cargos · senioridade · organização · integrações */
 const TABS = [
-  { id: "projects",  label: "Projetos",            icon: TAB_ICONS.projects },
-  { id: "team",      label: "Pessoas",             icon: TAB_ICONS.team },
-  { id: "roles",     label: "Cargos e Permissões", icon: TAB_ICONS.roles },
-  { id: "seniority", label: "Senioridade",         icon: TAB_ICONS.seniority },
-  { id: "org",       label: "Organização",         icon: TAB_ICONS.org },
+  { id: "projects",     label: "Projetos",            icon: TAB_ICONS.projects },
+  { id: "team",         label: "Pessoas",             icon: TAB_ICONS.team },
+  { id: "roles",        label: "Cargos e Permissões", icon: TAB_ICONS.roles },
+  { id: "seniority",    label: "Senioridade",         icon: TAB_ICONS.seniority },
+  { id: "org",          label: "Organização",         icon: TAB_ICONS.org },
+  { id: "integrations", label: "Integrações",         icon: TAB_ICONS.integrations },
 ];
 
 /* Troca de tema — apenas três marcadores discretos no rodapé do menu. */
@@ -142,6 +146,27 @@ const THEME_OPTS = [
 
 function AdminSettings({ section, can, dash, profile, palette, setPalette, onNavigate, onLogout }) {
   const [collapsed, setCollapsed] = React.useState(false);
+  const [connectionStatus, setConnectionStatus] = React.useState(null);
+  const [bannerDismissed, setBannerDismissed] = React.useState(
+    () => localStorage.getItem("azure_banner_dismissed") === "true"
+  );
+
+  React.useEffect(() => {
+    api.get("/v1/integrations/azure/connection")
+      .then((data) => setConnectionStatus(data?.status || "DISCONNECTED"))
+      .catch((err) => {
+        if (err.message && err.message.includes("(404)")) {
+          setConnectionStatus("DISCONNECTED");
+        } else {
+          setConnectionStatus("DISCONNECTED");
+        }
+      });
+  }, []);
+
+  const dismissBanner = () => {
+    setBannerDismissed(true);
+    localStorage.setItem("azure_banner_dismissed", "true");
+  };
 
   // o dashboard mora na casca: ao entrar nele o menu colapsa e ele ocupa a
   // área de conteúdo; ao sair, o menu volta a expandir.
@@ -161,7 +186,10 @@ function AdminSettings({ section, can, dash, profile, palette, setPalette, onNav
   const [editingProject, setEditingProject] = React.useState(null); // {...project, memberIds: [...]}
   const [projectAction, setProjectAction] = React.useState(null); // null | "finalize" | "delete"
   const [projectSearch, setProjectSearch] = React.useState("");
-  const [oauthProvider, setOauthProvider] = React.useState(null); // null | "azure" | "github"
+  const [oauthProvider, setOauthProvider] = React.useState(null); // null | "github"
+  const [adoProjects, setAdoProjects] = React.useState([]); // ADO projects from API
+  const [adoProjectsError, setAdoProjectsError] = React.useState(null);
+  const [adoBinding, setAdoBinding] = React.useState(""); // selected azureProjectId
 
   // contagens de pessoas vinculadas a cada cargo / nível de senioridade.
   const roleCount = (roleId) => members.filter((m) => m.roleId === roleId).length;
@@ -284,8 +312,30 @@ function AdminSettings({ section, can, dash, profile, palette, setPalette, onNav
   };
 
   // ── Projetos ──────────────────────────────────────────────
-  const openProject = (p) => { setProjectSearch(""); setEditingProject({ ...p, memberIds: [...p.memberIds] }); };
-  const openCreateProject = () => { setProjectSearch(""); setEditingProject({ id: null, name: "", status: "ativo", description: "", repo: "", board: "", memberIds: [] }); };
+  const openProject = (p) => {
+    setProjectSearch("");
+    setAdoProjects([]);
+    setAdoProjectsError(null);
+    setAdoBinding(p.azureProjectId || "");
+    setEditingProject({ ...p, memberIds: [...p.memberIds] });
+    if (connectionStatus === "CONNECTED") {
+      api.get("/v1/integrations/azure/projects")
+        .then((data) => setAdoProjects(data || []))
+        .catch(() => setAdoProjectsError("Não foi possível carregar projetos. Verifique a conexão."));
+    }
+  };
+  const openCreateProject = () => {
+    setProjectSearch("");
+    setAdoProjects([]);
+    setAdoProjectsError(null);
+    setAdoBinding("");
+    setEditingProject({ id: null, name: "", status: "ativo", description: "", repo: "", board: "", memberIds: [] });
+    if (connectionStatus === "CONNECTED") {
+      api.get("/v1/integrations/azure/projects")
+        .then((data) => setAdoProjects(data || []))
+        .catch(() => setAdoProjectsError("Não foi possível carregar projetos. Verifique a conexão."));
+    }
+  };
   const closeProject = () => { setEditingProject(null); setOauthProvider(null); setProjectAction(null); };
   const onOAuthAuthenticate = () => {
     const prov = PROJECT_PROVIDERS[oauthProvider];
@@ -404,6 +454,22 @@ function AdminSettings({ section, can, dash, profile, palette, setPalette, onNav
         </aside>
 
         <main className="admin-main">
+          {can("integrations") && connectionStatus !== "CONNECTED" && !bannerDismissed && (
+            <div className="integration-banner">
+              <span className="integration-banner-text">
+                Configure o Azure DevOps para ativar a coleta automática de métricas de sprint e work items.
+              </span>
+              <button className="btn integration-banner-cta" onClick={() => { dismissBanner(); onNavigate("integrations"); }}>
+                Configurar →
+              </button>
+              <button className="integration-banner-dismiss" onClick={dismissBanner} aria-label="Dispensar">×</button>
+            </div>
+          )}
+
+          {section === "integrations" && (
+            <IntegrationTab onNavigate={onNavigate} />
+          )}
+
           {section === "org" && (
             <section>
               <div className="admin-section-head">
@@ -905,11 +971,31 @@ function AdminSettings({ section, can, dash, profile, palette, setPalette, onNav
                   value={editingProject.repo}
                   onConnect={() => setOauthProvider("github")}
                 />
-                <ProjectLink
-                  icon={<Icon name="azure" size={20} color="var(--fg)" />}
-                  label="Board do Azure"
-                  value={editingProject.board}
-                  onConnect={() => setOauthProvider("azure")}
+                <AzureProjectSelect
+                  connectionStatus={connectionStatus}
+                  adoProjects={adoProjects}
+                  adoProjectsError={adoProjectsError}
+                  adoBinding={adoBinding}
+                  projectId={editingProject.id}
+                  onNavigate={onNavigate}
+                  onChange={async (azureProjectId, azureProjectName) => {
+                    setAdoBinding(azureProjectId);
+                    if (editingProject.id) {
+                      try {
+                        await api.post(`/v1/integrations/azure/projects/${editingProject.id}/binding`, { azureProjectId, azureProjectName });
+                        setEditingProject((p) => p ? { ...p, azureProjectId, azureProjectName } : p);
+                      } catch (_) { /* ignore */ }
+                    }
+                  }}
+                  onRemove={async () => {
+                    if (editingProject.id) {
+                      try {
+                        await api.delete(`/v1/integrations/azure/projects/${editingProject.id}/binding`);
+                        setAdoBinding("");
+                        setEditingProject((p) => p ? { ...p, azureProjectId: null, azureProjectName: null } : p);
+                      } catch (_) { /* ignore */ }
+                    }
+                  }}
                 />
               </div>
 
@@ -1048,6 +1134,61 @@ function AdminRow({ label, value, mono }) {
       <div className="admin-row-label">{label}</div>
       <div className={"admin-row-value" + (mono ? " mono" : "")}>{value || <span className="admin-row-empty">— vazio —</span>}</div>
       <button className="admin-row-edit">editar</button>
+    </div>
+  );
+}
+
+function AzureProjectSelect({ connectionStatus, adoProjects, adoProjectsError, adoBinding, projectId, onNavigate, onChange, onRemove }) {
+  const icon = <Icon name="azure" size={20} color="var(--fg)" />;
+
+  if (connectionStatus !== "CONNECTED") {
+    return (
+      <div className="project-link project-link--hint">
+        <div className="project-link-icon">{icon}</div>
+        <div className="project-link-info">
+          <div className="project-link-label">Projeto Azure DevOps</div>
+          <div className="project-link-value mono">
+            Conecte o Azure DevOps em{" "}
+            <button type="button" className="inline-link" onClick={() => onNavigate("integrations")}>
+              Integrações
+            </button>{" "}
+            para vincular este projeto.
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="project-link project-link--ado">
+      <div className="project-link-icon">{icon}</div>
+      <div className="project-link-info">
+        <div className="project-link-label">Projeto Azure DevOps</div>
+        {adoProjectsError ? (
+          <div className="project-link-value mono is-error">{adoProjectsError}</div>
+        ) : (
+          <div className="signup-select project-ado-select">
+            <select
+              value={adoBinding}
+              disabled={!!adoProjectsError}
+              onChange={(e) => {
+                const opt = adoProjects.find((p) => p.azureProjectId === e.target.value);
+                if (opt) onChange(opt.azureProjectId, opt.azureProjectName);
+              }}>
+              <option value="">Selecione um projeto Azure DevOps</option>
+              {adoProjects.map((p) => (
+                <option key={p.azureProjectId} value={p.azureProjectId}>{p.azureProjectName}</option>
+              ))}
+            </select>
+            <span className="signup-select-caret">▾</span>
+          </div>
+        )}
+      </div>
+      {adoBinding && (
+        <button type="button" className="project-link-status project-link-status--cta mono" onClick={onRemove}>
+          remover vínculo
+        </button>
+      )}
     </div>
   );
 }

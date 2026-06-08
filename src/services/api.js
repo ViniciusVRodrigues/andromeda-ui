@@ -11,11 +11,28 @@
 
 const BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
 
+const TOKEN_KEY = "andromeda_token";
+
+export function setToken(token) {
+  localStorage.setItem(TOKEN_KEY, token);
+}
+
+export function getToken() {
+  return localStorage.getItem(TOKEN_KEY);
+}
+
+export function clearToken() {
+  localStorage.removeItem(TOKEN_KEY);
+  localStorage.removeItem("azure_banner_dismissed");
+}
+
 async function request(path, { method = "GET", body, headers, ...rest } = {}) {
+  const token = getToken();
   const res = await fetch(`${BASE_URL}${path}`, {
     method,
     headers: {
       "Content-Type": "application/json",
+      ...(token ? { "Authorization": `Bearer ${token}` } : {}),
       ...headers,
     },
     body: body != null ? JSON.stringify(body) : undefined,
