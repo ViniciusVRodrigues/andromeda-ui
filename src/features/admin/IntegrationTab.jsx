@@ -1,6 +1,7 @@
 import React from "react";
 import api from "../../services/api.js";
 import { useOAuth } from "../../hooks/useOAuth.js";
+import { AiConnectorCard } from "./AiConnectorCard.jsx";
 
 function statusDot(status) {
   if (status === "CONNECTED") return "●";
@@ -116,7 +117,7 @@ function SyncLogDrawer({ open, onClose }) {
 
 /* ─── IntegrationTab ──────────────────────────────────────── */
 
-export function IntegrationTab() {
+export function IntegrationTab({ onNavigate, orgSlug, can }) {
   const [status, setStatus] = React.useState(null); // null=loading, "DISCONNECTED"|"CONNECTED"|"EXPIRED"|"ERROR"|"NETWORK_ERROR"
   const [connection, setConnection] = React.useState(null);
   const [logsOpen, setLogsOpen] = React.useState(false);
@@ -299,6 +300,10 @@ export function IntegrationTab() {
             </div>
           </div>
         </div>
+      )}
+
+      {can && can('CONNECTOR_TOKEN_MANAGE_OWN') && orgSlug && (
+        <AiConnectorCard orgSlug={orgSlug} can={can} />
       )}
 
       <SyncLogDrawer open={logsOpen} onClose={() => setLogsOpen(false)} />

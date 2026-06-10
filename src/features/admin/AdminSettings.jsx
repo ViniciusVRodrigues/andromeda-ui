@@ -467,7 +467,7 @@ function AdminSettings({ section, can, dash, profile, palette, setPalette, onNav
           )}
 
           {section === "integrations" && (
-            <IntegrationTab onNavigate={onNavigate} />
+            <IntegrationTab onNavigate={onNavigate} orgSlug={profile?.org?.slug} can={can} />
           )}
 
           {section === "org" && (
