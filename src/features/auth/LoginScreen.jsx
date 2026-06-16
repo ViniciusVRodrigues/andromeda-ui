@@ -9,7 +9,7 @@ function LoginScreen({ onLogin, onHome }) {
 
   const submit = (e) => {
     e.preventDefault();
-    onLogin();
+    onLogin({ email, password });
   };
 
   return (

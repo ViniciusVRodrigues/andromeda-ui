@@ -9,10 +9,12 @@
  * pelo usuário comum — por isso não aparecem aqui. */
 
 import React from "react";
+import { useSearchParams } from "react-router-dom";
 import { OrbitWizard } from "../../components/OrbitWizard.jsx";
 import { Field } from "../../components/Field.jsx";
 import { OAuthPopup } from "../../components/OAuthPopup.jsx";
 import { PROVIDERS } from "../../data/providers.jsx";
+import api, { setToken } from "../../services/api.js";
 
 const ONBOARDING_STEPS = [
   { id: "bem-vindo",   label: "Início",  title: "Bem-vindo à",     accent: "Andrômeda",      lede: "Correlacionamos o esforço computacional da IA — em tokens — com as métricas clássicas de desenvolvimento ágil." },
@@ -21,18 +23,14 @@ const ONBOARDING_STEPS = [
   { id: "pronto",      label: "Pronto",  title: "Sincronizando o", accent: "cosmos",         lede: "Os primeiros dados chegam em breve. Você já pode explorar com dados de demonstração." },
 ];
 
-/* Mock dos dados que o ADMIN já preencheu ao convidar este usuário. Quando o
-   onboarding for de verdade, viriam do token do link. */
-const ADMIN_PREFILL = {
-  email:     "convidado@andromeda.tcc",
-  role:      "Desenvolvedor",
-  seniority: "Pleno",
-};
-
 function OnboardingScreen({ onDone }) {
+  const [searchParams] = useSearchParams();
+  const inviteToken = searchParams.get("token") || "";
+
   const [account, setAccount] = React.useState({ fullName: "", password: "", confirm: "" });
   const [connections, setConnections] = React.useState({ ai: false });
   const [openOauth, setOpenOauth] = React.useState(null);  // null | "ai"
+  const [error, setError] = React.useState(null);
 
   const valid = [
     true,                                                                 // 0 · boas-vindas
@@ -48,18 +46,39 @@ function OnboardingScreen({ onDone }) {
     setOpenOauth(null);
   };
 
+  const handleComplete = async () => {
+    setError(null);
+    try {
+      const resp = await api.post("/v1/auth/invite/complete", {
+        token: inviteToken,
+        name: account.fullName.trim(),
+        password: account.password,
+      });
+      setToken(resp.accessToken);
+      await onDone();
+    } catch (err) {
+      setError("Link inválido ou expirado. Peça um novo convite ao administrador.");
+      console.error("[onboarding] invite/complete failed:", err);
+    }
+  };
+
   return (
     <>
+      {error && (
+        <div style={{ color: "var(--error, #f66)", fontSize: 12, textAlign: "center", marginBottom: 12 }}>
+          {error}
+        </div>
+      )}
       <OrbitWizard
         steps={ONBOARDING_STEPS}
         validity={valid}
         finalLabel="Entrar no dashboard →"
-        onComplete={onDone}
+        onComplete={handleComplete}
         versionmark="v0.1 · setup"
         renderStep={(step) => (
           <>
             {step === 0 && <StepWelcome />}
-            {step === 1 && <StepAccount account={account} setAccount={setAccount} />}
+            {step === 1 && <StepAccount account={account} setAccount={setAccount} hasToken={!!inviteToken} />}
             {step === 2 && <StepProvider provider={PROVIDERS.ai} connected={connections.ai} onConnect={() => setOpenOauth("ai")} />}
             {step === 3 && <StepReady connections={connections} />}
           </>
@@ -97,12 +116,14 @@ function StepWelcome() {
   );
 }
 
-function StepAccount({ account, setAccount }) {
+function StepAccount({ account, setAccount, hasToken }) {
   return (
     <div className="signup-orbit-fields">
-      <Field full locked label="E-mail"     value={ADMIN_PREFILL.email} />
-      <Field      locked label="Cargo"      value={ADMIN_PREFILL.role} />
-      <Field      locked label="Senioridade" value={ADMIN_PREFILL.seniority} />
+      {!hasToken && (
+        <div style={{ gridColumn: "1 / -1", color: "var(--error, #f66)", fontSize: 12 }}>
+          Link de convite não encontrado. Certifique-se de abrir o link enviado por e-mail.
+        </div>
+      )}
       <Field full label="Nome completo" value={account.fullName}
              onChange={(x) => setAccount({ ...account, fullName: x })}
              placeholder="ex.: João da Silva" />

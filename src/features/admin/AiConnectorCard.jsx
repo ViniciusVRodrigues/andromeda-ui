@@ -1,5 +1,5 @@
 import React from "react";
-import api from "../../services/api.js";
+import api, { BACKEND_URL } from "../../services/api.js";
 
 /**
  * @param {{ orgSlug: string, can: (perm: string) => boolean }} props
@@ -16,7 +16,7 @@ export function AiConnectorCard({ orgSlug, can }) {
   const [confirmRegen, setConfirmRegen] = React.useState(false);
 
   const buildUrl = (token) =>
-    `${window.location.origin}/connector/${orgSlug}/${token}/api/upload`;
+    `${BACKEND_URL}/connector/${orgSlug}/${token}`;
 
   const fetchTokens = React.useCallback(async () => {
     setUiState("loading");
@@ -87,83 +87,85 @@ export function AiConnectorCard({ orgSlug, can }) {
 
   return (
     <div className="integration-card">
+      {/* ── Card header ── */}
       <div className="integration-card-head">
-        <span className="serif integration-card-name">AI Connector — VS Code</span>
+        <div className="integration-card-icon" aria-hidden="true">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M1.5 7.5L12 2l10.5 5.5v9L12 22 1.5 16.5v-9Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
+            <path d="M12 2v20M1.5 7.5l10.5 5.5 10.5-5.5" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
+          </svg>
+        </div>
+        <span className="integration-card-name">AI Connector — VS Code</span>
+        <div className="integration-card-badges">
+          {(uiState === "existing" || uiState === "generated") && (
+            <span className="integration-status-badge is-connected">● URL gerada</span>
+          )}
+          {uiState === "empty" && (
+            <span className="integration-status-badge is-disconnected">Não configurado</span>
+          )}
+        </div>
       </div>
 
+      {/* ── Description ── */}
       <p className="integration-desc">
-        Gere uma URL para conectar a extensão AIEF ao Andromeda.
+        Gere uma URL para conectar a extensão AIEF ao Andromeda e registrar métricas de uso de IA.
       </p>
 
+      {/* ── Token states ── */}
       {uiState === "loading" && (
         <p className="mono integration-loading">Verificando tokens…</p>
       )}
 
       {uiState === "error" && (
-        <div>
+        <>
           <p className="mono integration-error">{error}</p>
           <button className="btn" onClick={fetchTokens}>Tentar novamente</button>
-        </div>
+        </>
       )}
 
       {uiState === "empty" && (
-        <div className="integration-disconnected">
-          <button className="btn" onClick={handleGenerate} disabled={working}>
-            {working ? "Gerando…" : "Gerar URL →"}
-          </button>
+        <>
+          <div className="integration-actions">
+            <button className="btn" onClick={handleGenerate} disabled={working}>
+              {working ? "Gerando…" : "Gerar URL →"}
+            </button>
+          </div>
           {error && <p className="mono integration-error" style={{ marginTop: "var(--spacing-sm)" }}>{error}</p>}
-        </div>
+        </>
       )}
 
       {uiState === "generated" && (
-        <div className="integration-connected">
-          <div className="integration-meta" style={{ display: "flex", gap: "var(--spacing-sm)", alignItems: "center" }}>
+        <>
+          <div className="integration-url-row">
             <input
-              className="mono"
+              className="integration-url-input"
               readOnly
               value={connectorUrl}
-              style={{
-                flex: 1,
-                background: "var(--bg-2)",
-                border: "1px solid var(--line)",
-                borderRadius: "4px",
-                padding: "6px 10px",
-                fontSize: "0.78rem",
-                color: "var(--fg)",
-              }}
               onFocus={(e) => e.target.select()}
+              aria-label="URL do conector"
             />
             <button className="btn" onClick={handleCopy} style={{ whiteSpace: "nowrap" }}>
               {copied ? "Copiado!" : "Copiar"}
             </button>
           </div>
-          <p
-            className="mono"
-            style={{
-              fontSize: "0.78rem",
-              color: "var(--accent)",
-              marginTop: "var(--spacing-sm)",
-            }}
-          >
+          <p className="integration-url-warn">
             Copie a URL antes de sair — ela não será exibida novamente.
           </p>
-        </div>
+        </>
       )}
 
       {uiState === "existing" && (
-        <div className="integration-connected">
-          <div className="integration-meta mono">
-            <span className="integration-badge is-connected">URL gerada</span>
-          </div>
-          <div className="integration-actions" style={{ marginTop: "var(--spacing-sm)" }}>
+        <>
+          <div className="integration-actions">
             <button className="btn" onClick={() => setConfirmRegen(true)} disabled={working}>
               {working ? "Gerando…" : "Gerar novo token →"}
             </button>
           </div>
           {error && <p className="mono integration-error" style={{ marginTop: "var(--spacing-sm)" }}>{error}</p>}
-        </div>
+        </>
       )}
 
+      {/* ── Tutorial — always visible below divider ── */}
       <AiConnectorTutorial />
 
       {confirmRegen && (
@@ -191,39 +193,41 @@ export function AiConnectorCard({ orgSlug, can }) {
 
 function AiConnectorTutorial() {
   return (
-    <div style={{ marginTop: "var(--spacing-md)", borderTop: "1px solid var(--line)", paddingTop: "var(--spacing-md)" }}>
-      <p className="mono" style={{ fontSize: "0.75rem", color: "var(--fg-2)", marginBottom: "var(--spacing-sm)", textTransform: "uppercase", letterSpacing: "0.08em" }}>
-        Como configurar
-      </p>
-
-      <div style={{ display: "flex", flexDirection: "column", gap: "var(--spacing-sm)" }}>
-        <div>
-          <p className="mono" style={{ fontSize: "0.82rem", fontWeight: 600, marginBottom: "2px" }}>Passo 1 — Instale a extensão</p>
-          <a
-            href="https://marketplace.visualstudio.com/items?itemName=rob-bos.ai-engineering-fluency"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="mono"
-            style={{ fontSize: "0.82rem", color: "var(--accent)" }}
-          >
-            AI Engineering Fluency no VS Code Marketplace →
-          </a>
-          <img data-tutorial-step="1" alt="VS Code Marketplace" src="" style={{ display: "none" }} />
+    <div className="integration-tutorial">
+      <p className="integration-tutorial-heading">Como configurar</p>
+      <div className="integration-tutorial-steps">
+        <div className="integration-tutorial-step">
+          <span className="integration-tutorial-step-num">1</span>
+          <div className="integration-tutorial-step-body">
+            <p className="integration-tutorial-step-title">Instale a extensão</p>
+            <a
+              href="https://marketplace.visualstudio.com/items?itemName=rob-bos.ai-engineering-fluency"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="integration-tutorial-step-desc"
+              style={{ color: "var(--accent)" }}
+            >
+              AI Engineering Fluency no VS Code Marketplace →
+            </a>
+          </div>
         </div>
-
-        <div>
-          <p className="mono" style={{ fontSize: "0.82rem", fontWeight: 600, marginBottom: "2px" }}>Passo 2 — Configure o endereço</p>
-          <p className="mono" style={{ fontSize: "0.82rem", color: "var(--fg-2)" }}>
-            No VS Code, abra as configurações (<kbd>Ctrl+,</kbd>) e defina <code>aief.serverUrl</code> com a URL gerada acima.
-          </p>
-          <img data-tutorial-step="2" alt="VS Code settings" src="" style={{ display: "none" }} />
+        <div className="integration-tutorial-step">
+          <span className="integration-tutorial-step-num">2</span>
+          <div className="integration-tutorial-step-body">
+            <p className="integration-tutorial-step-title">Configure o endereço</p>
+            <p className="integration-tutorial-step-desc">
+              Abra as configurações do VS Code (<kbd>Ctrl+,</kbd>) e defina <code>aief.serverUrl</code> com a URL gerada acima.
+            </p>
+          </div>
         </div>
-
-        <div>
-          <p className="mono" style={{ fontSize: "0.82rem", fontWeight: 600, marginBottom: "2px" }}>Passo 3 — Reinicie o VS Code</p>
-          <p className="mono" style={{ fontSize: "0.82rem", color: "var(--fg-2)" }}>
-            Reinicie o VS Code para que a extensão comece a enviar os dados de uso.
-          </p>
+        <div className="integration-tutorial-step">
+          <span className="integration-tutorial-step-num">3</span>
+          <div className="integration-tutorial-step-body">
+            <p className="integration-tutorial-step-title">Reinicie o VS Code</p>
+            <p className="integration-tutorial-step-desc">
+              Reinicie o VS Code para que a extensão comece a enviar os dados de uso.
+            </p>
+          </div>
         </div>
       </div>
     </div>

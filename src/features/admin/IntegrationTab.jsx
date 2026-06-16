@@ -44,7 +44,7 @@ function SyncLogDrawer({ open, onClose }) {
     setLoading(true);
     setError(null);
     try {
-      const data = await api.get("/v1/integrations/sync-logs");
+      const data = await api.get("/v1/integrations/sync-logs?integration=AZURE_DEVOPS");
       const filtered = (data || []).filter((e) => e.integrationType === "AZURE_DEVOPS");
       setLogs(filtered);
     } catch (_) {
@@ -117,12 +117,93 @@ function SyncLogDrawer({ open, onClose }) {
 
 /* ─── IntegrationTab ──────────────────────────────────────── */
 
+function AzurePatSetupForm({ onSuccess, onCancel }) {
+  const [orgUrl, setOrgUrl] = React.useState("");
+  const [pat, setPat] = React.useState("");
+  const [error, setError] = React.useState(null);
+  const [saving, setSaving] = React.useState(false);
+
+  const slug = orgUrl.replace(/^https?:\/\/dev\.azure\.com\//i, "").replace(/\/$/, "").trim();
+  const patLink = slug
+    ? `https://dev.azure.com/${slug}/_usersSettings/tokens`
+    : "https://aex.dev.azure.com/me";
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!orgUrl.trim() || !pat.trim()) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await api.post("/v1/integrations/azure/connection/pat", {
+        adoOrganizationUrl: orgUrl.trim(),
+        personalAccessToken: pat.trim(),
+      });
+      onSuccess();
+    } catch (_) {
+      setError("Não foi possível salvar o token. Verifique os dados e tente novamente.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <form className="integration-pat-form" onSubmit={handleSubmit}>
+      <label className="role-modal-field">
+        <span className="role-modal-label">URL da organização Azure DevOps</span>
+        <input
+          className="role-modal-input"
+          type="text"
+          placeholder="https://dev.azure.com/minha-org"
+          value={orgUrl}
+          onChange={(e) => setOrgUrl(e.target.value)}
+          required
+        />
+      </label>
+
+      <div className="integration-pat-scopes">
+        <p className="mono integration-pat-scopes-title">Permissões necessárias no PAT:</p>
+        <ul className="mono integration-pat-scopes-list">
+          <li>Work Items (Read)</li>
+          <li>Code (Read)</li>
+          <li>Build (Read)</li>
+          <li>Project and Team (Read)</li>
+        </ul>
+        <a className="integration-pat-link" href={patLink} target="_blank" rel="noopener noreferrer">
+          Criar PAT na Azure DevOps ↗
+        </a>
+      </div>
+
+      <label className="role-modal-field">
+        <span className="role-modal-label">Personal Access Token</span>
+        <input
+          className="role-modal-input"
+          type="password"
+          placeholder="Cole o PAT aqui"
+          value={pat}
+          onChange={(e) => setPat(e.target.value)}
+          required
+        />
+      </label>
+
+      {error && <p className="mono integration-error">{error}</p>}
+
+      <div className="role-modal-foot">
+        <button type="button" className="btn-ghost btn" onClick={onCancel}>Cancelar</button>
+        <button type="submit" className="btn" disabled={saving || !orgUrl.trim() || !pat.trim()}>
+          {saving ? "Salvando…" : "Conectar →"}
+        </button>
+      </div>
+    </form>
+  );
+}
+
 export function IntegrationTab({ onNavigate, orgSlug, can }) {
   const [status, setStatus] = React.useState(null); // null=loading, "DISCONNECTED"|"CONNECTED"|"EXPIRED"|"ERROR"|"NETWORK_ERROR"
   const [connection, setConnection] = React.useState(null);
   const [logsOpen, setLogsOpen] = React.useState(false);
   const [secondsLeft, setSecondsLeft] = React.useState(0);
   const [disconnectConfirm, setDisconnectConfirm] = React.useState(false);
+  const [authMethod, setAuthMethod] = React.useState(null); // null=not chosen, "OAUTH", "PAT"
 
   const fetchStatus = React.useCallback(async () => {
     setStatus(null);
@@ -133,6 +214,7 @@ export function IntegrationTab({ onNavigate, orgSlug, can }) {
     } catch (err) {
       if (err.message && err.message.includes("(404)")) {
         setStatus("DISCONNECTED");
+        setAuthMethod(null);
       } else {
         setStatus("NETWORK_ERROR");
       }
@@ -145,6 +227,7 @@ export function IntegrationTab({ onNavigate, orgSlug, can }) {
     onSuccess: (data) => {
       setConnection(data);
       setStatus(data.status);
+      setAuthMethod(null);
     },
     onError: (reason) => {
       if (reason === "timeout") {
@@ -187,6 +270,7 @@ export function IntegrationTab({ onNavigate, orgSlug, can }) {
       await api.delete("/v1/integrations/azure/connection");
       setStatus("DISCONNECTED");
       setConnection(null);
+      setAuthMethod(null);
       setDisconnectConfirm(false);
     } catch (_) {
       setDisconnectConfirm(false);
@@ -204,57 +288,136 @@ export function IntegrationTab({ onNavigate, orgSlug, can }) {
       </div>
 
       <div className="integration-card">
+        {/* ── Card header ── */}
         <div className="integration-card-head">
-          <span className={dotClass(status)}>{statusDot(status)}</span>
-          <span className="serif integration-card-name">Azure DevOps</span>
+          <div className="integration-card-icon" aria-hidden="true">
+            <svg width="22" height="22" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M143.9 0L78.3 46.4 16 95.1v65.7l29.2 25.5 107.3-130.8v97.3l-59.9 52.3 103.5 0.9 59.9-51.8V62.7L143.9 0Z" fill="currentColor" opacity="0.9"/>
+            </svg>
+          </div>
+          <span className="integration-card-name">Azure DevOps</span>
+          <div className="integration-card-badges">
+            {status === "CONNECTED" && (
+              <>
+                <span className="integration-status-badge is-connected">● Conectado</span>
+                {connection?.authMethod && (
+                  <span className="integration-auth-pill">
+                    {connection.authMethod === "PAT" ? "PAT" : "Entra ID"}
+                  </span>
+                )}
+              </>
+            )}
+            {status === "EXPIRED" && (
+              <span className="integration-status-badge is-expired">● Token expirado</span>
+            )}
+            {status === "ERROR" && (
+              <span className="integration-status-badge is-error">● Erro</span>
+            )}
+            {status === "DISCONNECTED" && (
+              <span className="integration-status-badge is-disconnected">Não conectado</span>
+            )}
+            {status === "NETWORK_ERROR" && (
+              <span className="integration-status-badge is-error">Indisponível</span>
+            )}
+          </div>
         </div>
 
+        {/* ── Loading ── */}
         {status === null && (
           <p className="mono integration-loading">Verificando conexão…</p>
         )}
 
+        {/* ── Network error ── */}
         {networkError && (
           <p className="mono integration-error">Não foi possível verificar o status da conexão.</p>
         )}
 
+        {/* ── Disconnected ── */}
         {status === "DISCONNECTED" && (
-          <div className="integration-disconnected">
+          <>
             <p className="integration-desc">
               Conecte o Azure DevOps para habilitar a sincronização automática de sprints e work items.
             </p>
-            <button className="btn" onClick={triggerOAuth} disabled={polling}>
-              {polling ? "Aguardando autorização…" : "Conectar com Microsoft →"}
-            </button>
-          </div>
+            {authMethod === null && (
+              <div className="integration-method-chooser">
+                <button className="btn" onClick={() => setAuthMethod("OAUTH")} disabled={polling}>
+                  Conectar com Microsoft (Entra ID) →
+                </button>
+                <button className="btn-ghost btn" onClick={() => setAuthMethod("PAT")}>
+                  Usar Token de Acesso Pessoal
+                </button>
+              </div>
+            )}
+            {authMethod === "OAUTH" && (
+              <button className="btn" onClick={triggerOAuth} disabled={polling}>
+                {polling ? "Aguardando autorização…" : "Abrir autorização Microsoft →"}
+              </button>
+            )}
+            {authMethod === "PAT" && (
+              <AzurePatSetupForm
+                onSuccess={() => fetchStatus()}
+                onCancel={() => setAuthMethod(null)}
+              />
+            )}
+          </>
         )}
 
-        {status === "EXPIRED" && (
-          <div className="integration-expired">
-            <p className="mono integration-badge is-expired">Token expirado — reconecte para retomar a sincronização</p>
-            <button className="btn" onClick={triggerOAuth} disabled={polling}>
-              {polling ? "Aguardando autorização…" : "Reconectar →"}
-            </button>
-          </div>
+        {/* ── Expired / Error ── */}
+        {(status === "EXPIRED" || status === "ERROR") && (
+          <>
+            {status === "EXPIRED" && (
+              <div className="integration-alert is-expired">
+                Token expirado — reconecte para retomar a sincronização.
+              </div>
+            )}
+            {status === "ERROR" && (
+              <div className="integration-alert is-error">
+                Erros consecutivos detectados · {connection?.consecutiveFailures ?? 0} falha{(connection?.consecutiveFailures ?? 0) !== 1 ? "s" : ""}
+              </div>
+            )}
+            {authMethod === null && (
+              <div className="integration-method-chooser">
+                <button className="btn" onClick={() => setAuthMethod("OAUTH")} disabled={polling}>
+                  Reconectar com Microsoft →
+                </button>
+                <button className="btn-ghost btn" onClick={() => setAuthMethod("PAT")}>
+                  Reconectar com PAT
+                </button>
+              </div>
+            )}
+            {authMethod === "OAUTH" && (
+              <button className="btn" onClick={triggerOAuth} disabled={polling}>
+                {polling ? "Aguardando autorização…" : "Abrir autorização Microsoft →"}
+              </button>
+            )}
+            {authMethod === "PAT" && (
+              <AzurePatSetupForm
+                onSuccess={() => fetchStatus()}
+                onCancel={() => setAuthMethod(null)}
+              />
+            )}
+          </>
         )}
 
-        {status === "ERROR" && (
-          <div className="integration-error-state">
-            <p className="mono integration-badge is-error">
-              Erros consecutivos detectados · {connection?.consecutiveFailures ?? 0} falha{(connection?.consecutiveFailures ?? 0) !== 1 ? "s" : ""}
-            </p>
-            <button className="btn" onClick={triggerOAuth} disabled={polling}>
-              {polling ? "Aguardando autorização…" : "Reconectar →"}
-            </button>
-          </div>
-        )}
-
+        {/* ── Connected ── */}
         {isConnected && connection && (
-          <div className="integration-connected">
-            <div className="integration-meta mono">
-              <span>{connection.azureOrgUrl}</span>
-              <span>Autorizado por: {connection.authorizedByUserId}</span>
+          <>
+            <div className="integration-meta">
+              <div className="integration-meta-row">
+                <span className="meta-label">Organização</span>
+                <span className="mono">{connection.azureOrgUrl}</span>
+              </div>
+              {connection.authorizedByUserId && (
+                <div className="integration-meta-row">
+                  <span className="meta-label">Autorizado por</span>
+                  <span className="mono">{connection.authorizedByUserId}</span>
+                </div>
+              )}
               {connection.lastSuccessAt && (
-                <span>Última sincronização: {formatRelative(connection.lastSuccessAt)}</span>
+                <div className="integration-meta-row">
+                  <span className="meta-label">Última sincronização</span>
+                  <span className="mono">{formatRelative(connection.lastSuccessAt)}</span>
+                </div>
               )}
             </div>
             <div className="integration-actions">
@@ -277,7 +440,7 @@ export function IntegrationTab({ onNavigate, orgSlug, can }) {
                 Desconectar
               </button>
             </div>
-          </div>
+          </>
         )}
       </div>
 
@@ -302,7 +465,7 @@ export function IntegrationTab({ onNavigate, orgSlug, can }) {
         </div>
       )}
 
-      {can && can('CONNECTOR_TOKEN_MANAGE_OWN') && orgSlug && (
+      {can && (can('CONNECTOR_TOKEN_MANAGE_OWN') || can('CONNECTOR_TOKEN_MANAGE_ALL')) && orgSlug && (
         <AiConnectorCard orgSlug={orgSlug} can={can} />
       )}
 

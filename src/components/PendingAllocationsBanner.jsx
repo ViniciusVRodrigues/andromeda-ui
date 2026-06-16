@@ -18,7 +18,7 @@ export default function PendingAllocationsBanner({ count, onReview }) {
       <span style={{ fontSize: 13, color: "var(--fg)" }}>
         <span style={{ color: "var(--accent)", fontWeight: 600 }}>{count}</span>
         {" "}
-        {count === 1 ? "day of AI usage needs" : "days of AI usage need"} your review
+        {count === 1 ? "dia de uso de IA precisa" : "dias de uso de IA precisam"} da sua revisão
       </span>
       <button
         onClick={onReview}
@@ -34,7 +34,7 @@ export default function PendingAllocationsBanner({ count, onReview }) {
           whiteSpace: "nowrap",
         }}
       >
-        Review
+        Revisar
       </button>
     </div>
   );

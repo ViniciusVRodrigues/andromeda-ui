@@ -18,9 +18,9 @@ import { SignupScreen } from "./features/auth/SignupScreen.jsx";
 import { LoginScreen } from "./features/auth/LoginScreen.jsx";
 import { OnboardingScreen } from "./features/onboarding/OnboardingScreen.jsx";
 import { AdminSettings } from "./features/admin/AdminSettings.jsx";
-import { DashboardView } from "./features/dashboard/DashboardView.jsx";
+import { DashboardPage } from "./features/dashboard/DashboardPage.jsx";
 import { ThemePickerModal } from "./components/ThemePickerModal.jsx";
-import api, { setToken, clearToken } from "./services/api.js";
+import api, { setToken, clearToken, onAuthExpired, getToken } from "./services/api.js";
 import {
   useTweaks,
   TweaksPanel,
@@ -37,71 +37,71 @@ const SHELL_SECTIONS = [
   { route: "organizacao", tab: "org" },
   { route: "dashboard",   tab: "dashboard" },
   { route: "integracoes", tab: "integrations" },
+  { route: "uso-ia",      tab: "uso-ia" },
+  { route: "perfil",      tab: "perfil" },
 ];
 const ROUTE_TO_TAB = Object.fromEntries(SHELL_SECTIONS.map((s) => [s.route, s.tab]));
 const TAB_TO_ROUTE = Object.fromEntries(SHELL_SECTIONS.map((s) => [s.tab, s.route]));
 const SHELL_ROUTES = SHELL_SECTIONS.map((s) => s.route);
 
-/* Projetos que cada identidade enxerga no dashboard. No backend viria do
- * /api/me (os projetos dos quais o usuário faz parte). */
-const ALL_PROJECTS = [
-  { id: "p-orion",  name: "Orion Core" },
-  { id: "p-nebula", name: "Nebula Dashboard" },
-  { id: "p-pulsar", name: "Pulsar Connectors" },
-  { id: "p-vega",   name: "Vega Insights" },
-  { id: "p-atlas",  name: "Atlas Billing" },
-];
-const VIEWER_PROJECTS = [ALL_PROJECTS[0], ALL_PROJECTS[3]]; // só os que ele faz parte
-
-/* ── Identidades simuladas (no backend, vêm do cargo via /api/me) ── */
-const IDENTITIES = {
-  admin:  { isAdmin: true,  perms: ["gerProjeto", "gerEquipe", "dashPessoal", "dashEquipe", "dashOrg"], projects: ALL_PROJECTS },
-  member: { isAdmin: false, perms: ["gerProjeto", "gerEquipe", "dashPessoal", "dashEquipe", "dashOrg"], projects: ALL_PROJECTS },
-  viewer: { isAdmin: false, perms: ["dashPessoal"], projects: VIEWER_PROJECTS }, // só o dashboard individual
-};
+/* Builds an identity object from real backend permissions array. */
+function buildIdentity(permissions) {
+  return {
+    isAdmin: permissions.includes("USER_MANAGE") && permissions.includes("ROLE_MANAGE"),
+    permissions,
+    projects: [], // populated from /api/me or project endpoints
+  };
+}
 
 /* Quais abas/áreas cada identidade enxerga. Projetos/Pessoas/Dashboard por
  * feature; Cargos/Plano/Organização só admin. */
 function canSee(identity, tab) {
   if (!identity) return false;
-  if (tab === "projects")     return identity.perms.includes("gerProjeto");
-  if (tab === "team")         return identity.perms.includes("gerEquipe");
-  if (tab === "dashboard")    return identity.perms.some((p) => p.startsWith("dash"));
-  if (tab === "integrations") return identity.perms.includes("AZURE_CONFIGURE") || identity.perms.includes("AZURE_READ") || identity.isAdmin;
+  const p = identity.permissions;
+  if (tab === "projects")     return p.includes("gerProjeto") || identity.isAdmin;
+  if (tab === "team")         return p.includes("gerEquipe") || p.includes("USER_MANAGE") || identity.isAdmin;
+  if (tab === "dashboard")    return p.includes("DASHBOARD_INDIVIDUAL") || p.includes("DASHBOARD_TEAM") || p.includes("DASHBOARD_STRATEGIC");
+  if (tab === "integrations") return p.includes("AZURE_CONFIGURE") || p.includes("AZURE_READ") || identity.isAdmin;
+  if (tab === "uso-ia")       return p.includes("AI_READ_OWN") || p.includes("AI_READ_ALL");
+  if (tab === "uso-ia-team")  return p.includes("DASHBOARD_TEAM") || p.includes("AI_READ_ALL");
   return identity.isAdmin; // roles, seniority, org
 }
 function firstAllowedRoute(identity) {
+  // Dashboard takes priority when the user has any dashboard permission
+  const p = identity.permissions;
+  if (p.includes("DASHBOARD_INDIVIDUAL") || p.includes("DASHBOARD_TEAM") || p.includes("DASHBOARD_STRATEGIC")) {
+    return "/dashboard";
+  }
   const first = SHELL_SECTIONS.find((s) => canSee(identity, s.tab));
   return "/" + (first ? first.route : "");
 }
 
-/* Tem alguma gestão (projeto/pessoas/admin)? Se não, não há barra lateral —
- * o usuário vê só o dashboard com a pílula inferior. */
 function hasManage(identity) {
+  const p = identity.permissions;
   return identity.isAdmin
-    || identity.perms.includes("gerProjeto")
-    || identity.perms.includes("gerEquipe");
+    || p.includes("gerProjeto")
+    || p.includes("gerEquipe")
+    || p.includes("USER_MANAGE");
 }
-/* Acesso de dashboard (escopos/visões) derivado das permissões. */
+
 function dashAccess(identity) {
+  const p = identity.permissions;
   return {
     projects:   identity.projects || [],
-    individual: identity.perms.includes("dashPessoal"),
-    equipe:     identity.perms.includes("dashEquipe"),
-    org:        identity.perms.includes("dashOrg"),
+    individual: p.includes("DASHBOARD_INDIVIDUAL"),
+    equipe:     p.includes("DASHBOARD_TEAM"),
+    org:        p.includes("DASHBOARD_STRATEGIC"),
   };
 }
 
-const MEMBER_PROFILE = {
-  personal: { fullName: "João Pereira", email: "joao@andromeda.tcc", role: "Tech Lead" },
-  org: { name: "Andrômeda Core", slug: "andromeda-core", sector: "Tecnologia", country: "Brasil", size: "16-80" },
-  plan: "galaxia",
-};
-const ADMIN_PROFILE_FALLBACK = {
-  personal: { fullName: "Maria Andrade", email: "maria@andromeda.tcc", role: "Head of Engineering" },
-  org: { name: "Andrômeda Core", slug: "andromeda-core", sector: "Tecnologia", country: "Brasil", size: "16-80" },
-  plan: "galaxia",
-};
+/* Builds the profile shape expected by AdminSettings from /me response data. */
+function buildProfile(meData) {
+  return {
+    personal: { fullName: meData.name, email: meData.email, role: "" },
+    org: { name: meData.orgName, slug: meData.orgSlug ?? "", sector: "", country: "", size: "—" },
+    plan: "galaxia",
+  };
+}
 
 function App() {
   return (
@@ -115,7 +115,9 @@ function AppShell() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const [identityKey, setIdentityKey] = React.useState(null); // "admin" | "member" | null
+  // "pending" while verifying existing token; "authenticated" | "unauthenticated" after
+  const [authStatus, setAuthStatus] = React.useState(() => getToken() ? "pending" : "unauthenticated");
+  const [identity, setIdentity] = React.useState(null);
   const [profile, setProfile] = React.useState(null);
   const [themePickerOpen, setThemePickerOpen] = React.useState(false);
 
@@ -127,40 +129,58 @@ function AppShell() {
   const palette = tweaks.palette || "default";
   const setPalette = (v) => setTweak("palette", v);
 
-  const identity = identityKey ? IDENTITIES[identityKey] : null;
-
   // apply palette to root
   React.useEffect(() => {
     document.documentElement.setAttribute("data-palette", palette);
   }, [palette]);
 
-  // entra no app autenticado com uma identidade + perfil
-  const enterApp = (key, prof, route = "/projetos") => {
-    setIdentityKey(key);
-    setProfile(prof);
+  // bootstrap: restore session from existing token
+  React.useEffect(() => {
+    if (authStatus !== "pending") return;
+    api.get("/v1/auth/me")
+      .then((meData) => {
+        setIdentity(buildIdentity(meData.permissions));
+        setProfile(buildProfile(meData));
+        setAuthStatus("authenticated");
+      })
+      .catch(() => {
+        clearToken();
+        setIdentity(null);
+        setProfile(null);
+        setAuthStatus("unauthenticated");
+      });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // register 401 handler so any API call expiring the session logs out cleanly
+  React.useEffect(() => {
+    onAuthExpired(() => {
+      setIdentity(null);
+      setProfile(null);
+      setAuthStatus("unauthenticated");
+      navigate("/");
+    });
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const enterApp = (meData, route = "/projetos") => {
+    setIdentity(buildIdentity(meData.permissions));
+    setProfile(buildProfile(meData));
+    setAuthStatus("authenticated");
     navigate(route);
   };
   const exitApp = () => {
-    setIdentityKey(null);
+    setIdentity(null);
     setProfile(null);
+    setAuthStatus("unauthenticated");
     clearToken();
     navigate("/");
   };
 
   const handleSignupDone = async (payload) => {
-    try {
-      const response = await api.post("/v1/organizations", payload);
-      setToken(response.token);
-      const adminProfile = {
-        personal: { fullName: payload.admin.name, email: payload.admin.email, role: "Administrador" },
-        org: { name: response.orgName, slug: response.orgSlug, sector: payload.org.sector, country: payload.org.country, size: "—" },
-        plan: "galaxia",
-      };
-      setThemePickerOpen(true);
-      enterApp("admin", adminProfile, "/projetos");
-    } catch (err) {
-      console.error("[handleSignupDone] onboarding failed:", err);
-    }
+    const response = await api.post("/v1/organizations", payload);
+    setToken(response.token);
+    const meData = await api.get("/v1/auth/me");
+    setThemePickerOpen(true);
+    enterApp(meData, "/projetos");
   };
 
   // segmento de topo: estável dentro da casca (todas as áreas compartilham a
@@ -169,6 +189,10 @@ function AppShell() {
   const seg = location.pathname === "/" ? "home" : location.pathname.split("/")[1];
   const inShell = SHELL_ROUTES.includes(seg);
   const keyBase = inShell ? "shell" : seg;
+
+  if (authStatus === "pending") {
+    return <div className="app-shell" style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh" }} />;
+  }
 
   return (
     <>
@@ -189,12 +213,28 @@ function AppShell() {
             } />
             <Route path="/login" element={
               <LoginScreen
-                onLogin={() => enterApp("member", MEMBER_PROFILE)}
+                onLogin={async ({ email, password }) => {
+                  try {
+                    const resp = await api.post("/v1/auth/login", { email, password });
+                    setToken(resp.accessToken);
+                    const meData = await api.get("/v1/auth/me");
+                    enterApp(meData, firstAllowedRoute(buildIdentity(meData.permissions)));
+                  } catch (err) {
+                    console.error("[login] failed:", err);
+                  }
+                }}
                 onHome={() => navigate("/")}
               />
             } />
             <Route path="/onboard" element={
-              <OnboardingScreen onDone={() => enterApp("member", MEMBER_PROFILE)} />
+              <OnboardingScreen onDone={async () => {
+                try {
+                  const meData = await api.get("/v1/auth/me");
+                  enterApp(meData, firstAllowedRoute(buildIdentity(meData.permissions)));
+                } catch {
+                  navigate("/");
+                }
+              }} />
             } />
 
             {/* app autenticado: uma rota por função, todas na mesma casca */}
@@ -226,9 +266,9 @@ function AppShell() {
           <TweakButton label="Criar conta" onClick={() => navigate("/signup")} />
           <TweakButton label="Tela de login" onClick={() => navigate("/login")} />
           <TweakButton label="Onboarding" onClick={() => navigate("/onboard")} />
-          <TweakButton label="Entrar no app · admin" onClick={() => enterApp("admin", ADMIN_PROFILE_FALLBACK)} />
-          <TweakButton label="Entrar no app · membro" onClick={() => enterApp("member", MEMBER_PROFILE)} />
-          <TweakButton label="Entrar no app · só dashboard" onClick={() => enterApp("viewer", MEMBER_PROFILE, "/dashboard")} />
+          <TweakButton label="Entrar no app · admin" onClick={() => enterApp({ name: "Maria Andrade", email: "maria@andromeda.tcc", orgName: "Andrômeda Core", orgSlug: "andromeda-org", permissions: ["USER_MANAGE","ROLE_MANAGE","AZURE_CONFIGURE","AZURE_READ","GITHUB_CONFIGURE","GITHUB_READ","AI_READ_OWN","AI_READ_ALL","PRICE_TABLE_MANAGE","CONNECTOR_TOKEN_MANAGE_OWN","CONNECTOR_TOKEN_MANAGE_ALL","DASHBOARD_INDIVIDUAL","DASHBOARD_TEAM","DASHBOARD_STRATEGIC","gerProjeto","gerEquipe"] })} />
+          <TweakButton label="Entrar no app · membro" onClick={() => enterApp({ name: "João Pereira", email: "joao@andromeda.tcc", orgName: "Andrômeda Core", permissions: ["gerProjeto","gerEquipe","DASHBOARD_INDIVIDUAL","DASHBOARD_TEAM"] })} />
+          <TweakButton label="Entrar no app · só dashboard" onClick={() => enterApp({ name: "Ana Lima", email: "ana@andromeda.tcc", orgName: "Andrômeda Core", permissions: ["DASHBOARD_INDIVIDUAL"] }, "/dashboard")} />
         </TweakSection>
       </TweaksPanel>
     </>
@@ -249,7 +289,7 @@ function ShellRoute({ identity, profile, palette, setPalette, onLogout }) {
     if (section !== "dashboard") return <Navigate to="/dashboard" replace />;
     return (
       <div className="dash-only">
-        <DashboardView dash={dashAccess(identity)} onLogout={onLogout} />
+        <DashboardPage dash={dashAccess(identity)} onLogout={onLogout} />
       </div>
     );
   }

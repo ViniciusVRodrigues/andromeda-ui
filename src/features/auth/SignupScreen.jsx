@@ -7,18 +7,9 @@
 import React from "react";
 import { OrbitWizard } from "../../components/OrbitWizard.jsx";
 import { Field, SelectField } from "../../components/Field.jsx";
-import { OAuthPopup } from "../../components/OAuthPopup.jsx";
-import { PROVIDERS } from "../../data/providers.jsx";
+import api from "../../services/api.js";
 
 const ADMIN_ROLE = "Administrador";
-
-const FLAG_TO_PERMISSION_CODE = {
-  dashPessoal: "DASHBOARD_INDIVIDUAL",
-  dashEquipe:  "DASHBOARD_TEAM",
-  dashOrg:     "DASHBOARD_STRATEGIC",
-  gerEquipe:   "USER_MANAGE",
-  gerProjeto:  "PROJECT_MANAGE",
-};
 
 const SIGNUP_STEPS = [
   { id: "pessoal",     label: "Pessoal",      title: "Conte sobre",   accent: "você",        lede: "Você será o administrador da organização." },
@@ -26,7 +17,6 @@ const SIGNUP_STEPS = [
   { id: "senha",       label: "Senha",        title: "Crie sua",      accent: "senha",       lede: "Mínimo 6 caracteres, com pelo menos uma maiúscula e um caractere especial." },
   { id: "org",         label: "Organização",  title: "Sua",           accent: "organização", lede: "É aqui que os dados do seu time vão orbitar." },
   { id: "projeto",     label: "Projeto",      title: "Crie seu",      accent: "primeiro projeto", lede: "Tudo o que a Andrômeda coletar — Azure, GitHub e uso de IA — será associado a um projeto." },
-  { id: "ia",          label: "IA",           title: "Conecte um",    accent: "provedor de IA", lede: "Tokens consumidos por entrega — a dimensão que faltava nas métricas ágeis." },
   { id: "senioridade", label: "Senioridade",  title: "Defina os",     accent: "níveis",      lede: "Os níveis de senioridade adotados pela organização." },
   { id: "cargos",      label: "Cargos",       title: "Defina os",     accent: "cargos",      lede: "Os papéis funcionais do seu time. Adicione ou remova conforme precisar." },
   { id: "permissoes",  label: "Permissões",   title: "Defina as",     accent: "permissões",  lede: "Quais cargos enxergam cada parte da Andrômeda. Marque para liberar o acesso." },
@@ -34,48 +24,35 @@ const SIGNUP_STEPS = [
   { id: "confirmar",   label: "Resumo",       title: "Tudo",          accent: "pronto?",     lede: "Revise antes de criar a organização." },
 ];
 
-/* Colunas (features) da matriz de permissões. */
-const PERMISSION_FEATURES = [
-  { id: "dashPessoal", full: "Dashboard Pessoal" },
-  { id: "dashEquipe",  full: "Dashboard da Equipe" },
-  { id: "dashOrg",     full: "Dashboard da Organização" },
-  { id: "gerProjeto",  full: "Gerenciar Projeto" },
-  { id: "gerEquipe",   full: "Gerenciar Equipe" },
-];
-
 /* Permissões default: todo cargo enxerga o próprio dashboard pessoal. */
 function defaultPermissionsFor(cargos) {
   const map = {};
-  for (const c of cargos) map[c] = { dashPessoal: true };
+  for (const c of cargos) map[c] = { DASHBOARD_INDIVIDUAL: true };
   return map;
 }
 
-const VERIFY_CODE = "123456";  // mock — em produção viria do backend
-const DEFAULT_CARGOS       = ["Desenvolvedor", "Designer", "Product Manager"];
+const DEFAULT_CARGOS       = ["Administrador", "Líder Técnico", "Gerente", "Desenvolvedor"];
 const DEFAULT_SENIORIDADES = ["Junior", "Pleno", "Sênior"];
 
 function SignupScreen({ onCancel, onDone }) {
   const [personal,    setPersonal]    = React.useState({ fullName: "", email: "" });
-  const [verify,      setVerify]      = React.useState({ code: "", attempts: 0, resent: false });
+  const [verify,      setVerify]      = React.useState({ code: "", attempts: 0, resent: false, verified: false });
   const [password,    setPassword]    = React.useState({ value: "", confirm: "" });
   const [org,         setOrg]         = React.useState({ name: "", slug: "", sector: "Tecnologia", country: "Brasil" });
   const [project,     setProject]     = React.useState({ name: "", description: "" });
-  const [connections, setConnections] = React.useState({
-    ai:     { connected: false, project: "" },
-  });
-  const [openOauth,   setOpenOauth]   = React.useState(null);
   const [cargos,      setCargos]      = React.useState(DEFAULT_CARGOS);
   const [senioridade, setSenioridade] = React.useState(DEFAULT_SENIORIDADES);
   const [permissions, setPermissions] = React.useState(() => defaultPermissionsFor(DEFAULT_CARGOS));
   const [invites,     setInvites]     = React.useState([]);
   const [accept,      setAccept]      = React.useState(false);
+  const [submitError, setSubmitError] = React.useState(null);
 
   // mantém a matriz de permissões em sincronia com a lista de cargos:
   // novos cargos entram com o default; cargos removidos somem do mapa.
   React.useEffect(() => {
     setPermissions((p) => {
       const next = {};
-      for (const c of cargos) next[c] = p[c] || { dashPessoal: true };
+      for (const c of cargos) next[c] = p[c] || { DASHBOARD_INDIVIDUAL: true };
       return next;
     });
   }, [cargos]);
@@ -83,23 +60,18 @@ function SignupScreen({ onCancel, onDone }) {
   const pwRules = passwordRules(password.value);
   const pwOk    = pwRules.ok && password.value === password.confirm;
 
-  // lista de projetos disponíveis para vincular nas integrações.
-  // Por ora só existe o que o admin acabou de criar.
-  const projects = project.name.trim() ? [project.name.trim()] : [];
-
   const valid = [
     personal.fullName.trim().length >= 3 && /\S+@\S+\.\S+/.test(personal.email),  // 0 pessoal
-    verify.code === VERIFY_CODE,                                                   // 1 verificar
+    verify.verified,                                                                // 1 verificar
     pwOk,                                                                           // 2 senha
     org.name.trim().length >= 2 && org.slug.trim().length >= 2
-      && org.sector.trim().length >= 1 && org.country.trim().length >= 1, // 3 org
-    project.name.trim().length >= 2 && project.description.trim().length >= 4,     // 4 projeto
-    true,                                                                           // 5 ia (opcional)
-    senioridade.length >= 1,                                                        // 6 senioridade
-    cargos.length >= 1,                                                             // 7 cargos
-    true,                                                                           // 8 permissões (opcional)
-    true,                                                                           // 9 equipe (opcional)
-    accept,                                                                         // 10 confirmar
+      && org.sector.trim().length >= 1 && org.country.trim().length >= 1,          // 3 org
+    project.name.trim().length >= 2 && project.description.trim().length >= 4,    // 4 projeto
+    senioridade.length >= 1,                                                       // 5 senioridade
+    cargos.length >= 1,                                                            // 6 cargos
+    true,                                                                          // 7 permissões (opcional)
+    true,                                                                          // 8 equipe (opcional)
+    accept,                                                                        // 9 confirmar
   ];
 
   // sugere slug a partir do nome da organização
@@ -110,95 +82,78 @@ function SignupScreen({ onCancel, onDone }) {
     setOrg((o) => ({ ...o, slug: auto }));
   }, [org.name]);
 
-  // quando o admin cria/renomeia o projeto, pré-seleciona-o em integrações
-  // que ainda não foram conectadas — assim o select já vem preenchido.
-  React.useEffect(() => {
-    const only = projects[0] || "";
-    setConnections((c) => ({
-      ai:     c.ai.connected     ? c.ai     : { ...c.ai,     project: only },
-    }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [projects[0]]);
-
-  const onAuth = (providerId) => {
-    setConnections((c) => ({
-      ...c,
-      [providerId]: { ...c[providerId], connected: true },
-    }));
-    setOpenOauth(null);
-  };
-
-  const setProviderProject = (providerId, value) => {
-    setConnections((c) => ({
-      ...c,
-      [providerId]: { ...c[providerId], project: value },
-    }));
+  const handleComplete = async () => {
+    setSubmitError(null);
+    try {
+      await onDone({
+        org: {
+          name:    org.name,
+          sector:  org.sector,
+          country: org.country,
+        },
+        admin: {
+          email:    personal.email,
+          name:     personal.fullName,
+          password: password.value,
+        },
+        project: {
+          name:        project.name,
+          description: project.description,
+        },
+        seniorities: senioridade,
+        roles: Object.entries(permissions).map(([roleName, codes]) => ({
+          name: roleName,
+          permissionCodes: Object.entries(codes)
+            .filter(([, enabled]) => enabled)
+            .map(([code]) => code),
+        })),
+        invites: invites.map((inv) => ({
+          email:    inv.email,
+          roleName: inv.cargo,
+          seniority: inv.seniority || null,
+        })),
+      });
+    } catch (err) {
+      const msg = err?.message || "";
+      if (msg.includes("SLUG") || msg.includes("409")) {
+        setSubmitError("Já existe uma organização com esse identificador. Tente outro.");
+      } else if (msg.includes("email") || msg.includes("409")) {
+        setSubmitError("Este e-mail já está em uso. Tente outro ou faça login.");
+      } else {
+        setSubmitError("Erro ao criar organização. Tente novamente.");
+      }
+    }
   };
 
   return (
-    <>
-      <OrbitWizard
-        steps={SIGNUP_STEPS}
-        validity={valid}
-        finalLabel="Criar organização →"
-        onComplete={() => onDone({
-          org: {
-            name:    org.name,
-            sector:  org.sector,
-            country: org.country,
-          },
-          admin: {
-            email:    personal.email,
-            name:     personal.fullName,
-            password: password.value,
-          },
-          project: {
-            name:        project.name,
-            description: project.description,
-          },
-          seniorities: senioridade,
-          roles: Object.entries(permissions).map(([roleName, flags]) => ({
-            name: roleName,
-            permissionCodes: Object.entries(flags)
-              .filter(([, enabled]) => enabled)
-              .map(([flag]) => FLAG_TO_PERMISSION_CODE[flag])
-              .filter(Boolean),
-          })),
-          invites: invites.map((inv) => ({
-            email:    inv.email,
-            roleName: inv.cargo,
-            seniority: inv.seniority || null,
-          })),
-        })}
-        onCancel={onCancel}
-        versionmark="v0.1 · onboarding"
-        shiftY="3vh"
-        renderStep={(step, nav) => (
-          <>
-            {step === 0  && <StepPersonal v={personal} onChange={setPersonal} />}
-            {step === 1  && <StepVerify v={verify} setV={setVerify} email={personal.email} onPass={() => nav.goTo(step + 1)} />}
-            {step === 2  && <StepPassword v={password} onChange={setPassword} rules={pwRules} />}
-            {step === 3  && <StepOrganization v={org} onChange={setOrg} />}
-            {step === 4  && <StepProject v={project} onChange={setProject} />}
-            {step === 5  && <StepProvider provider={PROVIDERS.ai}     state={connections.ai}     projects={projects} onConnect={() => setOpenOauth("ai")}     onSetProject={(p) => setProviderProject("ai", p)} />}
-            {step === 6  && <StepChipList items={senioridade} setItems={setSenioridade} placeholder="ex.: Pleno"              emptyMsg="Adicione pelo menos um nível."
-                                          footer="Você poderá adicionar mais níveis de senioridade depois, nas configurações da organização." />}
-            {step === 7  && <StepChipList items={cargos}      setItems={setCargos}      placeholder="ex.: Desenvolvedor"     emptyMsg="Adicione pelo menos um cargo."
-                                          footer="Você poderá adicionar mais cargos depois, nas configurações da organização." />}
-            {step === 8  && <StepPermissoes cargos={cargos} permissions={permissions} setPermissions={setPermissions} />}
-            {step === 9  && <StepConvidar invites={invites} setInvites={setInvites} cargos={cargos} senioridade={senioridade} />}
-            {step === 10 && <StepConfirm personal={personal} org={org} project={project} connections={connections} cargos={cargos} senioridade={senioridade} permissions={permissions} invites={invites} accept={accept} setAccept={setAccept} />}
-          </>
-        )}
-      />
-
-      <OAuthPopup
-        open={openOauth !== null}
-        provider={openOauth ? PROVIDERS[openOauth] : null}
-        onClose={() => setOpenOauth(null)}
-        onAuthenticate={() => onAuth(openOauth)}
-      />
-    </>
+    <OrbitWizard
+      steps={SIGNUP_STEPS}
+      validity={valid}
+      finalLabel="Criar organização →"
+      onComplete={handleComplete}
+      onCancel={onCancel}
+      versionmark="v0.1 · onboarding"
+      shiftY="3vh"
+      renderStep={(step, nav) => (
+        <>
+          {submitError && step === SIGNUP_STEPS.length - 1 && (
+            <div style={{ color: "var(--error, #f66)", fontSize: 12, marginBottom: 10 }}>{submitError}</div>
+          )}
+          {step === 0  && <StepPersonal v={personal} onChange={setPersonal} />}
+          {step === 1  && <StepVerify v={verify} setV={setVerify} email={personal.email} onPass={() => nav.goTo(step + 1)} />}
+          {step === 2  && <StepPassword v={password} onChange={setPassword} rules={pwRules} />}
+          {step === 3  && <StepOrganization v={org} onChange={setOrg} />}
+          {step === 4  && <StepProject v={project} onChange={setProject} />}
+          {step === 5  && <StepChipList items={senioridade} setItems={setSenioridade} placeholder="ex.: Pleno"          emptyMsg="Adicione pelo menos um nível."
+                                        footer="Você poderá adicionar mais níveis de senioridade depois, nas configurações da organização." />}
+          {step === 6  && <StepChipList items={cargos}      setItems={setCargos}      placeholder="ex.: Desenvolvedor" emptyMsg="Adicione pelo menos um cargo."
+                                        footer="Você poderá adicionar mais cargos depois, nas configurações da organização." />}
+          {step === 7  && <StepPermissoes cargos={cargos} permissions={permissions} setPermissions={setPermissions} />}
+          {step === 8  && <StepConvidar invites={invites} setInvites={setInvites} cargos={cargos} senioridade={senioridade} />}
+          {step === 9  && <StepConfirm personal={personal} org={org} project={project} cargos={cargos} senioridade={senioridade} permissions={permissions} invites={invites} accept={accept} setAccept={setAccept} />}
+        </>
+      )}
+    />
   );
 }
 
@@ -227,28 +182,40 @@ function StepPersonal({ v, onChange }) {
 }
 
 function StepVerify({ v, setV, email, onPass }) {
-  // ao entrar no passo, zera o código — evita auto-advance se o usuário
-  // voltar para esta etapa depois de já ter verificado uma vez.
-  // (executa antes da useEffect de auto-advance; o cleanup desta limpa o timeout)
+  const otpSent = React.useRef(false);
+  // ao entrar no passo, zera o código e envia o OTP via API (guard evita duplo-envio em Strict Mode)
   React.useEffect(() => {
-    if (v.code) setV((s) => ({ ...s, code: "" }));
+    setV((s) => ({ ...s, code: "", verified: false }));
+    if (email && !otpSent.current) {
+      otpSent.current = true;
+      api.post("/v1/auth/email-verification", { email }).catch(() => {});
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // dispara assim que o campo completa 6 dígitos
   React.useEffect(() => {
     if (v.code.length !== 6) return;
-    if (v.code === VERIFY_CODE) {
-      const t = setTimeout(() => onPass(), 320);  // breve flash p/ feedback visual
-      return () => clearTimeout(t);
-    }
-    // errou: limpa e conta como tentativa
-    const t = setTimeout(() => setV((s) => ({ ...s, code: "", attempts: s.attempts + 1, resent: false })), 320);
-    return () => clearTimeout(t);
+
+    api.post("/v1/auth/email-verification/confirm", { email, code: v.code })
+      .then(() => {
+        setV((s) => ({ ...s, verified: true }));
+        setTimeout(() => onPass(), 320);
+      })
+      .catch(() => {
+        setTimeout(
+          () => setV((s) => ({ ...s, code: "", attempts: s.attempts + 1, resent: false })),
+          320,
+        );
+      });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [v.code]);
 
-  const resend = () => setV({ code: "", attempts: 0, resent: true });
-  const wrong  = v.attempts >= 1;
+  const resend = () => {
+    setV({ code: "", attempts: 0, resent: true, verified: false });
+    api.post("/v1/auth/email-verification", { email }).catch(() => {});
+  };
+  const wrong = v.attempts >= 1;
 
   return (
     <div className="signup-verify">
@@ -265,7 +232,6 @@ function StepVerify({ v, setV, email, onPass }) {
           Reenviar código
         </button>
       )}
-      <div className="signup-verify-hint mono">para testes, use o código 123456</div>
     </div>
   );
 }
@@ -390,40 +356,6 @@ function StepProject({ v, onChange }) {
   );
 }
 
-function StepProvider({ provider, state, projects, onConnect, onSetProject }) {
-  const hasProject = projects.length > 0;
-  return (
-    <div className="onboard-provider">
-      <div className={"onboard-provider-icon is-" + provider.id}>{provider.icon}</div>
-      <div className="onboard-provider-name serif">{provider.name}</div>
-      <div className="onboard-provider-desc">{provider.description}</div>
-      <ul className="onboard-provider-perms">
-        {provider.permissions.map((p, i) => <li key={i}>· {p}</li>)}
-      </ul>
-
-      <div className="signup-provider-link">
-        <label className="signup-provider-link-label mono">Vincular ao projeto</label>
-        <div className="signup-select signup-provider-link-select">
-          <select value={state.project} onChange={(e) => onSetProject(e.target.value)} disabled={!hasProject}>
-            {!hasProject && <option value="">— crie um projeto primeiro —</option>}
-            {projects.map((p) => <option key={p} value={p}>{p}</option>)}
-          </select>
-          <span className="signup-select-caret">▾</span>
-        </div>
-      </div>
-
-      {state.connected ? (
-        <div className="onboard-provider-status">✓ Conectado</div>
-      ) : (
-        <button type="button" className="btn onboard-provider-cta" onClick={onConnect} disabled={!hasProject || !state.project}>
-          Conectar com {provider.authName} →
-        </button>
-      )}
-      <div className="onboard-provider-skip">Você pode {state.connected ? "desconectar" : "pular e conectar"} depois nas configurações.</div>
-    </div>
-  );
-}
-
 function StepChipList({ items, setItems, placeholder, emptyMsg, footer }) {
   const [draft, setDraft] = React.useState("");
   const add = () => {
@@ -460,36 +392,41 @@ function StepChipList({ items, setItems, placeholder, emptyMsg, footer }) {
 }
 
 function StepPermissoes({ cargos, permissions, setPermissions }) {
-  const toggle = (cargo, feat) => {
+  const [features, setFeatures] = React.useState([]);
+
+  React.useEffect(() => {
+    api.get("/v1/permissions")
+      .then((data) => setFeatures(data.permissions || []))
+      .catch(() => {});
+  }, []);
+
+  const toggle = (cargo, code) => {
     setPermissions((p) => ({
       ...p,
-      [cargo]: { ...(p[cargo] || {}), [feat]: !p[cargo]?.[feat] },
+      [cargo]: { ...(p[cargo] || {}), [code]: !p[cargo]?.[code] },
     }));
   };
 
-  // primeira coluna sticky com o cargo; as demais quebram o título em duas
-  // linhas, então podem ser estreitas (a matriz rola na horizontal quando
-  // não cabe no card).
-  const gridCols = `minmax(120px, 1.1fr) repeat(${PERMISSION_FEATURES.length}, minmax(96px, 1fr))`;
+  const gridCols = `minmax(120px, 1.1fr) repeat(${features.length}, minmax(96px, 1fr))`;
 
   return (
     <div className="signup-perms">
       <div className="signup-perms-scroll">
         <div className="signup-perms-grid" style={{ gridTemplateColumns: gridCols }}>
           <div className="signup-perms-head is-corner mono">Cargos</div>
-          {PERMISSION_FEATURES.map((f) => (
-            <div key={f.id} className="signup-perms-head mono">{f.full}</div>
+          {features.map((f) => (
+            <div key={f.code} className="signup-perms-head mono">{f.label}</div>
           ))}
           {cargos.map((c, rowIdx) => (
             <React.Fragment key={c}>
               <div className={"signup-perms-cargo" + (rowIdx === 0 ? " is-first" : "")}>{c}</div>
-              {PERMISSION_FEATURES.map((f) => {
-                const on = !!permissions[c]?.[f.id];
+              {features.map((f) => {
+                const on = !!permissions[c]?.[f.code];
                 return (
-                  <label key={f.id}
+                  <label key={f.code}
                          className={"signup-perms-cell" + (on ? " is-on" : "") + (rowIdx === 0 ? " is-first" : "")}
-                         aria-label={`${c} · ${f.full}`}>
-                    <input type="checkbox" checked={on} onChange={() => toggle(c, f.id)} />
+                         aria-label={`${c} · ${f.label}`}>
+                    <input type="checkbox" checked={on} onChange={() => toggle(c, f.code)} />
                     <span className="signup-perms-check" aria-hidden="true">{on ? "✓" : ""}</span>
                   </label>
                 );
@@ -523,8 +460,6 @@ function StepConvidar({ invites, setInvites, cargos, senioridade }) {
                value={draft.email}
                onChange={(e) => setDraft({ ...draft, email: e.target.value })}
                onKeyDown={(e) => {
-                 // compondo um convite: Enter adiciona (não avança a etapa).
-                 // campo vazio: deixa o Enter borbulhar p/ avançar normalmente.
                  if (e.key === "Enter" && draft.email.trim()) { e.preventDefault(); add(); }
                }}
                placeholder="e-mail@empresa.com" />
@@ -553,10 +488,10 @@ function StepConvidar({ invites, setInvites, cargos, senioridade }) {
   );
 }
 
-function StepConfirm({ personal, org, project, connections, cargos, senioridade, permissions, invites, accept, setAccept }) {
-  const connRows = [
-    { k: "IA", c: connections.ai },
-  ];
+function StepConfirm({ personal, org, project, cargos, senioridade, permissions, invites, accept, setAccept }) {
+  const totalPerms = Object.values(permissions).reduce(
+    (acc, codes) => acc + Object.values(codes).filter(Boolean).length, 0,
+  );
   return (
     <div className="signup-orbit-confirm">
       <dl className="signup-orbit-summary">
@@ -567,13 +502,9 @@ function StepConfirm({ personal, org, project, connections, cargos, senioridade,
         <SummaryRow k="URL"           v={`andromeda.app/${org.slug || "—"}`} />
         <SummaryRow k="Setor · país"  v={`${org.sector} · ${org.country}`} />
         <SummaryRow k="Projeto"       v={project.name || "—"} accent />
-        {connRows.map((r) => (
-          <SummaryRow key={r.k} k={r.k}
-                      v={r.c.connected ? `✓ conectado · ${r.c.project || "—"}` : "não conectado"} />
-        ))}
         <SummaryRow k="Senioridade"   v={senioridade.join(" · ") || "—"} />
         <SummaryRow k="Cargos"        v={cargos.join(" · ") || "—"} />
-        <SummaryRow k="Permissões"    v={summarizePermissions(permissions, cargos)} />
+        <SummaryRow k="Permissões"    v={`${totalPerms} acessos liberados`} />
         <SummaryRow k="Convites"      v={invites.length ? `${invites.length} pessoa${invites.length > 1 ? "s" : ""}` : "nenhum"} />
       </dl>
       <label className="signup-orbit-accept">
@@ -585,16 +516,6 @@ function StepConfirm({ personal, org, project, connections, cargos, senioridade,
       </label>
     </div>
   );
-}
-
-function summarizePermissions(permissions, cargos) {
-  const total = cargos.length * PERMISSION_FEATURES.length;
-  if (total === 0) return "—";
-  let on = 0;
-  for (const c of cargos) {
-    for (const f of PERMISSION_FEATURES) if (permissions[c]?.[f.id]) on++;
-  }
-  return `${on} de ${total} acessos liberados`;
 }
 
 function SummaryRow({ k, v, accent }) {
