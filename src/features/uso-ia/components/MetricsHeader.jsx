@@ -23,8 +23,6 @@ function formatMonth(m) {
   return d.toLocaleDateString("pt-BR", { month: "long", year: "numeric" });
 }
 
-const SKELETON = { background: "var(--line)", borderRadius: 4 };
-
 /**
  * @param {{ summary: object|null, loading: boolean, month: string, onMonthChange: (m: string) => void }} props
  */
@@ -32,26 +30,24 @@ export function MetricsHeader({ summary, loading, month, onMonthChange }) {
   const current = currentMonthStr();
   const isCurrentMonth = month === current;
 
-  const totalTokens = summary
-    ? (summary.totalInputTokens || 0) + (summary.totalOutputTokens || 0)
-    : 0;
+  const totalTokens = summary ? (summary.totalInputTokens || 0) + (summary.totalOutputTokens || 0) : 0;
   const totalCost = summary ? (summary.totalCostUsd || 0) : 0;
   const totalInteractions = summary ? (summary.totalInteractions || 0) : 0;
   const modelBreakdown = summary ? (summary.modelBreakdown || []) : [];
   const isEmpty = !loading && summary && totalTokens === 0 && totalInteractions === 0;
 
   return (
-    <div style={{ marginBottom: "var(--spacing-lg, 32px)" }}>
+    <div style={{ marginBottom: 28 }}>
       {/* Month navigation */}
-      <div style={{ display: "flex", alignItems: "center", gap: "var(--spacing-sm, 8px)", marginBottom: "var(--spacing-md, 16px)" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 16 }}>
         <button
           className="btn btn-ghost"
           onClick={() => onMonthChange(prevMonth(month))}
           aria-label="Mês anterior"
-          style={{ padding: "4px 8px" }}>
+          style={{ padding: "4px 10px", fontSize: "var(--mono-base)" }}>
           ‹
         </button>
-        <span style={{ fontWeight: 600, fontSize: "0.95rem", minWidth: 160, textAlign: "center" }}>
+        <span className="mono" style={{ fontSize: "var(--mono-sm)", color: "var(--fg)", minWidth: 160, textAlign: "center", letterSpacing: "0.04em" }}>
           {formatMonth(month)}
         </span>
         <button
@@ -59,39 +55,46 @@ export function MetricsHeader({ summary, loading, month, onMonthChange }) {
           onClick={() => onMonthChange(nextMonth(month))}
           disabled={isCurrentMonth}
           aria-label="Próximo mês"
-          style={{ padding: "4px 8px" }}>
+          style={{ padding: "4px 10px", fontSize: "var(--mono-base)" }}>
           ›
         </button>
       </div>
 
       {/* Stat cards */}
-      {loading ? (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "var(--spacing-md, 16px)", marginBottom: "var(--spacing-md, 16px)" }}>
-          {[0, 1, 2].map((i) => (
-            <div key={i} className="card" style={{ ...SKELETON, height: 88 }} />
-          ))}
-        </div>
-      ) : (
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: "var(--spacing-md, 16px)", marginBottom: "var(--spacing-md, 16px)" }}>
-          <StatCard label="Total de Tokens" value={totalTokens.toLocaleString("pt-BR")} />
-          <StatCard label="Custo USD" value={`$ ${totalCost.toFixed(4)}`} />
-          <StatCard label="Interações" value={totalInteractions.toLocaleString("pt-BR")} />
-        </div>
-      )}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: 14 }}>
+        {loading ? (
+          [0, 1, 2].map((i) => (
+            <div key={i} style={{ background: "var(--bg-elev)", border: "1px solid var(--line)", borderRadius: "var(--radius-sm)", height: 88 }} />
+          ))
+        ) : (
+          <>
+            <StatCard label="Total de Tokens" value={totalTokens.toLocaleString("pt-BR")} unit="tokens" />
+            <StatCard label="Custo estimado" value={`$${Number(totalCost).toFixed(2)}`} />
+            <StatCard label="Interações" value={totalInteractions.toLocaleString("pt-BR")} unit="sessões" />
+          </>
+        )}
+      </div>
 
-      {/* Empty state */}
       {isEmpty && (
-        <p className="mono" style={{ color: "var(--fg-muted)", fontSize: "0.85rem", marginBottom: "var(--spacing-md, 16px)" }}>
+        <p className="mono" style={{ color: "var(--fg-dim)", fontSize: "var(--mono-sm)", marginBottom: 14 }}>
           Nenhum uso registrado neste mês.
         </p>
       )}
 
-      {/* Model breakdown chips */}
+      {/* Model breakdown */}
       {!loading && modelBreakdown.length > 0 && (
         <div style={{ display: "flex", flexWrap: "wrap", gap: 6 }}>
           {modelBreakdown.map((m) => (
-            <span key={m.model} className="chip" style={{ fontSize: "0.75rem" }}>
-              {m.model} · {(parseFloat(m.percentage) * 100).toFixed(1)}%
+            <span key={m.model} className="mono" style={{
+              fontSize: "var(--mono-sm)",
+              color: "var(--fg-muted)",
+              background: "var(--bg-elev)",
+              border: "1px solid var(--line)",
+              borderRadius: "var(--radius-sm)",
+              padding: "3px 10px",
+              letterSpacing: "0.02em",
+            }}>
+              {m.model} <span style={{ color: "var(--accent)" }}>·</span> {(parseFloat(m.percentage) * 100).toFixed(1)}%
             </span>
           ))}
         </div>
@@ -100,11 +103,21 @@ export function MetricsHeader({ summary, loading, month, onMonthChange }) {
   );
 }
 
-function StatCard({ label, value }) {
+function StatCard({ label, value, unit }) {
   return (
-    <div className="card" style={{ padding: "var(--spacing-md, 16px)", display: "flex", flexDirection: "column", gap: 4 }}>
-      <span className="label" style={{ fontSize: "0.75rem", color: "var(--fg-muted)" }}>{label}</span>
-      <span className="kv-num" style={{ fontSize: "1.4rem", fontWeight: 700 }}>{value}</span>
+    <div style={{
+      background: "var(--bg-elev)",
+      border: "1px solid var(--line)",
+      borderRadius: "var(--radius-sm)",
+      padding: "14px 16px",
+    }}>
+      <div className="mono" style={{ fontSize: "var(--mono-sm)", color: "var(--fg-muted)", marginBottom: 6 }}>
+        {label}
+      </div>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
+        <span className="serif" style={{ fontSize: 28, color: "var(--fg)" }}>{value}</span>
+        {unit && <span className="mono" style={{ fontSize: "var(--mono-sm)", color: "var(--fg-muted)" }}>{unit}</span>}
+      </div>
     </div>
   );
 }

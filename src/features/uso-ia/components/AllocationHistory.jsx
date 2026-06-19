@@ -18,8 +18,6 @@ function formatDay(isoDate) {
   return `${d}/${m}/${y}`;
 }
 
-const SKELETON = { background: "var(--line)", borderRadius: 4 };
-
 /**
  * @param {{
  *   history: { content: object[], totalPages: number, number: number }|null,
@@ -37,7 +35,8 @@ export function AllocationHistory({ history, loading, error, historyPage, onPage
   const currentPage = history?.number || 0;
 
   return (
-    <div style={{ marginTop: "var(--spacing-lg, 32px)" }}>
+    <div style={{ marginTop: 32 }}>
+      {/* Collapsible toggle */}
       <button
         type="button"
         style={{
@@ -51,19 +50,19 @@ export function AllocationHistory({ history, loading, error, historyPage, onPage
           marginBottom: expanded ? 14 : 0,
           color: "var(--fg-muted)",
           fontFamily: "inherit",
-          fontSize: "0.7rem",
-          letterSpacing: "0.22em",
+          fontSize: "var(--mono-sm)",
+          letterSpacing: "0.14em",
           textTransform: "uppercase",
         }}
         onClick={() => setExpanded((e) => !e)}
         aria-expanded={expanded}>
         <span style={{
-          display: "inline-block",
           color: "var(--accent)",
           fontSize: "1rem",
           lineHeight: 1,
           transform: expanded ? "rotate(90deg)" : "rotate(0deg)",
           transition: "transform 0.15s",
+          display: "inline-block",
         }}>›</span>
         Histórico de Alocações
       </button>
@@ -73,26 +72,26 @@ export function AllocationHistory({ history, loading, error, historyPage, onPage
           {loading && (
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {[0, 1, 2].map((i) => (
-                <div key={i} style={{ ...SKELETON, height: 56 }} />
+                <div key={i} style={{ background: "var(--bg-elev)", border: "1px solid var(--line)", borderRadius: "var(--radius-sm)", height: 56 }} />
               ))}
             </div>
           )}
 
           {!loading && error && (
-            <div style={{ color: "var(--bad)", fontSize: "0.85rem" }}>
+            <div className="mono" style={{ color: "var(--bad)", fontSize: "var(--mono-sm)" }}>
               Erro ao carregar histórico: {error}
             </div>
           )}
 
           {!loading && !error && items.length === 0 && (
-            <p className="mono" style={{ color: "var(--fg-muted)", fontSize: "0.85rem" }}>
+            <p className="mono" style={{ color: "var(--fg-muted)", fontSize: "var(--mono-sm)" }}>
               Nenhuma alocação registrada para este período.
             </p>
           )}
 
           {!loading && !error && items.length > 0 && (
             <>
-              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: "var(--spacing-md, 16px)" }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8, marginBottom: 16 }}>
                 {items.map((item) => (
                   <HistoryItem key={item.id} item={item} />
                 ))}
@@ -104,17 +103,17 @@ export function AllocationHistory({ history, loading, error, historyPage, onPage
                     className="btn btn-ghost"
                     disabled={currentPage === 0}
                     onClick={() => onPageChange(historyPage - 1)}
-                    style={{ fontSize: "0.8rem", padding: "4px 10px" }}>
+                    style={{ fontSize: "var(--mono-sm)", padding: "4px 10px" }}>
                     ← Anterior
                   </button>
-                  <span className="mono" style={{ fontSize: "0.8rem", color: "var(--fg-muted)" }}>
+                  <span className="mono" style={{ fontSize: "var(--mono-sm)", color: "var(--fg-muted)" }}>
                     {currentPage + 1} / {totalPages}
                   </span>
                   <button
                     className="btn btn-ghost"
                     disabled={currentPage >= totalPages - 1}
                     onClick={() => onPageChange(historyPage + 1)}
-                    style={{ fontSize: "0.8rem", padding: "4px 10px" }}>
+                    style={{ fontSize: "var(--mono-sm)", padding: "4px 10px" }}>
                     Próxima →
                   </button>
                 </div>
@@ -134,53 +133,47 @@ function HistoryItem({ item }) {
       background: "var(--bg-elev)",
       border: "1px solid var(--line)",
       borderRadius: "var(--radius-sm)",
-      padding: "12px 14px",
+      padding: "12px 16px",
     }}>
-      {/* Header row: date · badge chip · relative time */}
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <span style={{ fontWeight: 600, color: "var(--fg)", fontSize: "0.85rem" }}>
-          {formatDay(item.day)}
-        </span>
-        <span
-          className="chip"
-          style={{
-            fontSize: "0.68rem",
-            background: isAuto
-              ? "color-mix(in srgb, var(--accent) 12%, transparent)"
-              : "color-mix(in srgb, var(--good) 12%, transparent)",
-            color: isAuto ? "var(--accent)" : "var(--good)",
-            borderColor: isAuto
-              ? "color-mix(in srgb, var(--accent) 30%, transparent)"
-              : "color-mix(in srgb, var(--good) 30%, transparent)",
-          }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: item.splits?.length ? 8 : 0 }}>
+        <span className="serif" style={{ fontSize: 16, color: "var(--fg)" }}>{formatDay(item.day)}</span>
+        <span className="mono" style={{
+          fontSize: "var(--mono-sm)",
+          padding: "2px 8px",
+          borderRadius: 4,
+          background: isAuto
+            ? "color-mix(in srgb, var(--accent) 12%, transparent)"
+            : "color-mix(in srgb, var(--good) 12%, transparent)",
+          color: isAuto ? "var(--accent)" : "var(--good)",
+          border: `1px solid ${isAuto
+            ? "color-mix(in srgb, var(--accent) 30%, transparent)"
+            : "color-mix(in srgb, var(--good) 30%, transparent)"}`,
+        }}>
           {isAuto ? "Automático" : "Manual"}
         </span>
         {item.updatedAt && (
-          <span className="mono" style={{ fontSize: "0.7rem", color: "var(--fg-dim)", marginLeft: "auto" }}>
+          <span className="mono" style={{ fontSize: "var(--mono-sm)", color: "var(--fg-dim)", marginLeft: "auto" }}>
             {relativeTime(item.updatedAt)}
           </span>
         )}
       </div>
 
-      {/* Divider */}
-      {item.splits && item.splits.length > 0 && (
-        <div style={{ borderBottom: "1px solid var(--line)", margin: "6px 0" }} />
-      )}
-
-      {/* Split rows */}
-      {item.splits && item.splits.length > 0 && (
-        <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          {item.splits.map((s) => (
-            <div key={s.workItemId} style={{ display: "flex", alignItems: "center" }}>
-              <span style={{ flex: 1, color: "var(--fg)", fontWeight: 500, fontSize: "0.82rem" }}>
-                {s.workItemTitle || s.workItemId}
-              </span>
-              <span className="mono" style={{ color: "var(--accent)", fontSize: "0.78rem", flexShrink: 0 }}>
-                {(parseFloat(s.percentage) * 100).toFixed(0)}%
-              </span>
-            </div>
-          ))}
-        </div>
+      {item.splits?.length > 0 && (
+        <>
+          <div style={{ borderTop: "1px solid var(--line)", marginBottom: 8 }} />
+          <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+            {item.splits.map((s) => (
+              <div key={s.workItemId} style={{ display: "flex", alignItems: "center" }}>
+                <span className="mono" style={{ flex: 1, color: "var(--fg)", fontSize: "var(--mono-sm)" }}>
+                  {s.workItemTitle || s.workItemId}
+                </span>
+                <span className="mono" style={{ color: "var(--accent)", fontSize: "var(--mono-sm)", flexShrink: 0 }}>
+                  {(parseFloat(s.percentage) * 100).toFixed(0)}%
+                </span>
+              </div>
+            ))}
+          </div>
+        </>
       )}
     </div>
   );

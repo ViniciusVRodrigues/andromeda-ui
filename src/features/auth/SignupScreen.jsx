@@ -8,8 +8,25 @@ import React from "react";
 import { OrbitWizard } from "../../components/OrbitWizard.jsx";
 import { Field, SelectField } from "../../components/Field.jsx";
 import api from "../../services/api.js";
+import { ALWAYS_ON_PERMISSIONS } from "../admin/permissionLabels.js";
 
 const ADMIN_ROLE = "Administrador";
+
+/* The 4 global default roles seeded by the backend. Never submitted to the API —
+   they already exist globally. Shown as locked chips in the onboarding UI. */
+const DEFAULT_ROLES = [
+  { name: "ADMIN",      label: "Administrador" },
+  { name: "TECH_LEAD",  label: "Líder Técnico" },
+  { name: "MANAGER",    label: "Gerente" },
+  { name: "DEVELOPER",  label: "Desenvolvedor" },
+];
+
+const DEFAULT_ROLE_PERMISSIONS = {
+  ADMIN:      { DASHBOARD_INDIVIDUAL: true, DASHBOARD_TEAM: true, DASHBOARD_STRATEGIC: true, USER_MANAGE: true, ROLE_MANAGE: true, AZURE_CONFIGURE: true, AZURE_READ: true, GITHUB_CONFIGURE: true, GITHUB_READ: true, AI_READ_ALL: true, PRICE_TABLE_MANAGE: true, CONNECTOR_TOKEN_MANAGE_ALL: true },
+  TECH_LEAD:  { DASHBOARD_INDIVIDUAL: true, DASHBOARD_TEAM: true, AZURE_READ: true, GITHUB_READ: true, AI_READ_ALL: true, CONNECTOR_TOKEN_MANAGE_OWN: true },
+  MANAGER:    { DASHBOARD_STRATEGIC: true, AZURE_READ: true, GITHUB_READ: true, AI_READ_ALL: true },
+  DEVELOPER:  { DASHBOARD_INDIVIDUAL: true, AI_READ_OWN: true, CONNECTOR_TOKEN_MANAGE_OWN: true },
+};
 
 const SIGNUP_STEPS = [
   { id: "pessoal",     label: "Pessoal",      title: "Conte sobre",   accent: "você",        lede: "Você será o administrador da organização." },
@@ -24,14 +41,14 @@ const SIGNUP_STEPS = [
   { id: "confirmar",   label: "Resumo",       title: "Tudo",          accent: "pronto?",     lede: "Revise antes de criar a organização." },
 ];
 
-/* Permissões default: todo cargo enxerga o próprio dashboard pessoal. */
+/* Permissões default: todo cargo customizado já tem as permissões sempre ativas. */
 function defaultPermissionsFor(cargos) {
+  const alwaysOn = Object.fromEntries(ALWAYS_ON_PERMISSIONS.map((c) => [c, true]));
   const map = {};
-  for (const c of cargos) map[c] = { DASHBOARD_INDIVIDUAL: true };
+  for (const c of cargos) map[c] = { ...alwaysOn };
   return map;
 }
 
-const DEFAULT_CARGOS       = ["Administrador", "Líder Técnico", "Gerente", "Desenvolvedor"];
 const DEFAULT_SENIORIDADES = ["Junior", "Pleno", "Sênior"];
 
 function SignupScreen({ onCancel, onDone }) {
@@ -40,9 +57,9 @@ function SignupScreen({ onCancel, onDone }) {
   const [password,    setPassword]    = React.useState({ value: "", confirm: "" });
   const [org,         setOrg]         = React.useState({ name: "", slug: "", sector: "Tecnologia", country: "Brasil" });
   const [project,     setProject]     = React.useState({ name: "", description: "" });
-  const [cargos,      setCargos]      = React.useState(DEFAULT_CARGOS);
+  const [cargos,      setCargos]      = React.useState([]);   // custom roles only
   const [senioridade, setSenioridade] = React.useState(DEFAULT_SENIORIDADES);
-  const [permissions, setPermissions] = React.useState(() => defaultPermissionsFor(DEFAULT_CARGOS));
+  const [permissions, setPermissions] = React.useState(() => defaultPermissionsFor([]));
   const [invites,     setInvites]     = React.useState([]);
   const [accept,      setAccept]      = React.useState(false);
   const [submitError, setSubmitError] = React.useState(null);
@@ -51,8 +68,9 @@ function SignupScreen({ onCancel, onDone }) {
   // novos cargos entram com o default; cargos removidos somem do mapa.
   React.useEffect(() => {
     setPermissions((p) => {
+      const alwaysOn = Object.fromEntries(ALWAYS_ON_PERMISSIONS.map((c) => [c, true]));
       const next = {};
-      for (const c of cargos) next[c] = p[c] || { DASHBOARD_INDIVIDUAL: true };
+      for (const c of cargos) next[c] = p[c] || { ...alwaysOn };
       return next;
     });
   }, [cargos]);
@@ -68,7 +86,7 @@ function SignupScreen({ onCancel, onDone }) {
       && org.sector.trim().length >= 1 && org.country.trim().length >= 1,          // 3 org
     project.name.trim().length >= 2 && project.description.trim().length >= 4,    // 4 projeto
     senioridade.length >= 1,                                                       // 5 senioridade
-    cargos.length >= 1,                                                            // 6 cargos
+    true,                                                                          // 6 cargos (4 defaults always present)
     true,                                                                          // 7 permissões (opcional)
     true,                                                                          // 8 equipe (opcional)
     accept,                                                                        // 9 confirmar
@@ -101,8 +119,10 @@ function SignupScreen({ onCancel, onDone }) {
           description: project.description,
         },
         seniorities: senioridade,
+        // Only send custom roles — the 4 defaults are global and already exist in the backend
         roles: Object.entries(permissions).map(([roleName, codes]) => ({
           name: roleName,
+          label: roleName,
           permissionCodes: Object.entries(codes)
             .filter(([, enabled]) => enabled)
             .map(([code]) => code),
@@ -134,25 +154,28 @@ function SignupScreen({ onCancel, onDone }) {
       onCancel={onCancel}
       versionmark="v0.1 · onboarding"
       shiftY="3vh"
-      renderStep={(step, nav) => (
-        <>
-          {submitError && step === SIGNUP_STEPS.length - 1 && (
-            <div style={{ color: "var(--error, #f66)", fontSize: 12, marginBottom: 10 }}>{submitError}</div>
-          )}
-          {step === 0  && <StepPersonal v={personal} onChange={setPersonal} />}
-          {step === 1  && <StepVerify v={verify} setV={setVerify} email={personal.email} onPass={() => nav.goTo(step + 1)} />}
-          {step === 2  && <StepPassword v={password} onChange={setPassword} rules={pwRules} />}
-          {step === 3  && <StepOrganization v={org} onChange={setOrg} />}
-          {step === 4  && <StepProject v={project} onChange={setProject} />}
-          {step === 5  && <StepChipList items={senioridade} setItems={setSenioridade} placeholder="ex.: Pleno"          emptyMsg="Adicione pelo menos um nível."
-                                        footer="Você poderá adicionar mais níveis de senioridade depois, nas configurações da organização." />}
-          {step === 6  && <StepChipList items={cargos}      setItems={setCargos}      placeholder="ex.: Desenvolvedor" emptyMsg="Adicione pelo menos um cargo."
-                                        footer="Você poderá adicionar mais cargos depois, nas configurações da organização." />}
-          {step === 7  && <StepPermissoes cargos={cargos} permissions={permissions} setPermissions={setPermissions} />}
-          {step === 8  && <StepConvidar invites={invites} setInvites={setInvites} cargos={cargos} senioridade={senioridade} />}
-          {step === 9  && <StepConfirm personal={personal} org={org} project={project} cargos={cargos} senioridade={senioridade} permissions={permissions} invites={invites} accept={accept} setAccept={setAccept} />}
-        </>
-      )}
+      renderStep={(step, nav) => {
+        // All role labels available for invites (defaults are immutable, custom are editable)
+        const allRoleLabels = [...DEFAULT_ROLES.map((r) => r.label), ...cargos];
+        return (
+          <>
+            {submitError && step === SIGNUP_STEPS.length - 1 && (
+              <div style={{ color: "var(--error, #f66)", fontSize: 12, marginBottom: 10 }}>{submitError}</div>
+            )}
+            {step === 0  && <StepPersonal v={personal} onChange={setPersonal} />}
+            {step === 1  && <StepVerify v={verify} setV={setVerify} email={personal.email} onPass={() => nav.goTo(step + 1)} />}
+            {step === 2  && <StepPassword v={password} onChange={setPassword} rules={pwRules} />}
+            {step === 3  && <StepOrganization v={org} onChange={setOrg} />}
+            {step === 4  && <StepProject v={project} onChange={setProject} />}
+            {step === 5  && <StepChipList items={senioridade} setItems={setSenioridade} placeholder="ex.: Pleno"          emptyMsg="Adicione pelo menos um nível."
+                                          footer="Você poderá adicionar mais níveis de senioridade depois, nas configurações da organização." />}
+            {step === 6  && <StepCargos customCargos={cargos} setCustomCargos={setCargos} />}
+            {step === 7  && <StepPermissoes customCargos={cargos} permissions={permissions} setPermissions={setPermissions} />}
+            {step === 8  && <StepConvidar invites={invites} setInvites={setInvites} cargos={allRoleLabels} senioridade={senioridade} />}
+            {step === 9  && <StepConfirm personal={personal} org={org} project={project} customCargos={cargos} senioridade={senioridade} permissions={permissions} invites={invites} accept={accept} setAccept={setAccept} />}
+          </>
+        );
+      }}
     />
   );
 }
@@ -391,12 +414,59 @@ function StepChipList({ items, setItems, placeholder, emptyMsg, footer }) {
   );
 }
 
-function StepPermissoes({ cargos, permissions, setPermissions }) {
+/* Step: cargos — shows locked default chips + editable custom chips */
+function StepCargos({ customCargos, setCustomCargos }) {
+  const [draft, setDraft] = React.useState("");
+  const add = () => {
+    const v = draft.trim();
+    const allLabels = DEFAULT_ROLES.map((r) => r.label);
+    if (!v || customCargos.includes(v) || allLabels.includes(v)) return;
+    setCustomCargos([...customCargos, v]);
+    setDraft("");
+  };
+  const remove = (it) => setCustomCargos(customCargos.filter((x) => x !== it));
+
+  return (
+    <div className="signup-chips">
+      <div className="signup-chips-input">
+        <input value={draft}
+               onChange={(e) => setDraft(e.target.value)}
+               onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); add(); } }}
+               placeholder="ex.: QA Engineer" />
+        <button type="button" className="btn" onClick={add}
+                disabled={!draft.trim() || customCargos.includes(draft.trim()) || DEFAULT_ROLES.map((r) => r.label).includes(draft.trim())}>
+          Adicionar
+        </button>
+      </div>
+      <div className="signup-chips-list">
+        {DEFAULT_ROLES.map((r) => (
+          <span key={r.name} className="signup-chip is-locked" title="Cargo padrão — imutável">
+            🔒 {r.label}
+          </span>
+        ))}
+        {customCargos.map((it) => (
+          <span key={it} className="signup-chip">
+            {it}
+            <button type="button" onClick={() => remove(it)} aria-label={`remover ${it}`}>×</button>
+          </span>
+        ))}
+        {customCargos.length === 0 && (
+          <span className="signup-chips-empty mono">Os 4 cargos padrão já estão incluídos. Adicione cargos personalizados se precisar.</span>
+        )}
+      </div>
+      <p className="signup-step-footer mono">
+        Os cargos padrão (Administrador, Líder Técnico, Gerente, Desenvolvedor) são imutáveis e já existem no sistema. Você pode criar cargos adicionais acima.
+      </p>
+    </div>
+  );
+}
+
+function StepPermissoes({ customCargos, permissions, setPermissions }) {
   const [features, setFeatures] = React.useState([]);
 
   React.useEffect(() => {
     api.get("/v1/permissions")
-      .then((data) => setFeatures(data.permissions || []))
+      .then((data) => setFeatures((data.permissions || []).filter((p) => !ALWAYS_ON_PERMISSIONS.includes(p.code))))
       .catch(() => {});
   }, []);
 
@@ -417,14 +487,33 @@ function StepPermissoes({ cargos, permissions, setPermissions }) {
           {features.map((f) => (
             <div key={f.code} className="signup-perms-head mono">{f.label}</div>
           ))}
-          {cargos.map((c, rowIdx) => (
+          {/* Default roles — read-only rows */}
+          {DEFAULT_ROLES.map((r) => (
+            <React.Fragment key={r.name}>
+              <div className="signup-perms-cargo is-default" title="Cargo padrão — permissões definidas pelo sistema">
+                🔒 {r.label}
+              </div>
+              {features.map((f) => {
+                const on = !!DEFAULT_ROLE_PERMISSIONS[r.name]?.[f.code];
+                return (
+                  <div key={f.code}
+                       className={"signup-perms-cell is-locked" + (on ? " is-on" : "")}
+                       aria-label={`${r.label} · ${f.label} · ${on ? "ativo" : "inativo"}`}>
+                    <span className="signup-perms-check" aria-hidden="true">{on ? "✓" : ""}</span>
+                  </div>
+                );
+              })}
+            </React.Fragment>
+          ))}
+          {/* Custom roles — editable */}
+          {customCargos.map((c) => (
             <React.Fragment key={c}>
-              <div className={"signup-perms-cargo" + (rowIdx === 0 ? " is-first" : "")}>{c}</div>
+              <div className="signup-perms-cargo">{c}</div>
               {features.map((f) => {
                 const on = !!permissions[c]?.[f.code];
                 return (
                   <label key={f.code}
-                         className={"signup-perms-cell" + (on ? " is-on" : "") + (rowIdx === 0 ? " is-first" : "")}
+                         className={"signup-perms-cell" + (on ? " is-on" : "")}
                          aria-label={`${c} · ${f.label}`}>
                     <input type="checkbox" checked={on} onChange={() => toggle(c, f.code)} />
                     <span className="signup-perms-check" aria-hidden="true">{on ? "✓" : ""}</span>
@@ -433,10 +522,15 @@ function StepPermissoes({ cargos, permissions, setPermissions }) {
               })}
             </React.Fragment>
           ))}
+          {customCargos.length === 0 && (
+            <div className="signup-perms-cargo" style={{ color: "var(--fg-muted)", gridColumn: `1 / span ${features.length + 1}` }}>
+              <span className="mono" style={{ fontSize: 11 }}>Nenhum cargo personalizado. Os padrões acima já estão configurados.</span>
+            </div>
+          )}
         </div>
       </div>
       <p className="signup-step-footer mono">
-        Por padrão, todo cargo tem acesso ao próprio dashboard pessoal. Você pode revisar essas permissões depois nas configurações da organização.
+        Os cargos padrão têm permissões fixas. Para cargos personalizados, você pode configurar o acesso acima.
       </p>
     </div>
   );
@@ -488,10 +582,14 @@ function StepConvidar({ invites, setInvites, cargos, senioridade }) {
   );
 }
 
-function StepConfirm({ personal, org, project, cargos, senioridade, permissions, invites, accept, setAccept }) {
+function StepConfirm({ personal, org, project, customCargos, senioridade, permissions, invites, accept, setAccept }) {
   const totalPerms = Object.values(permissions).reduce(
     (acc, codes) => acc + Object.values(codes).filter(Boolean).length, 0,
   );
+  const allCargosLabel = [
+    ...DEFAULT_ROLES.map((r) => r.label),
+    ...customCargos,
+  ].join(" · ");
   return (
     <div className="signup-orbit-confirm">
       <dl className="signup-orbit-summary">
@@ -503,7 +601,7 @@ function StepConfirm({ personal, org, project, cargos, senioridade, permissions,
         <SummaryRow k="Setor · país"  v={`${org.sector} · ${org.country}`} />
         <SummaryRow k="Projeto"       v={project.name || "—"} accent />
         <SummaryRow k="Senioridade"   v={senioridade.join(" · ") || "—"} />
-        <SummaryRow k="Cargos"        v={cargos.join(" · ") || "—"} />
+        <SummaryRow k="Cargos"        v={allCargosLabel || "—"} />
         <SummaryRow k="Permissões"    v={`${totalPerms} acessos liberados`} />
         <SummaryRow k="Convites"      v={invites.length ? `${invites.length} pessoa${invites.length > 1 ? "s" : ""}` : "nenhum"} />
       </dl>

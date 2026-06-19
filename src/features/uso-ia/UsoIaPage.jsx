@@ -86,30 +86,43 @@ export function UsoIaPage({ can }) {
     : null;
 
   return (
-    <section>
-      <div className="admin-section-head">
-        <h2 className="serif admin-section-title">
-          {selectedMember ? `Uso IA — ${selectedMember.name || selectedMember.email}` : "Uso IA"}
-        </h2>
-        <p className="admin-section-sub">
-          Acompanhe o consumo de IA, score de fluência e aloque o uso aos work items.
+    <div className="dash-wrap">
+      {/* Page header */}
+      <div style={{ marginBottom: 28 }}>
+        <div className="mono" style={{ fontSize: "var(--mono-sm)", color: "var(--fg-muted)", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 6 }}>
+          consumo individual
+        </div>
+        <h1 className="serif" style={{ fontSize: 40, lineHeight: 1.1 }}>
+          {selectedMember
+            ? <>{selectedMember.name || selectedMember.email} — <span style={{ fontStyle: "italic", color: "var(--accent)" }}>Uso IA</span></>
+            : <>Uso <span style={{ fontStyle: "italic", color: "var(--accent)" }}>IA</span></>}
+        </h1>
+        <p className="mono" style={{ color: "var(--fg-muted)", fontSize: "var(--mono-sm)", marginTop: 8 }}>
+          Consumo de tokens, score de fluência e alocação por work item.
         </p>
       </div>
 
-      {/* Manager team member selector */}
+      {/* Team member selector */}
       {canSeeTeam && teamMembers.length > 0 && (
-        <div style={{ marginBottom: "var(--spacing-md, 16px)", display: "flex", alignItems: "center", gap: 8 }}>
-          <label className="label" style={{ fontSize: "0.8rem" }}>Visualizar como:</label>
-          <div className="signup-select" style={{ minWidth: 200 }}>
+        <div style={{
+          background: "var(--bg-elev)",
+          border: "1px solid var(--line)",
+          borderRadius: "var(--radius-sm)",
+          padding: "12px 16px",
+          marginBottom: 24,
+          display: "flex",
+          alignItems: "center",
+          gap: 12,
+        }}>
+          <span className="mono" style={{ fontSize: "var(--mono-sm)", color: "var(--fg-muted)" }}>Visualizar como</span>
+          <div className="signup-select" style={{ minWidth: 220 }}>
             <select
               value={selectedUserId || ""}
               onChange={(e) => setSelectedUserId(e.target.value || null)}
               aria-label="Selecionar membro para visualizar">
               <option value="">Meu uso</option>
               {teamMembers.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {m.name || m.email}
-                </option>
+                <option key={m.id} value={m.id}>{m.name || m.email}</option>
               ))}
             </select>
             <span className="signup-select-caret">▾</span>
@@ -126,7 +139,7 @@ export function UsoIaPage({ can }) {
       />
 
       {summaryError && (
-        <div style={{ color: "var(--bad)", fontSize: "0.85rem", marginBottom: "var(--spacing-md, 16px)" }}>
+        <div className="mono" style={{ color: "var(--bad)", fontSize: "var(--mono-sm)", marginBottom: 20 }}>
           Erro ao carregar resumo: {summaryError}
         </div>
       )}
@@ -140,23 +153,25 @@ export function UsoIaPage({ can }) {
 
       {/* Pending allocations */}
       {(pendingLoading || pendingError || pending.length > 0) && (
-        <div style={{ marginBottom: "var(--spacing-lg, 32px)" }}>
-          <h3 style={{ fontSize: "0.9rem", fontWeight: 600, marginBottom: "var(--spacing-sm, 8px)" }}>
-            Alocações pendentes
-          </h3>
+        <div style={{ marginBottom: 32 }}>
+          <div style={{ marginBottom: 12 }}>
+            <span className="mono" style={{ fontSize: "var(--mono-sm)", color: "var(--fg-muted)", textTransform: "uppercase", letterSpacing: "0.10em" }}>
+              Alocações pendentes
+            </span>
+          </div>
 
           {pendingLoading && (
-            <div style={{ background: "var(--line)", borderRadius: 4, height: 72 }} />
+            <div style={{ background: "var(--bg-elev)", border: "1px solid var(--line)", borderRadius: "var(--radius-sm)", height: 72 }} />
           )}
 
           {!pendingLoading && pendingError && (
-            <div style={{ color: "var(--bad)", fontSize: "0.85rem" }}>
+            <div className="mono" style={{ color: "var(--bad)", fontSize: "var(--mono-sm)" }}>
               Erro ao carregar pendências: {pendingError}
             </div>
           )}
 
           {!pendingLoading && !pendingError && pending.length === 0 && (
-            <p className="mono" style={{ color: "var(--fg-muted)", fontSize: "0.85rem" }}>
+            <p className="mono" style={{ color: "var(--fg-muted)", fontSize: "var(--mono-sm)" }}>
               Nenhuma alocação pendente.
             </p>
           )}
@@ -193,7 +208,7 @@ export function UsoIaPage({ can }) {
         />
       )}
 
-      {/* Toast notification */}
+      {/* Toast */}
       {toast && (
         <div style={{
           position: "fixed",
@@ -202,15 +217,16 @@ export function UsoIaPage({ can }) {
           transform: "translateX(-50%)",
           background: toast.ok ? "var(--good)" : "var(--bad)",
           color: "var(--bg)",
-          padding: "10px 20px",
+          padding: "10px 22px",
           borderRadius: "var(--radius-sm)",
           zIndex: 2000,
-          fontSize: 13,
+          fontSize: "var(--mono-sm)",
+          fontFamily: "inherit",
           pointerEvents: "none",
         }}>
           {toast.msg}
         </div>
       )}
-    </section>
+    </div>
   );
 }

@@ -1,5 +1,8 @@
 /**
- * TokenUsageChart — Recharts LineChart for daily token usage.
+ * TokenUsageChart — Recharts stacked BarChart for sprint token usage.
+ *
+ * X-axis = each day of the sprint (zero-filled by the backend), Y-axis = tokens.
+ * Input and output tokens are shown as separate stacked series.
  *
  * @param {{ data: Array<{ date?: string, day?: string, inputTokens: number, outputTokens: number }> }} props
  *   `date` or `day` field accepted (tokensByDay from API uses `day`).
@@ -8,8 +11,8 @@
 import React from "react";
 import {
   ResponsiveContainer,
-  LineChart,
-  Line,
+  BarChart,
+  Bar,
   XAxis,
   YAxis,
   Tooltip,
@@ -17,7 +20,8 @@ import {
 } from "recharts";
 
 /**
- * Normalize raw API entries so they always have a `date` key and a `total`.
+ * Normalize raw API entries so they always have a `date` key, split token fields,
+ * and a `total`.
  * @param {Array|undefined} data
  */
 function normalize(data) {
@@ -59,8 +63,8 @@ function CustomTooltip({ active, payload, label }) {
     >
       <div style={{ color: "var(--fg-muted)", marginBottom: 4 }}>{fmtDate(label)}</div>
       <div>Total: {(entry.total ?? 0).toLocaleString()}</div>
-      <div>Input: {(entry.inputTokens ?? 0).toLocaleString()}</div>
-      <div>Output: {(entry.outputTokens ?? 0).toLocaleString()}</div>
+      <div style={{ color: "var(--accent)" }}>Input: {(entry.inputTokens ?? 0).toLocaleString()}</div>
+      <div style={{ color: "var(--good)" }}>Output: {(entry.outputTokens ?? 0).toLocaleString()}</div>
     </div>
   );
 }
@@ -78,19 +82,18 @@ export function TokenUsageChart({ data }) {
           margin: "16px 0",
         }}
       >
-        No token usage in the last 30 days
+        Sem uso de tokens nesta sprint
       </p>
     );
   }
 
   return (
     <ResponsiveContainer width="100%" height={200}>
-      <LineChart data={rows} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
+      <BarChart data={rows} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
         <CartesianGrid stroke="var(--line)" strokeDasharray="3 3" vertical={false} />
         <XAxis
           dataKey="date"
           tickFormatter={fmtDate}
-          interval={4}
           tick={{ fill: "var(--fg-muted)", fontSize: 11 }}
           axisLine={{ stroke: "var(--line)" }}
           tickLine={false}
@@ -102,16 +105,10 @@ export function TokenUsageChart({ data }) {
           tickLine={false}
           width={36}
         />
-        <Tooltip content={<CustomTooltip />} />
-        <Line
-          type="monotone"
-          dataKey="total"
-          stroke="var(--accent)"
-          strokeWidth={2}
-          dot={false}
-          activeDot={{ r: 4, fill: "var(--accent)" }}
-        />
-      </LineChart>
+        <Tooltip content={<CustomTooltip />} cursor={{ fill: "var(--line)" }} />
+        <Bar dataKey="inputTokens" stackId="tokens" fill="var(--accent)" />
+        <Bar dataKey="outputTokens" stackId="tokens" fill="var(--good)" radius={[2, 2, 0, 0]} />
+      </BarChart>
     </ResponsiveContainer>
   );
 }

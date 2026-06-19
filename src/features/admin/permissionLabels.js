@@ -14,3 +14,13 @@ export const PERMISSION_LABELS = {
   CONNECTOR_TOKEN_MANAGE_OWN: "Gerenciar Token IA",
   CONNECTOR_TOKEN_MANAGE_ALL: "Gerenciar Tokens da Equipe",
 };
+
+/* Permissions that are always granted to every role and are not shown in the
+   permissions table or edit modal. Auto-included when creating a new role. */
+export const ALWAYS_ON_PERMISSIONS = [
+  "DASHBOARD_INDIVIDUAL",
+  "AI_READ_OWN",
+  "CONNECTOR_TOKEN_MANAGE_OWN",
+  "AZURE_READ",
+  "GITHUB_READ",
+];

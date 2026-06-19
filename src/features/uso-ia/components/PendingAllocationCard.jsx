@@ -27,24 +27,37 @@ export function PendingAllocationCard({ batch, onAccept, onAdjust, readOnly }) {
   const hasSuggestion = batch.suggestion && batch.suggestion.length > 0;
 
   return (
-    <div className="card" style={{ padding: "var(--spacing-md, 16px)", marginBottom: "var(--spacing-sm, 8px)" }}>
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: "var(--spacing-md, 16px)" }}>
+    <div style={{
+      background: "var(--bg-elev)",
+      border: "1px solid var(--line)",
+      borderRadius: "var(--radius-sm)",
+      padding: "14px 16px",
+      marginBottom: 8,
+    }}>
+      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16 }}>
         {/* Left: date + stats */}
         <div style={{ flex: 1 }}>
-          <div style={{ fontWeight: 600, fontSize: "0.9rem", marginBottom: 6 }}>
-            {formatDay(batch.day)}
-          </div>
-          <div className="stat-row" style={{ display: "flex", gap: 16, flexWrap: "wrap", fontSize: "0.8rem", color: "var(--fg-muted)" }}>
-            <span><span className="kv-num">{totalTokens.toLocaleString("pt-BR")}</span> <span className="kv-unit">tokens</span></span>
-            <span><span className="kv-num">$ {(batch.estimatedCostUsd || 0).toFixed(4)}</span></span>
-            <span><span className="kv-num">{batch.totalInteractions || 0}</span> <span className="kv-unit">interações</span></span>
+          <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 8 }}>
+            <span className="serif" style={{ fontSize: 18, color: "var(--fg)" }}>{formatDay(batch.day)}</span>
           </div>
 
-          {/* Suggestion tags */}
+          <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
+            <Stat value={totalTokens.toLocaleString("pt-BR")} unit="tokens" />
+            <Stat value={`$${(batch.estimatedCostUsd || 0).toFixed(2)}`} />
+            <Stat value={batch.totalInteractions || 0} unit="interações" />
+          </div>
+
           {hasSuggestion && (
-            <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 8 }}>
+            <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 10 }}>
               {batch.suggestion.map((s) => (
-                <span key={s.workItemId} className="tag" style={{ fontSize: "0.72rem" }}>
+                <span key={s.workItemId} className="mono" style={{
+                  fontSize: "var(--mono-sm)",
+                  color: "var(--accent)",
+                  background: "color-mix(in srgb, var(--accent) 10%, transparent)",
+                  border: "1px solid color-mix(in srgb, var(--accent) 25%, transparent)",
+                  borderRadius: 4,
+                  padding: "2px 8px",
+                }}>
                   {s.workItemTitle} · {(parseFloat(s.percentage) * 100).toFixed(0)}%
                 </span>
               ))}
@@ -52,20 +65,20 @@ export function PendingAllocationCard({ batch, onAccept, onAdjust, readOnly }) {
           )}
         </div>
 
-        {/* Right: action buttons */}
+        {/* Actions */}
         {!readOnly && (
-          <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+          <div style={{ display: "flex", gap: 6, flexShrink: 0, alignSelf: "center" }}>
             {batch.suggestionAllocationId && (
               <button
                 className="btn"
-                style={{ fontSize: "0.8rem", padding: "4px 12px" }}
+                style={{ fontSize: "var(--mono-sm)", padding: "5px 14px" }}
                 onClick={() => onAccept(batch)}>
                 Aceitar
               </button>
             )}
             <button
               className="btn btn-ghost"
-              style={{ fontSize: "0.8rem", padding: "4px 12px" }}
+              style={{ fontSize: "var(--mono-sm)", padding: "5px 14px" }}
               onClick={() => onAdjust(batch)}>
               {hasSuggestion ? "Ajustar" : "+ Alocar"}
             </button>
@@ -73,5 +86,14 @@ export function PendingAllocationCard({ batch, onAccept, onAdjust, readOnly }) {
         )}
       </div>
     </div>
+  );
+}
+
+function Stat({ value, unit }) {
+  return (
+    <span className="mono" style={{ fontSize: "var(--mono-sm)", color: "var(--fg-muted)" }}>
+      <span style={{ color: "var(--fg)" }}>{value}</span>
+      {unit && <> {unit}</>}
+    </span>
   );
 }

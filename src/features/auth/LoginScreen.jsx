@@ -4,8 +4,8 @@ import React from "react";
 import { Wordmark } from "../../components/Wordmark.jsx";
 
 function LoginScreen({ onLogin, onHome }) {
-  const [email, setEmail] = React.useState("lead@andromeda.tcc");
-  const [password, setPassword] = React.useState("galaxia2026");
+  const [email, setEmail] = React.useState("");
+  const [password, setPassword] = React.useState("");
 
   const submit = (e) => {
     e.preventDefault();

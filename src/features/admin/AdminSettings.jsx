@@ -6,7 +6,7 @@ import { Icon } from "../../components/charts/Charts.jsx";
 import { OAuthPopup } from "../../components/OAuthPopup.jsx";
 import { DashboardPage } from "../dashboard/DashboardPage.jsx";
 import { IntegrationTab } from "./IntegrationTab.jsx";
-import { PERMISSION_LABELS } from "./permissionLabels.js";
+import { PERMISSION_LABELS, ALWAYS_ON_PERMISSIONS } from "./permissionLabels.js";
 import { AiPricingTab } from "../org-settings/AiPricingTab.jsx";
 import { UsoIaPage } from "../uso-ia/UsoIaPage.jsx";
 import api, { getToken, linkAzureIdentity, getAzureUsers, updateProjectMembers } from "../../services/api.js";
@@ -30,8 +30,10 @@ function decodeJwt() {
   }
 }
 
-/* All 14 permission codes from PERMISSION_LABELS, kept in insertion order. */
-const ALL_PERMISSION_CODES = Object.keys(PERMISSION_LABELS);
+/* Configurable permission codes — always-on ones are excluded from the table/modal. */
+const ALL_PERMISSION_CODES = Object.keys(PERMISSION_LABELS).filter(
+  (c) => !ALWAYS_ON_PERMISSIONS.includes(c),
+);
 
 /* Provedores OAuth para vincular um projeto (mock — só GitHub é OAuth hoje). */
 const PROJECT_PROVIDERS = {
@@ -277,8 +279,10 @@ function AdminSettings({ section, can, dash, profile, palette, setPalette, onNav
 
   const permissionSummary = (roleId) => {
     const set = rolePerms[roleId];
-    if (!set || set.size === 0) return "Nenhum acesso liberado";
-    return ALL_PERMISSION_CODES.filter((c) => set.has(c)).map((c) => PERMISSION_LABELS[c]).join(" · ");
+    const configured = ALL_PERMISSION_CODES.filter((c) => set?.has(c)).map((c) => PERMISSION_LABELS[c]);
+    const alwaysOn = ALWAYS_ON_PERMISSIONS.map((c) => PERMISSION_LABELS[c]);
+    const all = [...alwaysOn, ...configured];
+    return all.length === 0 ? "Nenhum acesso liberado" : all.join(" · ");
   };
 
   /* ── Roles CRUD ── */
@@ -403,7 +407,7 @@ function AdminSettings({ section, can, dash, profile, palette, setPalette, onNav
     if (!email || !inviteDraft.roleId) return;
     setMemberSaving(true);
     try {
-      await api.post("/v1/users", { email, roleId: inviteDraft.roleId });
+      await api.post("/v1/users", { email, roleId: inviteDraft.roleId, seniority: inviteDraft.seniority || null });
       await fetchMembers();
       setInvitingMember(false);
     } catch (_) {
@@ -446,7 +450,7 @@ function AdminSettings({ section, can, dash, profile, palette, setPalette, onNav
     setMemberSaving(true);
     setMemberSaveMsg(null);
     try {
-      await api.put(`/v1/users/${editingMember.id}`, { name: editingMember.name, roleId: editingMember.roleId });
+      await api.put(`/v1/users/${editingMember.id}`, { name: editingMember.name, roleId: editingMember.roleId, seniority: editingMember.seniority || null });
       if (selectedAzureUser) {
         await linkAzureIdentity(editingMember.id, {
           azureId: selectedAzureUser.azureId,
@@ -480,7 +484,7 @@ function AdminSettings({ section, can, dash, profile, palette, setPalette, onNav
     }
   };
 
-  const roleName = (id) => roles.find((r) => r.id === id)?.name || "—";
+  const roleName = (id) => { const r = roles.find((r) => r.id === id); return r ? (r.label || r.name) : "—"; };
 
   const memberQuery = memberSearch.trim().toLowerCase();
   const visibleMembers = memberQuery
@@ -756,7 +760,10 @@ function AdminSettings({ section, can, dash, profile, palette, setPalette, onNav
                 <AdminRow label="País" value={orgData.country} />
               </div>
               <div style={{ marginTop: "var(--spacing-lg, 32px)" }}>
-                <AiPricingTab initialEntries={Array.isArray(orgData.aiPrices) ? orgData.aiPrices : []} />
+                <AiPricingTab
+                  initialEntries={Array.isArray(orgData.aiPrices) ? orgData.aiPrices : []}
+                  initialSubscriptionCost={orgData.subscriptionCostPerUserUsd ?? null}
+                />
               </div>
             </section>
           )}
@@ -869,7 +876,7 @@ function AdminSettings({ section, can, dash, profile, palette, setPalette, onNav
                             className={"signup-perms-cargo" + (rowIdx === 0 ? " is-first" : "") + (r.isDefault ? " is-default" : "")}
                             onClick={() => !r.isDefault && openEdit(r)}
                             title={r.isDefault ? "Cargo padrão — não editável" : "Editar cargo"}>
-                            <span className="signup-perms-cargo-name">{r.name}</span>
+                            <span className="signup-perms-cargo-name">{r.label || r.name}</span>
                             <span className="signup-perms-cargo-meta">
                               <span className="signup-perms-cargo-count mono" title={`${roleCount(r.id)} ${roleCount(r.id) === 1 ? "pessoa" : "pessoas"}`}>{roleCount(r.id)}</span>
                               {!r.isDefault && <span className="signup-perms-cargo-edit mono">editar</span>}
@@ -1386,6 +1393,17 @@ function AdminSettings({ section, can, dash, profile, palette, setPalette, onNav
                 </div>
               </label>
 
+              <label className="role-modal-field" style={{ marginTop: "var(--spacing-sm)" }}>
+                <span className="role-modal-label">Senioridade</span>
+                <div className="signup-select">
+                  <select value={inviteDraft.seniority || ""} onChange={(e) => setInviteDraft({ ...inviteDraft, seniority: e.target.value || null })}>
+                    <option value="">— Sem senioridade —</option>
+                    {seniorities.map((s) => <option key={s.id} value={s.name}>{s.name}</option>)}
+                  </select>
+                  <span className="signup-select-caret">▾</span>
+                </div>
+              </label>
+
               {inviteDraft.roleId && (
                 <p className="role-perm-hint mono" style={{ marginTop: "var(--spacing-sm)" }}>
                   <span className="role-perm-hint-label">permissões deste cargo</span>
@@ -1437,6 +1455,17 @@ function AdminSettings({ section, can, dash, profile, palette, setPalette, onNav
                   {permissionSummary(editingMember.roleId)}
                 </p>
               )}
+
+              <label className="role-modal-field" style={{ marginTop: "var(--spacing-sm)" }}>
+                <span className="role-modal-label">Senioridade</span>
+                <div className="signup-select">
+                  <select value={editingMember.seniority || ""} onChange={(e) => setEditingMember({ ...editingMember, seniority: e.target.value || null })}>
+                    <option value="">— Sem senioridade —</option>
+                    {seniorities.map((s) => <option key={s.id} value={s.name}>{s.name}</option>)}
+                  </select>
+                  <span className="signup-select-caret">▾</span>
+                </div>
+              </label>
 
               <div className="role-modal-field" style={{ marginTop: "var(--spacing-md)" }}>
                 <span className="role-modal-label">Identidade Azure</span>

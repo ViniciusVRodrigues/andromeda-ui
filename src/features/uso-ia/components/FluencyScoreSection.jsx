@@ -12,19 +12,17 @@ function relativeTime(isoStr) {
   return `${days}d atrás`;
 }
 
-const SKELETON = { background: "var(--line)", borderRadius: 4 };
-
 /**
  * @param {{ fluency: object|null, loading: boolean, error: string|null }} props
  */
 export function FluencyScoreSection({ fluency, loading, error }) {
   if (loading) {
     return (
-      <div className="card" style={{ padding: "var(--spacing-md, 16px)", marginBottom: "var(--spacing-lg, 32px)" }}>
-        <div style={{ ...SKELETON, height: 20, width: 160, marginBottom: 16 }} />
+      <div style={card}>
+        <div style={{ background: "var(--bg-deep)", borderRadius: 4, height: 20, width: 160, marginBottom: 16 }} />
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
           {[0, 1, 2, 3, 4, 5].map((i) => (
-            <div key={i} style={{ ...SKELETON, height: 56 }} />
+            <div key={i} style={{ background: "var(--bg-deep)", borderRadius: 4, height: 56 }} />
           ))}
         </div>
       </div>
@@ -33,18 +31,23 @@ export function FluencyScoreSection({ fluency, loading, error }) {
 
   if (error) {
     return (
-      <div className="card" style={{ padding: "var(--spacing-md, 16px)", marginBottom: "var(--spacing-lg, 32px)", color: "var(--bad)" }}>
-        Erro ao carregar score de fluência: {error}
+      <div style={card}>
+        <span className="mono" style={{ fontSize: "var(--mono-sm)", color: "var(--bad)" }}>
+          Erro ao carregar score de fluência: {error}
+        </span>
       </div>
     );
   }
 
   if (!fluency || !fluency.categories || fluency.categories.length === 0) {
     return (
-      <div className="card" style={{ padding: "var(--spacing-md, 16px)", marginBottom: "var(--spacing-lg, 32px)" }}>
-        <h3 className="serif" style={{ marginBottom: 8, fontSize: "1rem" }}>Score de Fluência IA</h3>
-        <p className="mono" style={{ color: "var(--fg-muted)", fontSize: "0.85rem" }}>
-          Nenhum score de fluência registrado ainda.
+      <div style={card}>
+        <div style={cardHead}>
+          <span className="mono" style={eyebrow}>fluência IA</span>
+          <h3 className="serif" style={{ fontSize: 20 }}>Score de Fluência</h3>
+        </div>
+        <p className="mono" style={{ color: "var(--fg-muted)", fontSize: "var(--mono-sm)" }}>
+          Nenhum score registrado ainda.
         </p>
       </div>
     );
@@ -56,59 +59,54 @@ export function FluencyScoreSection({ fluency, loading, error }) {
   const lowestCategory = categories.reduce((min, c) => (c.stage < min.stage ? c : min), categories[0]);
 
   return (
-    <div className="card" style={{ padding: "var(--spacing-md, 16px)", marginBottom: "var(--spacing-lg, 32px)" }}>
-      {/* Header */}
-      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: "var(--spacing-md, 16px)" }}>
-        <h3 className="serif" style={{ fontSize: "1rem", margin: 0 }}>Score de Fluência IA</h3>
-        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-          {allMaxed ? (
-            <span className="chip" style={{ background: "var(--good)", color: "var(--bg)", fontSize: "0.75rem" }}>
-              Fluência máxima atingida
-            </span>
-          ) : (
-            <span className="chip" style={{ fontSize: "0.75rem" }}>
-              {STAGE_LABELS[overallStage - 1] || "Iniciante"} · Estágio {overallStage}/4
-            </span>
-          )}
-          {fluency.computedAt && (
-            <span className="mono" style={{ fontSize: "0.72rem", color: "var(--fg-dim)" }}>
-              {relativeTime(fluency.computedAt)}
-            </span>
-          )}
+    <div style={card}>
+      <div style={cardHead}>
+        <span className="mono" style={eyebrow}>fluência IA</span>
+        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 16 }}>
+          <h3 className="serif" style={{ fontSize: 20 }}>Score de Fluência</h3>
+          <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+            {allMaxed ? (
+              <span className="mono" style={{ ...badge, background: "color-mix(in srgb, var(--good) 15%, transparent)", color: "var(--good)", borderColor: "color-mix(in srgb, var(--good) 30%, transparent)" }}>
+                fluência máxima
+              </span>
+            ) : (
+              <span className="mono" style={badge}>
+                {STAGE_LABELS[overallStage - 1] || "Iniciante"} · {overallStage}/4
+              </span>
+            )}
+            {fluency.computedAt && (
+              <span className="mono" style={{ fontSize: "var(--mono-sm)", color: "var(--fg-dim)" }}>
+                {relativeTime(fluency.computedAt)}
+              </span>
+            )}
+          </div>
         </div>
       </div>
 
-      {/* Category grid */}
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginBottom: allMaxed ? 0 : "var(--spacing-md, 16px)" }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14, marginBottom: allMaxed ? 0 : 16 }}>
         {categories.map((cat) => (
           <div key={cat.category} style={{ display: "flex", flexDirection: "column", gap: 6 }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <span style={{ fontSize: "0.8rem", fontWeight: 500 }}>{cat.category}</span>
-              <span className="mono" style={{ fontSize: "0.72rem", color: "var(--fg-muted)" }}>
-                {cat.stage}/4
-              </span>
+              <span className="mono" style={{ fontSize: "var(--mono-sm)", color: "var(--fg)" }}>{cat.category}</span>
+              <span className="mono" style={{ fontSize: "var(--mono-sm)", color: "var(--fg-muted)" }}>{cat.stage}/4</span>
             </div>
-            <div className="bar-track" style={{ height: 6 }}>
-              <div
-                className="bar-fill"
-                style={{ width: `${(cat.stage / 4) * 100}%`, transition: "width 0.3s ease" }}
-              />
+            <div style={{ height: 5, background: "var(--bg-deep)", borderRadius: 3, overflow: "hidden" }}>
+              <div style={{
+                height: "100%",
+                width: `${(cat.stage / 4) * 100}%`,
+                background: cat.stage >= 4 ? "var(--good)" : "var(--accent)",
+                borderRadius: 3,
+                transition: "width 0.3s ease",
+              }} />
             </div>
           </div>
         ))}
       </div>
 
-      {/* Improvement tip for lowest category */}
-      {!allMaxed && lowestCategory && lowestCategory.tips && lowestCategory.tips.length > 0 && (
-        <div style={{
-          borderTop: "1px solid var(--line)",
-          paddingTop: "var(--spacing-sm, 8px)",
-          display: "flex",
-          gap: 8,
-          alignItems: "flex-start",
-        }}>
-          <span style={{ fontSize: "0.8rem", color: "var(--fg-muted)", flexShrink: 0 }}>Dica:</span>
-          <span style={{ fontSize: "0.8rem", color: "var(--fg)" }}>
+      {!allMaxed && lowestCategory?.tips?.length > 0 && (
+        <div style={{ borderTop: "1px solid var(--line)", paddingTop: 12, display: "flex", gap: 10, alignItems: "flex-start" }}>
+          <span className="mono" style={{ fontSize: "var(--mono-sm)", color: "var(--accent)", flexShrink: 0 }}>dica</span>
+          <span className="mono" style={{ fontSize: "var(--mono-sm)", color: "var(--fg-muted)", lineHeight: 1.5 }}>
             {lowestCategory.tips[0]}
           </span>
         </div>
@@ -116,3 +114,33 @@ export function FluencyScoreSection({ fluency, loading, error }) {
     </div>
   );
 }
+
+const card = {
+  background: "var(--bg-elev)",
+  border: "1px solid var(--line)",
+  borderRadius: "var(--radius-sm)",
+  padding: "16px 20px",
+  marginBottom: 16,
+};
+
+const cardHead = {
+  marginBottom: 14,
+};
+
+const eyebrow = {
+  fontSize: "var(--mono-sm)",
+  color: "var(--fg-muted)",
+  textTransform: "uppercase",
+  letterSpacing: "0.10em",
+  display: "block",
+  marginBottom: 4,
+};
+
+const badge = {
+  fontSize: "var(--mono-sm)",
+  color: "var(--fg-muted)",
+  background: "var(--bg-deep)",
+  border: "1px solid var(--line)",
+  borderRadius: 4,
+  padding: "2px 8px",
+};

@@ -10,7 +10,8 @@
  *   avgCycleTimeHours:   number | null,
  *   avgLeadTimeHours:    number | null,
  *   storyPointsDelivered: number | null,
- *   tokensByDay: Array<{ day, inputTokens, outputTokens, interactions, costUsd }>,
+ *   totalSpInSprint:     number | null,
+ *   tokensByDay: Array<{ day, inputTokens, outputTokens, interactions, costUsd }>, // spans the full sprint, zero-filled
  *   sprintCostUsd:   number | null,
  *   avgTokensPerSp:  number | null,
  * }
@@ -19,10 +20,11 @@
  */
 
 import React from "react";
-import { getDeveloperDashboard } from "../../services/api.js";
+import { getDeveloperDashboard, getPendingAllocations, getSprintItems, acceptAllocation, manualAllocate, manualAllocateNoSuggestion } from "../../services/api.js";
 import { TokenUsageChart } from "../../components/charts/TokenUsageChart.jsx";
 import { BurndownChart } from "../../components/charts/BurndownChart.jsx";
 import { SprintProgressBar } from "../../components/SprintProgressBar.jsx";
+import { AllocationModal } from "../uso-ia/components/AllocationModal.jsx";
 
 /* ── Helpers ─────────────────────────────────────── */
 
@@ -238,81 +240,164 @@ function InProgressPanel({ items, loading }) {
 }
 
 /**
- * AI Sprint Summary card — tokens, cost, and unallocated-days warning.
- * The warning badge is a button that navigates to the AI usage allocation page.
- * @param {{ summary: { totalTokens: number, totalCostUsd: number, unallocatedDaysCount: number }|null, loading: boolean, onNavigate?: (tab: string) => void }} props
+ * Unified AI card — tokens, cost, chart, ROI, pending allocations.
  */
-function AiSprintSummary({ summary, loading, onNavigate }) {
-  const isEmpty = !summary || summary.totalTokens === 0;
+function AiCard({ data, loading, pending, pendingLoading, sprintItems, onAllocationAccepted, onAllocationAdjust }) {
+  const summary = data?.aiSprintSummary;
+  const hasTokens = summary && summary.totalTokens > 0;
+
+  const subCost = data?.subscriptionCostPerUserUsd;
+  const hasRoi = subCost != null && Number(subCost) > 0;
+  const sprintCost = data?.sprintCostUsd ?? 0;
+  const sprintDays = Array.isArray(data?.tokensByDay) ? data.tokensByDay.length : 30;
+  const proratedSub = hasRoi ? (Number(subCost) * sprintDays) / 30 : null;
+  const roi = hasRoi ? Number(sprintCost) - proratedSub : null;
+  const roiPositive = roi != null && roi >= 0;
+
+  const hasPending = !pendingLoading && pending.length > 0;
 
   return (
     <div style={styles.card}>
+      {/* Header */}
       <div style={styles.cardHead}>
         <span className="mono" style={styles.cardEyebrow}>sprint atual</span>
-        <h3 className="serif" style={styles.cardTitle}>IA neste Sprint</h3>
+        <h3 className="serif" style={styles.cardTitle}>IA</h3>
       </div>
 
       {loading ? (
         <div className="mono" style={styles.emptyState}>Carregando…</div>
-      ) : isEmpty ? (
+      ) : !hasTokens ? (
         <div className="mono" style={styles.emptyState}>Nenhuma atividade de IA neste sprint</div>
       ) : (
-        <div style={styles.aiSummaryGrid}>
-          <div>
-            <div className="mono" style={styles.costLabel}>Tokens</div>
-            <div className="serif" style={styles.costValue}>
-              {summary.totalTokens.toLocaleString()} <span className="mono" style={styles.chipUnit}>tokens</span>
-            </div>
+        <>
+          {/* Section 1: key numbers */}
+          <div style={{ display: "flex", gap: 32, flexWrap: "wrap", marginBottom: 20 }}>
+            <AiStat label="Tokens alocados" value={summary.totalTokens.toLocaleString()} unit="tokens" />
+            <AiStat label="Custo" value={fmtUsd(data?.sprintCostUsd)} />
+            <AiStat label="Tokens / SP" value={fmt1(data?.avgTokensPerSp)} />
+            {hasRoi && (
+              <AiStat
+                label="Saldo assinatura"
+                value={(roiPositive ? "+" : "") + fmtUsd(roi)}
+                valueColor={roiPositive ? "var(--good)" : "var(--bad)"}
+              />
+            )}
           </div>
-          <div>
-            <div className="mono" style={styles.costLabel}>Custo</div>
-            <div className="serif" style={styles.costValue}>
-              ${Number(summary.totalCostUsd).toFixed(2)}
-            </div>
+
+          {/* Section 2: token usage chart */}
+          <div style={{ borderTop: "1px solid var(--line)", paddingTop: 16, marginBottom: hasRoi ? 16 : 0 }}>
+            <div className="mono" style={{ ...styles.costLabel, marginBottom: 10 }}>Uso de Tokens na Sprint</div>
+            <TokenUsageChart data={data?.tokensByDay} />
           </div>
-          {summary.unallocatedDaysCount > 0 && (
-            <div style={{ alignSelf: "center" }}>
-              <button
-                className="mono"
-                style={styles.unallocatedBadge}
-                onClick={() => onNavigate && onNavigate("uso-ia")}
-                title="Ir para alocação de uso de IA"
-              >
-                {summary.unallocatedDaysCount} {summary.unallocatedDaysCount === 1 ? "dia não alocado →" : "dias não alocados →"}
-              </button>
+
+          {/* Section 3: ROI detail */}
+          {hasRoi && (
+            <div style={{ borderTop: "1px solid var(--line)", paddingTop: 14, marginBottom: hasPending ? 16 : 0 }}>
+              <div className="mono" style={{ ...styles.costLabel, marginBottom: 10 }}>Assinatura vs. Uso</div>
+              <div style={{ display: "flex", gap: 24, flexWrap: "wrap", alignItems: "flex-end" }}>
+                <AiStat label="Valor gerado" value={fmtUsd(sprintCost)} />
+                <AiStat label="Custo assinatura (sprint)" value={fmtUsd(proratedSub)} />
+                <div style={{
+                  padding: "6px 12px",
+                  borderRadius: 6,
+                  background: roiPositive
+                    ? "color-mix(in srgb, var(--good) 12%, transparent)"
+                    : "color-mix(in srgb, var(--bad) 12%, transparent)",
+                }}>
+                  <div className="mono" style={{ fontSize: "var(--mono-sm)", color: "var(--fg-muted)", marginBottom: 2 }}>saldo</div>
+                  <div className="serif" style={{ fontSize: "1.2rem", color: roiPositive ? "var(--good)" : "var(--bad)" }}>
+                    {(roiPositive ? "+" : "") + fmtUsd(roi)}
+                  </div>
+                </div>
+              </div>
             </div>
           )}
-        </div>
+
+          {/* Section 4: pending allocations for this sprint */}
+          {(pendingLoading || hasPending) && (
+            <div style={{ borderTop: "1px solid var(--line)", paddingTop: 14 }}>
+              <div className="mono" style={{ ...styles.costLabel, marginBottom: 10 }}>Alocações pendentes</div>
+              {pendingLoading ? (
+                <div style={{ background: "var(--bg-deep)", borderRadius: "var(--radius-sm)", height: 52 }} />
+              ) : (
+                <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                  {pending.map((batch) => (
+                    <PendingAllocationRow
+                      key={batch.day}
+                      batch={batch}
+                      onAccept={onAllocationAccepted}
+                      onAdjust={onAllocationAdjust}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </>
       )}
     </div>
   );
 }
 
-/**
- * AI cost summary card.
- * @param {{ data: object|null, loading: boolean }} props
- */
-function CostSummaryCard({ data, loading }) {
-  return (
-    <div style={styles.card}>
-      <div style={styles.cardHead}>
-        <span className="mono" style={styles.cardEyebrow}>sprint atual</span>
-        <h3 className="serif" style={styles.cardTitle}>Custo de IA</h3>
-      </div>
+function PendingAllocationRow({ batch, onAccept, onAdjust }) {
+  const [y, m, d] = batch.day.split("-");
+  const dateLabel = `${d}/${m}/${y}`;
+  const totalTokens = (batch.totalInputTokens || 0) + (batch.totalOutputTokens || 0);
+  const hasSuggestion = batch.suggestion?.length > 0;
 
-      <div style={styles.costGrid}>
-        <div>
-          <div className="mono" style={styles.costLabel}>Custo do Sprint</div>
-          <div className="serif" style={styles.costValue}>
-            {loading ? "…" : fmtUsd(data?.sprintCostUsd)}
-          </div>
+  return (
+    <div style={{
+      display: "flex",
+      alignItems: "center",
+      gap: 12,
+      padding: "10px 12px",
+      background: "var(--bg-deep)",
+      borderRadius: "var(--radius-sm)",
+      border: "1px solid var(--line)",
+    }}>
+      <span className="serif" style={{ fontSize: 15, color: "var(--fg)", minWidth: 72 }}>{dateLabel}</span>
+      <span className="mono" style={{ fontSize: "var(--mono-sm)", color: "var(--fg-muted)", flex: 1 }}>
+        <span style={{ color: "var(--fg)" }}>{totalTokens.toLocaleString()}</span> tokens
+        {" · "}
+        <span style={{ color: "var(--fg)" }}>${(batch.estimatedCostUsd || 0).toFixed(2)}</span>
+      </span>
+      {hasSuggestion && (
+        <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
+          {batch.suggestion.map((s) => (
+            <span key={s.workItemId} className="mono" style={{
+              fontSize: "var(--mono-sm)",
+              color: "var(--accent)",
+              background: "color-mix(in srgb, var(--accent) 10%, transparent)",
+              border: "1px solid color-mix(in srgb, var(--accent) 25%, transparent)",
+              borderRadius: 4,
+              padding: "1px 7px",
+            }}>
+              {s.workItemTitle} · {(parseFloat(s.percentage) * 100).toFixed(0)}%
+            </span>
+          ))}
         </div>
-        <div>
-          <div className="mono" style={styles.costLabel}>Tokens / SP Médio</div>
-          <div className="serif" style={styles.costValue}>
-            {loading ? "…" : fmt1(data?.avgTokensPerSp)}
-          </div>
-        </div>
+      )}
+      <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+        {batch.suggestionAllocationId && (
+          <button className="btn" style={{ fontSize: "var(--mono-sm)", padding: "4px 12px" }} onClick={() => onAccept(batch)}>
+            Aceitar
+          </button>
+        )}
+        <button className="btn btn-ghost" style={{ fontSize: "var(--mono-sm)", padding: "4px 12px" }} onClick={() => onAdjust(batch)}>
+          {hasSuggestion ? "Ajustar" : "+ Alocar"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function AiStat({ label, value, unit, valueColor }) {
+  return (
+    <div>
+      <div className="mono" style={styles.costLabel}>{label}</div>
+      <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
+        <span className="serif" style={{ ...styles.costValue, color: valueColor || "var(--fg)" }}>{value}</span>
+        {unit && <span className="mono" style={styles.chipUnit}>{unit}</span>}
       </div>
     </div>
   );
@@ -412,6 +497,13 @@ export function DeveloperDashboard({ projectId, sprintId, startDate, endDate, mo
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState(null);
 
+  const [pending, setPending] = React.useState([]);
+  const [pendingLoading, setPendingLoading] = React.useState(false);
+  const [sprintItems, setSprintItems] = React.useState([]);
+  const [modalBatch, setModalBatch] = React.useState(null);
+  const [modalLoading, setModalLoading] = React.useState(false);
+  const [toast, setToast] = React.useState(null);
+
   const fetchData = React.useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -425,9 +517,73 @@ export function DeveloperDashboard({ projectId, sprintId, startDate, endDate, mo
     }
   }, [projectId, sprintId, startDate, endDate, model]);
 
+  const fetchPending = React.useCallback(async (tokensByDay) => {
+    if (!tokensByDay?.length) return;
+    const days = tokensByDay.map((d) => d.date).filter(Boolean).sort();
+    const sprintFrom = days[0];
+    const sprintTo = days[days.length - 1];
+    setPendingLoading(true);
+    try {
+      const all = await getPendingAllocations();
+      const inSprint = (Array.isArray(all) ? all : []).filter(
+        (b) => b.day >= sprintFrom && b.day <= sprintTo
+      );
+      setPending(inSprint);
+    } catch {
+      setPending([]);
+    } finally {
+      setPendingLoading(false);
+    }
+  }, []);
+
+  React.useEffect(() => { fetchData(); }, [fetchData]);
+
   React.useEffect(() => {
-    fetchData();
-  }, [fetchData]);
+    if (data?.tokensByDay) fetchPending(data.tokensByDay);
+  }, [data?.tokensByDay, fetchPending]);
+
+  React.useEffect(() => {
+    getSprintItems()
+      .then((d) => setSprintItems(Array.isArray(d) ? d : []))
+      .catch(() => {});
+  }, []);
+
+  function showToast(msg, ok = true) {
+    setToast({ msg, ok });
+    setTimeout(() => setToast(null), 3000);
+  }
+
+  function removePending(day) {
+    setPending((prev) => prev.filter((b) => b.day !== day));
+  }
+
+  async function handleAccept(batch) {
+    try {
+      await acceptAllocation(batch.suggestionAllocationId);
+      removePending(batch.day);
+      showToast("Alocação aceita.");
+    } catch {
+      showToast("Erro ao aceitar alocação.", false);
+    }
+  }
+
+  async function handleModalConfirm(splits) {
+    setModalLoading(true);
+    try {
+      if (modalBatch.suggestionAllocationId) {
+        await manualAllocate(modalBatch.suggestionAllocationId, splits);
+      } else {
+        await manualAllocateNoSuggestion(modalBatch.day, splits);
+      }
+      removePending(modalBatch.day);
+      setModalBatch(null);
+      showToast("Alocação salva.");
+    } catch {
+      showToast("Erro ao salvar alocação.", false);
+    } finally {
+      setModalLoading(false);
+    }
+  }
 
   return (
     <div className="dash-wrap">
@@ -477,29 +633,52 @@ export function DeveloperDashboard({ projectId, sprintId, startDate, endDate, mo
         </div>
       </div>
 
-      {/* Row 4: AI sprint summary */}
-      <AiSprintSummary summary={data?.aiSprintSummary} loading={loading} onNavigate={onNavigate} />
+      {/* Row 4: unified AI card */}
+      <AiCard
+        data={data}
+        loading={loading}
+        pending={pending}
+        pendingLoading={pendingLoading}
+        sprintItems={sprintItems}
+        onAllocationAccepted={handleAccept}
+        onAllocationAdjust={setModalBatch}
+      />
 
-      {/* Row 5: token usage chart */}
-      <div style={styles.card}>
-        <div style={styles.cardHead}>
-          <span className="mono" style={styles.cardEyebrow}>ultimos 30 dias</span>
-          <h3 className="serif" style={styles.cardTitle}>Uso de Tokens</h3>
-        </div>
-        {loading ? (
-          <div className="mono" style={styles.emptyState}>Carregando…</div>
-        ) : (
-          <TokenUsageChart data={data?.tokensByDay} />
-        )}
-      </div>
-
-      {/* Bottom: personal metrics + done items table + cost summary */}
+      {/* Bottom: personal metrics + done items table */}
       <MetricsRow data={data} loading={loading} />
 
-      <div style={styles.twoCol}>
-        <SprintItemsCard items={data?.currentSprintItems} loading={loading} />
-        <CostSummaryCard data={data} loading={loading} />
-      </div>
+      <SprintItemsCard items={data?.currentSprintItems} loading={loading} />
+
+      {/* Allocation modal */}
+      {modalBatch && (
+        <AllocationModal
+          batch={modalBatch}
+          sprintItems={sprintItems}
+          onClose={() => !modalLoading && setModalBatch(null)}
+          onConfirm={handleModalConfirm}
+          loading={modalLoading}
+        />
+      )}
+
+      {/* Toast */}
+      {toast && (
+        <div style={{
+          position: "fixed",
+          bottom: 24,
+          left: "50%",
+          transform: "translateX(-50%)",
+          background: toast.ok ? "var(--good)" : "var(--bad)",
+          color: "var(--bg)",
+          padding: "10px 22px",
+          borderRadius: "var(--radius-sm)",
+          zIndex: 2000,
+          fontSize: "var(--mono-sm)",
+          fontFamily: "inherit",
+          pointerEvents: "none",
+        }}>
+          {toast.msg}
+        </div>
+      )}
     </div>
   );
 }
@@ -601,13 +780,6 @@ const styles = {
     flex: "1 1 40%",
     minWidth: 0,
   },
-  twoCol: {
-    display: "grid",
-    gridTemplateColumns: "1fr auto",
-    gap: 16,
-    marginBottom: 16,
-    alignItems: "start",
-  },
   card: {
     background: "var(--bg-elev)",
     border: "1px solid var(--line)",
@@ -666,17 +838,6 @@ const styles = {
     display: "flex",
     flexDirection: "column",
     gap: 16,
-  },
-  costGrid: {
-    display: "flex",
-    gap: 24,
-    flexWrap: "wrap",
-  },
-  aiSummaryGrid: {
-    display: "flex",
-    gap: 24,
-    flexWrap: "wrap",
-    alignItems: "flex-start",
   },
   unallocatedBadge: {
     display: "inline-block",

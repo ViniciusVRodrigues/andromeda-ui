@@ -304,7 +304,7 @@ function DashboardPage({ dash, onLogout, onNavigate }) {
     <>
       <PendingAllocationsBanner
         count={pendingDays.length}
-        onReview={() => setAllocationPanelOpen(true)}
+        onReview={() => onNavigate ? onNavigate("uso-ia") : setAllocationPanelOpen(true)}
       />
       {allocationPanelOpen && (
         <AllocationPanel
