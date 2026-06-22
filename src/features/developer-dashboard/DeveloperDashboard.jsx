@@ -244,7 +244,9 @@ function InProgressPanel({ items, loading }) {
  */
 function AiCard({ data, loading, pending, pendingLoading, sprintItems, onAllocationAccepted, onAllocationAdjust }) {
   const summary = data?.aiSprintSummary;
-  const hasTokens = summary && summary.totalTokens > 0;
+  const hasTokens = (summary && summary.totalTokens > 0) ||
+    (Array.isArray(data?.tokensByDay) && data.tokensByDay.some(d => (d.inputTokens ?? 0) + (d.outputTokens ?? 0) > 0)) ||
+    (!pendingLoading && pending.length > 0);
 
   const subCost = data?.subscriptionCostPerUserUsd;
   const hasRoi = subCost != null && Number(subCost) > 0;
