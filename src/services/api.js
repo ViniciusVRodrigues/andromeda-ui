@@ -11,9 +11,22 @@
 
 export const BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
 
-// Base URL for backend endpoints that must be absolute (e.g. connector token URLs
-// shared with external tools). Falls back to BASE_URL so dev proxy still works.
-export const BACKEND_URL = import.meta.env.VITE_BACKEND_URL || BASE_URL;
+// Absolute base for connector URLs shared with external tools (e.g. VS Code extension).
+// Derived at runtime from the current hostname — no build-time env var needed:
+//   - localhost/127.0.0.1 → the local Spring Boot server (:9090)
+//   - any other host      → api.<hostname>, matching the nginx/Cloudflare setup in prod
+// VITE_BACKEND_URL remains a manual override (no "/api" suffix — connector routes aren't under /api).
+function resolveBackendUrl() {
+  if (import.meta.env.VITE_BACKEND_URL) return import.meta.env.VITE_BACKEND_URL;
+  if (typeof window === "undefined") return BASE_URL;
+  const { hostname, protocol } = window.location;
+  if (hostname === "localhost" || hostname === "127.0.0.1") {
+    return "http://localhost:9090";
+  }
+  return `${protocol}//api.${hostname}`;
+}
+
+export const BACKEND_URL = resolveBackendUrl();
 
 const TOKEN_KEY = "andromeda_token";
 
@@ -51,7 +64,9 @@ async function request(path, { method = "GET", body, headers, ...rest } = {}) {
 
   if (res.status === 401) {
     clearToken();
-    _authExpiredCallback?.();
+    if (path !== "/v1/auth/login") {
+      _authExpiredCallback?.();
+    }
     throw new Error(`API ${method} ${path} falhou (401): não autorizado`);
   }
 
@@ -60,9 +75,10 @@ async function request(path, { method = "GET", body, headers, ...rest } = {}) {
     throw new Error(`API ${method} ${path} falhou (${res.status}): ${detail}`);
   }
 
-  // 204 No Content
+  // 204 No Content or empty body
   if (res.status === 204) return null;
-  return res.json();
+  const text = await res.text();
+  return text ? JSON.parse(text) : null;
 }
 
 export const api = {

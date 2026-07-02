@@ -3,7 +3,7 @@
 import React from "react";
 import { Wordmark } from "../../components/Wordmark.jsx";
 
-function LoginScreen({ onLogin, onHome }) {
+function LoginScreen({ onLogin, onHome, error }) {
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
 
@@ -55,6 +55,11 @@ function LoginScreen({ onLogin, onHome }) {
             
           </div>
 
+          {error && (
+            <p style={{ margin: "8px 0 0", fontSize: 13, color: "var(--color-error, #f87171)", textAlign: "center" }}>
+              {error}
+            </p>
+          )}
           <button type="submit" className="btn" style={{ width: "100%", marginTop: 8 }}>
             Entrar na constelação →
           </button>
