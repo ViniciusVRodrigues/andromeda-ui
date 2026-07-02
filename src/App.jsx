@@ -212,17 +212,8 @@ function AppShell() {
               />
             } />
             <Route path="/login" element={
-              <LoginScreen
-                onLogin={async ({ email, password }) => {
-                  try {
-                    const resp = await api.post("/v1/auth/login", { email, password });
-                    setToken(resp.accessToken);
-                    const meData = await api.get("/v1/auth/me");
-                    enterApp(meData, firstAllowedRoute(buildIdentity(meData.permissions)));
-                  } catch (err) {
-                    console.error("[login] failed:", err);
-                  }
-                }}
+              <LoginScreenWrapper
+                enterApp={enterApp}
                 onHome={() => navigate("/")}
               />
             } />
@@ -310,6 +301,24 @@ function ShellRoute({ identity, profile, palette, setPalette, onLogout }) {
       onLogout={onLogout}
     />
   );
+}
+
+function LoginScreenWrapper({ enterApp, onHome }) {
+  const [loginError, setLoginError] = React.useState(null);
+
+  const handleLogin = async ({ email, password }) => {
+    setLoginError(null);
+    try {
+      const resp = await api.post("/v1/auth/login", { email, password });
+      setToken(resp.accessToken);
+      const meData = await api.get("/v1/auth/me");
+      enterApp(meData, firstAllowedRoute(buildIdentity(meData.permissions)));
+    } catch (err) {
+      setLoginError(err.message?.includes("401") ? "E-mail ou senha incorretos." : "Erro ao conectar. Tente novamente.");
+    }
+  };
+
+  return <LoginScreen onLogin={handleLogin} onHome={onHome} error={loginError} />;
 }
 
 export default App;

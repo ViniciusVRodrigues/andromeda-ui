@@ -204,6 +204,7 @@ export function IntegrationTab({ onNavigate, orgSlug, can }) {
   const [secondsLeft, setSecondsLeft] = React.useState(0);
   const [disconnectConfirm, setDisconnectConfirm] = React.useState(false);
   const [authMethod, setAuthMethod] = React.useState(null); // null=not chosen, "OAUTH", "PAT"
+  const [syncToast, setSyncToast] = React.useState(null); // { type: "success"|"error", msg: string } | null
 
   const fetchStatus = React.useCallback(async () => {
     setStatus(null);
@@ -243,25 +244,25 @@ export function IntegrationTab({ onNavigate, orgSlug, can }) {
     return () => clearInterval(t);
   }, [secondsLeft]);
 
+  const showToast = (type, msg) => {
+    setSyncToast({ type, msg });
+    setTimeout(() => setSyncToast(null), 4000);
+  };
+
   const handleSync = async () => {
     try {
-      const res = await fetch("/api/v1/integrations/azure/sync", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          ...(localStorage.getItem("andromeda_token")
-            ? { Authorization: `Bearer ${localStorage.getItem("andromeda_token")}` }
-            : {}),
-        },
-      });
-      if (res.status === 202) {
-        setSecondsLeft(30);
-      } else if (res.status === 429) {
-        const retry = parseInt(res.headers.get("Retry-After") || "30", 10);
-        setSecondsLeft(retry);
+      await api.post("/v1/integrations/azure/sync", null);
+      setSecondsLeft(30);
+      showToast("success", "Sincronização iniciada com sucesso.");
+    } catch (err) {
+      if (err.message?.includes("(429)")) {
+        const match = err.message.match(/\d+s/);
+        const secs = match ? parseInt(match[0]) : 30;
+        setSecondsLeft(secs);
+        showToast("error", "Sincronização em cooldown. Aguarde antes de tentar novamente.");
+      } else {
+        showToast("error", "Erro ao iniciar a sincronização. Tente novamente.");
       }
-    } catch (_) {
-      /* ignore */
     }
   };
 
@@ -282,6 +283,18 @@ export function IntegrationTab({ onNavigate, orgSlug, can }) {
 
   return (
     <section>
+      {syncToast && (
+        <div style={{
+          position: "fixed", bottom: 24, right: 24, zIndex: 1000,
+          background: syncToast.type === "success" ? "#1a2e1a" : "#2e1a1a",
+          border: `1px solid ${syncToast.type === "success" ? "#2d5a2d" : "#5a2d2d"}`,
+          color: syncToast.type === "success" ? "#86efac" : "#fca5a5",
+          padding: "12px 20px", borderRadius: 8, fontSize: 13,
+          boxShadow: "0 4px 16px rgba(0,0,0,0.4)", maxWidth: 340,
+        }}>
+          {syncToast.msg}
+        </div>
+      )}
       <div className="admin-section-head">
         <h2 className="serif admin-section-title">Integrações</h2>
         <p className="admin-section-sub">Configure as conexões externas da organização.</p>
