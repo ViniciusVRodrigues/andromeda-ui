@@ -292,4 +292,115 @@ export function getTeamMembers() {
   return api.get("/v1/ai/team-members");
 }
 
+/**
+ * List Azure DevOps work item types discovered on the bound project, for the
+ * onboarding field-mapping wizard.
+ * @param {string} bindingId
+ * @returns {Promise<Array<{ name: string, referenceName: string }>>}
+ */
+export function getAzureWorkItemTypes(bindingId) {
+  return api.get(`/v1/integrations/azure/bindings/${bindingId}/process/work-item-types`);
+}
+
+/**
+ * List fields available for a given Azure DevOps work item type, for the
+ * onboarding field-mapping wizard.
+ * @param {string} bindingId
+ * @param {string} typeName
+ * @returns {Promise<Array<{ referenceName: string, name: string, type: string, required: boolean }>>}
+ */
+export function getAzureWorkItemTypeFields(bindingId, typeName) {
+  return api.get(`/v1/integrations/azure/bindings/${bindingId}/process/work-item-types/${encodeURIComponent(typeName)}/fields`);
+}
+
+/**
+ * Fetch a single Azure DevOps project binding, including its workflowConfig
+ * (statusMappings, typeMappings, fieldMappings, syncFilter).
+ * @param {string} bindingId
+ */
+export function getAzureProjectBinding(bindingId) {
+  return api.get(`/v1/integrations/azure/bindings/${bindingId}`);
+}
+
+/**
+ * List all Azure DevOps project bindings for the organization.
+ */
+export function getAzureProjectBindings() {
+  return api.get("/v1/integrations/azure/bindings");
+}
+
+/**
+ * Replace the workflow config (status/type/field mappings and sync filter) for
+ * an Azure DevOps project binding.
+ * @param {string} bindingId
+ * @param {{
+ *   statusMappings?: Array<{ rawStatus: string, resolvedStatus: string }>,
+ *   typeMappings?: Array<{ rawType: string, resolvedType: string }>,
+ *   fieldMappings?: Array<{ internalField: "COMPLEXITY" | "EFFORT", azureFieldReferenceName: string, azureFieldType: string }>,
+ *   syncFilter?: { workItemTypes?: string[], areaPath?: string | null, iterationPath?: string | null } | null,
+ *   hierarchyLevels?: Array<{ rawType: string, rank: number }>,
+ * }} config
+ */
+export function updateAzureWorkflowConfig(bindingId, config) {
+  return api.put(`/v1/integrations/azure/bindings/${bindingId}/workflow-config`, config);
+}
+
+/**
+ * Manually set or clear the complexity/effort override on a work item.
+ * Setting a value marks it MANUAL_OVERRIDE (never overwritten by future Azure
+ * syncs); clearing reverts it to AZURE_SYNC (repopulated on the next sync).
+ * @param {string} workItemId
+ * @param {{ complexity?: number, clearComplexityOverride?: boolean, effort?: number, clearEffortOverride?: boolean }} fields
+ */
+export function updateWorkItemManualFields(workItemId, fields) {
+  return api.patch(`/v1/work-items/${workItemId}/manual-fields`, fields);
+}
+
+/**
+ * Fetch the first page (or a given page) of a project's root-level backlog
+ * work items — items at the org's declared lowest-rank type, or with no
+ * resolvable parent when hierarchy isn't configured.
+ * @param {string} projectId
+ * @param {{ page?: number, size?: number }} params
+ * @returns {Promise<{ page: number, size: number, totalElements: number, content: Array<object> }>}
+ */
+export function getProjectBacklogRoots(projectId, params) {
+  const qs = new URLSearchParams();
+  if (params) {
+    for (const [key, value] of Object.entries(params)) {
+      if (value != null && value !== "") qs.append(key, String(value));
+    }
+  }
+  const query = qs.toString();
+  return api.get(`/v1/projects/${projectId}/work-items/roots${query ? `?${query}` : ""}`);
+}
+
+/**
+ * Fetch a project's orphaned backlog work items — items whose parent link
+ * doesn't resolve within the project, or violates the declared hierarchy order.
+ * @param {string} projectId
+ * @param {{ page?: number, size?: number }} params
+ * @returns {Promise<{ page: number, size: number, totalElements: number, content: Array<object> }>}
+ */
+export function getProjectBacklogOrphans(projectId, params) {
+  const qs = new URLSearchParams();
+  if (params) {
+    for (const [key, value] of Object.entries(params)) {
+      if (value != null && value !== "") qs.append(key, String(value));
+    }
+  }
+  const query = qs.toString();
+  return api.get(`/v1/projects/${projectId}/work-items/orphans${query ? `?${query}` : ""}`);
+}
+
+/**
+ * Fetch the direct children of a work item (unpaginated, soft-capped at 500
+ * server-side — response includes `truncated` when the cap was hit).
+ * @param {string} workItemId
+ * @returns {Promise<{ content: Array<object>, truncated: boolean }>}
+ */
+export function getWorkItemChildren(workItemId) {
+  return api.get(`/v1/work-items/${workItemId}/children`);
+}
+
 export default api;

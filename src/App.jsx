@@ -36,6 +36,7 @@ const SHELL_SECTIONS = [
   { route: "senioridade", tab: "seniority" },
   { route: "organizacao", tab: "org" },
   { route: "dashboard",   tab: "dashboard" },
+  { route: "backlog",     tab: "backlog" },
   { route: "integracoes", tab: "integrations" },
   { route: "uso-ia",      tab: "uso-ia" },
   { route: "perfil",      tab: "perfil" },
@@ -61,6 +62,7 @@ function canSee(identity, tab) {
   if (tab === "projects")     return p.includes("gerProjeto") || identity.isAdmin;
   if (tab === "team")         return p.includes("gerEquipe") || p.includes("USER_MANAGE") || identity.isAdmin;
   if (tab === "dashboard")    return p.includes("DASHBOARD_INDIVIDUAL") || p.includes("DASHBOARD_TEAM") || p.includes("DASHBOARD_STRATEGIC");
+  if (tab === "backlog")      return p.includes("DASHBOARD_TEAM") || identity.isAdmin;
   if (tab === "integrations") return p.includes("AZURE_CONFIGURE") || p.includes("AZURE_READ") || identity.isAdmin;
   if (tab === "uso-ia")       return p.includes("AI_READ_OWN") || p.includes("AI_READ_ALL");
   if (tab === "uso-ia-team")  return p.includes("DASHBOARD_TEAM") || p.includes("AI_READ_ALL");
