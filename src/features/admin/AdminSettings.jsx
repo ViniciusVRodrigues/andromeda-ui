@@ -11,6 +11,7 @@ import { BacklogPage } from "../backlog/BacklogPage.jsx";
 import { PERMISSION_LABELS, ALWAYS_ON_PERMISSIONS } from "./permissionLabels.js";
 import { AiPricingTab } from "../org-settings/AiPricingTab.jsx";
 import { UsoIaPage } from "../uso-ia/UsoIaPage.jsx";
+import { SubTabs } from "../../components/SubTabs.jsx";
 import api, { getToken, linkAzureIdentity, getAzureUsers, updateProjectMembers } from "../../services/api.js";
 
 /* ──────────────────────────────────────────── */
@@ -88,11 +89,16 @@ const TABS = [
   { id: "backlog",      label: "Backlog",             icon: TAB_ICONS.backlog },
   { id: "projects",     label: "Projetos",            icon: TAB_ICONS.projects },
   { id: "team",         label: "Pessoas",             icon: TAB_ICONS.team },
-  { id: "roles",        label: "Cargos e Permissões", icon: TAB_ICONS.roles },
-  { id: "seniority",    label: "Senioridade",         icon: TAB_ICONS.seniority },
   { id: "org",          label: "Organização",         icon: TAB_ICONS.org },
   { id: "integrations", label: "Integrações",         icon: TAB_ICONS.integrations },
   { id: "uso-ia",       label: "Uso IA",              icon: TAB_ICONS["uso-ia"] },
+];
+
+/* Sub-abas da página Organização (Geral é a padrão). */
+const ORG_SUB_TABS = [
+  { id: "geral",       label: "Geral" },
+  { id: "cargos",      label: "Cargos" },
+  { id: "senioridade", label: "Senioridade" },
 ];
 
 const THEME_OPTS = [
@@ -105,7 +111,7 @@ const THEME_OPTS = [
 /*  AdminSettings                               */
 /* ──────────────────────────────────────────── */
 
-function AdminSettings({ section, can, dash, profile, palette, setPalette, onNavigate, onLogout }) {
+function AdminSettings({ section, subtab, can, dash, profile, palette, setPalette, onNavigate, onNavigateSubtab, onLogout }) {
   const [collapsed, setCollapsed] = React.useState(false);
   const [connectionStatus, setConnectionStatus] = React.useState(null);
   const [bannerDismissed, setBannerDismissed] = React.useState(
@@ -260,10 +266,12 @@ function AdminSettings({ section, can, dash, profile, palette, setPalette, onNav
     }
   }, []);
 
-  /* ── Tab activation → fetch ── */
+  /* ── Tab activation → fetch ──
+   * Organização agora tem sub-abas (Geral/Cargos/Senioridade); cada uma busca
+   * seus próprios dados quando ativada. */
   React.useEffect(() => {
-    if (section === "roles") fetchRoles();
-    else if (section === "seniority") fetchSeniorities();
+    if (section === "org" && subtab === "cargos") fetchRoles();
+    else if (section === "org" && subtab === "senioridade") fetchSeniorities();
     else if (section === "team") {
       fetchRoles();
       fetchSeniorities();
@@ -274,8 +282,8 @@ function AdminSettings({ section, can, dash, profile, palette, setPalette, onNav
       api.get("/v1/integrations/azure/bindings")
         .then((data) => setAzureBindings(Array.isArray(data) ? data : []))
         .catch(() => setAzureBindings([]));
-    } else if (section === "org") fetchOrg();
-  }, [section]); // eslint-disable-line react-hooks/exhaustive-deps
+    } else if (section === "org" && subtab === "geral") fetchOrg();
+  }, [section, subtab]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* ── Derived counts ── */
   const roleCount = (roleId) => members.filter((m) => m.roleId === roleId && m.active !== false).length;
@@ -756,21 +764,140 @@ function AdminSettings({ section, can, dash, profile, palette, setPalette, onNav
             <section>
               <div className="admin-section-head">
                 <h2 className="serif admin-section-title">Organização</h2>
-                <p className="admin-section-sub">Identidade visível para todos os membros.</p>
+                <p className="admin-section-sub">Identidade visível para todos os membros, cargos e níveis de senioridade.</p>
               </div>
-              <div className="admin-fields">
-                <AdminRow label="Nome da organização" value={orgData.name} />
-                <AdminRow label="Identificador" value={orgData.slug} mono />
-                <AdminRow label="URL" value={orgData.slug ? `andromeda.app/${orgData.slug}` : null} mono />
-                <AdminRow label="Setor" value={orgData.sector} />
-                <AdminRow label="País" value={orgData.country} />
-              </div>
-              <div style={{ marginTop: "var(--spacing-lg, 32px)" }}>
-                <AiPricingTab
-                  initialEntries={Array.isArray(orgData.aiPrices) ? orgData.aiPrices : []}
-                  initialSubscriptionCost={orgData.subscriptionCostPerUserUsd ?? null}
-                />
-              </div>
+
+              <SubTabs
+                tabs={ORG_SUB_TABS}
+                activeId={subtab || "geral"}
+                onSelect={(id) => onNavigateSubtab && onNavigateSubtab(id)}
+              />
+
+              {subtab === "cargos" ? (
+                <>
+                  <div className="admin-section-head admin-section-head--row">
+                    <div>
+                      <h3 className="serif admin-section-title">Cargos e Permissões</h3>
+                      <p className="admin-section-sub">Marque o que cada cargo enxerga na Andrômeda. Clique no nome do cargo para editar permissões.</p>
+                    </div>
+                    <button className="btn" onClick={openCreate}>+ Novo cargo</button>
+                  </div>
+
+                  {rolesError && (
+                    <div className="admin-placeholder mono" style={{ color: "var(--danger, #c0392b)" }}>
+                      {rolesError} <button className="btn" style={{ marginLeft: "var(--spacing-sm)" }} onClick={fetchRoles}>Tentar novamente</button>
+                    </div>
+                  )}
+
+                  {!rolesError && (
+                    <div className="signup-perms">
+                      <div className="signup-perms-scroll">
+                        <div className="signup-perms-grid" style={{ gridTemplateColumns: permsGridCols }}>
+                          <div className="signup-perms-head is-corner mono">Cargos</div>
+                          {ALL_PERMISSION_CODES.map((code) => (
+                            <div key={code} className="signup-perms-head mono">{PERMISSION_LABELS[code]}</div>
+                          ))}
+                          {rolesLoading ? (
+                            <div className="member-empty mono" style={{ gridColumn: `1 / span ${ALL_PERMISSION_CODES.length + 1}` }}>
+                              Carregando…
+                            </div>
+                          ) : roles.map((r, rowIdx) => (
+                            <React.Fragment key={r.id}>
+                              <button type="button"
+                                className={"signup-perms-cargo" + (rowIdx === 0 ? " is-first" : "") + (r.isDefault ? " is-default" : "")}
+                                onClick={() => !r.isDefault && openEdit(r)}
+                                title={r.isDefault ? "Cargo padrão — não editável" : "Editar cargo"}>
+                                <span className="signup-perms-cargo-name">{r.label || r.name}</span>
+                                <span className="signup-perms-cargo-meta">
+                                  <span className="signup-perms-cargo-count mono" title={`${roleCount(r.id)} ${roleCount(r.id) === 1 ? "pessoa" : "pessoas"}`}>{roleCount(r.id)}</span>
+                                  {!r.isDefault && <span className="signup-perms-cargo-edit mono">editar</span>}
+                                </span>
+                              </button>
+                              {ALL_PERMISSION_CODES.map((code) => {
+                                const on = !!(rolePerms[r.id]?.has(code));
+                                return (
+                                  <label key={code}
+                                    className={"signup-perms-cell" + (on ? " is-on" : "") + (rowIdx === 0 ? " is-first" : "") + (r.isDefault ? " is-locked" : "")}
+                                    aria-label={`${r.name} · ${PERMISSION_LABELS[code]}`}>
+                                    <input
+                                      type="checkbox"
+                                      checked={on}
+                                      disabled={r.isDefault}
+                                      onChange={() => {
+                                        if (r.isDefault) return;
+                                        setRolePerms((prev) => {
+                                          const next = new Set(prev[r.id] || []);
+                                          if (next.has(code)) next.delete(code); else next.add(code);
+                                          return { ...prev, [r.id]: next };
+                                        });
+                                      }}
+                                    />
+                                    <span className="signup-perms-check" aria-hidden="true">{on ? "✓" : ""}</span>
+                                  </label>
+                                );
+                              })}
+                            </React.Fragment>
+                          ))}
+                        </div>
+                      </div>
+                      <p className="signup-step-footer mono">
+                        Cargos padrão não podem ser editados ou excluídos. As alterações na matriz são salvas ao clicar em "Salvar alterações" no modal do cargo.
+                      </p>
+                    </div>
+                  )}
+                </>
+              ) : subtab === "senioridade" ? (
+                <>
+                  <div className="admin-section-head admin-section-head--row">
+                    <div>
+                      <h3 className="serif admin-section-title">Senioridade</h3>
+                      <p className="admin-section-sub">Defina os níveis de senioridade da organização.</p>
+                    </div>
+                    <button className="btn" onClick={openCreateSeniority}>+ Novo nível</button>
+                  </div>
+
+                  {senioritiesError && (
+                    <div className="admin-placeholder mono" style={{ color: "var(--danger, #c0392b)" }}>
+                      {senioritiesError} <button className="btn" style={{ marginLeft: "var(--spacing-sm)" }} onClick={fetchSeniorities}>Tentar novamente</button>
+                    </div>
+                  )}
+
+                  {!senioritiesError && (
+                    senioritiesLoading ? (
+                      <div className="admin-placeholder mono">Carregando…</div>
+                    ) : (
+                      <div className="role-list role-list--cols">
+                        {seniorities.map((s) => (
+                          <button key={s.id} type="button" className="role-card role-card--clickable" onClick={() => openEditSeniority(s)}>
+                            <div className="role-card-main">
+                              <div className="role-card-head">
+                                <div className="serif role-card-name">{s.name}</div>
+                              </div>
+                            </div>
+                            <span className="edit-hint role-card-manage">editar</span>
+                          </button>
+                        ))}
+                      </div>
+                    )
+                  )}
+                </>
+              ) : (
+                <>
+                  <div className="admin-fields">
+                    <AdminRow label="Nome da organização" value={orgData.name} />
+                    <AdminRow label="Identificador" value={orgData.slug} mono />
+                    <AdminRow label="URL" value={orgData.slug ? `andromeda.app/${orgData.slug}` : null} mono />
+                    <AdminRow label="Setor" value={orgData.sector} />
+                    <AdminRow label="País" value={orgData.country} />
+                  </div>
+                  <div style={{ marginTop: "var(--spacing-lg, 32px)" }}>
+                    <AiPricingTab
+                      initialEntries={Array.isArray(orgData.aiPrices) ? orgData.aiPrices : []}
+                      initialSubscriptionCost={orgData.subscriptionCostPerUserUsd ?? null}
+                    />
+                  </div>
+                </>
+              )}
             </section>
           )}
 
@@ -844,118 +971,6 @@ function AdminSettings({ section, can, dash, profile, palette, setPalette, onNav
                     ))}
                   </div>
                 </>
-              )}
-            </section>
-          )}
-
-          {section === "roles" && (
-            <section>
-              <div className="admin-section-head admin-section-head--row">
-                <div>
-                  <h2 className="serif admin-section-title">Cargos e Permissões</h2>
-                  <p className="admin-section-sub">Marque o que cada cargo enxerga na Andrômeda. Clique no nome do cargo para editar permissões.</p>
-                </div>
-                <button className="btn" onClick={openCreate}>+ Novo cargo</button>
-              </div>
-
-              {rolesError && (
-                <div className="admin-placeholder mono" style={{ color: "var(--danger, #c0392b)" }}>
-                  {rolesError} <button className="btn" style={{ marginLeft: "var(--spacing-sm)" }} onClick={fetchRoles}>Tentar novamente</button>
-                </div>
-              )}
-
-              {!rolesError && (
-                <div className="signup-perms">
-                  <div className="signup-perms-scroll">
-                    <div className="signup-perms-grid" style={{ gridTemplateColumns: permsGridCols }}>
-                      <div className="signup-perms-head is-corner mono">Cargos</div>
-                      {ALL_PERMISSION_CODES.map((code) => (
-                        <div key={code} className="signup-perms-head mono">{PERMISSION_LABELS[code]}</div>
-                      ))}
-                      {rolesLoading ? (
-                        <div className="member-empty mono" style={{ gridColumn: `1 / span ${ALL_PERMISSION_CODES.length + 1}` }}>
-                          Carregando…
-                        </div>
-                      ) : roles.map((r, rowIdx) => (
-                        <React.Fragment key={r.id}>
-                          <button type="button"
-                            className={"signup-perms-cargo" + (rowIdx === 0 ? " is-first" : "") + (r.isDefault ? " is-default" : "")}
-                            onClick={() => !r.isDefault && openEdit(r)}
-                            title={r.isDefault ? "Cargo padrão — não editável" : "Editar cargo"}>
-                            <span className="signup-perms-cargo-name">{r.label || r.name}</span>
-                            <span className="signup-perms-cargo-meta">
-                              <span className="signup-perms-cargo-count mono" title={`${roleCount(r.id)} ${roleCount(r.id) === 1 ? "pessoa" : "pessoas"}`}>{roleCount(r.id)}</span>
-                              {!r.isDefault && <span className="signup-perms-cargo-edit mono">editar</span>}
-                            </span>
-                          </button>
-                          {ALL_PERMISSION_CODES.map((code) => {
-                            const on = !!(rolePerms[r.id]?.has(code));
-                            return (
-                              <label key={code}
-                                className={"signup-perms-cell" + (on ? " is-on" : "") + (rowIdx === 0 ? " is-first" : "") + (r.isDefault ? " is-locked" : "")}
-                                aria-label={`${r.name} · ${PERMISSION_LABELS[code]}`}>
-                                <input
-                                  type="checkbox"
-                                  checked={on}
-                                  disabled={r.isDefault}
-                                  onChange={() => {
-                                    if (r.isDefault) return;
-                                    setRolePerms((prev) => {
-                                      const next = new Set(prev[r.id] || []);
-                                      if (next.has(code)) next.delete(code); else next.add(code);
-                                      return { ...prev, [r.id]: next };
-                                    });
-                                  }}
-                                />
-                                <span className="signup-perms-check" aria-hidden="true">{on ? "✓" : ""}</span>
-                              </label>
-                            );
-                          })}
-                        </React.Fragment>
-                      ))}
-                    </div>
-                  </div>
-                  <p className="signup-step-footer mono">
-                    Cargos padrão não podem ser editados ou excluídos. As alterações na matriz são salvas ao clicar em "Salvar alterações" no modal do cargo.
-                  </p>
-                </div>
-              )}
-            </section>
-          )}
-
-          {section === "seniority" && (
-            <section>
-              <div className="admin-section-head admin-section-head--row">
-                <div>
-                  <h2 className="serif admin-section-title">Senioridade</h2>
-                  <p className="admin-section-sub">Defina os níveis de senioridade da organização.</p>
-                </div>
-                <button className="btn" onClick={openCreateSeniority}>+ Novo nível</button>
-              </div>
-
-              {senioritiesError && (
-                <div className="admin-placeholder mono" style={{ color: "var(--danger, #c0392b)" }}>
-                  {senioritiesError} <button className="btn" style={{ marginLeft: "var(--spacing-sm)" }} onClick={fetchSeniorities}>Tentar novamente</button>
-                </div>
-              )}
-
-              {!senioritiesError && (
-                senioritiesLoading ? (
-                  <div className="admin-placeholder mono">Carregando…</div>
-                ) : (
-                  <div className="role-list role-list--cols">
-                    {seniorities.map((s) => (
-                      <button key={s.id} type="button" className="role-card role-card--clickable" onClick={() => openEditSeniority(s)}>
-                        <div className="role-card-main">
-                          <div className="role-card-head">
-                            <div className="serif role-card-name">{s.name}</div>
-                          </div>
-                        </div>
-                        <span className="edit-hint role-card-manage">editar</span>
-                      </button>
-                    ))}
-                  </div>
-                )
               )}
             </section>
           )}

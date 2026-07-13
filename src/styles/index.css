@@ -2152,6 +2152,30 @@ h1, h2, h3, .serif {
   background: color-mix(in srgb, var(--accent) 22%, transparent);
 }
 .admin-side-item.is-active .admin-side-icon { color: var(--accent); }
+
+/* ---- sub-tabs (e.g. Organização → Geral | Cargos | Senioridade) ---- */
+.sub-tabs {
+  display: flex;
+  gap: 4px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: var(--spacing-lg, 32px);
+}
+.sub-tabs-item {
+  padding: 10px 4px;
+  margin-bottom: -1px;
+  border: 0;
+  border-bottom: 2px solid transparent;
+  background: transparent;
+  color: var(--fg-muted);
+  font-family: inherit;
+  font-size: var(--mono-sm);
+  letter-spacing: 0.02em;
+  cursor: pointer;
+  transition: color 0.18s, border-color 0.18s;
+}
+.sub-tabs-item + .sub-tabs-item { margin-left: 18px; }
+.sub-tabs-item:hover { color: var(--fg); }
+.sub-tabs-item.is-active { color: var(--accent); border-bottom-color: var(--accent); }
 .admin-side-icon {
   flex: 0 0 auto;
   width: 20px; height: 20px;
