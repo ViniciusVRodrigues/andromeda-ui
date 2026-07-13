@@ -2745,6 +2745,20 @@ h1, h2, h3, .serif {
 .project-modal .role-modal-body::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 4px; }
 .project-modal .role-modal-body::-webkit-scrollbar-track { background: transparent; }
 
+/* ─── Field mapping wizard modal (onboarding + copy-once template step) ─── */
+/* pode crescer bastante na etapa de hierarquia (muitos tipos de work item) */
+.field-mapping-modal {
+  max-height: calc(100vh - 120px);
+}
+.field-mapping-modal .role-modal-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+.field-mapping-modal .role-modal-body::-webkit-scrollbar { width: 8px; }
+.field-mapping-modal .role-modal-body::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 4px; }
+.field-mapping-modal .role-modal-body::-webkit-scrollbar-track { background: transparent; }
+
 /* o nome do projeto é um campo de texto no lugar do título */
 .project-name-input {
   width: 100%;

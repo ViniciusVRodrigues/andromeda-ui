@@ -3,27 +3,44 @@ import {
   getAzureWorkItemTypes,
   getAzureWorkItemTypeFields,
   updateAzureWorkflowConfig,
+  getSiblingAzureBindings,
+  getAzureProjectBinding,
 } from "../../services/api.js";
 
 /**
  * Onboarding wizard shown right after a project is bound to an Azure DevOps
  * project (per design Decision 8 of the azure-per-org-onboarding-field-mapping
  * change). Lets the org:
+ *  - start from scratch or copy-once a sibling binding's config (7.1-7.6 of
+ *    azure-config-hardening-and-templates)
  *  - review the work item types discovered on the bound Azure project (10.2)
  *  - map COMPLEXITY / EFFORT to a specific Azure field, or leave unmapped (10.3)
  *  - optionally scope sync by work item type / area path / iteration path (10.4)
  *  - save (10.5) or skip and keep the implicit default EFFORT mapping (10.6)
  */
 export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep }) {
-  const [step, setStep] = React.useState(initialStep || "types"); // "types" | "mapping" | "filter" | "hierarchy"
+  // "start" (copy-once choice) | "types" | "mapping" | "filter" | "hierarchy".
+  // Reopening the wizard via "Configurar mapeamento" always passes no initialStep,
+  // so it lands on "start" just like the auto-open-on-new-binding path.
+  const [step, setStep] = React.useState(initialStep || "start");
   const [types, setTypes] = React.useState([]);
   const [typesLoading, setTypesLoading] = React.useState(true);
   const [typesError, setTypesError] = React.useState(null);
+
+  // Copy-once template step (7.1-7.6): "start" lets the admin pick "Começar do
+  // zero" or "Copiar de outro projeto vinculado" before the existing flow begins.
+  const [siblings, setSiblings] = React.useState([]);
+  const [siblingsLoading, setSiblingsLoading] = React.useState(true);
+  const [showCopyPicker, setShowCopyPicker] = React.useState(false);
+  const [selectedSiblingId, setSelectedSiblingId] = React.useState("");
+  const [copyLoading, setCopyLoading] = React.useState(false);
+  const [copyError, setCopyError] = React.useState(null);
 
   // Hierarchy ordering step (2.1/2.2): ranks[typeName] = rank (integer, lower = more root-like).
   // Types sharing a rank are siblings. Initialized once types load, one rank per type in
   // discovery order (a reasonable starting point the org can then regroup).
   const [ranks, setRanks] = React.useState({}); // { [typeName]: rank }
+  const [ranksSeeded, setRanksSeeded] = React.useState(false); // true once copied/defaulted, guards auto-init
 
   const [selectedTypeForFields, setSelectedTypeForFields] = React.useState(null);
   const [fieldsByType, setFieldsByType] = React.useState({}); // { [typeName]: field[] }
@@ -32,10 +49,23 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
 
   const [complexityField, setComplexityField] = React.useState(""); // azureFieldReferenceName or ""
   const [effortField, setEffortField] = React.useState("");
+  // azureFieldType for whichever complexity/effort field is currently selected —
+  // only used as a fallback for a copied mapping whose field isn't in
+  // `currentFields` (belongs to a different work item type than the one
+  // currently selected for browsing fields).
+  const [complexityFieldType, setComplexityFieldType] = React.useState("");
+  const [effortFieldType, setEffortFieldType] = React.useState("");
 
   const [filterTypes, setFilterTypes] = React.useState([]); // selected work item type names
   const [areaPath, setAreaPath] = React.useState("");
   const [iterationPath, setIterationPath] = React.useState("");
+
+  // statusMappings/typeMappings aren't editable in any wizard step today (the
+  // existing flow always submits []), but a copied sibling config may carry
+  // them — seed them into draft state so a copy round-trips them unmodified
+  // on save (7.3/7.5) instead of silently dropping them.
+  const [statusMappings, setStatusMappings] = React.useState([]);
+  const [typeMappings, setTypeMappings] = React.useState([]);
 
   const [saving, setSaving] = React.useState(false);
   const [saveError, setSaveError] = React.useState(null);
@@ -49,9 +79,9 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
         if (cancelled) return;
         const list = data || [];
         setTypes(list);
-        if (list.length > 0) setSelectedTypeForFields(list[0].name);
+        if (list.length > 0) setSelectedTypeForFields((prev) => prev || list[0].name);
         setRanks((prev) => {
-          if (Object.keys(prev).length > 0) return prev;
+          if (ranksSeeded || Object.keys(prev).length > 0) return prev;
           const next = {};
           list.forEach((t, i) => { next[t.name] = i; });
           return next;
@@ -62,6 +92,24 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
       })
       .finally(() => {
         if (!cancelled) setTypesLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [bindingId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Copy-once template step (7.1/7.4): load candidate sibling bindings up
+  // front so the "start" screen can hide/disable "copiar" when there are none.
+  React.useEffect(() => {
+    let cancelled = false;
+    setSiblingsLoading(true);
+    getSiblingAzureBindings(bindingId)
+      .then((data) => {
+        if (!cancelled) setSiblings(Array.isArray(data) ? data : []);
+      })
+      .catch(() => {
+        if (!cancelled) setSiblings([]);
+      })
+      .finally(() => {
+        if (!cancelled) setSiblingsLoading(false);
       });
     return () => { cancelled = true; };
   }, [bindingId]);
@@ -151,7 +199,7 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
       mappings.push({
         internalField: "COMPLEXITY",
         azureFieldReferenceName: complexityField,
-        azureFieldType: field?.type || "double",
+        azureFieldType: field?.type || complexityFieldType || "double",
       });
     }
     if (effortField) {
@@ -159,7 +207,7 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
       mappings.push({
         internalField: "EFFORT",
         azureFieldReferenceName: effortField,
-        azureFieldType: field?.type || "double",
+        azureFieldType: field?.type || effortFieldType || "double",
       });
     }
     return mappings;
@@ -170,8 +218,8 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
     setSaveError(null);
     try {
       await updateAzureWorkflowConfig(bindingId, {
-        statusMappings: [],
-        typeMappings: [],
+        statusMappings,
+        typeMappings,
         fieldMappings: buildFieldMappings(),
         syncFilter: (filterTypes.length > 0 || areaPath.trim() || iterationPath.trim())
           ? {
@@ -190,15 +238,117 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
     }
   };
 
+  // Copy-once (7.3/7.6): fetch the chosen sibling's full binding, extract its
+  // workflowConfig, and seed local draft state from it — a one-time snapshot,
+  // not a live link. No sourceBindingId or any reference to the sibling is
+  // kept anywhere in this component's state or in the save request.
+  const handleCopyFromSibling = async () => {
+    if (!selectedSiblingId) return;
+    setCopyLoading(true);
+    setCopyError(null);
+    try {
+      const sibling = await getAzureProjectBinding(selectedSiblingId);
+      const cfg = sibling?.workflowConfig || {};
+
+      setStatusMappings(Array.isArray(cfg.statusMappings) ? cfg.statusMappings : []);
+      setTypeMappings(Array.isArray(cfg.typeMappings) ? cfg.typeMappings : []);
+
+      const complexity = (cfg.fieldMappings || []).find((m) => m.internalField === "COMPLEXITY");
+      const effort = (cfg.fieldMappings || []).find((m) => m.internalField === "EFFORT");
+      setComplexityField(complexity?.azureFieldReferenceName || "");
+      setComplexityFieldType(complexity?.azureFieldType || "");
+      setEffortField(effort?.azureFieldReferenceName || "");
+      setEffortFieldType(effort?.azureFieldType || "");
+
+      const filter = cfg.syncFilter || {};
+      setFilterTypes(Array.isArray(filter.workItemTypes) ? filter.workItemTypes : []);
+      setAreaPath(filter.areaPath || "");
+      setIterationPath(filter.iterationPath || "");
+
+      if (Array.isArray(cfg.hierarchyLevels) && cfg.hierarchyLevels.length > 0) {
+        const nextRanks = {};
+        cfg.hierarchyLevels.forEach((lvl) => { nextRanks[lvl.rawType] = lvl.rank; });
+        setRanks(nextRanks);
+        setRanksSeeded(true);
+      }
+
+      setStep("types");
+    } catch (_) {
+      setCopyError("Não foi possível carregar a configuração do projeto selecionado.");
+    } finally {
+      setCopyLoading(false);
+    }
+  };
+
   return (
     <div className="role-modal-backdrop">
-      <div className="role-modal" onClick={(e) => e.stopPropagation()}>
+      <div className="role-modal field-mapping-modal" onClick={(e) => e.stopPropagation()}>
         <div className="role-modal-head">
           <div className="admin-eyebrow mono">onboarding azure devops</div>
           <h3 className="serif role-modal-title">
             Personalize a <span className="ital accent">integração</span>
           </h3>
         </div>
+
+        {step === "start" && (
+          <div className="role-modal-body">
+            <p className="confirm-text">
+              Como você quer configurar o mapeamento deste projeto?
+            </p>
+
+            <div className="role-modal-options">
+              <button
+                type="button"
+                className={"role-modal-option" + (!showCopyPicker ? " is-active" : "")}
+                onClick={() => { setShowCopyPicker(false); setStep("types"); }}>
+                <span className="role-modal-option-mark" />
+                <span>
+                  <div className="role-modal-option-label">Começar do zero</div>
+                  <div className="role-modal-option-sub">
+                    Passe por cada etapa do zero: tipos, mapeamento de campos, filtro e hierarquia.
+                  </div>
+                </span>
+              </button>
+
+              {!siblingsLoading && siblings.length > 0 && (
+                <button
+                  type="button"
+                  className={"role-modal-option" + (showCopyPicker ? " is-active" : "")}
+                  onClick={() => setShowCopyPicker(true)}>
+                  <span className="role-modal-option-mark" />
+                  <span>
+                    <div className="role-modal-option-label">Copiar de outro projeto vinculado</div>
+                    <div className="role-modal-option-sub">
+                      Use a configuração de um projeto já mapeado como ponto de partida — você
+                      poderá editar tudo antes de salvar.
+                    </div>
+                  </span>
+                </button>
+              )}
+            </div>
+
+            {siblingsLoading && <p className="mono integration-loading">Carregando projetos vinculados…</p>}
+
+            {showCopyPicker && !siblingsLoading && (
+              <label className="role-modal-field">
+                <span className="role-modal-label">Projeto de origem</span>
+                <div className="signup-select">
+                  <select
+                    value={selectedSiblingId}
+                    onChange={(e) => setSelectedSiblingId(e.target.value)}>
+                    <option value="">Selecione um projeto</option>
+                    {siblings.map((s) => (
+                      <option key={s.id} value={s.id}>{s.azureProjectName}</option>
+                    ))}
+                  </select>
+                  <span className="signup-select-caret">▾</span>
+                </div>
+              </label>
+            )}
+
+            {copyError && <p className="mono integration-error">{copyError}</p>}
+          </div>
+        )}
 
         {step === "types" && (
           <div className="role-modal-body">
@@ -392,6 +542,20 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
           <button type="button" className="btn-ghost btn" onClick={onSkip} disabled={saving}>
             Pular e usar padrões
           </button>
+          {step === "start" && !showCopyPicker && (
+            <button type="button" className="btn" onClick={() => setStep("types")}>
+              Continuar →
+            </button>
+          )}
+          {step === "start" && showCopyPicker && (
+            <button
+              type="button"
+              className="btn"
+              onClick={handleCopyFromSibling}
+              disabled={!selectedSiblingId || copyLoading}>
+              {copyLoading ? "Copiando…" : "Copiar e continuar →"}
+            </button>
+          )}
           {step === "types" && (
             <button type="button" className="btn" onClick={() => setStep("mapping")} disabled={typesLoading}>
               Continuar →

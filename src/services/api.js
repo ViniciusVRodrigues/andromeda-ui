@@ -330,6 +330,17 @@ export function getAzureProjectBindings() {
 }
 
 /**
+ * List sibling Azure DevOps project bindings on the same organization — every
+ * other active binding besides `bindingId` — as copy-source candidates for the
+ * field-mapping wizard's "copiar de outro projeto vinculado" step.
+ * @param {string} bindingId
+ * @returns {Promise<Array<{ id: string, azureProjectName: string }>>}
+ */
+export function getSiblingAzureBindings(bindingId) {
+  return api.get(`/v1/integrations/azure/bindings/${bindingId}/siblings`);
+}
+
+/**
  * Replace the workflow config (status/type/field mappings and sync filter) for
  * an Azure DevOps project binding.
  * @param {string} bindingId

@@ -1087,6 +1087,7 @@ function AdminSettings({ section, can, dash, profile, palette, setPalette, onNav
                             adoProjects={adoProjects}
                             adoProjectsError={adoProjectsError}
                             adoBinding={adoBinding}
+                            adoBindingId={azureBindings.find((b) => b.projectId === editingProject.id)?.id || null}
                             projectId={editingProject.id}
                             onNavigate={onNavigate}
                             onChange={async (azureProjectId, azureProjectName) => {
@@ -1096,7 +1097,7 @@ function AdminSettings({ section, can, dash, profile, palette, setPalette, onNav
                                   const binding = await api.post(`/v1/integrations/azure/projects/${editingProject.id}/binding`, { azureProjectId, azureProjectName });
                                   setAzureBindings((prev) => {
                                     const without = prev.filter((b) => b.projectId !== editingProject.id);
-                                    return [...without, { projectId: editingProject.id, azureProjectId, azureProjectName }];
+                                    return [...without, { projectId: editingProject.id, azureProjectId, azureProjectName, id: binding?.id }];
                                   });
                                   // Onboarding: show the field-mapping wizard once per new binding,
                                   // before the first sync would otherwise pick up defaults silently.
@@ -1112,6 +1113,10 @@ function AdminSettings({ section, can, dash, profile, palette, setPalette, onNav
                                   setAzureBindings((prev) => prev.filter((b) => b.projectId !== editingProject.id));
                                 } catch (_) { /* ignore */ }
                               }
+                            }}
+                            onConfigureMapping={(bindingId) => {
+                              setFieldMappingWizardBindingId(bindingId);
+                              setFieldMappingWizardStep(null);
                             }}
                           />
                         </div>
@@ -1638,7 +1643,7 @@ function AdminRow({ label, value, mono }) {
   );
 }
 
-function AzureProjectSelect({ connectionStatus, adoProjects, adoProjectsError, adoBinding, projectId, onNavigate, onChange, onRemove }) {
+function AzureProjectSelect({ connectionStatus, adoProjects, adoProjectsError, adoBinding, adoBindingId, projectId, onNavigate, onChange, onRemove, onConfigureMapping }) {
   const icon = <Icon name="azure" size={20} color="var(--fg)" />;
 
   if (connectionStatus !== "CONNECTED") {
@@ -1684,6 +1689,14 @@ function AzureProjectSelect({ connectionStatus, adoProjects, adoProjectsError, a
           </div>
         )}
       </div>
+      {adoBinding && adoBindingId && (
+        <button
+          type="button"
+          className="project-link-status project-link-status--cta mono"
+          onClick={() => onConfigureMapping(adoBindingId)}>
+          configurar mapeamento
+        </button>
+      )}
       {adoBinding && (
         <button type="button" className="project-link-status project-link-status--cta mono" onClick={onRemove}>
           remover vínculo
