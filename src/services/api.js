@@ -314,6 +314,17 @@ export function getAzureWorkItemTypeFields(bindingId, typeName) {
 }
 
 /**
+ * List the real Azure DevOps states available for a given work item type, for
+ * the onboarding field-mapping wizard's per-type status-mapping step.
+ * @param {string} bindingId
+ * @param {string} typeName
+ * @returns {Promise<Array<{ name: string, color: string, category: string }>>}
+ */
+export function getAzureWorkItemTypeStates(bindingId, typeName) {
+  return api.get(`/v1/integrations/azure/bindings/${bindingId}/process/work-item-types/${encodeURIComponent(typeName)}/states`);
+}
+
+/**
  * Fetch a single Azure DevOps project binding, including its workflowConfig
  * (statusMappings, typeMappings, fieldMappings, syncFilter).
  * @param {string} bindingId
@@ -345,7 +356,7 @@ export function getSiblingAzureBindings(bindingId) {
  * an Azure DevOps project binding.
  * @param {string} bindingId
  * @param {{
- *   statusMappings?: Array<{ rawStatus: string, resolvedStatus: string }>,
+ *   statusMappings?: Array<{ workItemType: string, rawStatus: string, resolvedStatus: string }>,
  *   typeMappings?: Array<{ rawType: string, resolvedType: string }>,
  *   fieldMappings?: Array<{ internalField: "COMPLEXITY" | "EFFORT", azureFieldReferenceName: string, azureFieldType: string }>,
  *   syncFilter?: { workItemTypes?: string[], areaPath?: string | null, iterationPath?: string | null } | null,

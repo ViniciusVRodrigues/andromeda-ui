@@ -2,10 +2,36 @@ import React from "react";
 import {
   getAzureWorkItemTypes,
   getAzureWorkItemTypeFields,
+  getAzureWorkItemTypeStates,
   updateAzureWorkflowConfig,
   getSiblingAzureBindings,
   getAzureProjectBinding,
 } from "../../services/api.js";
+
+const RESOLVED_TYPES = ["STORY", "BUG", "TASK", "EPIC", "SUB_TASK"];
+const RESOLVED_STATUSES = ["TODO", "IN_PROGRESS", "DONE"];
+
+// 9.4 — best-effort name-based guess for a freshly-discovered work item type,
+// so the admin edits a sensible default rather than starting from a blank
+// selector. Falls back to TASK when nothing matches.
+function guessResolvedType(typeName) {
+  const n = (typeName || "").toLowerCase();
+  if (/(user story|story|história|historia)/.test(n)) return "STORY";
+  if (/bug|defeito/.test(n)) return "BUG";
+  if (/epic|épico|epico/.test(n)) return "EPIC";
+  if (/(sub-?task|subtarefa)/.test(n)) return "SUB_TASK";
+  if (/task|tarefa/.test(n)) return "TASK";
+  return "TASK";
+}
+
+// 10.4 — name-based guess for a freshly-discovered Azure state.
+function guessResolvedStatus(stateName) {
+  const n = (stateName || "").toLowerCase();
+  if (/(new|proposed|to ?do|novo|proposto)/.test(n)) return "TODO";
+  if (/(active|doing|in progress|ativo|em andamento|committed)/.test(n)) return "IN_PROGRESS";
+  if (/(resolved|closed|done|removed|resolvido|fechado|concluído|concluido|removido)/.test(n)) return "DONE";
+  return "TODO";
+}
 
 /**
  * Onboarding wizard shown right after a project is bound to an Azure DevOps
@@ -19,7 +45,7 @@ import {
  *  - save (10.5) or skip and keep the implicit default EFFORT mapping (10.6)
  */
 export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep }) {
-  // "start" (copy-once choice) | "types" | "mapping" | "filter" | "hierarchy".
+  // "start" (copy-once choice) | "types" | "status" | "mapping" | "filter" | "hierarchy".
   // Reopening the wizard via "Configurar mapeamento" always passes no initialStep,
   // so it lands on "start" just like the auto-open-on-new-binding path.
   const [step, setStep] = React.useState(initialStep || "start");
@@ -60,12 +86,20 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
   const [areaPath, setAreaPath] = React.useState("");
   const [iterationPath, setIterationPath] = React.useState("");
 
-  // statusMappings/typeMappings aren't editable in any wizard step today (the
-  // existing flow always submits []), but a copied sibling config may carry
-  // them — seed them into draft state so a copy round-trips them unmodified
-  // on save (7.3/7.5) instead of silently dropping them.
+  // typeMappings: editable in the "types" step (9). statusMappings: editable
+  // per-type in the "status" step (10), each entry carrying workItemType. A
+  // copied sibling config seeds both (7.3/7.5); a fresh binding gets them
+  // defaulted via name heuristics once types/states are discovered (9.4/10.4)
+  // so neither ever round-trips as an empty list (10.5).
   const [statusMappings, setStatusMappings] = React.useState([]);
   const [typeMappings, setTypeMappings] = React.useState([]);
+  const [typeMappingsSeeded, setTypeMappingsSeeded] = React.useState(false);
+
+  // Real Azure states per work item type, fetched lazily as the "status" step
+  // is reached (10.1).
+  const [statesByType, setStatesByType] = React.useState({}); // { [typeName]: state[] }
+  const [statesLoading, setStatesLoading] = React.useState({}); // { [typeName]: boolean }
+  const [statesError, setStatesError] = React.useState({}); // { [typeName]: string }
 
   const [saving, setSaving] = React.useState(false);
   const [saveError, setSaveError] = React.useState(null);
@@ -86,6 +120,13 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
           list.forEach((t, i) => { next[t.name] = i; });
           return next;
         });
+        // 9.4: default each discovered type's resolvedType via name heuristic,
+        // unless already seeded from copy-once or an existing binding's config.
+        setTypeMappings((prev) => {
+          if (typeMappingsSeeded || prev.length > 0) return prev;
+          return list.map((t) => ({ rawType: t.name, resolvedType: guessResolvedType(t.name) }));
+        });
+        setTypeMappingsSeeded(true);
       })
       .catch(() => {
         if (!cancelled) setTypesError("Não foi possível carregar os tipos de work item do Azure DevOps.");
@@ -135,6 +176,59 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
   }, [step, selectedTypeForFields, loadFieldsForType]);
 
   const currentFields = fieldsByType[selectedTypeForFields] || [];
+
+  // 10.1 — fetch real Azure states for a work item type, then (10.4) default
+  // any not-yet-mapped state via name heuristic so nothing is left blank.
+  const loadStatesForType = React.useCallback((typeName) => {
+    if (!typeName || statesByType[typeName] || statesLoading[typeName]) return;
+    setStatesLoading((prev) => ({ ...prev, [typeName]: true }));
+    setStatesError((prev) => ({ ...prev, [typeName]: null }));
+    getAzureWorkItemTypeStates(bindingId, typeName)
+      .then((data) => {
+        const list = data || [];
+        setStatesByType((prev) => ({ ...prev, [typeName]: list }));
+        setStatusMappings((prev) => {
+          const next = [...prev];
+          for (const s of list) {
+            const exists = next.some((m) => m.workItemType === typeName && m.rawStatus === s.name);
+            if (!exists) {
+              next.push({ workItemType: typeName, rawStatus: s.name, resolvedStatus: guessResolvedStatus(s.name) });
+            }
+          }
+          return next;
+        });
+      })
+      .catch(() => {
+        setStatesError((prev) => ({ ...prev, [typeName]: "Não foi possível carregar os status deste tipo de work item." }));
+      })
+      .finally(() => {
+        setStatesLoading((prev) => ({ ...prev, [typeName]: false }));
+      });
+  }, [bindingId, statesByType, statesLoading]);
+
+  React.useEffect(() => {
+    if (step === "status") {
+      types.forEach((t) => loadStatesForType(t.name));
+    }
+  }, [step, types, loadStatesForType]);
+
+  // 9.3 — update a single type's resolvedType selection in draft typeMappings.
+  const updateTypeMapping = (rawType, resolvedType) => {
+    setTypeMappings((prev) => {
+      const next = prev.filter((m) => m.rawType !== rawType);
+      next.push({ rawType, resolvedType });
+      return next;
+    });
+  };
+
+  // 10.3 — update a single (workItemType, rawStatus) mapping's resolvedStatus.
+  const updateStatusMapping = (workItemType, rawStatus, resolvedStatus) => {
+    setStatusMappings((prev) => {
+      const next = prev.filter((m) => !(m.workItemType === workItemType && m.rawStatus === rawStatus));
+      next.push({ workItemType, rawStatus, resolvedStatus });
+      return next;
+    });
+  };
 
   const toggleFilterType = (typeName) => {
     setFilterTypes((prev) =>
@@ -231,8 +325,19 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
         hierarchyLevels: buildHierarchyLevels(),
       });
       onDone();
-    } catch (_) {
-      setSaveError("Não foi possível salvar a configuração. Tente novamente.");
+    } catch (err) {
+      // 11.3 — surface the backend's defense-in-depth guard clearly if a save
+      // is ever rejected for wiping non-empty mappings to empty. Should be
+      // unreachable given 10.5 (draft state is never empty here), but the
+      // error can still occur from stale state (e.g. concurrent edit elsewhere).
+      const message = err?.message || "";
+      if (message.includes("AZURE_WORKFLOW_CONFIG_MAPPINGS_EMPTY")) {
+        setSaveError(
+          "Os mapeamentos de tipo/status não podem ficar vazios para um projeto já configurado. " +
+          "Volte às etapas anteriores e confirme os mapeamentos antes de salvar novamente.");
+      } else {
+        setSaveError("Não foi possível salvar a configuração. Tente novamente.");
+      }
     } finally {
       setSaving(false);
     }
@@ -252,6 +357,7 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
 
       setStatusMappings(Array.isArray(cfg.statusMappings) ? cfg.statusMappings : []);
       setTypeMappings(Array.isArray(cfg.typeMappings) ? cfg.typeMappings : []);
+      setTypeMappingsSeeded(true);
 
       const complexity = (cfg.fieldMappings || []).find((m) => m.internalField === "COMPLEXITY");
       const effort = (cfg.fieldMappings || []).find((m) => m.internalField === "EFFORT");
@@ -359,11 +465,71 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
             {typesLoading && <p className="mono integration-loading">Carregando tipos…</p>}
             {typesError && <p className="mono integration-error">{typesError}</p>}
             {!typesLoading && !typesError && (
-              <ul className="mono integration-pat-scopes-list">
-                {types.map((t) => <li key={t.referenceName}>{t.name}</li>)}
+              <ul className="mono integration-pat-scopes-list" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+                {types.map((t) => {
+                  const current = typeMappings.find((m) => m.rawType === t.name);
+                  return (
+                    <li key={t.referenceName} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ flex: 1 }}>{t.name}</span>
+                      <div className="signup-select">
+                        <select
+                          value={current?.resolvedType || guessResolvedType(t.name)}
+                          onChange={(e) => updateTypeMapping(t.name, e.target.value)}>
+                          {RESOLVED_TYPES.map((rt) => <option key={rt} value={rt}>{rt}</option>)}
+                        </select>
+                        <span className="signup-select-caret">▾</span>
+                      </div>
+                    </li>
+                  );
+                })}
                 {types.length === 0 && <li>Nenhum tipo encontrado.</li>}
               </ul>
             )}
+          </div>
+        )}
+
+        {step === "status" && (
+          <div className="role-modal-body">
+            <p className="confirm-text">
+              Para cada tipo de work item, mapeie os status reais do Azure DevOps para o status
+              interno correspondente.
+            </p>
+            {types.length === 0 && <p className="mono integration-loading">Nenhum tipo disponível.</p>}
+            {types.map((t) => {
+              const states = statesByType[t.name] || [];
+              const loading = !!statesLoading[t.name];
+              const error = statesError[t.name];
+              return (
+                <div key={t.referenceName} style={{ border: "1px solid var(--line)", borderRadius: 6, padding: 8, marginBottom: 8 }}>
+                  <div className="mono" style={{ opacity: 0.7, marginBottom: 6 }}>{t.name}</div>
+                  {loading && <p className="mono integration-loading">Carregando status…</p>}
+                  {error && <p className="mono integration-error">{error}</p>}
+                  {!loading && !error && (
+                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                      {states.map((s) => {
+                        const current = statusMappings.find(
+                          (m) => m.workItemType === t.name && m.rawStatus === s.name);
+                        return (
+                          <div key={s.name} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <span style={{ flex: 1 }}>{s.name}</span>
+                            <div className="signup-select">
+                              <select
+                                value={current?.resolvedStatus || guessResolvedStatus(s.name)}
+                                onChange={(e) => updateStatusMapping(t.name, s.name, e.target.value)}>
+                                {RESOLVED_STATUSES.map((rs) => <option key={rs} value={rs}>{rs}</option>)}
+                              </select>
+                              <span className="signup-select-caret">▾</span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                      {states.length === 0 && <p className="mono">Nenhum status encontrado.</p>}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            {saveError && <p className="mono integration-error">{saveError}</p>}
           </div>
         )}
 
@@ -557,7 +723,12 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
             </button>
           )}
           {step === "types" && (
-            <button type="button" className="btn" onClick={() => setStep("mapping")} disabled={typesLoading}>
+            <button type="button" className="btn" onClick={() => setStep("status")} disabled={typesLoading}>
+              Continuar →
+            </button>
+          )}
+          {step === "status" && (
+            <button type="button" className="btn" onClick={() => setStep("mapping")}>
               Continuar →
             </button>
           )}
