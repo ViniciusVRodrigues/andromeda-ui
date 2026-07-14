@@ -8,8 +8,12 @@ import {
   getAzureProjectBinding,
 } from "../../services/api.js";
 
-const RESOLVED_TYPES = ["STORY", "BUG", "TASK", "EPIC", "SUB_TASK"];
+const RESOLVED_TYPES = ["STORY", "BUG", "TASK", "EPIC", "FEATURE", "SUB_TASK"];
 const RESOLVED_STATUSES = ["TODO", "IN_PROGRESS", "DONE"];
+
+// 6.2 — static tier lookup used to seed the hierarchy step's initial ranks
+// from each type's mapped resolvedType, rather than raw discovery order.
+const RESOLVED_TYPE_TIER = { EPIC: 0, FEATURE: 1, STORY: 2, TASK: 3, BUG: 3, SUB_TASK: 3 };
 
 // 9.4 — best-effort name-based guess for a freshly-discovered work item type,
 // so the admin edits a sensible default rather than starting from a blank
@@ -19,6 +23,7 @@ function guessResolvedType(typeName) {
   if (/(user story|story|história|historia)/.test(n)) return "STORY";
   if (/bug|defeito/.test(n)) return "BUG";
   if (/epic|épico|epico/.test(n)) return "EPIC";
+  if (/feature/.test(n)) return "FEATURE";
   if (/(sub-?task|subtarefa)/.test(n)) return "SUB_TASK";
   if (/task|tarefa/.test(n)) return "TASK";
   return "TASK";
@@ -68,6 +73,19 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
   const [ranks, setRanks] = React.useState({}); // { [typeName]: rank }
   const [ranksSeeded, setRanksSeeded] = React.useState(false); // true once copied/defaulted, guards auto-init
 
+  // 5.1 — display-only rename of the three fixed resolved-status buckets.
+  // Never changes the underlying TODO/IN_PROGRESS/DONE values submitted on
+  // the wire — purely a label shown in the status step's UI.
+  const [statusBucketLabels, setStatusBucketLabels] = React.useState({
+    TODO: "TODO",
+    IN_PROGRESS: "IN_PROGRESS",
+    DONE: "DONE",
+  });
+
+  // 8 — ordered step history for back-navigation; push on every forward
+  // transition, pop on "Voltar". Keeps all draft state untouched (no re-fetch).
+  const [stepHistory, setStepHistory] = React.useState([]);
+
   const [selectedTypeForFields, setSelectedTypeForFields] = React.useState(null);
   const [fieldsByType, setFieldsByType] = React.useState({}); // { [typeName]: field[] }
   const [fieldsLoading, setFieldsLoading] = React.useState(false);
@@ -114,12 +132,8 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
         const list = data || [];
         setTypes(list);
         if (list.length > 0) setSelectedTypeForFields((prev) => prev || list[0].name);
-        setRanks((prev) => {
-          if (ranksSeeded || Object.keys(prev).length > 0) return prev;
-          const next = {};
-          list.forEach((t, i) => { next[t.name] = i; });
-          return next;
-        });
+        // Hierarchy step's `ranks` are seeded separately (6.2), by resolved-type
+        // tier, the first time the hierarchy step is reached — not here.
         // 9.4: default each discovered type's resolvedType via name heuristic,
         // unless already seeded from copy-once or an existing binding's config.
         setTypeMappings((prev) => {
@@ -212,6 +226,23 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
     }
   }, [step, types, loadStatesForType]);
 
+  // 8 — forward navigation: remember where we came from so "Voltar" can
+  // return to it without losing any draft state (nothing is reset/re-fetched).
+  const goToStep = (nextStep) => {
+    setStepHistory((prev) => [...prev, step]);
+    setStep(nextStep);
+  };
+
+  const goBack = () => {
+    setStepHistory((prev) => {
+      if (prev.length === 0) return prev;
+      const next = [...prev];
+      const previousStep = next.pop();
+      setStep(previousStep);
+      return next;
+    });
+  };
+
   // 9.3 — update a single type's resolvedType selection in draft typeMappings.
   const updateTypeMapping = (rawType, resolvedType) => {
     setTypeMappings((prev) => {
@@ -235,11 +266,38 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
       prev.includes(typeName) ? prev.filter((t) => t !== typeName) : [...prev, typeName]);
   };
 
+  // 6.1 — hierarchy only ranks types selected in the "filter" step; an empty
+  // filterTypes means "sync everything" (matching the filter step's own
+  // semantics), so it falls back to showing all discovered types.
+  const hierarchyTypes = React.useMemo(() => {
+    if (filterTypes.length === 0) return types;
+    return types.filter((t) => filterTypes.includes(t.name));
+  }, [types, filterTypes]);
+
+  // 6.2 — seed initial ranks from each type's mapped resolvedType tier, only
+  // the first time the hierarchy step is reached in this wizard session.
+  // Subsequent visits (e.g. via back-navigation from a later step — though
+  // hierarchy is currently the last step) must NOT re-seed and clobber any
+  // manual reordering the admin already performed.
+  React.useEffect(() => {
+    if (step !== "hierarchy") return;
+    if (ranksSeeded) return;
+    if (hierarchyTypes.length === 0) return;
+    const next = {};
+    hierarchyTypes.forEach((t) => {
+      const mapping = typeMappings.find((m) => m.rawType === t.name);
+      const resolvedType = mapping?.resolvedType || guessResolvedType(t.name);
+      next[t.name] = RESOLVED_TYPE_TIER[resolvedType] ?? 3;
+    });
+    setRanks(next);
+    setRanksSeeded(true);
+  }, [step, ranksSeeded, hierarchyTypes, typeMappings]);
+
   // Ordered list of distinct ranks present, each with its member type names —
   // this is the shape the ranked-list UI renders (one row per rank group).
   const rankGroups = React.useMemo(() => {
     const byRank = new Map();
-    for (const t of types) {
+    for (const t of hierarchyTypes) {
       const r = ranks[t.name] ?? 0;
       if (!byRank.has(r)) byRank.set(r, []);
       byRank.get(r).push(t.name);
@@ -247,7 +305,7 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
     return [...byRank.entries()]
       .sort((a, b) => a[0] - b[0])
       .map(([rank, typeNames]) => ({ rank, typeNames }));
-  }, [types, ranks]);
+  }, [hierarchyTypes, ranks]);
 
   // Move every type in the group at `groupIndex` up or down one rank slot,
   // swapping ranks with the adjacent group (2.2 — up/down controls).
@@ -307,23 +365,32 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
     return mappings;
   };
 
+  // Builds the current draft's workflow-config payload — shared by both
+  // "Concluir" (handleSave) and "Pular e usar padrões" (handleSkip), since
+  // both count as wizard completion and both persist the current draft state
+  // (azure-staged-sync-gating design.md Decision 2: skip is "complete with
+  // defaults, applying current draft state" — not just untouched defaults).
+  // `statusMappingsOverride` lets handleSkip pass freshly-fetched-and-defaulted
+  // mappings that haven't landed in state yet (see handleSkip for why).
+  const buildWorkflowConfigPayload = ({ statusMappingsOverride } = {}) => ({
+    statusMappings: statusMappingsOverride ?? statusMappings,
+    typeMappings,
+    fieldMappings: buildFieldMappings(),
+    syncFilter: (filterTypes.length > 0 || areaPath.trim() || iterationPath.trim())
+      ? {
+        workItemTypes: filterTypes,
+        areaPath: areaPath.trim() || null,
+        iterationPath: iterationPath.trim() || null,
+      }
+      : null,
+    hierarchyLevels: buildHierarchyLevels(),
+  });
+
   const handleSave = async () => {
     setSaving(true);
     setSaveError(null);
     try {
-      await updateAzureWorkflowConfig(bindingId, {
-        statusMappings,
-        typeMappings,
-        fieldMappings: buildFieldMappings(),
-        syncFilter: (filterTypes.length > 0 || areaPath.trim() || iterationPath.trim())
-          ? {
-            workItemTypes: filterTypes,
-            areaPath: areaPath.trim() || null,
-            iterationPath: iterationPath.trim() || null,
-          }
-          : null,
-        hierarchyLevels: buildHierarchyLevels(),
-      });
+      await updateAzureWorkflowConfig(bindingId, buildWorkflowConfigPayload());
       onDone();
     } catch (err) {
       // 11.3 — surface the backend's defense-in-depth guard clearly if a save
@@ -337,6 +404,67 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
           "Volte às etapas anteriores e confirme os mapeamentos antes de salvar novamente.");
       } else {
         setSaveError("Não foi possível salvar a configuração. Tente novamente.");
+      }
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // "Pular e usar padrões" also completes onboarding (azure-staged-sync-gating):
+  // it calls the same PUT .../workflow-config endpoint — the backend's sole
+  // signal that onboarding is complete — carrying whatever the admin has
+  // filled in so far (defaults if nothing was touched). This is what flips
+  // syncEnabled=true and triggers the binding's first sync. A bare wizard
+  // close (no save, no skip) never calls this endpoint and never syncs.
+  //
+  // Skip is reachable from the very first ("start") step, before the "status"
+  // step's discovery effect (which only runs once step === "status") has ever
+  // populated statusMappings — without this, skipping immediately on open
+  // would submit statusMappings: [] for a first-time binding, reproducing the
+  // corruption bug this whole feature exists to prevent. So skip must fetch
+  // and default states for every discovered type itself before submitting,
+  // regardless of which step the admin is currently on. Fetches are resolved
+  // into a local variable (not via setStatusMappings/loadStatesForType,
+  // whose state updates wouldn't be visible to buildWorkflowConfigPayload()
+  // until the next render) so the payload built immediately after reflects
+  // every discovered type's defaults.
+  const handleSkip = async () => {
+    setSaving(true);
+    setSaveError(null);
+    try {
+      const missingTypes = types.filter((t) => !statesByType[t.name]);
+      let resolvedStatusMappings = statusMappings;
+      if (missingTypes.length > 0) {
+        const fetched = await Promise.all(
+          missingTypes.map((t) =>
+            getAzureWorkItemTypeStates(bindingId, t.name)
+              .then((data) => ({ typeName: t.name, states: data || [] }))
+              .catch(() => ({ typeName: t.name, states: [] }))));
+        resolvedStatusMappings = [...statusMappings];
+        for (const { typeName, states } of fetched) {
+          for (const s of states) {
+            const exists = resolvedStatusMappings.some(
+              (m) => m.workItemType === typeName && m.rawStatus === s.name);
+            if (!exists) {
+              resolvedStatusMappings.push({
+                workItemType: typeName, rawStatus: s.name, resolvedStatus: guessResolvedStatus(s.name),
+              });
+            }
+          }
+        }
+        setStatusMappings(resolvedStatusMappings);
+      }
+      await updateAzureWorkflowConfig(
+        bindingId, buildWorkflowConfigPayload({ statusMappingsOverride: resolvedStatusMappings }));
+      onSkip();
+    } catch (err) {
+      const message = err?.message || "";
+      if (message.includes("AZURE_WORKFLOW_CONFIG_MAPPINGS_EMPTY")) {
+        setSaveError(
+          "Os mapeamentos de tipo/status não podem ficar vazios para um projeto já configurado. " +
+          "Volte às etapas anteriores e confirme os mapeamentos antes de pular.");
+      } else {
+        setSaveError("Não foi possível concluir com os padrões. Tente novamente.");
       }
     } finally {
       setSaving(false);
@@ -378,12 +506,22 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
         setRanksSeeded(true);
       }
 
-      setStep("types");
+      goToStep("types");
     } catch (_) {
       setCopyError("Não foi possível carregar a configuração do projeto selecionado.");
     } finally {
       setCopyLoading(false);
     }
+  };
+
+  // 7.2 — "Fechar" discards all in-progress draft state and dismisses the
+  // wizard WITHOUT any save call. The binding's WorkflowConfig (and
+  // syncEnabled) are left exactly as they were before the wizard opened,
+  // since nothing here ever touches the backend. Distinct from "Pular e usar
+  // padrões" (handleSkip), which persists the current draft via the same
+  // save endpoint used by "Concluir".
+  const handleClose = () => {
+    onDone();
   };
 
   return (
@@ -394,6 +532,15 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
           <h3 className="serif role-modal-title">
             Personalize a <span className="ital accent">integração</span>
           </h3>
+          <button
+            type="button"
+            className="btn-ghost btn role-modal-close"
+            onClick={handleClose}
+            disabled={saving}
+            aria-label="Fechar sem salvar"
+            title="Fechar sem salvar">
+            Fechar ✕
+          </button>
         </div>
 
         {step === "start" && (
@@ -494,6 +641,31 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
               Para cada tipo de work item, mapeie os status reais do Azure DevOps para o status
               interno correspondente.
             </p>
+
+            {/* 5.1 — display-only rename of the three fixed resolved-status
+                buckets. The underlying TODO/IN_PROGRESS/DONE values submitted
+                on the wire never change; only the label shown here does.
+                5.2 — no removal action exists for these buckets: they're a
+                fixed constant array (RESOLVED_STATUSES), rendered as labeled
+                text inputs, not a removable list. */}
+            <div className="role-modal-field">
+              <span className="role-modal-label">Nomes exibidos para os status internos</span>
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                {RESOLVED_STATUSES.map((rs) => (
+                  <div key={rs} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span className="mono" style={{ opacity: 0.7, width: 110 }}>{rs}</span>
+                    <input
+                      className="role-modal-input"
+                      type="text"
+                      value={statusBucketLabels[rs]}
+                      onChange={(e) =>
+                        setStatusBucketLabels((prev) => ({ ...prev, [rs]: e.target.value }))}
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+
             {types.length === 0 && <p className="mono integration-loading">Nenhum tipo disponível.</p>}
             {types.map((t) => {
               const states = statesByType[t.name] || [];
@@ -516,7 +688,9 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
                               <select
                                 value={current?.resolvedStatus || guessResolvedStatus(s.name)}
                                 onChange={(e) => updateStatusMapping(t.name, s.name, e.target.value)}>
-                                {RESOLVED_STATUSES.map((rs) => <option key={rs} value={rs}>{rs}</option>)}
+                                {RESOLVED_STATUSES.map((rs) => (
+                                  <option key={rs} value={rs}>{statusBucketLabels[rs] || rs}</option>
+                                ))}
                               </select>
                               <span className="signup-select-caret">▾</span>
                             </div>
@@ -705,11 +879,18 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
         )}
 
         <div className="role-modal-foot">
-          <button type="button" className="btn-ghost btn" onClick={onSkip} disabled={saving}>
-            Pular e usar padrões
+          {/* 8.1 — "Voltar" on every step except the first ("start"); goBack
+              only changes `step`, never touches any other draft state. */}
+          {stepHistory.length > 0 && (
+            <button type="button" className="btn-ghost btn" onClick={goBack} disabled={saving}>
+              ← Voltar
+            </button>
+          )}
+          <button type="button" className="btn-ghost btn" onClick={handleSkip} disabled={saving}>
+            {saving ? "Salvando…" : "Pular e usar padrões"}
           </button>
           {step === "start" && !showCopyPicker && (
-            <button type="button" className="btn" onClick={() => setStep("types")}>
+            <button type="button" className="btn" onClick={() => goToStep("types")}>
               Continuar →
             </button>
           )}
@@ -723,22 +904,22 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
             </button>
           )}
           {step === "types" && (
-            <button type="button" className="btn" onClick={() => setStep("status")} disabled={typesLoading}>
+            <button type="button" className="btn" onClick={() => goToStep("status")} disabled={typesLoading}>
               Continuar →
             </button>
           )}
           {step === "status" && (
-            <button type="button" className="btn" onClick={() => setStep("mapping")}>
+            <button type="button" className="btn" onClick={() => goToStep("mapping")}>
               Continuar →
             </button>
           )}
           {step === "mapping" && (
-            <button type="button" className="btn" onClick={() => setStep("filter")}>
+            <button type="button" className="btn" onClick={() => goToStep("filter")}>
               Continuar →
             </button>
           )}
           {step === "filter" && (
-            <button type="button" className="btn" onClick={() => setStep("hierarchy")}>
+            <button type="button" className="btn" onClick={() => goToStep("hierarchy")}>
               Continuar →
             </button>
           )}

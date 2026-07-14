@@ -2575,6 +2575,17 @@ h1, h2, h3, .serif {
   from { transform: translateY(8px); opacity: 0; }
   to   { transform: translateY(0); opacity: 1; }
 }
+.role-modal-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.role-modal-close {
+  flex-shrink: 0;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+}
 .role-modal-title { font-size: 30px; line-height: 1.05; }
 .role-modal-subtitle {
   margin-top: 6px;
