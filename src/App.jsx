@@ -2,9 +2,11 @@
  *
  * Telas públicas/lineares: home, login, signup, onboarding.
  * App autenticado: a MESMA casca (AdminSettings) servida em rotas por função
- * (/projetos, /pessoas, /cargos, /senioridade, /organizacao, /dashboard). O menu é
- * filtrado pela identidade (admin x membro) e o dashboard mora dentro da casca
- * — ao abri-lo, o menu colapsa e ele ocupa a área de conteúdo.
+ * (/projetos, /pessoas, /organizacao, /dashboard). O menu é filtrado pela
+ * identidade (admin x membro) e o dashboard mora dentro da casca — ao abri-lo,
+ * o menu colapsa e ele ocupa a área de conteúdo. Organização tem sub-abas
+ * URL-addressable (/organizacao, /organizacao/cargos, /organizacao/senioridade);
+ * as antigas rotas /cargos e /senioridade redirecionam para as novas.
  *
  * Identidade no protótipo (sem backend): signup ⇒ admin; login ⇒ membro. Em
  * produção viria do /api/me da sessão (e sobreviveria a um refresh). */
@@ -28,20 +30,32 @@ import {
   TweakButton,
 } from "./components/tweaks/TweaksPanel.jsx";
 
-/* ── Funções da casca: rota (URL) ↔ aba interna da AdminSettings ── */
+/* ── Funções da casca: rota (URL) ↔ aba interna da AdminSettings ──
+ * Organização agora tem sub-abas URL-addressable (Geral/Cargos/Senioridade),
+ * então suas entradas carregam também `subtab`. Rotas de mais de um segmento
+ * (ex.: "organizacao/cargos") são casadas via SHELL_ROUTES/inShell abaixo. */
 const SHELL_SECTIONS = [
-  { route: "projetos",    tab: "projects" },
-  { route: "pessoas",     tab: "team" },
-  { route: "cargos",      tab: "roles" },
-  { route: "senioridade", tab: "seniority" },
-  { route: "organizacao", tab: "org" },
-  { route: "dashboard",   tab: "dashboard" },
-  { route: "integracoes", tab: "integrations" },
-  { route: "uso-ia",      tab: "uso-ia" },
-  { route: "perfil",      tab: "perfil" },
+  { route: "projetos",              tab: "projects" },
+  { route: "pessoas",               tab: "team" },
+  { route: "organizacao",           tab: "org", subtab: "geral" },
+  { route: "organizacao/cargos",    tab: "org", subtab: "cargos" },
+  { route: "organizacao/senioridade", tab: "org", subtab: "senioridade" },
+  { route: "dashboard",             tab: "dashboard" },
+  { route: "backlog",               tab: "backlog" },
+  { route: "integracoes",           tab: "integrations" },
+  { route: "uso-ia",                tab: "uso-ia", subtab: "consumo" },
+  { route: "uso-ia/precificacao",   tab: "uso-ia", subtab: "precificacao" },
+  { route: "perfil",                tab: "perfil" },
 ];
 const ROUTE_TO_TAB = Object.fromEntries(SHELL_SECTIONS.map((s) => [s.route, s.tab]));
-const TAB_TO_ROUTE = Object.fromEntries(SHELL_SECTIONS.map((s) => [s.tab, s.route]));
+const ROUTE_TO_SUBTAB = Object.fromEntries(SHELL_SECTIONS.map((s) => [s.route, s.subtab || null]));
+/* TAB_TO_ROUTE maps a tab id back to its default/base route (used by sidebar nav).
+ * A tab can have more than one SHELL_SECTIONS entry (sub-tabs each get their own
+ * addressable route) — only the FIRST entry per tab is the "default" landing route. */
+const TAB_TO_ROUTE = SHELL_SECTIONS.reduce((acc, s) => {
+  if (!(s.tab in acc)) acc[s.tab] = s.route;
+  return acc;
+}, {});
 const SHELL_ROUTES = SHELL_SECTIONS.map((s) => s.route);
 
 /* Builds an identity object from real backend permissions array. */
@@ -61,9 +75,11 @@ function canSee(identity, tab) {
   if (tab === "projects")     return p.includes("gerProjeto") || identity.isAdmin;
   if (tab === "team")         return p.includes("gerEquipe") || p.includes("USER_MANAGE") || identity.isAdmin;
   if (tab === "dashboard")    return p.includes("DASHBOARD_INDIVIDUAL") || p.includes("DASHBOARD_TEAM") || p.includes("DASHBOARD_STRATEGIC");
+  if (tab === "backlog")      return p.includes("DASHBOARD_TEAM") || identity.isAdmin;
   if (tab === "integrations") return p.includes("AZURE_CONFIGURE") || p.includes("AZURE_READ") || identity.isAdmin;
   if (tab === "uso-ia")       return p.includes("AI_READ_OWN") || p.includes("AI_READ_ALL");
   if (tab === "uso-ia-team")  return p.includes("DASHBOARD_TEAM") || p.includes("AI_READ_ALL");
+  if (tab === "uso-ia-pricing") return p.includes("PRICE_TABLE_MANAGE") || identity.isAdmin;
   return identity.isAdmin; // roles, seniority, org
 }
 function firstAllowedRoute(identity) {
@@ -186,8 +202,10 @@ function AppShell() {
   // segmento de topo: estável dentro da casca (todas as áreas compartilham a
   // key "shell"), então a AdminSettings NÃO remonta ao trocar de área — só ao
   // sair da casca. Isso preserva o estado interno (projetos, pessoas, etc.).
+  // Sub-rotas (ex.: "organizacao/cargos") ainda contam como a mesma área —
+  // comparamos pelo primeiro segmento de cada entrada em SHELL_ROUTES.
   const seg = location.pathname === "/" ? "home" : location.pathname.split("/")[1];
-  const inShell = SHELL_ROUTES.includes(seg);
+  const inShell = SHELL_ROUTES.some((r) => r.split("/")[0] === seg);
   const keyBase = inShell ? "shell" : seg;
 
   if (authStatus === "pending") {
@@ -228,8 +246,13 @@ function AppShell() {
               }} />
             } />
 
-            {/* app autenticado: uma rota por função, todas na mesma casca */}
-            <Route path="/:section" element={
+            {/* legado: /cargos e /senioridade viraram sub-abas de /organizacao */}
+            <Route path="/cargos" element={<Navigate to="/organizacao/cargos" replace />} />
+            <Route path="/senioridade" element={<Navigate to="/organizacao/senioridade" replace />} />
+
+            {/* app autenticado: uma rota por função (com sub-rotas opcionais,
+             * ex.: /organizacao/cargos), todas na mesma casca */}
+            <Route path="/:section/*" element={
               <ShellRoute
                 identity={identity}
                 profile={profile}
@@ -266,10 +289,11 @@ function AppShell() {
   );
 }
 
-/* Resolve a rota /:section na casca, com guarda por permissão. Como é UMA só
- * rota, a AdminSettings é a mesma instância ao trocar de área (estado preservado). */
+/* Resolve a rota /:section(/*) na casca, com guarda por permissão. Como é UMA
+ * só rota, a AdminSettings é a mesma instância ao trocar de área (estado
+ * preservado). O `*` captura sub-rotas como "cargos" em /organizacao/cargos. */
 function ShellRoute({ identity, profile, palette, setPalette, onLogout }) {
-  const { section } = useParams();
+  const { section, "*": rest } = useParams();
   const navigate = useNavigate();
 
   if (!identity) return <Navigate to="/" replace />;
@@ -286,18 +310,28 @@ function ShellRoute({ identity, profile, palette, setPalette, onLogout }) {
   }
 
   if (!profile) return <Navigate to="/" replace />;
-  const tab = ROUTE_TO_TAB[section];
+  const fullRoute = rest ? `${section}/${rest}` : section;
+  const tab = ROUTE_TO_TAB[fullRoute] ?? ROUTE_TO_TAB[section];
+  const subtab = ROUTE_TO_SUBTAB[fullRoute] ?? ROUTE_TO_SUBTAB[section] ?? null;
   if (!tab || !canSee(identity, tab)) return <Navigate to={firstAllowedRoute(identity)} replace />;
 
   return (
     <AdminSettings
       section={tab}
+      subtab={subtab}
       can={(t) => canSee(identity, t)}
       dash={dashAccess(identity)}
       profile={profile}
       palette={palette}
       setPalette={setPalette}
       onNavigate={(t) => navigate("/" + TAB_TO_ROUTE[t])}
+      onNavigateSubtab={(subtabId) => {
+        if (tab === "uso-ia") {
+          navigate(`/uso-ia${subtabId === "consumo" ? "" : "/" + subtabId}`);
+        } else {
+          navigate(`/organizacao${subtabId === "geral" ? "" : "/" + subtabId}`);
+        }
+      }}
       onLogout={onLogout}
     />
   );

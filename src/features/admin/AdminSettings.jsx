@@ -6,9 +6,12 @@ import { Icon } from "../../components/charts/Charts.jsx";
 import { OAuthPopup } from "../../components/OAuthPopup.jsx";
 import { DashboardPage } from "../dashboard/DashboardPage.jsx";
 import { IntegrationTab } from "./IntegrationTab.jsx";
+import { AzureFieldMappingWizard } from "./AzureFieldMappingWizard.jsx";
+import { BacklogPage } from "../backlog/BacklogPage.jsx";
 import { PERMISSION_LABELS, ALWAYS_ON_PERMISSIONS } from "./permissionLabels.js";
-import { AiPricingTab } from "../org-settings/AiPricingTab.jsx";
+import { AiPricingTab } from "../uso-ia/components/AiPricingTab.jsx";
 import { UsoIaPage } from "../uso-ia/UsoIaPage.jsx";
+import { SubTabs } from "../../components/SubTabs.jsx";
 import api, { getToken, linkAzureIdentity, getAzureUsers, updateProjectMembers } from "../../services/api.js";
 
 /* ──────────────────────────────────────────── */
@@ -74,6 +77,7 @@ const TAB_ICONS = {
   org: svgIcon(<><path d="M4 21V4h9v17" /><path d="M13 9.5h7V21" /><path d="M7 8h3M7 12h3M7 16h3M16 13h1.5M16 17h1.5" /></>),
   integrations: svgIcon(<><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></>),
   "uso-ia": svgIcon(<><path d="M12 2a7 7 0 0 1 7 7c0 2.4-1.2 4.5-3 5.7V17a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1v-2.3C6.2 13.5 5 11.4 5 9a7 7 0 0 1 7-7z" /><path d="M9 21h6M12 17v4" /></>),
+  backlog: svgIcon(<><path d="M4 5h16M4 5v14a1 1 0 0 0 1 1h6M4 5l2-2h12l2 2" /><path d="M14 13l3 3 5-5" /></>),
 };
 const ICON_DASH = svgIcon(<><rect x="3" y="3" width="7" height="9" rx="1" /><rect x="14" y="3" width="7" height="5" rx="1" /><rect x="14" y="12" width="7" height="9" rx="1" /><rect x="3" y="16" width="7" height="5" rx="1" /></>);
 const ICON_LOGOUT = svgIcon(<><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><path d="M16 17l5-5-5-5" /><path d="M21 12H9" /></>);
@@ -82,13 +86,25 @@ const ICON_USER = svgIcon(<><circle cx="12" cy="8" r="4" /><path d="M4 20a8 8 0 
 
 const TABS = [
   { id: "dashboard",    label: "Dashboard",           icon: ICON_DASH },
+  { id: "backlog",      label: "Backlog",             icon: TAB_ICONS.backlog },
   { id: "projects",     label: "Projetos",            icon: TAB_ICONS.projects },
   { id: "team",         label: "Pessoas",             icon: TAB_ICONS.team },
-  { id: "roles",        label: "Cargos e Permissões", icon: TAB_ICONS.roles },
-  { id: "seniority",    label: "Senioridade",         icon: TAB_ICONS.seniority },
   { id: "org",          label: "Organização",         icon: TAB_ICONS.org },
   { id: "integrations", label: "Integrações",         icon: TAB_ICONS.integrations },
   { id: "uso-ia",       label: "Uso IA",              icon: TAB_ICONS["uso-ia"] },
+];
+
+/* Sub-abas da página Organização (Geral é a padrão). */
+const ORG_SUB_TABS = [
+  { id: "geral",       label: "Geral" },
+  { id: "cargos",      label: "Cargos" },
+  { id: "senioridade", label: "Senioridade" },
+];
+
+/* Sub-abas da página Uso IA (Consumo é a padrão; Precificação é admin/cost-config). */
+const USO_IA_SUB_TABS = [
+  { id: "consumo",       label: "Consumo" },
+  { id: "precificacao",  label: "Precificação" },
 ];
 
 const THEME_OPTS = [
@@ -101,7 +117,7 @@ const THEME_OPTS = [
 /*  AdminSettings                               */
 /* ──────────────────────────────────────────── */
 
-function AdminSettings({ section, can, dash, profile, palette, setPalette, onNavigate, onLogout }) {
+function AdminSettings({ section, subtab, can, dash, profile, palette, setPalette, onNavigate, onNavigateSubtab, onLogout }) {
   const [collapsed, setCollapsed] = React.useState(false);
   const [connectionStatus, setConnectionStatus] = React.useState(null);
   const [bannerDismissed, setBannerDismissed] = React.useState(
@@ -228,6 +244,8 @@ function AdminSettings({ section, can, dash, profile, palette, setPalette, onNav
   const [adoBinding, setAdoBinding] = React.useState("");
   const [azureBindings, setAzureBindings] = React.useState([]);
   const [projectSaving, setProjectSaving] = React.useState(false);
+  const [fieldMappingWizardBindingId, setFieldMappingWizardBindingId] = React.useState(null);
+  const [fieldMappingWizardStep, setFieldMappingWizardStep] = React.useState(null);
 
   const fetchProjects = React.useCallback(async () => {
     setProjectsLoading(true);
@@ -254,10 +272,12 @@ function AdminSettings({ section, can, dash, profile, palette, setPalette, onNav
     }
   }, []);
 
-  /* ── Tab activation → fetch ── */
+  /* ── Tab activation → fetch ──
+   * Organização agora tem sub-abas (Geral/Cargos/Senioridade); cada uma busca
+   * seus próprios dados quando ativada. */
   React.useEffect(() => {
-    if (section === "roles") fetchRoles();
-    else if (section === "seniority") fetchSeniorities();
+    if (section === "org" && subtab === "cargos") fetchRoles();
+    else if (section === "org" && subtab === "senioridade") fetchSeniorities();
     else if (section === "team") {
       fetchRoles();
       fetchSeniorities();
@@ -268,8 +288,9 @@ function AdminSettings({ section, can, dash, profile, palette, setPalette, onNav
       api.get("/v1/integrations/azure/bindings")
         .then((data) => setAzureBindings(Array.isArray(data) ? data : []))
         .catch(() => setAzureBindings([]));
-    } else if (section === "org") fetchOrg();
-  }, [section]); // eslint-disable-line react-hooks/exhaustive-deps
+    } else if (section === "org" && subtab === "geral") fetchOrg();
+    else if (section === "uso-ia" && subtab === "precificacao") fetchOrg();
+  }, [section, subtab]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* ── Derived counts ── */
   const roleCount = (roleId) => members.filter((m) => m.roleId === roleId && m.active !== false).length;
@@ -743,28 +764,156 @@ function AdminSettings({ section, can, dash, profile, palette, setPalette, onNav
           )}
 
           {section === "uso-ia" && (
-            <UsoIaPage can={can} />
+            <section>
+              {can("uso-ia-pricing") && (
+                <SubTabs
+                  tabs={USO_IA_SUB_TABS}
+                  activeId={subtab || "consumo"}
+                  onSelect={(id) => onNavigateSubtab && onNavigateSubtab(id)}
+                />
+              )}
+
+              {subtab === "precificacao" && can("uso-ia-pricing") ? (
+                <AiPricingTab
+                  initialEntries={Array.isArray(orgData.aiPrices) ? orgData.aiPrices : []}
+                  initialSubscriptionCost={orgData.subscriptionCostPerUserUsd ?? null}
+                />
+              ) : (
+                <UsoIaPage can={can} />
+              )}
+            </section>
           )}
 
           {section === "org" && (
             <section>
               <div className="admin-section-head">
                 <h2 className="serif admin-section-title">Organização</h2>
-                <p className="admin-section-sub">Identidade visível para todos os membros.</p>
+                <p className="admin-section-sub">Identidade visível para todos os membros, cargos e níveis de senioridade.</p>
               </div>
-              <div className="admin-fields">
-                <AdminRow label="Nome da organização" value={orgData.name} />
-                <AdminRow label="Identificador" value={orgData.slug} mono />
-                <AdminRow label="URL" value={orgData.slug ? `andromeda.app/${orgData.slug}` : null} mono />
-                <AdminRow label="Setor" value={orgData.sector} />
-                <AdminRow label="País" value={orgData.country} />
-              </div>
-              <div style={{ marginTop: "var(--spacing-lg, 32px)" }}>
-                <AiPricingTab
-                  initialEntries={Array.isArray(orgData.aiPrices) ? orgData.aiPrices : []}
-                  initialSubscriptionCost={orgData.subscriptionCostPerUserUsd ?? null}
-                />
-              </div>
+
+              <SubTabs
+                tabs={ORG_SUB_TABS}
+                activeId={subtab || "geral"}
+                onSelect={(id) => onNavigateSubtab && onNavigateSubtab(id)}
+              />
+
+              {subtab === "cargos" ? (
+                <>
+                  <div className="admin-section-head admin-section-head--row">
+                    <div>
+                      <h3 className="serif admin-section-title">Cargos e Permissões</h3>
+                      <p className="admin-section-sub">Marque o que cada cargo enxerga na Andrômeda. Clique no nome do cargo para editar permissões.</p>
+                    </div>
+                    <button className="btn" onClick={openCreate}>+ Novo cargo</button>
+                  </div>
+
+                  {rolesError && (
+                    <div className="admin-placeholder mono" style={{ color: "var(--danger, #c0392b)" }}>
+                      {rolesError} <button className="btn" style={{ marginLeft: "var(--spacing-sm)" }} onClick={fetchRoles}>Tentar novamente</button>
+                    </div>
+                  )}
+
+                  {!rolesError && (
+                    <div className="signup-perms">
+                      <div className="signup-perms-scroll">
+                        <div className="signup-perms-grid" style={{ gridTemplateColumns: permsGridCols }}>
+                          <div className="signup-perms-head is-corner mono">Cargos</div>
+                          {ALL_PERMISSION_CODES.map((code) => (
+                            <div key={code} className="signup-perms-head mono">{PERMISSION_LABELS[code]}</div>
+                          ))}
+                          {rolesLoading ? (
+                            <div className="member-empty mono" style={{ gridColumn: `1 / span ${ALL_PERMISSION_CODES.length + 1}` }}>
+                              Carregando…
+                            </div>
+                          ) : roles.map((r, rowIdx) => (
+                            <React.Fragment key={r.id}>
+                              <button type="button"
+                                className={"signup-perms-cargo" + (rowIdx === 0 ? " is-first" : "") + (r.isDefault ? " is-default" : "")}
+                                onClick={() => !r.isDefault && openEdit(r)}
+                                title={r.isDefault ? "Cargo padrão — não editável" : "Editar cargo"}>
+                                <span className="signup-perms-cargo-name">{r.label || r.name}</span>
+                                <span className="signup-perms-cargo-meta">
+                                  <span className="signup-perms-cargo-count mono" title={`${roleCount(r.id)} ${roleCount(r.id) === 1 ? "pessoa" : "pessoas"}`}>{roleCount(r.id)}</span>
+                                  {!r.isDefault && <span className="signup-perms-cargo-edit mono">editar</span>}
+                                </span>
+                              </button>
+                              {ALL_PERMISSION_CODES.map((code) => {
+                                const on = !!(rolePerms[r.id]?.has(code));
+                                return (
+                                  <label key={code}
+                                    className={"signup-perms-cell" + (on ? " is-on" : "") + (rowIdx === 0 ? " is-first" : "") + (r.isDefault ? " is-locked" : "")}
+                                    aria-label={`${r.name} · ${PERMISSION_LABELS[code]}`}>
+                                    <input
+                                      type="checkbox"
+                                      checked={on}
+                                      disabled={r.isDefault}
+                                      onChange={() => {
+                                        if (r.isDefault) return;
+                                        setRolePerms((prev) => {
+                                          const next = new Set(prev[r.id] || []);
+                                          if (next.has(code)) next.delete(code); else next.add(code);
+                                          return { ...prev, [r.id]: next };
+                                        });
+                                      }}
+                                    />
+                                    <span className="signup-perms-check" aria-hidden="true">{on ? "✓" : ""}</span>
+                                  </label>
+                                );
+                              })}
+                            </React.Fragment>
+                          ))}
+                        </div>
+                      </div>
+                      <p className="signup-step-footer mono">
+                        Cargos padrão não podem ser editados ou excluídos. As alterações na matriz são salvas ao clicar em "Salvar alterações" no modal do cargo.
+                      </p>
+                    </div>
+                  )}
+                </>
+              ) : subtab === "senioridade" ? (
+                <>
+                  <div className="admin-section-head admin-section-head--row">
+                    <div>
+                      <h3 className="serif admin-section-title">Senioridade</h3>
+                      <p className="admin-section-sub">Defina os níveis de senioridade da organização.</p>
+                    </div>
+                    <button className="btn" onClick={openCreateSeniority}>+ Novo nível</button>
+                  </div>
+
+                  {senioritiesError && (
+                    <div className="admin-placeholder mono" style={{ color: "var(--danger, #c0392b)" }}>
+                      {senioritiesError} <button className="btn" style={{ marginLeft: "var(--spacing-sm)" }} onClick={fetchSeniorities}>Tentar novamente</button>
+                    </div>
+                  )}
+
+                  {!senioritiesError && (
+                    senioritiesLoading ? (
+                      <div className="admin-placeholder mono">Carregando…</div>
+                    ) : (
+                      <div className="role-list role-list--cols">
+                        {seniorities.map((s) => (
+                          <button key={s.id} type="button" className="role-card role-card--clickable" onClick={() => openEditSeniority(s)}>
+                            <div className="role-card-main">
+                              <div className="role-card-head">
+                                <div className="serif role-card-name">{s.name}</div>
+                              </div>
+                            </div>
+                            <span className="edit-hint role-card-manage">editar</span>
+                          </button>
+                        ))}
+                      </div>
+                    )
+                  )}
+                </>
+              ) : (
+                <div className="admin-fields">
+                  <AdminRow label="Nome da organização" value={orgData.name} />
+                  <AdminRow label="Identificador" value={orgData.slug} mono />
+                  <AdminRow label="URL" value={orgData.slug ? `andromeda.app/${orgData.slug}` : null} mono />
+                  <AdminRow label="Setor" value={orgData.sector} />
+                  <AdminRow label="País" value={orgData.country} />
+                </div>
+              )}
             </section>
           )}
 
@@ -842,118 +991,6 @@ function AdminSettings({ section, can, dash, profile, palette, setPalette, onNav
             </section>
           )}
 
-          {section === "roles" && (
-            <section>
-              <div className="admin-section-head admin-section-head--row">
-                <div>
-                  <h2 className="serif admin-section-title">Cargos e Permissões</h2>
-                  <p className="admin-section-sub">Marque o que cada cargo enxerga na Andrômeda. Clique no nome do cargo para editar permissões.</p>
-                </div>
-                <button className="btn" onClick={openCreate}>+ Novo cargo</button>
-              </div>
-
-              {rolesError && (
-                <div className="admin-placeholder mono" style={{ color: "var(--danger, #c0392b)" }}>
-                  {rolesError} <button className="btn" style={{ marginLeft: "var(--spacing-sm)" }} onClick={fetchRoles}>Tentar novamente</button>
-                </div>
-              )}
-
-              {!rolesError && (
-                <div className="signup-perms">
-                  <div className="signup-perms-scroll">
-                    <div className="signup-perms-grid" style={{ gridTemplateColumns: permsGridCols }}>
-                      <div className="signup-perms-head is-corner mono">Cargos</div>
-                      {ALL_PERMISSION_CODES.map((code) => (
-                        <div key={code} className="signup-perms-head mono">{PERMISSION_LABELS[code]}</div>
-                      ))}
-                      {rolesLoading ? (
-                        <div className="member-empty mono" style={{ gridColumn: `1 / span ${ALL_PERMISSION_CODES.length + 1}` }}>
-                          Carregando…
-                        </div>
-                      ) : roles.map((r, rowIdx) => (
-                        <React.Fragment key={r.id}>
-                          <button type="button"
-                            className={"signup-perms-cargo" + (rowIdx === 0 ? " is-first" : "") + (r.isDefault ? " is-default" : "")}
-                            onClick={() => !r.isDefault && openEdit(r)}
-                            title={r.isDefault ? "Cargo padrão — não editável" : "Editar cargo"}>
-                            <span className="signup-perms-cargo-name">{r.label || r.name}</span>
-                            <span className="signup-perms-cargo-meta">
-                              <span className="signup-perms-cargo-count mono" title={`${roleCount(r.id)} ${roleCount(r.id) === 1 ? "pessoa" : "pessoas"}`}>{roleCount(r.id)}</span>
-                              {!r.isDefault && <span className="signup-perms-cargo-edit mono">editar</span>}
-                            </span>
-                          </button>
-                          {ALL_PERMISSION_CODES.map((code) => {
-                            const on = !!(rolePerms[r.id]?.has(code));
-                            return (
-                              <label key={code}
-                                className={"signup-perms-cell" + (on ? " is-on" : "") + (rowIdx === 0 ? " is-first" : "") + (r.isDefault ? " is-locked" : "")}
-                                aria-label={`${r.name} · ${PERMISSION_LABELS[code]}`}>
-                                <input
-                                  type="checkbox"
-                                  checked={on}
-                                  disabled={r.isDefault}
-                                  onChange={() => {
-                                    if (r.isDefault) return;
-                                    setRolePerms((prev) => {
-                                      const next = new Set(prev[r.id] || []);
-                                      if (next.has(code)) next.delete(code); else next.add(code);
-                                      return { ...prev, [r.id]: next };
-                                    });
-                                  }}
-                                />
-                                <span className="signup-perms-check" aria-hidden="true">{on ? "✓" : ""}</span>
-                              </label>
-                            );
-                          })}
-                        </React.Fragment>
-                      ))}
-                    </div>
-                  </div>
-                  <p className="signup-step-footer mono">
-                    Cargos padrão não podem ser editados ou excluídos. As alterações na matriz são salvas ao clicar em "Salvar alterações" no modal do cargo.
-                  </p>
-                </div>
-              )}
-            </section>
-          )}
-
-          {section === "seniority" && (
-            <section>
-              <div className="admin-section-head admin-section-head--row">
-                <div>
-                  <h2 className="serif admin-section-title">Senioridade</h2>
-                  <p className="admin-section-sub">Defina os níveis de senioridade da organização.</p>
-                </div>
-                <button className="btn" onClick={openCreateSeniority}>+ Novo nível</button>
-              </div>
-
-              {senioritiesError && (
-                <div className="admin-placeholder mono" style={{ color: "var(--danger, #c0392b)" }}>
-                  {senioritiesError} <button className="btn" style={{ marginLeft: "var(--spacing-sm)" }} onClick={fetchSeniorities}>Tentar novamente</button>
-                </div>
-              )}
-
-              {!senioritiesError && (
-                senioritiesLoading ? (
-                  <div className="admin-placeholder mono">Carregando…</div>
-                ) : (
-                  <div className="role-list role-list--cols">
-                    {seniorities.map((s) => (
-                      <button key={s.id} type="button" className="role-card role-card--clickable" onClick={() => openEditSeniority(s)}>
-                        <div className="role-card-main">
-                          <div className="role-card-head">
-                            <div className="serif role-card-name">{s.name}</div>
-                          </div>
-                        </div>
-                        <span className="edit-hint role-card-manage">editar</span>
-                      </button>
-                    ))}
-                  </div>
-                )
-              )}
-            </section>
-          )}
-
           {section === "projects" && (
             <section className="projects-section">
               <div className="admin-section-head admin-section-head--row">
@@ -974,52 +1011,123 @@ function AdminSettings({ section, can, dash, profile, palette, setPalette, onNav
                 </div>
               </div>
 
-              <div className="projects-master-detail">
-                {/* ── Lista de projetos ── */}
-                <div className="projects-list">
-                  {projectsError && (
-                    <div className="admin-placeholder mono" style={{ color: "var(--danger, #c0392b)" }}>
-                      {projectsError} <button className="btn" style={{ marginLeft: "var(--spacing-sm)" }} onClick={fetchProjects}>Tentar novamente</button>
-                    </div>
-                  )}
-
-                  {!projectsError && (
-                    projectsLoading ? (
-                      <div className="admin-placeholder mono">Carregando…</div>
-                    ) : visibleProjects.length === 0 ? (
-                      <div className="admin-placeholder mono">
-                        nenhum projeto {projectFilter === "ativo" ? "ativo" : projectFilter === "finalizado" ? "finalizado" : ""} por aqui
-                      </div>
-                    ) : (
-                      <div className="projects-list-items">
-                        {visibleProjects.map((p) => {
-                          const isActive = p.active !== false && (p.status || "ativo") !== "finalizado";
-                          const memberCount = Array.isArray(p.memberIds) ? p.memberIds.length : 0;
-                          const isSelected = editingProject?.id === p.id;
-                          return (
-                            <button key={p.id} type="button"
-                              className={"project-list-item" + (isSelected ? " is-selected" : "")}
-                              onClick={() => openProject(p)}>
-                              <div className="project-list-item-name serif">{p.name}</div>
-                              <div className="project-list-item-meta mono">
-                                {memberCount > 0 && <span>{memberCount} {memberCount === 1 ? "pessoa" : "pessoas"}</span>}
-                                {!isActive && <span className="project-status-tag">finalizado</span>}
-                              </div>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )
-                  )}
+              {projectsError && (
+                <div className="admin-placeholder mono projects-error">
+                  {projectsError} <button className="btn" style={{ marginLeft: "var(--spacing-sm)" }} onClick={fetchProjects}>Tentar novamente</button>
                 </div>
+              )}
 
-                {/* ── Painel de detalhe ── */}
-                <div className="project-detail-panel">
-                  {!editingProject ? (
-                    <div className="project-detail-empty mono">
-                      Selecione um projeto para editar, ou crie um novo.
+              {!projectsError && projectsLoading && (
+                <div className="projects-grid" aria-hidden="true">
+                  {[0, 1, 2].map((i) => (
+                    <div key={i} className="project-card project-card--skeleton">
+                      <div className="skel skel-title" />
+                      <div className="skel skel-line" />
+                      <div className="skel skel-line" style={{ width: "60%" }} />
+                      <div className="project-card-foot">
+                        <div className="skel skel-avatar" />
+                        <div className="skel skel-pill" />
+                      </div>
                     </div>
-                  ) : (
+                  ))}
+                </div>
+              )}
+
+              {!projectsError && !projectsLoading && visibleProjects.length === 0 && (
+                projects.length === 0 ? (
+                  <div className="projects-empty-state">
+                    <div className="projects-empty-icon" aria-hidden="true">
+                      <Icon name="azure" size={28} color="var(--fg-dim)" />
+                    </div>
+                    <h3 className="serif projects-empty-title">Nenhum projeto ainda</h3>
+                    <p className="projects-empty-sub mono">
+                      Crie o primeiro projeto da organização para começar a vincular pessoas, repositórios e boards.
+                    </p>
+                    <button className="btn" onClick={openCreateProject}>+ Novo projeto</button>
+                  </div>
+                ) : (
+                  <div className="projects-empty-state">
+                    <h3 className="serif projects-empty-title">
+                      Nenhum projeto {projectFilter === "ativo" ? "ativo" : "finalizado"}
+                    </h3>
+                    <p className="projects-empty-sub mono">
+                      {projectFilter === "ativo"
+                        ? "Todos os projetos desta organização estão finalizados."
+                        : "Nenhum projeto foi finalizado até agora."}
+                    </p>
+                    <button className="btn-ghost btn" onClick={() => setProjectFilter("todos")}>Ver todos os projetos</button>
+                  </div>
+                )
+              )}
+
+              {!projectsError && !projectsLoading && visibleProjects.length > 0 && (
+                <div className="projects-grid">
+                  {visibleProjects.map((p) => {
+                    const isActive = p.active !== false && (p.status || "ativo") !== "finalizado";
+                    const memberIds = Array.isArray(p.memberIds) ? p.memberIds : [];
+                    const memberCount = memberIds.length;
+                    const cardMembers = members.filter((m) => memberIds.includes(m.id)).slice(0, 4);
+                    const azureBound = azureBindings.some((b) => b.projectId === p.id);
+                    const isSelected = editingProject?.id === p.id;
+                    return (
+                      <button key={p.id} type="button"
+                        className={"project-card" + (isSelected ? " is-selected" : "")}
+                        onClick={() => openProject(p)}>
+                        <div className="project-card-top">
+                          <span className={"project-status-tag project-status-tag--" + (isActive ? "ativo" : "finalizado")}>
+                            <span className="project-status-tag-dot" />
+                            {isActive ? "ativo" : "finalizado"}
+                          </span>
+                        </div>
+
+                        <div className="project-card-name serif">{p.name}</div>
+                        {p.description ? (
+                          <p className="project-card-desc mono">{p.description}</p>
+                        ) : (
+                          <p className="project-card-desc project-card-desc--empty mono">sem descrição</p>
+                        )}
+
+                        <div className="project-card-integrations">
+                          <span className={"project-card-chip" + (p.repo ? " is-linked" : "")}>
+                            <Icon name="github" size={13} color="currentColor" />
+                            GitHub
+                          </span>
+                          <span className={"project-card-chip" + (azureBound ? " is-linked" : "")}>
+                            <Icon name="azure" size={13} color="currentColor" />
+                            Azure DevOps
+                          </span>
+                        </div>
+
+                        <div className="project-card-foot">
+                          {memberCount > 0 ? (
+                            <div className="project-card-avatars">
+                              {cardMembers.map((m) => (
+                                <span key={m.id} className="dev-avatar project-card-avatar" title={m.name || m.email}>
+                                  {(m.name || m.email || "?").trim().charAt(0).toUpperCase()}
+                                </span>
+                              ))}
+                              {memberCount > cardMembers.length && (
+                                <span className="dev-avatar project-card-avatar project-card-avatar--more">
+                                  +{memberCount - cardMembers.length}
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="project-card-no-members mono">sem pessoas vinculadas</span>
+                          )}
+                          <span className="project-card-open mono">editar →</span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* ── Painel de detalhe ── */}
+              {editingProject && (
+                <div className="project-detail-overlay" onClick={closeProject}>
+                  <div className="project-detail-panel project-detail-panel--modal" onClick={(e) => e.stopPropagation()}>
+                    <button type="button" className="project-detail-close" onClick={closeProject} aria-label="Fechar">×</button>
                     <div className="project-detail-content">
                       <div className="project-detail-head">
                         <div className="project-head-top">
@@ -1081,17 +1189,21 @@ function AdminSettings({ section, can, dash, profile, palette, setPalette, onNav
                             adoProjects={adoProjects}
                             adoProjectsError={adoProjectsError}
                             adoBinding={adoBinding}
+                            adoBindingId={azureBindings.find((b) => b.projectId === editingProject.id)?.id || null}
                             projectId={editingProject.id}
                             onNavigate={onNavigate}
                             onChange={async (azureProjectId, azureProjectName) => {
                               setAdoBinding(azureProjectId);
                               if (editingProject.id) {
                                 try {
-                                  await api.post(`/v1/integrations/azure/projects/${editingProject.id}/binding`, { azureProjectId, azureProjectName });
+                                  const binding = await api.post(`/v1/integrations/azure/projects/${editingProject.id}/binding`, { azureProjectId, azureProjectName });
                                   setAzureBindings((prev) => {
                                     const without = prev.filter((b) => b.projectId !== editingProject.id);
-                                    return [...without, { projectId: editingProject.id, azureProjectId, azureProjectName }];
+                                    return [...without, { projectId: editingProject.id, azureProjectId, azureProjectName, id: binding?.id }];
                                   });
+                                  // Onboarding: show the field-mapping wizard once per new binding,
+                                  // before the first sync would otherwise pick up defaults silently.
+                                  if (binding?.id) setFieldMappingWizardBindingId(binding.id);
                                 } catch (_) { /* ignore */ }
                               }
                             }}
@@ -1103,6 +1215,10 @@ function AdminSettings({ section, can, dash, profile, palette, setPalette, onNav
                                   setAzureBindings((prev) => prev.filter((b) => b.projectId !== editingProject.id));
                                 } catch (_) { /* ignore */ }
                               }
+                            }}
+                            onConfigureMapping={(bindingId) => {
+                              setFieldMappingWizardBindingId(bindingId);
+                              setFieldMappingWizardStep(null);
                             }}
                           />
                         </div>
@@ -1209,9 +1325,9 @@ function AdminSettings({ section, can, dash, profile, palette, setPalette, onNav
                         </button>
                       </div>
                     </div>
-                  )}
+                  </div>
                 </div>
-              </div>
+              )}
             </section>
           )}
 
@@ -1219,6 +1335,13 @@ function AdminSettings({ section, can, dash, profile, palette, setPalette, onNav
             <section className="admin-dash">
               <DashboardPage dash={dash} onNavigate={onNavigate} />
             </section>
+          )}
+
+          {section === "backlog" && (
+            <BacklogPage onOpenHierarchyWizard={(bindingId) => {
+              setFieldMappingWizardStep("hierarchy");
+              setFieldMappingWizardBindingId(bindingId);
+            }} />
           )}
         </main>
       </div>
@@ -1572,6 +1695,15 @@ function AdminSettings({ section, can, dash, profile, palette, setPalette, onNav
         onAuthenticate={onOAuthAuthenticate}
         onClose={() => setOauthProvider(null)}
       />
+
+      {fieldMappingWizardBindingId && (
+        <AzureFieldMappingWizard
+          bindingId={fieldMappingWizardBindingId}
+          initialStep={fieldMappingWizardStep}
+          onDone={() => { setFieldMappingWizardBindingId(null); setFieldMappingWizardStep(null); }}
+          onSkip={() => { setFieldMappingWizardBindingId(null); setFieldMappingWizardStep(null); }}
+        />
+      )}
     </div>
   );
 }
@@ -1613,7 +1745,7 @@ function AdminRow({ label, value, mono }) {
   );
 }
 
-function AzureProjectSelect({ connectionStatus, adoProjects, adoProjectsError, adoBinding, projectId, onNavigate, onChange, onRemove }) {
+function AzureProjectSelect({ connectionStatus, adoProjects, adoProjectsError, adoBinding, adoBindingId, projectId, onNavigate, onChange, onRemove, onConfigureMapping }) {
   const icon = <Icon name="azure" size={20} color="var(--fg)" />;
 
   if (connectionStatus !== "CONNECTED") {
@@ -1659,6 +1791,14 @@ function AzureProjectSelect({ connectionStatus, adoProjects, adoProjectsError, a
           </div>
         )}
       </div>
+      {adoBinding && adoBindingId && (
+        <button
+          type="button"
+          className="project-link-status project-link-status--cta mono"
+          onClick={() => onConfigureMapping(adoBindingId)}>
+          configurar mapeamento
+        </button>
+      )}
       {adoBinding && (
         <button type="button" className="project-link-status project-link-status--cta mono" onClick={onRemove}>
           remover vínculo
