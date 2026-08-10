@@ -8,7 +8,8 @@
  *   teamAiCostUsd,
  *   velocityTrend: [{ sprintId, sprintName, storyPoints, aiCostUsd }],
  *   members: [{ userId, name, avatarInitials, storyPointsDelivered,
- *               cycleTimeHours, leadTimeHours, aiCostUsd, avgTokensPerSp, workItemCount }]
+ *               cycleTimeHours, leadTimeHours, aiCostUsd, avgTokensPerSp, workItemCount }],
+ *   stalePrs: [{ prId, title, authorName, createdAt, hoursOpen }] // always an array, sorted by hoursOpen desc; empty when no bound repo
  * }
  *
  * Props: projectId, sprintId, startDate, endDate — controlled externally by DashboardPage.
@@ -63,6 +64,7 @@ function TeamDashboard({ projectId, sprintId, startDate, endDate }) {
 
   const members = data?.members || [];
   const velocityTrend = data?.velocityTrend || [];
+  const stalePrs = data?.stalePrs || [];
 
   const trendChartData = velocityTrend.map((s) => ({
     label: s.sprintName || s.sprintId,
@@ -159,6 +161,56 @@ function TeamDashboard({ projectId, sprintId, startDate, endDate }) {
               </tbody>
             </table>
           </div>
+        )}
+      </div>
+
+      {/* ── Stale PRs (open >24h, no reviews) ── */}
+      <div style={styles.card}>
+        <div style={styles.cardHead}>
+          <span className="mono" style={styles.cardEyebrow}>revisão pendente</span>
+          <h3 className="serif" style={styles.cardTitle}>PRs Paradas</h3>
+        </div>
+
+        {loading ? (
+          <div className="mono" style={styles.emptyState}>Carregando…</div>
+        ) : stalePrs.length === 0 ? (
+          <div className="mono" style={styles.emptyState}>Nenhuma PR parada — tudo revisado ou sem repositório GitHub vinculado</div>
+        ) : (
+          <ul style={{ listStyle: "none", margin: 0, padding: 0 }} aria-label="PRs paradas sem revisão">
+            {stalePrs.map((pr, idx) => (
+              <li
+                key={pr.prId}
+                style={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "space-between",
+                  gap: 12,
+                  padding: "8px 0",
+                  borderTop: idx === 0 ? "none" : "1px solid var(--line)",
+                }}
+              >
+                <div style={{ minWidth: 0, flex: 1 }}>
+                  <div style={{ fontSize: "var(--mono-base)", color: "var(--fg)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                    {pr.title || "—"}
+                  </div>
+                  <div className="mono" style={{ fontSize: "var(--mono-sm)", color: "var(--fg-muted)", marginTop: 2 }}>
+                    {pr.authorName || "—"}
+                  </div>
+                </div>
+                <span className="mono" style={{
+                  flexShrink: 0,
+                  fontSize: "var(--mono-sm)",
+                  color: "var(--bad)",
+                  background: "color-mix(in srgb, var(--bad) 12%, transparent)",
+                  border: "1px solid color-mix(in srgb, var(--bad) 25%, transparent)",
+                  borderRadius: 4,
+                  padding: "2px 8px",
+                }}>
+                  {fmt1(pr.hoursOpen)}h aberta
+                </span>
+              </li>
+            ))}
+          </ul>
         )}
       </div>
 
