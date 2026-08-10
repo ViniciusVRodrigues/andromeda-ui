@@ -3,9 +3,10 @@ import { updateWorkItemManualFields } from "../services/api.js";
 
 /**
  * Inline editor for a work item's complexity/effort, with a source badge
- * ("From Azure" vs "Manually set") and a reset-to-Azure action. Drop this
- * into any work item list/detail view once one exists; it's self-contained
- * and only needs the work item's id + current field state as props.
+ * ("Azure" = synced from Azure DevOps vs "Manual" = human-entered) and a
+ * reset-to-Azure action. Drop this into any work item list/detail view;
+ * it's self-contained and only needs the work item's id + current field
+ * state as props.
  *
  * @param {{
  *   workItemId: string,
@@ -16,13 +17,23 @@ import { updateWorkItemManualFields } from "../services/api.js";
  *   onChanged: (updated: { complexity: number|null, complexitySource: string|null, effort: number|null, effortSource: string|null }) => void,
  * }} props
  */
-export function WorkItemManualFieldsEditor({ workItemId, field, value, source, label, onChanged }) {
+export function WorkItemManualFieldsEditor({
+  workItemId, field, value, source, label, onChanged,
+  // Hierarchy rollup (optional): the sum of this field across all descendants, shown only when the
+  // item has no value of its own. `undefined` on older backends -- the row simply reads "não
+  // definido", exactly as before.
+  rolledUp = null, descendantCount = 0,
+  // Planning containers (Epic/Feature) don't carry their own value — the backend rejects manual
+  // edits there, so the row shows the rolled-up figure without an edit affordance.
+  readOnly = false,
+}) {
   const [editing, setEditing] = React.useState(false);
   const [draft, setDraft] = React.useState(value ?? "");
   const [saving, setSaving] = React.useState(false);
   const [error, setError] = React.useState(null);
 
   const isOverridden = source === "MANUAL_OVERRIDE";
+  const isUnset = value == null;
   const clearKey = field === "complexity" ? "clearComplexityOverride" : "clearEffortOverride";
 
   const startEdit = () => {
@@ -64,26 +75,44 @@ export function WorkItemManualFieldsEditor({ workItemId, field, value, source, l
   };
 
   return (
-    <div className="mono" style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-        <span>{label}</span>
+    <div className="mono wi-fields-editor">
+      <div className="wi-fields-row">
+        <span className="wi-fields-label">{label}</span>
         {!editing && (
           <>
-            <span>{value ?? "—"}</span>
-            <span
-              title={isOverridden ? "Definido manualmente" : "Sincronizado do Azure DevOps"}
-              style={{
-                fontSize: 11,
-                padding: "1px 6px",
-                borderRadius: 4,
-                border: "1px solid var(--line)",
-                opacity: 0.8,
-              }}>
-              {isOverridden ? "Manual" : "Azure"}
-            </span>
-            <button type="button" className="inline-link" onClick={startEdit}>editar</button>
-            {isOverridden && (
-              <button type="button" className="inline-link" onClick={resetToAzure} disabled={saving}>
+            {isUnset ? (
+              // A parent level (Epic/Feature) often has no value of its own because the team fills
+              // the field only on Stories or Tasks. Showing the descendants' sum keeps those rows
+              // informative, clearly labelled so it never reads as the item's own value.
+              rolledUp != null ? (
+                <span className="wi-fields-value is-rolled-up" title={`Soma de ${descendantCount} item(ns) descendente(s)`}>
+                  {rolledUp}
+                  <span className="wi-fields-rollup-tag">soma dos filhos</span>
+                </span>
+              ) : (
+                <span className="wi-fields-value is-unset">não definido</span>
+              )
+            ) : (
+              <span className="wi-fields-value">{value}</span>
+            )}
+            {source && (
+              <span
+                className={`wi-source-badge${isOverridden ? " is-manual" : ""}`}
+                title={isOverridden ? "Definido manualmente" : "Sincronizado do Azure DevOps"}>
+                {isOverridden ? "Manual" : "Azure"}
+              </span>
+            )}
+            {!readOnly && (isUnset ? (
+              <button type="button" className="wi-fields-btn is-primary" onClick={startEdit}>
+                definir
+              </button>
+            ) : (
+              <button type="button" className="wi-fields-btn is-set" onClick={startEdit}>
+                editar
+              </button>
+            ))}
+            {!readOnly && isOverridden && (
+              <button type="button" className="wi-fields-btn" onClick={resetToAzure} disabled={saving}>
                 restaurar do Azure
               </button>
             )}
@@ -92,8 +121,7 @@ export function WorkItemManualFieldsEditor({ workItemId, field, value, source, l
         {editing && (
           <>
             <input
-              className="role-modal-input"
-              style={{ width: 80 }}
+              className="role-modal-input wi-fields-input"
               type="number"
               value={draft}
               onChange={(e) => setDraft(e.target.value)}
@@ -109,7 +137,7 @@ export function WorkItemManualFieldsEditor({ workItemId, field, value, source, l
           </>
         )}
       </div>
-      {error && <span className="integration-error">{error}</span>}
+      {error && <span className="wi-fields-error">{error}</span>}
     </div>
   );
 }

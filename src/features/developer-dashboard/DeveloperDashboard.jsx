@@ -6,7 +6,8 @@
  *
  * Response shape (DeveloperDashboardResponse):
  * {
- *   currentSprintItems: Array<{ id, title, resolvedStatus, storyPoints, cycleTimeHours, leadTimeHours, tokensPerSp }>,
+ *   currentSprintItems: Array<{ id, title, resolvedStatus, storyPoints, cycleTimeHours, leadTimeHours, tokensPerSp,
+ *                               complexity, complexitySource, effort, effortSource }>,
  *   avgCycleTimeHours:   number | null,
  *   avgLeadTimeHours:    number | null,
  *   storyPointsDelivered: number | null,
@@ -25,6 +26,7 @@ import { TokenUsageChart } from "../../components/charts/TokenUsageChart.jsx";
 import { BurndownChart } from "../../components/charts/BurndownChart.jsx";
 import { SprintProgressBar } from "../../components/SprintProgressBar.jsx";
 import { AllocationModal } from "../uso-ia/components/AllocationModal.jsx";
+import { WorkItemManualFieldsEditor } from "../../components/WorkItemManualFieldsEditor.jsx";
 
 /* ── Helpers ─────────────────────────────────────── */
 
@@ -46,92 +48,101 @@ function fmtUsd(v) {
   return `$${Number(v).toFixed(2)}`;
 }
 
-/* ── Sub-components ──────────────────────────────── */
+/* ── Small building blocks ──────────────────────────── */
 
 /**
- * Filter bar — sprint / date range / model inputs.
- * @param {{ filters: object, onChange: (key: string, value: string) => void, onApply: () => void }} props
+ * Card shell — consistent header + optional compact mode for empty content,
+ * so an empty card degrades to a slim row instead of reserving a huge void.
+ * @param {{ eyebrow: string, title: string, extra?: React.ReactNode, compact?: boolean, children: React.ReactNode }} props
  */
-function FilterBar({ filters, onChange, onApply }) {
+function DevDashCard({ eyebrow, title, extra, compact, children }) {
   return (
-    <div style={styles.filterBar} role="search" aria-label="Filtros do dashboard">
-      <label style={styles.filterField}>
-        <span className="mono" style={styles.filterLabel}>Sprint ID</span>
-        <input
-          className="role-modal-input"
-          style={styles.filterInput}
-          type="text"
-          value={filters.sprintId}
-          placeholder="ex: sprint-42"
-          aria-label="Sprint ID"
-          onChange={(e) => onChange("sprintId", e.target.value)}
-        />
-      </label>
-
-      <label style={styles.filterField}>
-        <span className="mono" style={styles.filterLabel}>Data inicio</span>
-        <input
-          className="role-modal-input"
-          style={styles.filterInput}
-          type="date"
-          value={filters.startDate}
-          aria-label="Data de inicio"
-          onChange={(e) => onChange("startDate", e.target.value)}
-        />
-      </label>
-
-      <label style={styles.filterField}>
-        <span className="mono" style={styles.filterLabel}>Data fim</span>
-        <input
-          className="role-modal-input"
-          style={styles.filterInput}
-          type="date"
-          value={filters.endDate}
-          aria-label="Data de fim"
-          onChange={(e) => onChange("endDate", e.target.value)}
-        />
-      </label>
-
-      <label style={styles.filterField}>
-        <span className="mono" style={styles.filterLabel}>Modelo</span>
-        <input
-          className="role-modal-input"
-          style={styles.filterInput}
-          type="text"
-          value={filters.model}
-          placeholder="ex: gpt-4o"
-          aria-label="Modelo de IA"
-          onChange={(e) => onChange("model", e.target.value)}
-        />
-      </label>
-
-      <button className="btn" style={{ alignSelf: "flex-end" }} onClick={onApply}>
-        Aplicar
-      </button>
+    <div className={"dev-dash-card" + (compact ? " is-compact" : "")}>
+      <div className="dev-dash-card-head">
+        <div>
+          <span className="mono dev-dash-card-eyebrow">{eyebrow}</span>
+          <h3 className="serif dev-dash-card-title">{title}</h3>
+        </div>
+        {extra}
+      </div>
+      {children}
     </div>
   );
 }
+
+/**
+ * Intentional empty state — icon, one-line reason, optional call-to-action.
+ * @param {{ icon: string, title: string, desc: string, actionLabel?: string, onAction?: () => void }} props
+ */
+function EmptyState({ icon, title, desc, actionLabel, onAction }) {
+  return (
+    <div className="dev-dash-empty">
+      <div className="dev-dash-empty-icon" aria-hidden="true">{icon}</div>
+      <div className="dev-dash-empty-body">
+        <div className="dev-dash-empty-title">{title}</div>
+        <div className="dev-dash-empty-desc">{desc}</div>
+        {actionLabel && (
+          <div className="dev-dash-empty-actions">
+            <button className="btn btn-ghost dev-dash-empty-link" onClick={onAction}>
+              {actionLabel} →
+            </button>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** Skeleton block for loading state — replaces bare "Carregando…" text. */
+function CardSkeleton({ lines = 2 }) {
+  return (
+    <div aria-hidden="true">
+      {Array.from({ length: lines }).map((_, i) => (
+        <div
+          key={i}
+          className="skeleton dev-dash-skel-line"
+          style={{ width: i === lines - 1 ? "55%" : "85%" }}
+        />
+      ))}
+    </div>
+  );
+}
+
+/* ── Sub-components ──────────────────────────────── */
 
 /**
  * Personal metrics row — cycle time, lead time, story points.
  * @param {{ data: object|null, loading: boolean }} props
  */
 function MetricsRow({ data, loading }) {
-  const chips = [
-    { label: "Ciclo Médio",      value: loading ? "…" : fmt1(data?.avgCycleTimeHours), unit: "h" },
-    { label: "Lead Time Médio", value: loading ? "…" : fmt1(data?.avgLeadTimeHours),  unit: "h" },
-    { label: "Story Points",    value: loading ? "…" : fmtInt(data?.storyPointsDelivered), unit: "sp" },
+  const tiles = [
+    { label: "Ciclo Médio",      value: fmt1(data?.avgCycleTimeHours), unit: "h" },
+    { label: "Lead Time Médio",  value: fmt1(data?.avgLeadTimeHours),  unit: "h" },
+    { label: "Story Points",     value: fmtInt(data?.storyPointsDelivered), unit: "sp" },
   ];
 
+  if (loading) {
+    return (
+      <div className="dev-dash-metrics" aria-hidden="true">
+        {tiles.map((t) => (
+          <div key={t.label} className="dev-dash-metric-tile">
+            <div className="skeleton dev-dash-skel-line" style={{ width: "60%", height: 12 }} />
+            <div className="skeleton dev-dash-skel-line" style={{ width: "40%", height: 22, marginTop: 8 }} />
+          </div>
+        ))}
+      </div>
+    );
+  }
+
   return (
-    <div style={styles.metricsRow} role="list" aria-label="Metricas pessoais">
-      {chips.map((c) => (
-        <div key={c.label} style={styles.chip} role="listitem">
-          <div className="mono" style={styles.chipLabel}>{c.label}</div>
-          <div style={styles.chipValue}>
-            <span className="serif" style={styles.chipNum}>{c.value}</span>
-            {c.value !== "—" && c.value !== "…" && (
-              <span className="mono" style={styles.chipUnit}>{c.unit}</span>
+    <div className="dev-dash-metrics" role="list" aria-label="Métricas pessoais">
+      {tiles.map((t) => (
+        <div key={t.label} className="dev-dash-metric-tile" role="listitem">
+          <div className="mono dev-dash-metric-label">{t.label}</div>
+          <div className="dev-dash-metric-value-row">
+            <span className="serif dev-dash-metric-num">{t.value}</span>
+            {t.value !== "—" && (
+              <span className="mono dev-dash-metric-unit">{t.unit}</span>
             )}
           </div>
         </div>
@@ -142,92 +153,123 @@ function MetricsRow({ data, loading }) {
 
 /**
  * Sprint work items card.
- * @param {{ items: Array|undefined, loading: boolean }} props
+ * @param {{ items: Array|undefined, loading: boolean, onNavigate?: (tab: string) => void }} props
  */
-function SprintItemsCard({ items, loading }) {
-  return (
-    <div style={styles.card}>
-      <div style={styles.cardHead}>
-        <span className="mono" style={styles.cardEyebrow}>sprint atual</span>
-        <h3 className="serif" style={styles.cardTitle}>Work Items</h3>
-      </div>
+function SprintItemsCard({ items, loading, onNavigate, onItemChanged }) {
+  const empty = !items || items.length === 0;
 
+  return (
+    <DevDashCard eyebrow="sprint atual" title="Work Items" compact={!loading && empty}>
       {loading ? (
-        <div className="mono" style={styles.emptyState}>Carregando…</div>
-      ) : !items || items.length === 0 ? (
-        <div className="mono" style={styles.emptyState}>Nenhum item no sprint atual</div>
+        <CardSkeleton lines={3} />
+      ) : empty ? (
+        <EmptyState
+          icon="📋"
+          title="Nenhum item nesta sprint"
+          desc="Os work items aparecem aqui assim que forem sincronizados do Azure DevOps para o projeto e sprint selecionados."
+          actionLabel="Ver Backlog"
+          onAction={() => onNavigate?.("backlog")}
+        />
       ) : (
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse" }}>
-            <thead>
-              <tr>
-                <th style={styles.th}>Título</th>
-                <th style={styles.th}>Status</th>
-                <th style={{ ...styles.th, textAlign: "right" }}>SP</th>
-                <th style={{ ...styles.th, textAlign: "right" }}>Ciclo (h)</th>
-                <th style={{ ...styles.th, textAlign: "right" }}>Tokens/SP</th>
-              </tr>
-            </thead>
-            <tbody>
-              {items.map((item) => (
-                <tr key={item.id}>
-                  <td style={styles.td}>{item.title || "—"}</td>
-                  <td style={styles.td}>
-                    <span className="mono" style={styles.statusBadge(item.resolvedStatus)}>
-                      {item.resolvedStatus || "—"}
-                    </span>
-                  </td>
-                  <td style={{ ...styles.td, textAlign: "right" }}>{item.storyPoints ?? "—"}</td>
-                  <td style={{ ...styles.td, textAlign: "right" }}>{fmt1(item.cycleTimeHours)}</td>
-                  <td style={{ ...styles.td, textAlign: "right" }}>{fmt1(item.tokensPerSp)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
+        <div className="dev-dash-items-list">
+          {items.map((item) => (
+            <div key={item.id} className="dev-dash-item-row">
+              <div className="dev-dash-item-row-main">
+                <span className="dev-dash-item-title">{item.title || "—"}</span>
+                <span className="mono" style={statusBadgeStyle(item.resolvedStatus)}>
+                  {item.resolvedStatus || "—"}
+                </span>
+              </div>
+              <div className="dev-dash-item-row-metrics mono">
+                <span>Ciclo: {fmt1(item.cycleTimeHours)}h</span>
+                <span>Tokens/SP: {fmt1(item.tokensPerSp)}</span>
+              </div>
+              <div className="dev-dash-item-row-fields">
+                <WorkItemManualFieldsEditor
+                  workItemId={item.id}
+                  field="complexity"
+                  value={item.complexity ?? null}
+                  source={item.complexitySource ?? null}
+                  label="Complexidade"
+                  onChanged={(updated) => onItemChanged(item.id, updated)}
+                />
+                <WorkItemManualFieldsEditor
+                  workItemId={item.id}
+                  field="effort"
+                  value={item.effort ?? item.storyPoints ?? null}
+                  source={item.effortSource ?? null}
+                  label="Esforço"
+                  onChanged={(updated) => onItemChanged(item.id, updated)}
+                />
+              </div>
+            </div>
+          ))}
         </div>
       )}
-    </div>
+    </DevDashCard>
   );
 }
 
+/** @param {string|null} status */
+function statusBadgeStyle(status) {
+  return {
+    display: "inline-block",
+    padding: "2px 8px",
+    borderRadius: 4,
+    fontSize: "var(--mono-sm)",
+    background: status === "Done" ? "var(--good)" : "var(--line-strong)",
+    color: status === "Done" ? "var(--bg)" : "var(--fg-muted)",
+  };
+}
 
 /**
  * In-progress work items panel.
  * @param {{ items: Array|undefined, loading: boolean }} props
  */
 function InProgressPanel({ items, loading }) {
-  return (
-    <div style={styles.card}>
-      <div style={styles.cardHead}>
-        <span className="mono" style={styles.cardEyebrow}>sprint atual</span>
-        <h3 className="serif" style={styles.cardTitle}>Em Andamento</h3>
-      </div>
+  const empty = !items || items.length === 0;
 
+  return (
+    <DevDashCard eyebrow="sprint atual" title="Em Andamento" compact={!loading && empty}>
       {loading ? (
-        <div className="mono" style={styles.emptyState}>Carregando…</div>
-      ) : !items || items.length === 0 ? (
-        <div className="mono" style={styles.emptyState}>Nenhum item em andamento</div>
+        <CardSkeleton lines={3} />
+      ) : empty ? (
+        <EmptyState
+          icon="✓"
+          title="Nada em andamento agora"
+          desc="Nenhum item foi movido para 'Em Progresso' nesta sprint ainda."
+        />
       ) : (
-        <ul style={styles.inProgressList} aria-label="Items em progresso">
+        <ul style={{ listStyle: "none", margin: 0, padding: 0 }} aria-label="Items em progresso">
           {items.map((item, idx) => (
             <li
               key={item.id}
               style={{
-                ...styles.inProgressItem,
-                borderTop: idx === 0 ? "none" : `1px solid var(--line)`,
+                paddingTop: 10,
+                paddingBottom: 10,
+                display: "flex",
+                flexDirection: "column",
+                gap: 4,
+                borderTop: idx === 0 ? "none" : "1px solid var(--line)",
               }}
             >
-              <div style={styles.inProgressRow}>
-                <span className="mono" style={styles.typeBadge}>
+              <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                <span className="mono" style={{
+                  display: "inline-block", fontSize: "var(--mono-sm)",
+                  background: "var(--accent)", color: "var(--bg)", borderRadius: 4, padding: "1px 7px",
+                }}>
                   {item.type || "Item"}
                 </span>
-                <span className="mono" style={styles.externalId}>
+                <span className="mono" style={{ fontSize: "var(--mono-sm)", color: "var(--fg-dim)" }}>
                   {item.externalId || ""}
                 </span>
               </div>
-              <div style={styles.inProgressTitle}>{item.title || "—"}</div>
+              <div style={{ fontSize: "var(--mono-base)", color: "var(--fg)" }}>{item.title || "—"}</div>
               <div>
-                <span className="mono" style={styles.spChip}>
+                <span className="mono" style={{
+                  display: "inline-block", fontSize: "var(--mono-sm)", color: "var(--fg-muted)",
+                  background: "var(--line-strong)", borderRadius: 4, padding: "1px 7px",
+                }}>
                   {item.storyPoints != null ? `${item.storyPoints} SP` : "—"}
                 </span>
               </div>
@@ -235,14 +277,14 @@ function InProgressPanel({ items, loading }) {
           ))}
         </ul>
       )}
-    </div>
+    </DevDashCard>
   );
 }
 
 /**
  * Unified AI card — tokens, cost, chart, ROI, pending allocations.
  */
-function AiCard({ data, loading, pending, pendingLoading, sprintItems, onAllocationAccepted, onAllocationAdjust }) {
+function AiCard({ data, loading, pending, pendingLoading, onAllocationAccepted, onAllocationAdjust, onNavigate }) {
   const summary = data?.aiSprintSummary;
   const hasTokens = (summary && summary.totalTokens > 0) ||
     (Array.isArray(data?.tokensByDay) && data.tokensByDay.some(d => (d.inputTokens ?? 0) + (d.outputTokens ?? 0) > 0)) ||
@@ -257,19 +299,20 @@ function AiCard({ data, loading, pending, pendingLoading, sprintItems, onAllocat
   const roiPositive = roi != null && roi >= 0;
 
   const hasPending = !pendingLoading && pending.length > 0;
+  const empty = !loading && !hasTokens;
 
   return (
-    <div style={styles.card}>
-      {/* Header */}
-      <div style={styles.cardHead}>
-        <span className="mono" style={styles.cardEyebrow}>sprint atual</span>
-        <h3 className="serif" style={styles.cardTitle}>IA</h3>
-      </div>
-
+    <DevDashCard eyebrow="sprint atual" title="IA" compact={empty}>
       {loading ? (
-        <div className="mono" style={styles.emptyState}>Carregando…</div>
-      ) : !hasTokens ? (
-        <div className="mono" style={styles.emptyState}>Nenhuma atividade de IA neste sprint</div>
+        <CardSkeleton lines={2} />
+      ) : empty ? (
+        <EmptyState
+          icon="🤖"
+          title="Nenhuma atividade de IA nesta sprint"
+          desc="Assim que o uso de IA for registrado ou alocado a work items desta sprint, tokens, custo e ROI aparecem aqui."
+          actionLabel="Ver Integrações"
+          onAction={() => onNavigate?.("integracoes")}
+        />
       ) : (
         <>
           {/* Section 1: key numbers */}
@@ -288,14 +331,14 @@ function AiCard({ data, loading, pending, pendingLoading, sprintItems, onAllocat
 
           {/* Section 2: token usage chart */}
           <div style={{ borderTop: "1px solid var(--line)", paddingTop: 16, marginBottom: hasRoi ? 16 : 0 }}>
-            <div className="mono" style={{ ...styles.costLabel, marginBottom: 10 }}>Uso de Tokens na Sprint</div>
+            <div className="mono" style={{ fontSize: "var(--mono-sm)", color: "var(--fg-muted)", marginBottom: 10 }}>Uso de Tokens na Sprint</div>
             <TokenUsageChart data={data?.tokensByDay} />
           </div>
 
           {/* Section 3: ROI detail */}
           {hasRoi && (
             <div style={{ borderTop: "1px solid var(--line)", paddingTop: 14, marginBottom: hasPending ? 16 : 0 }}>
-              <div className="mono" style={{ ...styles.costLabel, marginBottom: 10 }}>Assinatura vs. Uso</div>
+              <div className="mono" style={{ fontSize: "var(--mono-sm)", color: "var(--fg-muted)", marginBottom: 10 }}>Assinatura vs. Uso</div>
               <div style={{ display: "flex", gap: 24, flexWrap: "wrap", alignItems: "flex-end" }}>
                 <AiStat label="Valor gerado" value={fmtUsd(sprintCost)} />
                 <AiStat label="Custo assinatura (sprint)" value={fmtUsd(proratedSub)} />
@@ -318,9 +361,9 @@ function AiCard({ data, loading, pending, pendingLoading, sprintItems, onAllocat
           {/* Section 4: pending allocations for this sprint */}
           {(pendingLoading || hasPending) && (
             <div style={{ borderTop: "1px solid var(--line)", paddingTop: 14 }}>
-              <div className="mono" style={{ ...styles.costLabel, marginBottom: 10 }}>Alocações pendentes</div>
+              <div className="mono" style={{ fontSize: "var(--mono-sm)", color: "var(--fg-muted)", marginBottom: 10 }}>Alocações pendentes</div>
               {pendingLoading ? (
-                <div style={{ background: "var(--bg-deep)", borderRadius: "var(--radius-sm)", height: 52 }} />
+                <div className="skeleton" style={{ height: 52 }} />
               ) : (
                 <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                   {pending.map((batch) => (
@@ -337,7 +380,7 @@ function AiCard({ data, loading, pending, pendingLoading, sprintItems, onAllocat
           )}
         </>
       )}
-    </div>
+    </DevDashCard>
   );
 }
 
@@ -396,17 +439,17 @@ function PendingAllocationRow({ batch, onAccept, onAdjust }) {
 function AiStat({ label, value, unit, valueColor }) {
   return (
     <div>
-      <div className="mono" style={styles.costLabel}>{label}</div>
+      <div className="mono" style={{ fontSize: "var(--mono-sm)", color: "var(--fg-muted)", marginBottom: 6 }}>{label}</div>
       <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
-        <span className="serif" style={{ ...styles.costValue, color: valueColor || "var(--fg)" }}>{value}</span>
-        {unit && <span className="mono" style={styles.chipUnit}>{unit}</span>}
+        <span className="serif" style={{ fontSize: 32, color: valueColor || "var(--fg)" }}>{value}</span>
+        {unit && <span className="mono" style={{ fontSize: "var(--mono-sm)", color: "var(--fg-muted)" }}>{unit}</span>}
       </div>
     </div>
   );
 }
 
 /**
- * Compute "Day X of Y" values from sprint date strings and today.
+ * Compute "Dia X de Y" values from sprint date strings and today.
  * Returns { dayX, dayY } where dayX is 1-based days elapsed (inclusive of startDate).
  * Returns null if either date is missing or invalid.
  * @param {string|undefined} startDate — ISO date string (YYYY-MM-DD)
@@ -428,13 +471,19 @@ function computeSprintDay(startDate, endDate) {
 
 /**
  * Sprint progress section — day counter + progress bars.
- * @param {{ data: object|null, loading: boolean, startDate?: string, endDate?: string }} props
+ * @param {{ data: object|null, loading: boolean, startDate?: string, endDate?: string, onNavigate?: (tab: string) => void }} props
  */
-function SprintProgressSection({ data, loading, startDate, endDate }) {
+function SprintProgressSection({ data, loading, startDate, endDate, onNavigate }) {
   if (loading) {
     return (
-      <div style={styles.card}>
-        <div className="mono" style={styles.emptyState}>Carregando…</div>
+      <div className="dev-dash-card">
+        <div className="dev-dash-card-head">
+          <div>
+            <span className="mono dev-dash-card-eyebrow">sprint atual</span>
+            <h3 className="serif dev-dash-card-title">Progresso da Sprint</h3>
+          </div>
+        </div>
+        <CardSkeleton lines={2} />
       </div>
     );
   }
@@ -450,30 +499,38 @@ function SprintProgressSection({ data, loading, startDate, endDate }) {
   const noSp = totalSpInSprint == null || totalSpInSprint === 0;
 
   return (
-    <div style={styles.card}>
-      <div style={styles.cardHead}>
-        <span className="mono" style={styles.cardEyebrow}>sprint atual</span>
-        <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", gap: 16 }}>
-          <h3 className="serif" style={styles.cardTitle}>Sprint Progress</h3>
-          {sprintDay && (
-            <span className="mono" style={styles.sprintDayCounter}>
-              Day {sprintDay.dayX} of {sprintDay.dayY}
-            </span>
-          )}
-        </div>
-      </div>
-
+    <DevDashCard
+      eyebrow="sprint atual"
+      title="Progresso da Sprint"
+      compact={noItems}
+      extra={sprintDay && (
+        <span className="dev-dash-day-pill">Dia {sprintDay.dayX} de {sprintDay.dayY}</span>
+      )}
+    >
       {noItems ? (
-        <div className="mono" style={styles.emptyState}>Sprint has no items</div>
+        <EmptyState
+          icon="📊"
+          title="Nenhum item nesta sprint ainda"
+          desc="O progresso aparece assim que work items forem sincronizados do Azure DevOps para o projeto e sprint selecionados."
+          actionLabel="Ver Backlog"
+          onAction={() => onNavigate?.("backlog")}
+        />
       ) : (
-        <div style={styles.progressStack}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
           <SprintProgressBar
             value={doneCount}
             max={totalSprintItems}
-            label={`${doneCount} / ${totalSprintItems} items`}
+            label={`${doneCount} / ${totalSprintItems} itens`}
           />
           {noSp ? (
-            <div className="mono" style={styles.emptyState}>Nenhum story point definido</div>
+            <div className="dev-dash-empty" style={{ padding: "4px 0 0" }}>
+              <div className="dev-dash-empty-icon" aria-hidden="true" style={{ width: 28, height: 28, fontSize: 13 }}>Ø</div>
+              <div className="dev-dash-empty-body">
+                <div className="dev-dash-empty-desc" style={{ marginBottom: 0 }}>
+                  Nenhum story point definido — adicione pontos aos work items no Azure DevOps para habilitar o acompanhamento por SP.
+                </div>
+              </div>
+            </div>
           ) : (
             <SprintProgressBar
               value={storyPointsDelivered ?? 0}
@@ -483,7 +540,34 @@ function SprintProgressSection({ data, loading, startDate, endDate }) {
           )}
         </div>
       )}
-    </div>
+    </DevDashCard>
+  );
+}
+
+/**
+ * Burndown card — degrades to a compact empty state when there's no SP data,
+ * instead of reserving the full chart height.
+ * @param {{ data: Array|undefined, loading: boolean, onNavigate?: (tab: string) => void }} props
+ */
+function BurndownCard({ data, loading, onNavigate }) {
+  const empty = !loading && (!Array.isArray(data) || data.length === 0 || data.every((d) => d.remainingSp == null || d.remainingSp === 0));
+
+  return (
+    <DevDashCard eyebrow="sprint atual" title="Burndown" compact={empty}>
+      {loading ? (
+        <CardSkeleton lines={4} />
+      ) : empty ? (
+        <EmptyState
+          icon="📉"
+          title="Burndown indisponível"
+          desc="Nenhum story point definido nos work items desta sprint — adicione pontos no Azure DevOps para habilitar o gráfico de burndown."
+          actionLabel="Ver Backlog"
+          onAction={() => onNavigate?.("backlog")}
+        />
+      ) : (
+        <BurndownChart data={data} />
+      )}
+    </DevDashCard>
   );
 }
 
@@ -559,6 +643,18 @@ export function DeveloperDashboard({ projectId, sprintId, startDate, endDate, mo
     setPending((prev) => prev.filter((b) => b.day !== day));
   }
 
+  function handleSprintItemChanged(itemId, updated) {
+    setData((prev) => {
+      if (!prev?.currentSprintItems) return prev;
+      return {
+        ...prev,
+        currentSprintItems: prev.currentSprintItems.map((it) =>
+          it.id === itemId ? { ...it, ...updated } : it
+        ),
+      };
+    });
+  }
+
   async function handleAccept(batch) {
     try {
       await acceptAllocation(batch.suggestionAllocationId);
@@ -589,11 +685,13 @@ export function DeveloperDashboard({ projectId, sprintId, startDate, endDate, mo
 
   return (
     <div className="dash-wrap">
-      <div style={styles.header}>
+      <div style={{ marginBottom: 24, display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 24 }}>
         <div>
-          <div className="mono" style={styles.eyebrow}>painel individual</div>
-          <h1 className="serif" style={styles.title}>
-            Developer <span style={{ fontStyle: "italic", color: "var(--accent)" }}>Dashboard</span>
+          <div className="mono" style={{ fontSize: "var(--mono-sm)", color: "var(--fg-muted)", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 6 }}>
+            painel individual
+          </div>
+          <h1 className="serif" style={{ fontSize: 40, lineHeight: 1.1 }}>
+            Dashboard <span style={{ fontStyle: "italic", color: "var(--accent)" }}>do Desenvolvedor</span>
           </h1>
         </div>
       </div>
@@ -613,24 +711,15 @@ export function DeveloperDashboard({ projectId, sprintId, startDate, endDate, mo
         loading={loading}
         startDate={startDate}
         endDate={endDate}
+        onNavigate={onNavigate}
       />
 
       {/* Row 3: burndown (60%) + in-progress (40%) side by side */}
-      <div style={styles.burndownRow}>
-        <div style={styles.burndownLeft}>
-          <div style={styles.card}>
-            <div style={styles.cardHead}>
-              <span className="mono" style={styles.cardEyebrow}>sprint atual</span>
-              <h3 className="serif" style={styles.cardTitle}>Burndown</h3>
-            </div>
-            {loading ? (
-              <div className="mono" style={styles.emptyState}>Carregando…</div>
-            ) : (
-              <BurndownChart data={data?.burndownSeries} />
-            )}
-          </div>
+      <div className="dev-dash-burndown-row" style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
+        <div style={{ flex: "0 0 60%", minWidth: 0 }}>
+          <BurndownCard data={data?.burndownSeries} loading={loading} onNavigate={onNavigate} />
         </div>
-        <div style={styles.burndownRight}>
+        <div style={{ flex: "1 1 40%", minWidth: 0 }}>
           <InProgressPanel items={data?.inProgressItems} loading={loading} />
         </div>
       </div>
@@ -641,15 +730,20 @@ export function DeveloperDashboard({ projectId, sprintId, startDate, endDate, mo
         loading={loading}
         pending={pending}
         pendingLoading={pendingLoading}
-        sprintItems={sprintItems}
         onAllocationAccepted={handleAccept}
         onAllocationAdjust={setModalBatch}
+        onNavigate={onNavigate}
       />
 
       {/* Bottom: personal metrics + done items table */}
       <MetricsRow data={data} loading={loading} />
 
-      <SprintItemsCard items={data?.currentSprintItems} loading={loading} />
+      <SprintItemsCard
+        items={data?.currentSprintItems}
+        loading={loading}
+        onNavigate={onNavigate}
+        onItemChanged={handleSprintItemChanged}
+      />
 
       {/* Allocation modal */}
       {modalBatch && (
@@ -684,221 +778,3 @@ export function DeveloperDashboard({ projectId, sprintId, startDate, endDate, mo
     </div>
   );
 }
-
-/* ── Styles (all using CSS tokens) ──────────────── */
-
-const styles = {
-  header: {
-    marginBottom: 24,
-    display: "flex",
-    alignItems: "flex-end",
-    justifyContent: "space-between",
-    gap: 24,
-  },
-  eyebrow: {
-    fontSize: "var(--mono-sm)",
-    color: "var(--fg-muted)",
-    textTransform: "uppercase",
-    letterSpacing: "0.12em",
-    marginBottom: 6,
-  },
-  title: {
-    fontSize: 40,
-    lineHeight: 1.1,
-  },
-  filterBar: {
-    display: "flex",
-    flexWrap: "wrap",
-    gap: 12,
-    alignItems: "flex-start",
-    padding: "12px 16px",
-    background: "var(--bg-elev)",
-    borderRadius: "var(--radius-sm)",
-    border: "1px solid var(--line)",
-    marginBottom: 24,
-  },
-  filterField: {
-    display: "flex",
-    flexDirection: "column",
-    gap: 4,
-    flex: "1 1 140px",
-    minWidth: 120,
-  },
-  filterLabel: {
-    fontSize: "var(--mono-sm)",
-    color: "var(--fg-muted)",
-  },
-  filterInput: {
-    width: "100%",
-    background: "var(--bg)",
-    border: "1px solid var(--line-strong)",
-    borderRadius: "var(--radius-sm)",
-    color: "var(--fg)",
-    fontSize: "var(--mono-base)",
-    padding: "6px 8px",
-  },
-  metricsRow: {
-    display: "flex",
-    gap: 12,
-    flexWrap: "wrap",
-    marginBottom: 20,
-  },
-  chip: {
-    flex: "1 1 140px",
-    background: "var(--bg-elev)",
-    border: "1px solid var(--line)",
-    borderRadius: "var(--radius-sm)",
-    padding: "14px 16px",
-  },
-  chipLabel: {
-    fontSize: "var(--mono-sm)",
-    color: "var(--fg-muted)",
-    marginBottom: 6,
-  },
-  chipValue: {
-    display: "flex",
-    alignItems: "baseline",
-    gap: 4,
-  },
-  chipNum: {
-    fontSize: 28,
-    color: "var(--fg)",
-  },
-  chipUnit: {
-    fontSize: "var(--mono-sm)",
-    color: "var(--fg-muted)",
-  },
-  burndownRow: {
-    display: "flex",
-    gap: 16,
-    marginBottom: 0,
-    alignItems: "flex-start",
-  },
-  burndownLeft: {
-    flex: "0 0 60%",
-    minWidth: 0,
-  },
-  burndownRight: {
-    flex: "1 1 40%",
-    minWidth: 0,
-  },
-  card: {
-    background: "var(--bg-elev)",
-    border: "1px solid var(--line)",
-    borderRadius: "var(--radius-sm)",
-    padding: "16px 20px",
-    marginBottom: 16,
-  },
-  cardHead: {
-    marginBottom: 14,
-  },
-  cardEyebrow: {
-    fontSize: "var(--mono-sm)",
-    color: "var(--fg-muted)",
-    textTransform: "uppercase",
-    letterSpacing: "0.10em",
-    display: "block",
-    marginBottom: 4,
-  },
-  cardTitle: {
-    fontSize: 20,
-  },
-  emptyState: {
-    color: "var(--fg-dim)",
-    fontSize: "var(--mono-sm)",
-    padding: "8px 0",
-  },
-  th: {
-    textAlign: "left",
-    padding: "6px 10px",
-    fontSize: "var(--mono-sm)",
-    color: "var(--fg-muted)",
-    borderBottom: "1px solid var(--line-strong)",
-    whiteSpace: "nowrap",
-  },
-  td: {
-    padding: "7px 10px",
-    borderBottom: "1px solid var(--line)",
-    fontSize: "var(--mono-base)",
-    verticalAlign: "middle",
-  },
-  /** @param {string|null} status */
-  statusBadge: (status) => ({
-    display: "inline-block",
-    padding: "2px 8px",
-    borderRadius: 4,
-    fontSize: "var(--mono-sm)",
-    background: status === "Done" ? "var(--good)" : "var(--line-strong)",
-    color: status === "Done" ? "var(--bg)" : "var(--fg-muted)",
-  }),
-  sprintDayCounter: {
-    fontSize: "var(--mono-sm)",
-    color: "var(--accent)",
-    letterSpacing: "0.08em",
-  },
-  progressStack: {
-    display: "flex",
-    flexDirection: "column",
-    gap: 16,
-  },
-  unallocatedBadge: {
-    display: "inline-block",
-    padding: "4px 10px",
-    borderRadius: 4,
-    fontSize: "var(--mono-sm)",
-    background: "transparent",
-    border: `1px solid var(--warn)`,
-    color: "var(--warn)",
-    cursor: "pointer",
-    letterSpacing: "0.04em",
-  },
-  costLabel: {
-    fontSize: "var(--mono-sm)",
-    color: "var(--fg-muted)",
-    marginBottom: 6,
-  },
-  costValue: {
-    fontSize: 32,
-  },
-  inProgressList: {
-    listStyle: "none",
-    margin: 0,
-    padding: 0,
-  },
-  inProgressItem: {
-    paddingTop: 10,
-    paddingBottom: 10,
-    display: "flex",
-    flexDirection: "column",
-    gap: 4,
-  },
-  inProgressRow: {
-    display: "flex",
-    alignItems: "center",
-    gap: 8,
-  },
-  typeBadge: {
-    display: "inline-block",
-    fontSize: "var(--mono-sm)",
-    background: "var(--accent)",
-    color: "var(--bg)",
-    borderRadius: 4,
-    padding: "1px 7px",
-  },
-  externalId: {
-    fontSize: "var(--mono-sm)",
-    color: "var(--fg-dim)",
-  },
-  inProgressTitle: {
-    fontSize: "var(--mono-base)",
-    color: "var(--fg)",
-  },
-  spChip: {
-    display: "inline-block",
-    fontSize: "var(--mono-sm)",
-    color: "var(--fg-muted)",
-    background: "var(--line-strong)",
-    borderRadius: 4,
-    padding: "1px 7px",
-  },
-};

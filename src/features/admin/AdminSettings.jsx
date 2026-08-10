@@ -9,7 +9,7 @@ import { IntegrationTab } from "./IntegrationTab.jsx";
 import { AzureFieldMappingWizard } from "./AzureFieldMappingWizard.jsx";
 import { BacklogPage } from "../backlog/BacklogPage.jsx";
 import { PERMISSION_LABELS, ALWAYS_ON_PERMISSIONS } from "./permissionLabels.js";
-import { AiPricingTab } from "../org-settings/AiPricingTab.jsx";
+import { AiPricingTab } from "../uso-ia/components/AiPricingTab.jsx";
 import { UsoIaPage } from "../uso-ia/UsoIaPage.jsx";
 import { SubTabs } from "../../components/SubTabs.jsx";
 import api, { getToken, linkAzureIdentity, getAzureUsers, updateProjectMembers } from "../../services/api.js";
@@ -99,6 +99,12 @@ const ORG_SUB_TABS = [
   { id: "geral",       label: "Geral" },
   { id: "cargos",      label: "Cargos" },
   { id: "senioridade", label: "Senioridade" },
+];
+
+/* Sub-abas da página Uso IA (Consumo é a padrão; Precificação é admin/cost-config). */
+const USO_IA_SUB_TABS = [
+  { id: "consumo",       label: "Consumo" },
+  { id: "precificacao",  label: "Precificação" },
 ];
 
 const THEME_OPTS = [
@@ -283,6 +289,7 @@ function AdminSettings({ section, subtab, can, dash, profile, palette, setPalett
         .then((data) => setAzureBindings(Array.isArray(data) ? data : []))
         .catch(() => setAzureBindings([]));
     } else if (section === "org" && subtab === "geral") fetchOrg();
+    else if (section === "uso-ia" && subtab === "precificacao") fetchOrg();
   }, [section, subtab]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* ── Derived counts ── */
@@ -757,7 +764,24 @@ function AdminSettings({ section, subtab, can, dash, profile, palette, setPalett
           )}
 
           {section === "uso-ia" && (
-            <UsoIaPage can={can} />
+            <section>
+              {can("uso-ia-pricing") && (
+                <SubTabs
+                  tabs={USO_IA_SUB_TABS}
+                  activeId={subtab || "consumo"}
+                  onSelect={(id) => onNavigateSubtab && onNavigateSubtab(id)}
+                />
+              )}
+
+              {subtab === "precificacao" && can("uso-ia-pricing") ? (
+                <AiPricingTab
+                  initialEntries={Array.isArray(orgData.aiPrices) ? orgData.aiPrices : []}
+                  initialSubscriptionCost={orgData.subscriptionCostPerUserUsd ?? null}
+                />
+              ) : (
+                <UsoIaPage can={can} />
+              )}
+            </section>
           )}
 
           {section === "org" && (
@@ -882,21 +906,13 @@ function AdminSettings({ section, subtab, can, dash, profile, palette, setPalett
                   )}
                 </>
               ) : (
-                <>
-                  <div className="admin-fields">
-                    <AdminRow label="Nome da organização" value={orgData.name} />
-                    <AdminRow label="Identificador" value={orgData.slug} mono />
-                    <AdminRow label="URL" value={orgData.slug ? `andromeda.app/${orgData.slug}` : null} mono />
-                    <AdminRow label="Setor" value={orgData.sector} />
-                    <AdminRow label="País" value={orgData.country} />
-                  </div>
-                  <div style={{ marginTop: "var(--spacing-lg, 32px)" }}>
-                    <AiPricingTab
-                      initialEntries={Array.isArray(orgData.aiPrices) ? orgData.aiPrices : []}
-                      initialSubscriptionCost={orgData.subscriptionCostPerUserUsd ?? null}
-                    />
-                  </div>
-                </>
+                <div className="admin-fields">
+                  <AdminRow label="Nome da organização" value={orgData.name} />
+                  <AdminRow label="Identificador" value={orgData.slug} mono />
+                  <AdminRow label="URL" value={orgData.slug ? `andromeda.app/${orgData.slug}` : null} mono />
+                  <AdminRow label="Setor" value={orgData.sector} />
+                  <AdminRow label="País" value={orgData.country} />
+                </div>
               )}
             </section>
           )}
@@ -995,52 +1011,123 @@ function AdminSettings({ section, subtab, can, dash, profile, palette, setPalett
                 </div>
               </div>
 
-              <div className="projects-master-detail">
-                {/* ── Lista de projetos ── */}
-                <div className="projects-list">
-                  {projectsError && (
-                    <div className="admin-placeholder mono" style={{ color: "var(--danger, #c0392b)" }}>
-                      {projectsError} <button className="btn" style={{ marginLeft: "var(--spacing-sm)" }} onClick={fetchProjects}>Tentar novamente</button>
-                    </div>
-                  )}
-
-                  {!projectsError && (
-                    projectsLoading ? (
-                      <div className="admin-placeholder mono">Carregando…</div>
-                    ) : visibleProjects.length === 0 ? (
-                      <div className="admin-placeholder mono">
-                        nenhum projeto {projectFilter === "ativo" ? "ativo" : projectFilter === "finalizado" ? "finalizado" : ""} por aqui
-                      </div>
-                    ) : (
-                      <div className="projects-list-items">
-                        {visibleProjects.map((p) => {
-                          const isActive = p.active !== false && (p.status || "ativo") !== "finalizado";
-                          const memberCount = Array.isArray(p.memberIds) ? p.memberIds.length : 0;
-                          const isSelected = editingProject?.id === p.id;
-                          return (
-                            <button key={p.id} type="button"
-                              className={"project-list-item" + (isSelected ? " is-selected" : "")}
-                              onClick={() => openProject(p)}>
-                              <div className="project-list-item-name serif">{p.name}</div>
-                              <div className="project-list-item-meta mono">
-                                {memberCount > 0 && <span>{memberCount} {memberCount === 1 ? "pessoa" : "pessoas"}</span>}
-                                {!isActive && <span className="project-status-tag">finalizado</span>}
-                              </div>
-                            </button>
-                          );
-                        })}
-                      </div>
-                    )
-                  )}
+              {projectsError && (
+                <div className="admin-placeholder mono projects-error">
+                  {projectsError} <button className="btn" style={{ marginLeft: "var(--spacing-sm)" }} onClick={fetchProjects}>Tentar novamente</button>
                 </div>
+              )}
 
-                {/* ── Painel de detalhe ── */}
-                <div className="project-detail-panel">
-                  {!editingProject ? (
-                    <div className="project-detail-empty mono">
-                      Selecione um projeto para editar, ou crie um novo.
+              {!projectsError && projectsLoading && (
+                <div className="projects-grid" aria-hidden="true">
+                  {[0, 1, 2].map((i) => (
+                    <div key={i} className="project-card project-card--skeleton">
+                      <div className="skel skel-title" />
+                      <div className="skel skel-line" />
+                      <div className="skel skel-line" style={{ width: "60%" }} />
+                      <div className="project-card-foot">
+                        <div className="skel skel-avatar" />
+                        <div className="skel skel-pill" />
+                      </div>
                     </div>
-                  ) : (
+                  ))}
+                </div>
+              )}
+
+              {!projectsError && !projectsLoading && visibleProjects.length === 0 && (
+                projects.length === 0 ? (
+                  <div className="projects-empty-state">
+                    <div className="projects-empty-icon" aria-hidden="true">
+                      <Icon name="azure" size={28} color="var(--fg-dim)" />
+                    </div>
+                    <h3 className="serif projects-empty-title">Nenhum projeto ainda</h3>
+                    <p className="projects-empty-sub mono">
+                      Crie o primeiro projeto da organização para começar a vincular pessoas, repositórios e boards.
+                    </p>
+                    <button className="btn" onClick={openCreateProject}>+ Novo projeto</button>
+                  </div>
+                ) : (
+                  <div className="projects-empty-state">
+                    <h3 className="serif projects-empty-title">
+                      Nenhum projeto {projectFilter === "ativo" ? "ativo" : "finalizado"}
+                    </h3>
+                    <p className="projects-empty-sub mono">
+                      {projectFilter === "ativo"
+                        ? "Todos os projetos desta organização estão finalizados."
+                        : "Nenhum projeto foi finalizado até agora."}
+                    </p>
+                    <button className="btn-ghost btn" onClick={() => setProjectFilter("todos")}>Ver todos os projetos</button>
+                  </div>
+                )
+              )}
+
+              {!projectsError && !projectsLoading && visibleProjects.length > 0 && (
+                <div className="projects-grid">
+                  {visibleProjects.map((p) => {
+                    const isActive = p.active !== false && (p.status || "ativo") !== "finalizado";
+                    const memberIds = Array.isArray(p.memberIds) ? p.memberIds : [];
+                    const memberCount = memberIds.length;
+                    const cardMembers = members.filter((m) => memberIds.includes(m.id)).slice(0, 4);
+                    const azureBound = azureBindings.some((b) => b.projectId === p.id);
+                    const isSelected = editingProject?.id === p.id;
+                    return (
+                      <button key={p.id} type="button"
+                        className={"project-card" + (isSelected ? " is-selected" : "")}
+                        onClick={() => openProject(p)}>
+                        <div className="project-card-top">
+                          <span className={"project-status-tag project-status-tag--" + (isActive ? "ativo" : "finalizado")}>
+                            <span className="project-status-tag-dot" />
+                            {isActive ? "ativo" : "finalizado"}
+                          </span>
+                        </div>
+
+                        <div className="project-card-name serif">{p.name}</div>
+                        {p.description ? (
+                          <p className="project-card-desc mono">{p.description}</p>
+                        ) : (
+                          <p className="project-card-desc project-card-desc--empty mono">sem descrição</p>
+                        )}
+
+                        <div className="project-card-integrations">
+                          <span className={"project-card-chip" + (p.repo ? " is-linked" : "")}>
+                            <Icon name="github" size={13} color="currentColor" />
+                            GitHub
+                          </span>
+                          <span className={"project-card-chip" + (azureBound ? " is-linked" : "")}>
+                            <Icon name="azure" size={13} color="currentColor" />
+                            Azure DevOps
+                          </span>
+                        </div>
+
+                        <div className="project-card-foot">
+                          {memberCount > 0 ? (
+                            <div className="project-card-avatars">
+                              {cardMembers.map((m) => (
+                                <span key={m.id} className="dev-avatar project-card-avatar" title={m.name || m.email}>
+                                  {(m.name || m.email || "?").trim().charAt(0).toUpperCase()}
+                                </span>
+                              ))}
+                              {memberCount > cardMembers.length && (
+                                <span className="dev-avatar project-card-avatar project-card-avatar--more">
+                                  +{memberCount - cardMembers.length}
+                                </span>
+                              )}
+                            </div>
+                          ) : (
+                            <span className="project-card-no-members mono">sem pessoas vinculadas</span>
+                          )}
+                          <span className="project-card-open mono">editar →</span>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* ── Painel de detalhe ── */}
+              {editingProject && (
+                <div className="project-detail-overlay" onClick={closeProject}>
+                  <div className="project-detail-panel project-detail-panel--modal" onClick={(e) => e.stopPropagation()}>
+                    <button type="button" className="project-detail-close" onClick={closeProject} aria-label="Fechar">×</button>
                     <div className="project-detail-content">
                       <div className="project-detail-head">
                         <div className="project-head-top">
@@ -1238,9 +1325,9 @@ function AdminSettings({ section, subtab, can, dash, profile, palette, setPalett
                         </button>
                       </div>
                     </div>
-                  )}
+                  </div>
                 </div>
-              </div>
+              )}
             </section>
           )}
 

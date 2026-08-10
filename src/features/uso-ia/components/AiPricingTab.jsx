@@ -1,5 +1,6 @@
 /**
  * AiPricingTab — inline-editable table for org AI price entries + subscription cost per user.
+ * Lives under Uso IA → Precificação (org-level cost configuration, admin-gated).
  *
  * Props:
  *   initialEntries              {Array<{model, pricePerKInput, pricePerKOutput}>}
@@ -8,8 +9,8 @@
  */
 
 import React from "react";
-import { updateAiPrices } from "../../services/api.js";
-import api from "../../services/api.js";
+import { updateAiPrices } from "../../../services/api.js";
+import api from "../../../services/api.js";
 
 const PRESET_MODELS = [
   { model: "claude-opus-4-8",            pricePerKInput: 0.015,    pricePerKOutput: 0.075   },
@@ -154,12 +155,12 @@ export function AiPricingTab({ initialEntries = [], initialSubscriptionCost = nu
 
   return (
     <section>
-      {/* ── Subscription cost section ── */}
-      <div style={{ marginBottom: "var(--spacing-lg, 24px)", padding: "16px 20px", border: "1px solid var(--line)", borderRadius: 10 }}>
-        <div className="admin-section-head admin-section-head--row" style={{ marginBottom: 12 }}>
+      {/* ── Subscription cost card ── */}
+      <div className="ai-pricing-card">
+        <div className="ai-pricing-card-head">
           <div>
-            <h3 className="serif" style={{ fontSize: "var(--serif-sm, 15px)", marginBottom: 4 }}>Custo de assinatura por usuário</h3>
-            <p className="mono" style={{ fontSize: 11, color: "var(--fg-muted)" }}>
+            <h3 className="serif ai-pricing-card-title">Custo de assinatura por usuário</h3>
+            <p className="mono ai-pricing-card-sub">
               Quanto a organização paga de assinatura de IA por usuário/mês (ex: Claude.ai Pro = $20).
               Usado para calcular o saldo: valor gerado em tokens − custo da assinatura.
             </p>
@@ -169,8 +170,8 @@ export function AiPricingTab({ initialEntries = [], initialSubscriptionCost = nu
           </button>
         </div>
 
-        <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
-          <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer" }}>
+        <div className="ai-pricing-toggle-row">
+          <label className="ai-pricing-chip">
             <input type="checkbox" checked={!hasSubscription}
                    onChange={(e) => { setHasSubscription(!e.target.checked); if (e.target.checked) setSubscriptionCost(""); }}
                    style={{ width: 14, height: 14 }} />
@@ -178,20 +179,19 @@ export function AiPricingTab({ initialEntries = [], initialSubscriptionCost = nu
           </label>
 
           {hasSubscription && (
-            <label style={{ display: "flex", alignItems: "center", gap: 6 }}>
+            <div className="ai-pricing-amount-field">
               <span className="mono" style={{ fontSize: 12, color: "var(--fg-muted)" }}>$</span>
               <input
-                className="role-modal-input"
                 type="number"
                 min="0"
                 step="0.01"
                 value={subscriptionCost}
                 placeholder="20.00"
+                aria-label="Custo de assinatura por usuário em dólares"
                 onChange={(e) => setSubscriptionCost(e.target.value)}
-                style={{ width: 100 }}
               />
               <span className="mono" style={{ fontSize: 11, color: "var(--fg-muted)" }}>USD / usuário / mês</span>
-            </label>
+            </div>
           )}
 
           {!hasSubscription && (
@@ -203,171 +203,132 @@ export function AiPricingTab({ initialEntries = [], initialSubscriptionCost = nu
         </div>
 
         {subFeedback && (
-          <p className="mono" style={{ fontSize: 11, marginTop: 8, color: subFeedback.type === "success" ? "var(--good)" : "var(--bad)" }}>
+          <p className={"mono ai-pricing-feedback " + (subFeedback.type === "success" ? "is-success" : "is-error")}>
             {subFeedback.text}
           </p>
         )}
       </div>
 
-      {/* ── Prices table ── */}
-      <div className="admin-section-head admin-section-head--row">
-        <div>
-          <h2 className="serif admin-section-title">Precificação de IA</h2>
-          <p className="admin-section-sub">
-            Defina o custo por 1 000 tokens de input e output para cada modelo.
-            Usado no cálculo de custo do dashboard.
-          </p>
-        </div>
-        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
-          <button type="button" className="btn-ghost btn" onClick={handleImportPresets}
-                  style={{ fontSize: "var(--mono-sm, 13px)", whiteSpace: "nowrap" }}>
-            Importar modelos comuns
-          </button>
-          <button className="btn" onClick={handleSave} disabled={saving}>
+      {/* ── Prices table card ── */}
+      <div className="ai-pricing-card">
+        <div className="ai-pricing-card-head">
+          <div>
+            <h2 className="serif ai-pricing-card-title" style={{ fontSize: "var(--serif-md, 20px)" }}>Precificação de IA</h2>
+            <p className="mono ai-pricing-card-sub">
+              Defina o custo por 1 000 tokens de input e output para cada modelo.
+              Usado no cálculo de custo do dashboard.
+            </p>
+          </div>
+          <button className="btn" onClick={handleSave} disabled={saving} style={{ whiteSpace: "nowrap" }}>
             {saving ? "Salvando…" : "Salvar alterações →"}
           </button>
         </div>
-      </div>
 
-      {/* Recalculate costs */}
-      <div style={{ marginBottom: 12, display: "flex", alignItems: "center", gap: 12, flexWrap: "wrap" }}>
-        <button type="button" className="btn-ghost btn" onClick={handleRecalculate} disabled={recalcSaving}
-                style={{ fontSize: 12 }}>
-          {recalcSaving ? "Recalculando…" : "Recalcular custos históricos →"}
-        </button>
-        {recalcFeedback && (
-          <span className="mono" style={{ fontSize: 11, color: recalcFeedback.type === "success" ? "var(--good)" : "var(--bad)" }}>
-            {recalcFeedback.text}
+        <div className="ai-pricing-toolbar">
+          <button type="button" className="btn-ghost btn" onClick={handleImportPresets} style={{ fontSize: 12 }}>
+            Importar modelos comuns
+          </button>
+          <button type="button" className="btn-ghost btn" onClick={handleRecalculate} disabled={recalcSaving} style={{ fontSize: 12 }}>
+            {recalcSaving ? "Recalculando…" : "Recalcular custos históricos →"}
+          </button>
+          {recalcFeedback && (
+            <span className={"mono " + (recalcFeedback.type === "success" ? "" : "")} style={{ fontSize: 11, color: recalcFeedback.type === "success" ? "var(--good)" : "var(--bad)" }}>
+              {recalcFeedback.text}
+            </span>
+          )}
+          <span className="mono ai-pricing-toolbar-hint">
+            Aplica a tabela de preços atual a todos os registros existentes
           </span>
+        </div>
+
+        {/* Import confirmation */}
+        {importConfirm === "ask" && (
+          <div className="ai-pricing-import-confirm">
+            <span className="mono" style={{ fontSize: 12 }}>Já existem modelos na tabela. O que deseja fazer?</span>
+            <button type="button" className="btn" style={{ fontSize: 12 }} onClick={() => doImport("merge")}>Mesclar (adicionar que faltam)</button>
+            <button type="button" className="btn-ghost btn" style={{ fontSize: 12 }} onClick={() => doImport("replace")}>Substituir tudo</button>
+            <button type="button" className="btn-ghost btn" style={{ fontSize: 12 }} onClick={() => setImportConfirm(null)}>Cancelar</button>
+          </div>
         )}
-        <span className="mono" style={{ fontSize: 10, color: "var(--fg-muted)" }}>
-          Aplica a tabela de preços atual a todos os registros existentes
-        </span>
-      </div>
 
-      {/* Import confirmation */}
-      {importConfirm === "ask" && (
-        <div style={{ padding: "12px 16px", border: "1px solid var(--line-strong)", borderRadius: 8, marginBottom: 12, display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
-          <span className="mono" style={{ fontSize: 12 }}>Já existem modelos na tabela. O que deseja fazer?</span>
-          <button type="button" className="btn" style={{ fontSize: 12 }} onClick={() => doImport("merge")}>Mesclar (adicionar que faltam)</button>
-          <button type="button" className="btn-ghost btn" style={{ fontSize: 12 }} onClick={() => doImport("replace")}>Substituir tudo</button>
-          <button type="button" className="btn-ghost btn" style={{ fontSize: 12 }} onClick={() => setImportConfirm(null)}>Cancelar</button>
-        </div>
-      )}
+        {feedback && (
+          <div className={"mono ai-pricing-feedback " + (feedback.type === "success" ? "is-success" : "is-error")}>
+            {feedback.text}
+          </div>
+        )}
 
-      {feedback && (
-        <div
-          className="admin-placeholder mono"
-          style={{
-            color: feedback.type === "success" ? "var(--good)" : "var(--bad)",
-            marginBottom: "var(--spacing-md, 16px)",
-          }}>
-          {feedback.text}
-        </div>
-      )}
-
-      <div style={{ overflowX: "auto" }}>
-        <table style={{ width: "100%", borderCollapse: "collapse" }}>
-          <thead>
-            <tr>
-              <th style={thStyle}>Modelo</th>
-              <th style={thStyle}>Preço / 1K Input (USD)</th>
-              <th style={thStyle}>Preço / 1K Output (USD)</th>
-              <th style={{ ...thStyle, width: 40 }}></th>
-            </tr>
-          </thead>
-          <tbody>
-            {rows.map((row) => (
-              <tr key={row._key}>
-                <td style={tdStyle}>
-                  <input
-                    className="role-modal-input"
-                    style={cellInputStyle}
-                    type="text"
-                    value={row.model}
-                    placeholder="ex: gpt-4o"
-                    aria-label="Modelo"
-                    onChange={(e) => updateRow(row._key, "model", e.target.value)}
-                  />
-                </td>
-                <td style={tdStyle}>
-                  <input
-                    className="role-modal-input"
-                    style={cellInputStyle}
-                    type="number"
-                    min="0"
-                    step="0.0001"
-                    value={row.pricePerKInput}
-                    placeholder="0.0000"
-                    aria-label="Preço por 1K tokens de input"
-                    onChange={(e) => updateRow(row._key, "pricePerKInput", e.target.value)}
-                  />
-                </td>
-                <td style={tdStyle}>
-                  <input
-                    className="role-modal-input"
-                    style={cellInputStyle}
-                    type="number"
-                    min="0"
-                    step="0.0001"
-                    value={row.pricePerKOutput}
-                    placeholder="0.0000"
-                    aria-label="Preço por 1K tokens de output"
-                    onChange={(e) => updateRow(row._key, "pricePerKOutput", e.target.value)}
-                  />
-                </td>
-                <td style={{ ...tdStyle, textAlign: "center" }}>
-                  <button
-                    type="button"
-                    className="btn-ghost btn"
-                    style={{ padding: "2px 8px", fontSize: "1rem", lineHeight: 1 }}
-                    aria-label={`Remover linha ${row.model || "vazia"}`}
-                    onClick={() => removeRow(row._key)}>
-                    ×
-                  </button>
-                </td>
+        <div className="ai-pricing-table-wrap">
+          <table className="ai-pricing-table">
+            <thead>
+              <tr>
+                <th>Modelo</th>
+                <th>Preço / 1K Input (USD)</th>
+                <th>Preço / 1K Output (USD)</th>
+                <th style={{ width: 40 }}></th>
               </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+            </thead>
+            <tbody>
+              {rows.map((row) => (
+                <tr key={row._key}>
+                  <td>
+                    <input
+                      className="ai-pricing-cell-input"
+                      type="text"
+                      value={row.model}
+                      placeholder="ex: gpt-4o"
+                      aria-label="Modelo"
+                      onChange={(e) => updateRow(row._key, "model", e.target.value)}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      className="ai-pricing-cell-input"
+                      type="number"
+                      min="0"
+                      step="0.0001"
+                      value={row.pricePerKInput}
+                      placeholder="0.0000"
+                      aria-label="Preço por 1K tokens de input"
+                      onChange={(e) => updateRow(row._key, "pricePerKInput", e.target.value)}
+                    />
+                  </td>
+                  <td>
+                    <input
+                      className="ai-pricing-cell-input"
+                      type="number"
+                      min="0"
+                      step="0.0001"
+                      value={row.pricePerKOutput}
+                      placeholder="0.0000"
+                      aria-label="Preço por 1K tokens de output"
+                      onChange={(e) => updateRow(row._key, "pricePerKOutput", e.target.value)}
+                    />
+                  </td>
+                  <td style={{ textAlign: "center" }}>
+                    <button
+                      type="button"
+                      className="ai-pricing-row-remove"
+                      aria-label={`Remover linha ${row.model || "vazia"}`}
+                      onClick={() => removeRow(row._key)}>
+                      ×
+                    </button>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
 
-      <div style={{ marginTop: "var(--spacing-sm, 8px)" }}>
-        <button
-          type="button"
-          className="btn-ghost btn"
-          onClick={addRow}
-          style={{ fontSize: "var(--mono-sm, 14px)" }}>
-          + Adicionar modelo
-        </button>
+        <div className="ai-pricing-add-row-btn">
+          <button
+            type="button"
+            className="btn-ghost btn"
+            onClick={addRow}
+            style={{ fontSize: "var(--mono-sm, 14px)" }}>
+            + Adicionar modelo
+          </button>
+        </div>
       </div>
     </section>
   );
 }
-
-/* ── Inline styles (use tokens, no hardcoded colors) ── */
-
-const thStyle = {
-  textAlign: "left",
-  padding: "8px 12px",
-  fontSize: "var(--mono-sm, 14px)",
-  color: "var(--fg-muted)",
-  borderBottom: "1px solid var(--line-strong)",
-  whiteSpace: "nowrap",
-};
-
-const tdStyle = {
-  padding: "6px 12px",
-  borderBottom: "1px solid var(--line)",
-  verticalAlign: "middle",
-};
-
-const cellInputStyle = {
-  width: "100%",
-  background: "transparent",
-  border: "none",
-  outline: "none",
-  padding: 0,
-  color: "var(--fg)",
-  fontSize: "var(--mono-base, 13px)",
-};

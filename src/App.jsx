@@ -43,12 +43,19 @@ const SHELL_SECTIONS = [
   { route: "dashboard",             tab: "dashboard" },
   { route: "backlog",               tab: "backlog" },
   { route: "integracoes",           tab: "integrations" },
-  { route: "uso-ia",                tab: "uso-ia" },
+  { route: "uso-ia",                tab: "uso-ia", subtab: "consumo" },
+  { route: "uso-ia/precificacao",   tab: "uso-ia", subtab: "precificacao" },
   { route: "perfil",                tab: "perfil" },
 ];
 const ROUTE_TO_TAB = Object.fromEntries(SHELL_SECTIONS.map((s) => [s.route, s.tab]));
 const ROUTE_TO_SUBTAB = Object.fromEntries(SHELL_SECTIONS.map((s) => [s.route, s.subtab || null]));
-const TAB_TO_ROUTE = Object.fromEntries(SHELL_SECTIONS.map((s) => [s.tab, s.route]));
+/* TAB_TO_ROUTE maps a tab id back to its default/base route (used by sidebar nav).
+ * A tab can have more than one SHELL_SECTIONS entry (sub-tabs each get their own
+ * addressable route) — only the FIRST entry per tab is the "default" landing route. */
+const TAB_TO_ROUTE = SHELL_SECTIONS.reduce((acc, s) => {
+  if (!(s.tab in acc)) acc[s.tab] = s.route;
+  return acc;
+}, {});
 const SHELL_ROUTES = SHELL_SECTIONS.map((s) => s.route);
 
 /* Builds an identity object from real backend permissions array. */
@@ -72,6 +79,7 @@ function canSee(identity, tab) {
   if (tab === "integrations") return p.includes("AZURE_CONFIGURE") || p.includes("AZURE_READ") || identity.isAdmin;
   if (tab === "uso-ia")       return p.includes("AI_READ_OWN") || p.includes("AI_READ_ALL");
   if (tab === "uso-ia-team")  return p.includes("DASHBOARD_TEAM") || p.includes("AI_READ_ALL");
+  if (tab === "uso-ia-pricing") return p.includes("PRICE_TABLE_MANAGE") || identity.isAdmin;
   return identity.isAdmin; // roles, seniority, org
 }
 function firstAllowedRoute(identity) {
@@ -317,7 +325,13 @@ function ShellRoute({ identity, profile, palette, setPalette, onLogout }) {
       palette={palette}
       setPalette={setPalette}
       onNavigate={(t) => navigate("/" + TAB_TO_ROUTE[t])}
-      onNavigateSubtab={(subtabId) => navigate(`/organizacao${subtabId === "geral" ? "" : "/" + subtabId}`)}
+      onNavigateSubtab={(subtabId) => {
+        if (tab === "uso-ia") {
+          navigate(`/uso-ia${subtabId === "consumo" ? "" : "/" + subtabId}`);
+        } else {
+          navigate(`/organizacao${subtabId === "geral" ? "" : "/" + subtabId}`);
+        }
+      }}
       onLogout={onLogout}
     />
   );
