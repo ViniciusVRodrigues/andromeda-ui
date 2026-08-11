@@ -45,9 +45,16 @@ function guessResolvedStatus(stateName) {
  *  - start from scratch or copy-once a sibling binding's config (7.1-7.6 of
  *    azure-config-hardening-and-templates)
  *  - review the work item types discovered on the bound Azure project (10.2)
- *  - map COMPLEXITY / EFFORT to a specific Azure field, or leave unmapped (10.3)
+ *  - map COMPLEXITY / EFFORT to Azure fields per work item type — the two can
+ *    live on different types (e.g. Story Points on User Story, Completed Work
+ *    on Task) — or leave unmapped (10.3)
  *  - optionally scope sync by work item type / area path / iteration path (10.4)
  *  - save (10.5) or skip and keep the implicit default EFFORT mapping (10.6)
+ *
+ * Reopening an already-onboarded binding (via "Configurar mapeamento") seeds
+ * the draft from the binding's own saved workflowConfig, so editing preserves
+ * every existing mapping instead of starting blank and wiping field mappings
+ * on save.
  */
 export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep }) {
   // "start" (copy-once choice) | "types" | "status" | "mapping" | "filter" | "hierarchy".
@@ -91,14 +98,20 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
   const [fieldsLoading, setFieldsLoading] = React.useState(false);
   const [fieldsError, setFieldsError] = React.useState(null);
 
-  const [complexityField, setComplexityField] = React.useState(""); // azureFieldReferenceName or ""
-  const [effortField, setEffortField] = React.useState("");
-  // azureFieldType for whichever complexity/effort field is currently selected —
-  // only used as a fallback for a copied mapping whose field isn't in
-  // `currentFields` (belongs to a different work item type than the one
-  // currently selected for browsing fields).
-  const [complexityFieldType, setComplexityFieldType] = React.useState("");
-  const [effortFieldType, setEffortFieldType] = React.useState("");
+  // Per-type field selections: { [typeName]: { complexityField, complexityFieldType,
+  // effortField, effortFieldType } }. Complexity and effort are mapped per work item type
+  // because Azure stores them on different fields per type (e.g. Story Points on User
+  // Story, Completed Work on Task) — one global pair of fields can't express that. The
+  // azureFieldType is stored alongside each selection so the payload never depends on
+  // which type's field list is currently loaded.
+  const [fieldSelections, setFieldSelections] = React.useState({});
+  // Entries with workItemType == null carried over from a copied/existing config —
+  // wildcard fallbacks the backend applies to any type without an exact-match mapping.
+  // Kept in a separate list so the admin can see and remove them; re-saved as-is.
+  const [wildcardFieldMappings, setWildcardFieldMappings] = React.useState([]);
+  // True once this binding's own saved CUSTOM config has been loaded into the draft
+  // (reopen path) — drives the "edit current config" copy on the start step.
+  const [hasOwnConfig, setHasOwnConfig] = React.useState(false);
 
   const [filterTypes, setFilterTypes] = React.useState([]); // selected work item type names
   const [areaPath, setAreaPath] = React.useState("");
@@ -169,6 +182,76 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
     return () => { cancelled = true; };
   }, [bindingId]);
 
+  // Seeds every draft state from a workflowConfig object — shared by the
+  // copy-once sibling path and the reopen-own-binding path so both produce
+  // the same editable draft shape. Field mappings split into per-type
+  // selections (workItemType present) and wildcard fallback entries
+  // (workItemType null, legacy/global mappings the backend applies to any
+  // type without an exact-match entry).
+  const seedDraftFromConfig = (cfg) => {
+    setStatusMappings(Array.isArray(cfg.statusMappings) ? cfg.statusMappings : []);
+    setTypeMappings(Array.isArray(cfg.typeMappings) ? cfg.typeMappings : []);
+    setTypeMappingsSeeded(true);
+
+    const nextSelections = {};
+    const nextWildcards = [];
+    for (const m of Array.isArray(cfg.fieldMappings) ? cfg.fieldMappings : []) {
+      if (!m || !m.internalField || !m.azureFieldReferenceName) continue;
+      if (m.workItemType) {
+        const sel = nextSelections[m.workItemType]
+          || { complexityField: "", complexityFieldType: "", effortField: "", effortFieldType: "" };
+        if (m.internalField === "COMPLEXITY") {
+          sel.complexityField = m.azureFieldReferenceName;
+          sel.complexityFieldType = m.azureFieldType || "";
+        } else {
+          sel.effortField = m.azureFieldReferenceName;
+          sel.effortFieldType = m.azureFieldType || "";
+        }
+        nextSelections[m.workItemType] = sel;
+      } else {
+        nextWildcards.push({
+          internalField: m.internalField,
+          azureFieldReferenceName: m.azureFieldReferenceName,
+          azureFieldType: m.azureFieldType || "",
+        });
+      }
+    }
+    setFieldSelections(nextSelections);
+    setWildcardFieldMappings(nextWildcards);
+
+    const filter = cfg.syncFilter || {};
+    setFilterTypes(Array.isArray(filter.workItemTypes) ? filter.workItemTypes : []);
+    setAreaPath(filter.areaPath || "");
+    setIterationPath(filter.iterationPath || "");
+
+    if (Array.isArray(cfg.hierarchyLevels) && cfg.hierarchyLevels.length > 0) {
+      const nextRanks = {};
+      cfg.hierarchyLevels.forEach((lvl) => { nextRanks[lvl.rawType] = lvl.rank; });
+      setRanks(nextRanks);
+      setRanksSeeded(true);
+    }
+  };
+
+  // Reopening an already-onboarded binding (via "Configurar mapeamento"): seed
+  // the draft from the binding's own saved workflowConfig so editing preserves
+  // every existing mapping instead of starting blank and wiping field mappings
+  // on save. Fresh bindings (configSource DEFAULT, template-seeded status/type
+  // mappings, empty fieldMappings) are NOT seeded — the discovery heuristics
+  // (9.4/10.4) remain the starting point for first-time onboarding.
+  React.useEffect(() => {
+    let cancelled = false;
+    getAzureProjectBinding(bindingId)
+      .then((binding) => {
+        if (cancelled) return;
+        const cfg = binding?.workflowConfig;
+        if (!cfg || cfg.configSource !== "CUSTOM") return;
+        seedDraftFromConfig(cfg);
+        setHasOwnConfig(true);
+      })
+      .catch(() => { /* fetch failed: draft stays blank, admin rebuilds from scratch */ });
+    return () => { cancelled = true; };
+  }, [bindingId]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const loadFieldsForType = React.useCallback((typeName) => {
     if (!typeName || fieldsByType[typeName]) return;
     setFieldsLoading(true);
@@ -190,6 +273,31 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
   }, [step, selectedTypeForFields, loadFieldsForType]);
 
   const currentFields = fieldsByType[selectedTypeForFields] || [];
+  const currentSelection = fieldSelections[selectedTypeForFields]
+    || { complexityField: "", complexityFieldType: "", effortField: "", effortFieldType: "" };
+
+  // Display name for a selected field: the introspected name when that type's
+  // field list is loaded, otherwise the reference name's last segment.
+  const fieldNameFor = (typeName, referenceName) => {
+    const list = fieldsByType[typeName] || [];
+    return list.find((f) => f.referenceName === referenceName)?.name
+      || (referenceName || "").split(".").pop();
+  };
+
+  // Cross-type view of everything configured so far — one row per type that
+  // has a complexity and/or effort selection, rendered as a summary under the
+  // mapping step's selectors.
+  const fieldMappingSummary = React.useMemo(() => types
+    .map((t) => {
+      const sel = fieldSelections[t.name];
+      if (!sel || (!sel.complexityField && !sel.effortField)) return null;
+      return {
+        typeName: t.name,
+        complexity: sel.complexityField ? fieldNameFor(t.name, sel.complexityField) : "",
+        effort: sel.effortField ? fieldNameFor(t.name, sel.effortField) : "",
+      };
+    })
+    .filter(Boolean), [types, fieldSelections, fieldsByType]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 10.1 — fetch real Azure states for a work item type, then (10.4) default
   // any not-yet-mapped state via name heuristic so nothing is left blank.
@@ -344,22 +452,60 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
       g.typeNames.map((rawType) => ({ rawType, rank: denseRank })));
   };
 
+  // 10.3 (per-type) — set or clear the complexity/effort field selected for
+  // one work item type. `field` is the full field object from that type's
+  // loaded field list, or null to clear the selection.
+  const updateFieldSelection = (typeName, internalField, field) => {
+    setFieldSelections((prev) => {
+      const current = prev[typeName]
+        || { complexityField: "", complexityFieldType: "", effortField: "", effortFieldType: "" };
+      const next = { ...current };
+      if (internalField === "COMPLEXITY") {
+        next.complexityField = field ? field.referenceName : "";
+        next.complexityFieldType = field ? (field.type || "") : "";
+      } else {
+        next.effortField = field ? field.referenceName : "";
+        next.effortFieldType = field ? (field.type || "") : "";
+      }
+      return { ...prev, [typeName]: next };
+    });
+  };
+
+  // Emits one entry per configured (workItemType, internalField) pair so
+  // complexity can live on one type's field (e.g. Story Points on User Story)
+  // and effort on another's (e.g. Completed Work on Task), plus any wildcard
+  // (workItemType: null) fallback entries carried over from a copied/existing
+  // config. Only discovered types are emitted — selections seeded from a
+  // sibling config for types this project doesn't have are dropped rather
+  // than persisted invisibly.
   const buildFieldMappings = () => {
     const mappings = [];
-    if (complexityField) {
-      const field = currentFields.find((f) => f.referenceName === complexityField);
-      mappings.push({
-        internalField: "COMPLEXITY",
-        azureFieldReferenceName: complexityField,
-        azureFieldType: field?.type || complexityFieldType || "double",
-      });
+    for (const t of types) {
+      const sel = fieldSelections[t.name];
+      if (!sel) continue;
+      if (sel.complexityField) {
+        mappings.push({
+          internalField: "COMPLEXITY",
+          workItemType: t.name,
+          azureFieldReferenceName: sel.complexityField,
+          azureFieldType: sel.complexityFieldType || "double",
+        });
+      }
+      if (sel.effortField) {
+        mappings.push({
+          internalField: "EFFORT",
+          workItemType: t.name,
+          azureFieldReferenceName: sel.effortField,
+          azureFieldType: sel.effortFieldType || "double",
+        });
+      }
     }
-    if (effortField) {
-      const field = currentFields.find((f) => f.referenceName === effortField);
+    for (const w of wildcardFieldMappings) {
       mappings.push({
-        internalField: "EFFORT",
-        azureFieldReferenceName: effortField,
-        azureFieldType: field?.type || effortFieldType || "double",
+        internalField: w.internalField,
+        workItemType: null,
+        azureFieldReferenceName: w.azureFieldReferenceName,
+        azureFieldType: w.azureFieldType || "double",
       });
     }
     return mappings;
@@ -481,31 +627,7 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
     setCopyError(null);
     try {
       const sibling = await getAzureProjectBinding(selectedSiblingId);
-      const cfg = sibling?.workflowConfig || {};
-
-      setStatusMappings(Array.isArray(cfg.statusMappings) ? cfg.statusMappings : []);
-      setTypeMappings(Array.isArray(cfg.typeMappings) ? cfg.typeMappings : []);
-      setTypeMappingsSeeded(true);
-
-      const complexity = (cfg.fieldMappings || []).find((m) => m.internalField === "COMPLEXITY");
-      const effort = (cfg.fieldMappings || []).find((m) => m.internalField === "EFFORT");
-      setComplexityField(complexity?.azureFieldReferenceName || "");
-      setComplexityFieldType(complexity?.azureFieldType || "");
-      setEffortField(effort?.azureFieldReferenceName || "");
-      setEffortFieldType(effort?.azureFieldType || "");
-
-      const filter = cfg.syncFilter || {};
-      setFilterTypes(Array.isArray(filter.workItemTypes) ? filter.workItemTypes : []);
-      setAreaPath(filter.areaPath || "");
-      setIterationPath(filter.iterationPath || "");
-
-      if (Array.isArray(cfg.hierarchyLevels) && cfg.hierarchyLevels.length > 0) {
-        const nextRanks = {};
-        cfg.hierarchyLevels.forEach((lvl) => { nextRanks[lvl.rawType] = lvl.rank; });
-        setRanks(nextRanks);
-        setRanksSeeded(true);
-      }
-
+      seedDraftFromConfig(sibling?.workflowConfig || {});
       goToStep("types");
     } catch (_) {
       setCopyError("Não foi possível carregar a configuração do projeto selecionado.");
@@ -546,7 +668,9 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
         {step === "start" && (
           <div className="role-modal-body">
             <p className="confirm-text">
-              Como você quer configurar o mapeamento deste projeto?
+              {hasOwnConfig
+                ? "Este projeto já tem um mapeamento salvo. Revise a configuração atual ou use outro projeto vinculado como base."
+                : "Como você quer configurar o mapeamento deste projeto?"}
             </p>
 
             <div className="role-modal-options">
@@ -556,9 +680,13 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
                 onClick={() => { setShowCopyPicker(false); setStep("types"); }}>
                 <span className="role-modal-option-mark" />
                 <span>
-                  <div className="role-modal-option-label">Começar do zero</div>
+                  <div className="role-modal-option-label">
+                    {hasOwnConfig ? "Editar configuração atual" : "Começar do zero"}
+                  </div>
                   <div className="role-modal-option-sub">
-                    Passe por cada etapa do zero: tipos, mapeamento de campos, filtro e hierarquia.
+                    {hasOwnConfig
+                      ? "Passe por cada etapa revisando os mapeamentos já salvos deste projeto."
+                      : "Passe por cada etapa do zero: tipos, mapeamento de campos, filtro e hierarquia."}
                   </div>
                 </span>
               </button>
@@ -710,12 +838,14 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
         {step === "mapping" && (
           <div className="role-modal-body">
             <p className="confirm-text">
-              Escolha qual campo do Azure DevOps representa complexidade e esforço.
-              Você pode deixar em branco e preencher manualmente depois.
+              Para cada tipo de work item, escolha qual campo do Azure DevOps representa
+              complexidade e esforço — eles podem ficar em tipos diferentes (ex.: Story Points
+              no User Story e Completed Work na Task). Deixe em branco para preencher
+              manualmente depois.
             </p>
 
             <label className="role-modal-field">
-              <span className="role-modal-label">Tipo de work item de referência</span>
+              <span className="role-modal-label">Tipo de work item</span>
               <div className="signup-select">
                 <select
                   value={selectedTypeForFields || ""}
@@ -732,9 +862,13 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
             {!fieldsLoading && !fieldsError && (
               <>
                 <label className="role-modal-field">
-                  <span className="role-modal-label">Campo de Complexidade</span>
+                  <span className="role-modal-label">Campo de Complexidade · {selectedTypeForFields}</span>
                   <div className="signup-select">
-                    <select value={complexityField} onChange={(e) => setComplexityField(e.target.value)}>
+                    <select
+                      value={currentSelection.complexityField || ""}
+                      onChange={(e) => updateFieldSelection(
+                        selectedTypeForFields, "COMPLEXITY",
+                        currentFields.find((f) => f.referenceName === e.target.value) || null)}>
                       <option value="">Nenhum (preencher manualmente)</option>
                       {currentFields.map((f) => (
                         <option key={f.referenceName} value={f.referenceName}>{f.name}</option>
@@ -745,9 +879,13 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
                 </label>
 
                 <label className="role-modal-field">
-                  <span className="role-modal-label">Campo de Esforço</span>
+                  <span className="role-modal-label">Campo de Esforço · {selectedTypeForFields}</span>
                   <div className="signup-select">
-                    <select value={effortField} onChange={(e) => setEffortField(e.target.value)}>
+                    <select
+                      value={currentSelection.effortField || ""}
+                      onChange={(e) => updateFieldSelection(
+                        selectedTypeForFields, "EFFORT",
+                        currentFields.find((f) => f.referenceName === e.target.value) || null)}>
                       <option value="">Nenhum (preencher manualmente)</option>
                       {currentFields.map((f) => (
                         <option key={f.referenceName} value={f.referenceName}>{f.name}</option>
@@ -757,6 +895,49 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
                   </div>
                 </label>
               </>
+            )}
+
+            {fieldMappingSummary.length > 0 && (
+              <div className="role-modal-field">
+                <span className="role-modal-label">Mapeamentos definidos</span>
+                <ul className="mono" style={{ display: "flex", flexDirection: "column", gap: 4, opacity: 0.85 }}>
+                  {fieldMappingSummary.map((row) => (
+                    <li key={row.typeName}>
+                      {row.typeName}
+                      {row.complexity && <> · Complexidade: {row.complexity}</>}
+                      {row.effort && <> · Esforço: {row.effort}</>}
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {wildcardFieldMappings.length > 0 && (
+              <div className="role-modal-field">
+                <span className="role-modal-label">Mapeamentos globais (fallback)</span>
+                <p className="mono" style={{ opacity: 0.7, marginBottom: 6 }}>
+                  Herdados da configuração de origem — valem para qualquer tipo sem um campo
+                  próprio definido acima.
+                </p>
+                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                  {wildcardFieldMappings.map((w, idx) => (
+                    <div key={w.internalField + "-" + w.azureFieldReferenceName}
+                         style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span className="mono" style={{ flex: 1 }}>
+                        {w.internalField === "COMPLEXITY" ? "Complexidade" : "Esforço"}: {w.azureFieldReferenceName}
+                      </span>
+                      <button
+                        type="button"
+                        className="btn-ghost btn"
+                        onClick={() => setWildcardFieldMappings((prev) => prev.filter((_, i) => i !== idx))}
+                        aria-label={`Remover mapeamento global de ${w.internalField === "COMPLEXITY" ? "complexidade" : "esforço"}`}
+                        title="Remover mapeamento global">
+                        ×
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
             )}
           </div>
         )}
