@@ -358,7 +358,7 @@ export function getSiblingAzureBindings(bindingId) {
  * @param {{
  *   statusMappings?: Array<{ workItemType: string, rawStatus: string, resolvedStatus: string }>,
  *   typeMappings?: Array<{ rawType: string, resolvedType: string }>,
- *   fieldMappings?: Array<{ internalField: "COMPLEXITY" | "EFFORT", azureFieldReferenceName: string, azureFieldType: string }>,
+ *   fieldMappings?: Array<{ internalField: "COMPLEXITY" | "EFFORT", workItemType?: string | null, azureFieldReferenceName: string, azureFieldType: string }>,
  *   syncFilter?: { workItemTypes?: string[], areaPath?: string | null, iterationPath?: string | null } | null,
  *   hierarchyLevels?: Array<{ rawType: string, rank: number }>,
  * }} config
