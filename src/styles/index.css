@@ -904,12 +904,17 @@ h1, h2, h3, .serif {
 
 .drawer-body {
   flex: 1;
+  min-height: 0;
   overflow-y: auto;
   padding: 16px 24px 40px;
   display: flex;
   flex-direction: column;
   gap: 10px;
 }
+/* Itens de flex encolhem por padrão: sem isto, uma lista mais alta que o
+   drawer comprime cada card abaixo da sua altura natural e o overflow do
+   .log-entry corta o conteúdo (chips, bloco de erro). */
+.drawer-body > * { flex-shrink: 0; }
 .drawer-loading,
 .drawer-empty {
   color: var(--fg-dim);
