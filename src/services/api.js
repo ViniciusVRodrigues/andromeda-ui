@@ -341,6 +341,116 @@ export function getAzureProjectBindings() {
 }
 
 /**
+ * List Azure DevOps projects available for binding. When `forProjectId` is
+ * given, projects actively bound to OTHER projects are excluded while the one
+ * bound to `forProjectId` itself is kept (preselection when editing).
+ * @param {string} [forProjectId]
+ */
+export function getAzureProjects(forProjectId) {
+  const qs = new URLSearchParams();
+  if (forProjectId) qs.append("forProjectId", forProjectId);
+  const query = qs.toString();
+  return api.get(`/v1/integrations/azure/projects${query ? `?${query}` : ""}`);
+}
+
+/* ── GitHub integration ── */
+
+/**
+ * Fetch the GitHub connection status for the organization.
+ * Resolves 404 (no connection configured) as a rejected error whose message
+ * contains "(404)" — callers map that to DISCONNECTED.
+ * @returns {Promise<{ status: string, authorizedByUserId: string | null, lastSuccessAt: string | null, consecutiveFailures: number, bindings: Array<object> }>}
+ */
+export function getGithubConnectionStatus() {
+  return api.get("/v1/integrations/github/status");
+}
+
+/**
+ * Configure the GitHub connection via Personal Access Token.
+ * @param {string} pat
+ */
+export function configureGithubConnection(pat) {
+  return api.post("/v1/integrations/github", { personalAccessToken: pat });
+}
+
+/**
+ * Disconnect the GitHub integration (soft-deactivates the connection and
+ * disables sync on all bindings; synced data is kept).
+ */
+export function disconnectGithub() {
+  return api.delete("/v1/integrations/github");
+}
+
+/**
+ * Trigger a manual GitHub sync. 202 on success, 429 during the cooldown,
+ * 409 when no connection exists.
+ */
+export function triggerGithubSync() {
+  return api.post("/v1/integrations/github/sync", null);
+}
+
+/**
+ * List all GitHub repo bindings for the organization (used by project chips).
+ * @returns {Promise<Array<{ id: string, projectId: string, repoId: string, syncEnabled: boolean, lastSyncAt: string | null }>>}
+ */
+export function getGithubBindings() {
+  return api.get("/v1/integrations/github/bindings");
+}
+
+/**
+ * List the GitHub repo bindings of one project.
+ * @param {string} projectId
+ */
+export function getGithubProjectBindings(projectId) {
+  return api.get(`/v1/integrations/github/projects/${projectId}/bindings`);
+}
+
+/**
+ * Bind a GitHub repo ("owner/name") to a project.
+ * Rejects with 409 GITHUB_REPO_ALREADY_BOUND when the repo is actively bound
+ * to a different project.
+ * @param {string} projectId
+ * @param {string} repoId  "owner/name" full name
+ * @param {boolean} syncEnabled
+ */
+export function bindGithubRepo(projectId, repoId, syncEnabled) {
+  return api.post(`/v1/integrations/github/projects/${projectId}/bindings`, { repoId, syncEnabled });
+}
+
+/**
+ * Enable or disable sync for a GitHub repo binding.
+ * @param {string} bindingId
+ * @param {boolean} syncEnabled
+ */
+export function toggleGithubRepoSync(bindingId, syncEnabled) {
+  return api.patch(`/v1/integrations/github/bindings/${bindingId}`, { syncEnabled });
+}
+
+/**
+ * Remove a GitHub repo binding from a project (soft delete; synced data kept).
+ * @param {string} projectId
+ * @param {string} bindingId
+ */
+export function unbindGithubRepo(projectId, bindingId) {
+  return api.delete(`/v1/integrations/github/projects/${projectId}/bindings/${bindingId}`);
+}
+
+/**
+ * List GitHub repos available for binding — union of the repos the configured
+ * PAT can see and cached repos from previous syncs. Repos bound to other
+ * projects are excluded; the one bound to `forProjectId` is kept with
+ * `boundToProjectId` populated.
+ * @param {string} [forProjectId]
+ * @returns {Promise<Array<{ repoId: string, name: string, fullName: string, source: "LIVE" | "CACHED", boundToProjectId: string | null }>>}
+ */
+export function getAvailableGithubRepos(forProjectId) {
+  const qs = new URLSearchParams();
+  if (forProjectId) qs.append("forProjectId", forProjectId);
+  const query = qs.toString();
+  return api.get(`/v1/integrations/github/repos/available${query ? `?${query}` : ""}`);
+}
+
+/**
  * List sibling Azure DevOps project bindings on the same organization — every
  * other active binding besides `bindingId` — as copy-source candidates for the
  * field-mapping wizard's "copiar de outro projeto vinculado" step.

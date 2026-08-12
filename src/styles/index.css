@@ -3106,6 +3106,59 @@ h1, h2, h3, .serif {
 }
 .project-link-status--cta::before { background: var(--accent); }
 
+/* vínculo GitHub: cartão de repositórios (0..N) no modal de projeto —
+ * mesmo formato do cartão Azure DevOps (rótulo/conteúdo em linha própria) */
+.project-link--gh {
+  align-items: flex-start;
+}
+.project-link--gh .project-link-info { flex-basis: 100%; }
+/* lista de repositórios já vinculados */
+.gh-binding-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  margin: 8px 0;
+}
+.gh-binding-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: rgba(0,0,0,0.12);
+}
+:root[data-palette="light"] .gh-binding-row { background: rgba(34,26,16,0.04); }
+.gh-binding-repo {
+  flex: 1;
+  min-width: 0;
+  font-size: 12px;
+  color: var(--fg);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.gh-binding-sync {
+  flex-shrink: 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+  cursor: pointer;
+}
+/* adicionar repositório: select de disponíveis + fallback owner/name */
+.gh-binding-add {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+.gh-binding-add-select { flex: 1; min-width: 200px; }
+.gh-binding-add-input { flex: 1; min-width: 160px; }
+
 /* ── busca + lista de pessoas (modal de projeto) ── */
 .project-people-search { position: relative; display: flex; align-items: center; }
 .project-people-search-icon {
