@@ -4,7 +4,32 @@ import api from "../services/api.js";
 const POLL_INTERVAL_MS = 2000;
 const TIMEOUT_MS = 5 * 60 * 1000;
 
-export function useOAuth({ onSuccess, onError }) {
+/**
+ * Generic popup+poll OAuth flow. Opens a popup at `popupUrl`, then polls
+ * `pollPath` every 2s until `isDone(data)` returns true (or the popup is
+ * closed by the user, or the 5-minute timeout elapses).
+ *
+ * Defaults preserve the original Azure org-connection behavior
+ * (poll `/v1/integrations/azure/connection` until `status === "CONNECTED"`),
+ * so existing callers that don't pass `popupUrl`/`pollPath`/`isDone` keep working.
+ *
+ * @param {{
+ *   popupUrl?: string,
+ *   popupName?: string,
+ *   pollPath?: string,
+ *   isDone?: (data: any) => boolean,
+ *   onSuccess: (data: any) => void,
+ *   onError: (reason: "cancelled" | "timeout") => void,
+ * }} options
+ */
+export function useOAuth({
+  popupUrl = "/api/v1/integrations/azure/connect",
+  popupName = "oauth-popup",
+  pollPath = "/v1/integrations/azure/connection",
+  isDone = (data) => data && data.status === "CONNECTED",
+  onSuccess,
+  onError,
+}) {
   const [polling, setPolling] = React.useState(false);
   const intervalRef = React.useRef(null);
   const popupRef = React.useRef(null);
@@ -24,8 +49,8 @@ export function useOAuth({ onSuccess, onError }) {
 
   const trigger = React.useCallback(() => {
     popupRef.current = window.open(
-      "/api/v1/integrations/azure/connect",
-      "azure-oauth",
+      popupUrl,
+      popupName,
       "width=600,height=700"
     );
     setPolling(true);
@@ -37,13 +62,13 @@ export function useOAuth({ onSuccess, onError }) {
         return;
       }
       try {
-        const data = await api.get("/v1/integrations/azure/connection");
-        if (data && data.status === "CONNECTED") {
+        const data = await api.get(pollPath);
+        if (isDone(data)) {
           stop();
           onSuccess(data);
         }
       } catch (_) {
-        // 404 = not yet connected; ignore and keep polling
+        // 404 / not-yet-linked = keep polling
       }
     }, POLL_INTERVAL_MS);
 
@@ -51,7 +76,7 @@ export function useOAuth({ onSuccess, onError }) {
       stop();
       onError("timeout");
     }, TIMEOUT_MS);
-  }, [onSuccess, onError, stop]);
+  }, [popupUrl, popupName, pollPath, isDone, onSuccess, onError, stop]);
 
   React.useEffect(() => {
     return () => {

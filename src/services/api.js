@@ -353,6 +353,25 @@ export function getAzureProjects(forProjectId) {
   return api.get(`/v1/integrations/azure/projects${query ? `?${query}` : ""}`);
 }
 
+/* ── Contas conectadas (per-user provider accounts) ── */
+
+/**
+ * List the caller's own connected provider accounts (GitHub, Azure DevOps, …).
+ * Tokens are never included in the response — metadata only.
+ * @returns {Promise<Array<{ provider: string, externalLogin: string, linkedAt: string, expiresAt: string | null, hasRefreshToken: boolean }>>}
+ */
+export function getMyProviderAccounts() {
+  return api.get("/v1/users/me/provider-accounts");
+}
+
+/**
+ * Unlink (soft-delete) the caller's own account for the given provider.
+ * @param {string} provider  e.g. "GITHUB"
+ */
+export function unlinkProviderAccount(provider) {
+  return api.delete(`/v1/users/me/provider-accounts/${provider}`);
+}
+
 /* ── GitHub integration ── */
 
 /**

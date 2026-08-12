@@ -5,6 +5,7 @@ import { Wordmark } from "../../components/Wordmark.jsx";
 import { Icon } from "../../components/charts/Charts.jsx";
 import { DashboardPage } from "../dashboard/DashboardPage.jsx";
 import { IntegrationTab } from "./IntegrationTab.jsx";
+import { ConnectedAccounts } from "./ConnectedAccounts.jsx";
 import { AzureFieldMappingWizard } from "./AzureFieldMappingWizard.jsx";
 import { BacklogPage } from "../backlog/BacklogPage.jsx";
 import { PERMISSION_LABELS, ALWAYS_ON_PERMISSIONS } from "./permissionLabels.js";
@@ -741,6 +742,8 @@ function AdminSettings({ section, subtab, can, dash, profile, palette, setPalett
                   </div>
                 ))}
               </div>
+
+              <ConnectedAccounts />
             </section>
           )}
 
