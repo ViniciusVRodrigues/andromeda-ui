@@ -15,6 +15,8 @@
  *   tokensByDay: Array<{ day, inputTokens, outputTokens, interactions, costUsd }>, // spans the full sprint, zero-filled
  *   sprintCostUsd:   number | null,
  *   avgTokensPerSp:  number | null,
+ *   openPrs:   number, // last 30 days, always an int >= 0 (never null)
+ *   mergedPrs: number, // last 30 days, always an int >= 0 (never null)
  * }
  *
  * TODO: replace mock fallback with live data once backend is deployed.
@@ -119,6 +121,8 @@ function MetricsRow({ data, loading }) {
     { label: "Ciclo Médio",      value: fmt1(data?.avgCycleTimeHours), unit: "h" },
     { label: "Lead Time Médio",  value: fmt1(data?.avgLeadTimeHours),  unit: "h" },
     { label: "Story Points",     value: fmtInt(data?.storyPointsDelivered), unit: "sp" },
+    { label: "PRs Abertas",      value: fmtInt(data?.openPrs),   unit: "prs" },
+    { label: "PRs Mescladas",    value: fmtInt(data?.mergedPrs), unit: "prs" },
   ];
 
   if (loading) {

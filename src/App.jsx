@@ -76,7 +76,7 @@ function canSee(identity, tab) {
   if (tab === "team")         return p.includes("gerEquipe") || p.includes("USER_MANAGE") || identity.isAdmin;
   if (tab === "dashboard")    return p.includes("DASHBOARD_INDIVIDUAL") || p.includes("DASHBOARD_TEAM") || p.includes("DASHBOARD_STRATEGIC");
   if (tab === "backlog")      return p.includes("DASHBOARD_TEAM") || identity.isAdmin;
-  if (tab === "integrations") return p.includes("AZURE_CONFIGURE") || p.includes("AZURE_READ") || identity.isAdmin;
+  if (tab === "integrations") return p.includes("AZURE_CONFIGURE") || p.includes("AZURE_READ") || p.includes("GITHUB_CONFIGURE") || p.includes("GITHUB_READ") || identity.isAdmin;
   if (tab === "uso-ia")       return p.includes("AI_READ_OWN") || p.includes("AI_READ_ALL");
   if (tab === "uso-ia-team")  return p.includes("DASHBOARD_TEAM") || p.includes("AI_READ_ALL");
   if (tab === "uso-ia-pricing") return p.includes("PRICE_TABLE_MANAGE") || identity.isAdmin;
