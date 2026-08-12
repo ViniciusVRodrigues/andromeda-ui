@@ -34,8 +34,70 @@ function formatRelative(iso) {
 
 function formatDuration(ms) {
   if (!ms && ms !== 0) return "—";
-  const s = Math.round(ms / 1000);
-  return s + "s";
+  if (ms < 1000) return ms + "ms";
+  const s = ms / 1000;
+  if (s < 60) return (s < 10 ? s.toFixed(1) : Math.round(s)) + "s";
+  const m = Math.floor(s / 60);
+  return m + "m " + Math.round(s % 60) + "s";
+}
+
+function formatAbsolute(iso) {
+  if (!iso) return "—";
+  try {
+    return new Date(iso).toLocaleString("pt-BR", {
+      day: "2-digit", month: "2-digit", year: "numeric",
+      hour: "2-digit", minute: "2-digit", second: "2-digit",
+    });
+  } catch (_) {
+    return iso;
+  }
+}
+
+/* Rótulos legíveis para os enums do backend, para que o drawer não exiba
+ * SCREAMING_SNAKE_CASE cru. Enums desconhecidos caem no fallback humanizado. */
+const OPERATION_LABELS = {
+  LIST_PROJECTS: "Listar projetos",
+  SYNC_SPRINTS: "Sprints",
+  SYNC_WORK_ITEMS: "Work items",
+  SYNC_USERS: "Usuários",
+  SYNC_PULL_REQUESTS: "Pull requests",
+  SYNC_COMMITS: "Commits",
+  SYNC_REPOSITORIES: "Repositórios",
+};
+
+const STATUS_LABELS = {
+  SUCCESS: "Sucesso",
+  PARTIAL: "Parcial",
+  FAILED: "Falha",
+  RUNNING: "Em execução",
+};
+
+const TRIGGER_LABELS = { MANUAL: "Manual", SCHEDULED: "Agendado" };
+
+function humanize(value) {
+  if (!value) return "—";
+  const label = value.replace(/_/g, " ").toLowerCase();
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
+function operationLabel(op) { return OPERATION_LABELS[op] || humanize(op); }
+function statusLabel(s) { return STATUS_LABELS[s] || humanize(s); }
+function triggerLabel(t) { return TRIGGER_LABELS[t] || humanize(t); }
+
+/* O corpo de erro da Azure vem como JSON (`{"message": "...", ...}`) ou texto
+ * puro. Extrai a mensagem quando for JSON para não despejar o objeto inteiro. */
+function parseErrorDetail(detail) {
+  if (!detail) return null;
+  const trimmed = detail.trim();
+  if (!trimmed) return null;
+  if (trimmed.startsWith("{") || trimmed.startsWith("[")) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      const message = parsed?.message || parsed?.value?.Message || parsed?.Message;
+      if (message) return { message, raw: trimmed };
+    } catch (_) { /* não é JSON válido: cai no texto puro abaixo */ }
+  }
+  return { message: trimmed, raw: trimmed };
 }
 
 /* ─── Sync Log Drawer ─────────────────────────────────────── */
@@ -48,6 +110,8 @@ function SyncLogDrawer({ open, onClose, integration = "AZURE_DEVOPS" }) {
   const [logs, setLogs] = React.useState([]);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState(null);
+  const [statusFilter, setStatusFilter] = React.useState("ALL");
+  const [expanded, setExpanded] = React.useState(null);
   const drawerRef = React.useRef(null);
 
   const fetchLogs = React.useCallback(async () => {
@@ -75,24 +139,97 @@ function SyncLogDrawer({ open, onClose, integration = "AZURE_DEVOPS" }) {
     return () => document.removeEventListener("keydown", onKey);
   }, [open, onClose]);
 
+  // Fecha qualquer detalhe aberto ao trocar de filtro/integração, senão o painel
+  // expandido fica preso a uma entrada que saiu da lista visível.
+  React.useEffect(() => { setExpanded(null); }, [statusFilter, integration]);
+
   if (!open) return null;
 
-  const statusClass = (value) => {
-    if (value === "SUCCESS") return "log-outcome is-success";
-    if (value === "PARTIAL") return "log-outcome is-partial";
-    if (value === "RUNNING") return "log-outcome is-running";
-    return "log-outcome is-failure";
+  const statusVariant = (value) => {
+    if (value === "SUCCESS") return "is-success";
+    if (value === "PARTIAL") return "is-partial";
+    if (value === "RUNNING") return "is-running";
+    return "is-failure";
   };
+
+  const counts = logs.reduce(
+    (acc, log) => {
+      acc.ALL += 1;
+      if (log.status === "SUCCESS") acc.SUCCESS += 1;
+      else if (log.status === "RUNNING") acc.RUNNING += 1;
+      else acc.FAILED += 1;
+      return acc;
+    },
+    { ALL: 0, SUCCESS: 0, FAILED: 0, RUNNING: 0 }
+  );
+
+  const visible = logs.filter((log) => {
+    if (statusFilter === "ALL") return true;
+    if (statusFilter === "SUCCESS") return log.status === "SUCCESS";
+    if (statusFilter === "RUNNING") return log.status === "RUNNING";
+    return log.status === "FAILED" || log.status === "PARTIAL";
+  });
+
+  const filters = [
+    { key: "ALL", label: "Tudo" },
+    { key: "FAILED", label: "Falhas" },
+    { key: "SUCCESS", label: "Sucesso" },
+  ];
+
+  const lastFinished = logs.find((l) => l.finishedAt)?.finishedAt;
 
   return (
     <div className="drawer-backdrop" onClick={onClose}>
-      <aside className="drawer" ref={drawerRef} onClick={(e) => e.stopPropagation()}>
+      <aside
+        className="drawer sync-log-drawer"
+        ref={drawerRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="Logs de sincronização"
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="drawer-head">
-          <h3 className="serif drawer-title">Logs de sincronização</h3>
-          <button className="drawer-close" onClick={onClose} aria-label="Fechar">×</button>
+          <div className="drawer-head-text">
+            <h3 className="serif drawer-title">Logs de sincronização</h3>
+            <p className="drawer-subtitle mono">
+              {integration === "GITHUB" ? "GitHub" : "Azure DevOps"}
+              {lastFinished ? ` · última execução ${formatRelative(lastFinished)}` : ""}
+            </p>
+          </div>
+          <div className="drawer-head-actions">
+            <button
+              className="drawer-refresh mono"
+              onClick={fetchLogs}
+              disabled={loading}
+              title="Atualizar"
+            >
+              {loading ? "…" : "↻"}
+            </button>
+            <button className="drawer-close" onClick={onClose} aria-label="Fechar">×</button>
+          </div>
         </div>
+
+        {!error && logs.length > 0 && (
+          <div className="log-filter-bar">
+            {filters.map((f) => (
+              <button
+                key={f.key}
+                className={"log-filter mono" + (statusFilter === f.key ? " is-active" : "")}
+                onClick={() => setStatusFilter(f.key)}
+              >
+                {f.label}
+                <span className="log-filter-count">{counts[f.key] ?? 0}</span>
+              </button>
+            ))}
+          </div>
+        )}
+
         <div className="drawer-body">
-          {loading && <div className="drawer-loading mono">Carregando…</div>}
+          {loading && logs.length === 0 && (
+            <div className="log-skeleton-list">
+              {[0, 1, 2, 3].map((i) => <div key={i} className="log-skeleton" />)}
+            </div>
+          )}
           {error && (
             <div className="drawer-error">
               <p className="mono">{error}</p>
@@ -102,25 +239,76 @@ function SyncLogDrawer({ open, onClose, integration = "AZURE_DEVOPS" }) {
           {!loading && !error && logs.length === 0 && (
             <p className="mono drawer-empty">Nenhuma sincronização registrada ainda.</p>
           )}
-          {!loading && !error && logs.map((log, i) => (
-            <div key={log.id || i} className="log-entry">
-              <div className="log-entry-row">
-                <span className={"log-trigger mono " + (log.triggeredBy === "MANUAL" ? "is-manual" : "")}>
-                  {log.triggeredBy}
-                </span>
-                <span className={statusClass(log.status)}>{log.status}</span>
-                <span className="log-operation mono">{log.operation}</span>
-                <span className="log-counts mono">
-                  {log.itemsProcessed ?? 0} itens · {log.itemsFailed ?? 0} falhas
-                </span>
-                <span className="log-duration mono">{formatDuration(log.durationMs)}</span>
-                <span className="log-time mono">{formatRelative(log.finishedAt)}</span>
-              </div>
-              {(log.status === "FAILED" || log.status === "PARTIAL") && log.errorMessage && (
-                <div className="log-error-msg mono">{log.errorMessage}</div>
-              )}
-            </div>
-          ))}
+          {!error && logs.length > 0 && visible.length === 0 && (
+            <p className="mono drawer-empty">Nenhum registro para este filtro.</p>
+          )}
+
+          {!error && visible.map((log, i) => {
+            const key = log.id || `log-${i}`;
+            const isFailure = log.status === "FAILED" || log.status === "PARTIAL";
+            const detail = parseErrorDetail(log.errorDetail);
+            const hasDetail = isFailure && (detail || log.errorMessage || log.errorCode);
+            const isOpen = expanded === key;
+
+            return (
+              <article key={key} className={"log-entry " + statusVariant(log.status)}>
+                <header className="log-entry-head">
+                  <span className={"log-status-badge mono " + statusVariant(log.status)}>
+                    <span className="log-status-dot" aria-hidden="true" />
+                    {statusLabel(log.status)}
+                  </span>
+                  <span className="log-operation">{operationLabel(log.operation)}</span>
+                  <span
+                    className="log-time mono"
+                    title={formatAbsolute(log.finishedAt || log.startedAt)}
+                  >
+                    {formatRelative(log.finishedAt || log.startedAt)}
+                  </span>
+                </header>
+
+                <div className="log-entry-meta mono">
+                  <span className={"log-chip" + (log.triggeredBy === "MANUAL" ? " is-manual" : "")}>
+                    {triggerLabel(log.triggeredBy)}
+                  </span>
+                  <span className="log-metric">
+                    <strong>{log.itemsProcessed ?? 0}</strong> itens
+                  </span>
+                  {(log.itemsFailed ?? 0) > 0 && (
+                    <span className="log-metric is-bad">
+                      <strong>{log.itemsFailed}</strong> falhas
+                    </span>
+                  )}
+                  <span className="log-metric">{formatDuration(log.durationMs)}</span>
+                </div>
+
+                {hasDetail && (
+                  <div className="log-error">
+                    <div className="log-error-head">
+                      {log.errorCode && <code className="log-error-code mono">{log.errorCode}</code>}
+                      {log.httpStatus != null && (
+                        <code className="log-error-code mono is-http">HTTP {log.httpStatus}</code>
+                      )}
+                      {detail?.raw && (
+                        <button
+                          className="log-error-toggle mono"
+                          onClick={() => setExpanded(isOpen ? null : key)}
+                          aria-expanded={isOpen}
+                        >
+                          {isOpen ? "Ocultar resposta" : "Ver resposta"}
+                        </button>
+                      )}
+                    </div>
+                    <p className="log-error-msg mono">
+                      {detail?.message || log.errorMessage}
+                    </p>
+                    {isOpen && detail?.raw && (
+                      <pre className="log-error-raw mono">{detail.raw}</pre>
+                    )}
+                  </div>
+                )}
+              </article>
+            );
+          })}
         </div>
       </aside>
     </div>
