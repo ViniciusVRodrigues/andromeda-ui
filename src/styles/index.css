@@ -5567,6 +5567,47 @@ button.signup-perms-cargo:hover .signup-perms-cargo-edit { opacity: 1; color: va
   letter-spacing: 0.04em;
 }
 
+/* ── 404 ── */
+.notfound {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px;
+  background: var(--bg);
+}
+.notfound-inner {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  max-width: 520px;
+}
+.notfound-logo { margin-bottom: 40px; opacity: 0.9; }
+.notfound-code {
+  font-size: 11px;
+  letter-spacing: 0.32em;
+  color: var(--fg-dim);
+  border: 1px solid var(--line-strong);
+  border-radius: 999px;
+  padding: 7px 16px;
+  margin-bottom: 24px;
+}
+.notfound-title {
+  font-size: clamp(30px, 5vw, 46px);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+  margin-bottom: 16px;
+}
+.notfound-title .ital { font-style: italic; }
+.notfound-lede {
+  font-size: 15px;
+  line-height: 1.65;
+  color: var(--fg-muted);
+  margin-bottom: 32px;
+  text-wrap: pretty;
+}
+
 /* ── Filtros do backlog ── */
 .backlog-filters {
   display: flex;
