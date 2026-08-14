@@ -121,10 +121,6 @@ function HomeScreen({ onLogin, onSignup }) {
           <div className="hero-orbit-ring r2"></div>
         </div>
         <div className="home-hero-inner">
-          <div className="eyebrow">
-            <span className="dot"></span>
-            <span>Software Engineering Intelligence · beta</span>
-          </div>
           <h1 className="serif home-h1">
             Quanto sua IA <span className="ital accent">custou</span> por entrega<span className="accent">.</span>
           </h1>

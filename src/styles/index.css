@@ -297,6 +297,23 @@ h1, h2, h3, .serif {
 :root[data-palette="light"] .btn-danger { color: #fff; }
 .btn-danger:hover { box-shadow: 0 8px 24px -8px color-mix(in srgb, var(--bad) 60%, transparent); }
 
+/* botão compacto: ações secundárias dentro de cards/linhas, onde o padding
+ * padrão do .btn domina o bloco */
+.btn-xs {
+  font-size: 9px;
+  letter-spacing: 0.16em;
+  padding: 7px 12px;
+}
+
+/* variante destrutiva discreta: um .btn-ghost que só assume o vermelho no
+ * hover/focus — remover vínculo não deve competir visualmente com a ação
+ * neutra ao lado, mas precisa se declarar antes do clique */
+.btn-ghost.is-danger:hover,
+.btn-ghost.is-danger:focus-visible {
+  color: var(--bad);
+  border-color: var(--bad);
+}
+
 .card {
   background: linear-gradient(180deg, rgba(255,255,255,0.018), rgba(255,255,255,0.005));
   border: 1px solid var(--line);
@@ -2175,6 +2192,31 @@ h1, h2, h3, .serif {
   background: #FFFBF1;
   border-color: rgba(34,26,16,0.16);
 }
+/* O menu aberto de um <select> é desenhado pelo SO, não pelo nosso CSS: sem as
+ * regras abaixo ele cai no branco/cinza nativo do sistema e destoa do tema.
+ * Pintar <option> é o único gancho que os navegadores expõem — daí os tokens
+ * ficarem repetidos aqui em vez de herdarem do .signup-select select.
+ * `color-scheme` é o que faz Chrome/Edge desenharem a moldura e a barra de
+ * rolagem do menu em tom escuro; sem ele o miolo fica certo e a borda branca. */
+select {
+  color-scheme: dark;
+}
+:root[data-palette="light"] select {
+  color-scheme: light;
+}
+select option {
+  background: var(--bg-elev);
+  color: var(--fg);
+}
+/* Firefox aplica a cor de seleção do SO; alinhar com o accent do tema. */
+select option:checked {
+  background: var(--accent);
+  color: var(--bg-deep);
+}
+:root[data-palette="light"] select option:checked {
+  color: #FFFBF1;
+}
+
 .signup-select-caret {
   position: absolute;
   right: 14px;
@@ -3393,12 +3435,11 @@ h1, h2, h3, .serif {
   color: var(--good, #6fae5a);
   white-space: nowrap;
 }
-/* vínculo Azure DevOps: rótulo/select numa linha, CTAs de configurar/remover na linha seguinte */
+/* vínculo Azure DevOps: rótulo/select numa linha, ações na linha seguinte */
 .project-link--ado {
   align-items: flex-start;
 }
 .project-link--ado .project-link-info { flex-basis: 100%; }
-.project-link--ado > .project-link-status { margin-left: 49px; }
 .project-link-status::before {
   content: "";
   width: 6px; height: 6px;
@@ -3432,6 +3473,140 @@ h1, h2, h3, .serif {
 }
 .project-link-status--cta::before { background: var(--accent); }
 
+/* ── Combobox (Radix Select) ──────────────────────────────────
+ * Radix é headless por design: sem estas regras o componente não tem
+ * aparência nenhuma. Espelha .signup-select select para conviver com os
+ * <select> nativos que ainda restam no app. */
+.cmb-trigger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  font-family: inherit;
+  font-size: var(--mono-sm);
+  padding: 12px 14px;
+  border-radius: 10px;
+  border: 1px solid var(--line-strong);
+  background: rgba(0,0,0,0.35);
+  color: var(--fg);
+  cursor: pointer;
+  outline: none;
+  text-align: left;
+}
+:root[data-palette="light"] .cmb-trigger {
+  background: #FFFBF1;
+  border-color: rgba(34,26,16,0.16);
+}
+.cmb-trigger:hover { border-color: var(--fg-muted); }
+.cmb-trigger:focus-visible { border-color: var(--accent); }
+.cmb-trigger[data-disabled] { opacity: 0.55; cursor: not-allowed; }
+/* placeholder = valor ainda não escolhido; distinguir do valor real */
+.cmb-trigger[data-placeholder] { color: var(--fg-dim); }
+.cmb-caret { color: var(--fg-dim); font-size: var(--mono-sm); }
+
+.cmb-content {
+  z-index: 1200; /* acima dos modais (.role-modal) */
+  min-width: var(--radix-select-trigger-width);
+  max-height: 320px;
+  background: var(--bg-elev);
+  border: 1px solid var(--line-strong);
+  border-radius: 10px;
+  box-shadow: 0 16px 40px -12px rgba(0,0,0,0.6);
+  overflow: hidden;
+}
+.cmb-search { padding: 8px; border-bottom: 1px solid var(--line); }
+.cmb-search-input {
+  width: 100%;
+  font-family: inherit;
+  font-size: var(--mono-sm);
+  padding: 8px 10px;
+  border-radius: 8px;
+  border: 1px solid var(--line-strong);
+  background: rgba(0,0,0,0.30);
+  color: var(--fg);
+  outline: none;
+}
+:root[data-palette="light"] .cmb-search-input { background: #FFFBF1; }
+.cmb-search-input::placeholder { color: var(--fg-dim); }
+.cmb-search-input:focus { border-color: var(--accent); }
+
+.cmb-viewport { padding: 6px; max-height: 260px; overflow-y: auto; }
+.cmb-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 10px;
+  border-radius: 8px;
+  font-size: var(--mono-sm);
+  color: var(--fg);
+  cursor: pointer;
+  outline: none;
+  user-select: none;
+}
+/* Radix marca o item sob teclado/mouse com data-highlighted — é o único
+ * estado de hover que o menu precisa (o :hover puro brigaria com as setas). */
+.cmb-item[data-highlighted] {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: var(--fg);
+}
+.cmb-item[data-state="checked"] { color: var(--accent); }
+.cmb-item-hint { margin-left: auto; color: var(--fg-dim); font-size: 10px; }
+.cmb-item-check { color: var(--accent); font-size: 11px; }
+.cmb-empty { padding: 14px 10px; color: var(--fg-dim); font-size: var(--mono-sm); text-align: center; }
+
+/* ── Checkbox (Radix) ─────────────────────────────────────────
+ * O input nativo ignora `background`, então aparecia no azul do SO. */
+.cbx { display: inline-flex; align-items: center; gap: 8px; }
+.cbx-box {
+  flex-shrink: 0;
+  width: 16px; height: 16px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  border-radius: 5px;
+  border: 1px solid var(--line-strong);
+  background: rgba(0,0,0,0.30);
+  cursor: pointer;
+  outline: none;
+  transition: background 0.15s, border-color 0.15s;
+}
+:root[data-palette="light"] .cbx-box { background: #FFFBF1; }
+.cbx-box:hover { border-color: var(--fg-muted); }
+.cbx-box:focus-visible { border-color: var(--accent); }
+.cbx-box[data-state="checked"] {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.cbx-box[data-disabled] { opacity: 0.5; cursor: not-allowed; }
+.cbx-indicator {
+  color: var(--bg-deep);
+  font-size: 10px;
+  line-height: 1;
+}
+:root[data-palette="light"] .cbx-indicator { color: #FFFBF1; }
+.cbx-label {
+  font-size: 10px;
+  letter-spacing: 0.16em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+  cursor: pointer;
+  user-select: none;
+}
+
+/* Ações do vínculo (configurar/remover): botões lado a lado sob o select.
+ * Ficam dentro de .project-link-info (e não como filhos do card) para herdar a
+ * largura do select — como irmãos do flex do card eles disputavam a linha e
+ * acabavam quebrando um por linha, cada um com uma largura. */
+.project-link-actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-top: 10px;
+}
+.project-link-actions .btn { flex-shrink: 0; }
+
 /* vínculo GitHub: cartão de repositórios (0..N) no modal de projeto —
  * mesmo formato do cartão Azure DevOps (rótulo/conteúdo em linha própria) */
 .project-link--gh {
@@ -3464,18 +3639,9 @@ h1, h2, h3, .serif {
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.gh-binding-sync {
-  flex-shrink: 0;
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  font-size: 10px;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: var(--fg-muted);
-  cursor: pointer;
-}
-/* adicionar repositório: select de disponíveis + fallback owner/name */
+/* posicionamento apenas — tipografia e caixa vêm de .cbx-* */
+.gh-binding-sync { flex-shrink: 0; }
+/* adicionar repositório: combobox de disponíveis + ação, na mesma linha */
 .gh-binding-add {
   display: flex;
   align-items: center;
@@ -3483,7 +3649,6 @@ h1, h2, h3, .serif {
   flex-wrap: wrap;
 }
 .gh-binding-add-select { flex: 1; min-width: 200px; }
-.gh-binding-add-input { flex: 1; min-width: 160px; }
 
 /* ── busca + lista de pessoas (modal de projeto) ── */
 .project-people-search { position: relative; display: flex; align-items: center; }
@@ -5376,6 +5541,47 @@ button.signup-perms-cargo:hover .signup-perms-cargo-edit { opacity: 1; color: va
   font-size: 11px;
   color: var(--fg-dim);
   letter-spacing: 0.06em;
+}
+/* Responsável: mesmo peso da sprint, separado por um ponto para não virar uma
+ * sequência ambígua de dois textos soltos. */
+.backlog-card-assignee {
+  font-size: 11px;
+  color: var(--fg-dim);
+  letter-spacing: 0.06em;
+}
+.backlog-card-assignee::before {
+  content: "·";
+  /* padding, não margin: o gap do flex do container já separa os itens, mas o
+   * pseudo-elemento vive dentro do span — sem padding o ponto encosta no texto. */
+  padding-right: 8px;
+  color: var(--line-strong);
+}
+.backlog-card-meta > .backlog-card-assignee:first-child::before { content: none; }
+
+/* ID externo: primeiro elemento da linha do título, em accent para ser localizável
+ * ao correr o olho — é por ele que a pessoa cruza com o Azure DevOps. */
+.backlog-card-id {
+  flex-shrink: 0;
+  font-size: 11px;
+  color: var(--accent);
+  letter-spacing: 0.04em;
+}
+
+/* ── Filtros do backlog ── */
+.backlog-filters {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+.backlog-filter { min-width: 190px; }
+.backlog-filter--search { flex: 1; min-width: 220px; }
+.backlog-filter--search input { width: 100%; }
+.backlog-filter-note {
+  font-size: var(--mono-sm);
+  color: var(--fg-muted);
+  margin-bottom: 16px;
 }
 
 .backlog-card-fields {

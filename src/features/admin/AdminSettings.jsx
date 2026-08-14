@@ -12,6 +12,9 @@ import { PERMISSION_LABELS, ALWAYS_ON_PERMISSIONS } from "./permissionLabels.js"
 import { AiPricingTab } from "../uso-ia/components/AiPricingTab.jsx";
 import { UsoIaPage } from "../uso-ia/UsoIaPage.jsx";
 import { SubTabs } from "../../components/SubTabs.jsx";
+import Combobox from "../../components/Combobox.jsx";
+import Checkbox from "../../components/Checkbox.jsx";
+import { orgUrlLabel } from "../../lib/appUrl.js";
 import api, {
   getToken, linkAzureIdentity, getAzureUsers, updateProjectMembers,
   getAzureProjects,
@@ -108,18 +111,23 @@ function AdminSettings({ section, subtab, can, dash, profile, palette, setPalett
   /* The logged-in user's id, decoded from the JWT once. */
   const loggedUserId = React.useMemo(() => decodeJwt()?.sub || null, []);
 
+  /* Aplica um status de conexão Azure vindo de qualquer origem (fetch inicial ou
+   * aviso da aba Integrações). Conectar limpa o "dispensado" do banner para que
+   * ele volte a aparecer se a conexão cair depois. */
+  const applyAzureStatus = React.useCallback((status) => {
+    const next = status || "DISCONNECTED";
+    setConnectionStatus(next);
+    if (next === "CONNECTED") {
+      localStorage.removeItem("azure_banner_dismissed");
+      setBannerDismissed(false);
+    }
+  }, []);
+
   React.useEffect(() => {
     api.get("/v1/integrations/azure/connection")
-      .then((data) => {
-        const status = data?.status || "DISCONNECTED";
-        setConnectionStatus(status);
-        if (status === "CONNECTED") {
-          localStorage.removeItem("azure_banner_dismissed");
-          setBannerDismissed(false);
-        }
-      })
-      .catch(() => setConnectionStatus("DISCONNECTED"));
-  }, []);
+      .then((data) => applyAzureStatus(data?.status))
+      .catch(() => applyAzureStatus("DISCONNECTED"));
+  }, [applyAzureStatus]);
 
   const dismissBanner = () => {
     setBannerDismissed(true);
@@ -748,7 +756,13 @@ function AdminSettings({ section, subtab, can, dash, profile, palette, setPalett
           )}
 
           {section === "integrations" && (
-            <IntegrationTab onNavigate={onNavigate} orgSlug={profile?.org?.slug} can={can} />
+            <IntegrationTab
+              onNavigate={onNavigate}
+              orgSlug={profile?.org?.slug}
+              can={can}
+              onAzureStatusChange={applyAzureStatus}
+              onGithubStatusChange={setGithubConnectionStatus}
+            />
           )}
 
           {section === "uso-ia" && (
@@ -897,7 +911,7 @@ function AdminSettings({ section, subtab, can, dash, profile, palette, setPalett
                 <div className="admin-fields">
                   <AdminRow label="Nome da organização" value={orgData.name} />
                   <AdminRow label="Identificador" value={orgData.slug} mono />
-                  <AdminRow label="URL" value={orgData.slug ? `andromeda.app/${orgData.slug}` : null} mono />
+                  <AdminRow label="URL" value={orgData.slug ? orgUrlLabel(orgData.slug) : null} mono />
                   <AdminRow label="Setor" value={orgData.sector} />
                   <AdminRow label="País" value={orgData.country} />
                 </div>
@@ -1695,8 +1709,8 @@ function AdminSettings({ section, subtab, can, dash, profile, palette, setPalett
 /* Vínculos reais de repositórios GitHub do projeto (0..N repositórios).
  * Espelha o padrão do AzureProjectSelect: hint estático quando a conexão não
  * está CONNECTED; caso contrário, lista os vínculos atuais e permite adicionar
- * (select de repositórios disponíveis + fallback owner/name por texto livre),
- * alternar syncEnabled e remover — com atualizações otimistas e rollback. */
+ * (combobox com busca sobre os repositórios disponíveis), alternar syncEnabled
+ * e remover — com atualizações otimistas e rollback. */
 function GithubBindingsSection({ connectionStatus, projectId, onNavigate, onOrgBindingsChanged }) {
   const icon = <Icon name="github" size={20} color="var(--fg)" />;
 
@@ -1705,7 +1719,6 @@ function GithubBindingsSection({ connectionStatus, projectId, onNavigate, onOrgB
   const [loading, setLoading] = React.useState(false);
   const [loadError, setLoadError] = React.useState(null);
   const [selectedRepoId, setSelectedRepoId] = React.useState("");
-  const [manualRepo, setManualRepo] = React.useState("");
   const [addError, setAddError] = React.useState(null);
   const [adding, setAdding] = React.useState(false);
 
@@ -1762,7 +1775,7 @@ function GithubBindingsSection({ connectionStatus, projectId, onNavigate, onOrgB
   }
 
   const handleBind = async () => {
-    const repoId = (manualRepo.trim() || selectedRepoId).trim();
+    const repoId = selectedRepoId.trim();
     if (!repoId) return;
     setAdding(true);
     setAddError(null);
@@ -1770,7 +1783,6 @@ function GithubBindingsSection({ connectionStatus, projectId, onNavigate, onOrgB
       const binding = await bindGithubRepo(projectId, repoId, true);
       setBindings((prev) => [...prev.filter((b) => b.repoId !== binding.repoId), binding]);
       setSelectedRepoId("");
-      setManualRepo("");
       onOrgBindingsChanged?.();
     } catch (err) {
       if (err.message?.includes("GITHUB_REPO_ALREADY_BOUND")) {
@@ -1825,16 +1837,16 @@ function GithubBindingsSection({ connectionStatus, projectId, onNavigate, onOrgB
                 {bindings.map((b) => (
                   <div key={b.id} className="gh-binding-row">
                     <span className="gh-binding-repo mono" title={b.repoId}>{b.repoId}</span>
-                    <label className="gh-binding-sync mono">
-                      <input
-                        type="checkbox"
-                        checked={b.syncEnabled}
-                        onChange={() => handleToggleSync(b)}
-                        aria-label={`Sincronizar ${b.repoId}`}
-                      />
-                      sincronizar
-                    </label>
-                    <button type="button" className="project-link-status--cta mono" onClick={() => handleRemove(b)}>
+                    <Checkbox
+                      checked={b.syncEnabled}
+                      onCheckedChange={() => handleToggleSync(b)}
+                      label="sincronizar"
+                      className="gh-binding-sync"
+                    />
+                    <button
+                      type="button"
+                      className="btn btn-ghost btn-xs is-danger"
+                      onClick={() => handleRemove(b)}>
                       remover
                     </button>
                   </div>
@@ -1843,34 +1855,24 @@ function GithubBindingsSection({ connectionStatus, projectId, onNavigate, onOrgB
             )}
 
             <div className="gh-binding-add">
-              <div className="signup-select gh-binding-add-select">
-                <select
-                  value={selectedRepoId}
-                  onChange={(e) => setSelectedRepoId(e.target.value)}
-                  aria-label="Selecionar repositório disponível">
-                  <option value="">Selecionar repositório…</option>
-                  {availableRepos.map((r) => (
-                    <option key={r.repoId} value={r.repoId}>
-                      {r.fullName}
-                      {r.boundToProjectId === projectId ? " (vinculado)" : r.source === "CACHED" ? " (cache)" : ""}
-                    </option>
-                  ))}
-                </select>
-                <span className="signup-select-caret">▾</span>
-              </div>
-              <input
-                className="role-modal-input gh-binding-add-input"
-                type="text"
-                placeholder="ou digite owner/name"
-                value={manualRepo}
-                onChange={(e) => setManualRepo(e.target.value)}
-                aria-label="Repositório GitHub (owner/name)"
+              <Combobox
+                value={selectedRepoId}
+                onValueChange={setSelectedRepoId}
+                options={availableRepos.map((r) => ({
+                  value: r.repoId,
+                  label: r.fullName,
+                  hint: r.boundToProjectId === projectId ? "vinculado" : r.source === "CACHED" ? "cache" : undefined,
+                }))}
+                placeholder="Selecionar repositório…"
+                emptyMessage="Nenhum repositório encontrado."
+                aria-label="Selecionar repositório disponível"
+                className="gh-binding-add-select"
               />
               <button
                 type="button"
                 className="btn"
                 onClick={handleBind}
-                disabled={adding || !(manualRepo.trim() || selectedRepoId)}>
+                disabled={adding || !selectedRepoId}>
                 {adding ? "Vinculando…" : "Vincular"}
               </button>
             </div>
@@ -1922,36 +1924,39 @@ function AzureProjectSelect({ connectionStatus, adoProjects, adoProjectsError, a
         {adoProjectsError ? (
           <div className="project-link-value mono is-error">{adoProjectsError}</div>
         ) : (
-          <div className="signup-select project-ado-select">
-            <select
-              value={adoBinding}
-              disabled={!!adoProjectsError}
-              onChange={(e) => {
-                const opt = adoProjects.find((p) => p.azureProjectId === e.target.value);
-                if (opt) onChange(opt.azureProjectId, opt.azureProjectName);
-              }}>
-              <option value="">Selecione um projeto Azure DevOps</option>
-              {adoProjects.map((p) => (
-                <option key={p.azureProjectId} value={p.azureProjectId}>{p.azureProjectName}</option>
-              ))}
-            </select>
-            <span className="signup-select-caret">▾</span>
+          <Combobox
+            value={adoBinding}
+            onValueChange={(v) => {
+              const opt = adoProjects.find((p) => p.azureProjectId === v);
+              if (opt) onChange(opt.azureProjectId, opt.azureProjectName);
+            }}
+            options={adoProjects.map((p) => ({
+              value: p.azureProjectId,
+              label: p.azureProjectName,
+            }))}
+            placeholder="Selecione um projeto Azure DevOps"
+            emptyMessage="Nenhum projeto encontrado."
+            aria-label="Projeto Azure DevOps"
+            className="project-ado-select"
+          />
+        )}
+
+        {adoBinding && (
+          <div className="project-link-actions">
+            {adoBindingId && (
+              <button
+                type="button"
+                className="btn btn-ghost btn-xs"
+                onClick={() => onConfigureMapping(adoBindingId)}>
+                configurar mapeamento
+              </button>
+            )}
+            <button type="button" className="btn btn-ghost btn-xs is-danger" onClick={onRemove}>
+              remover vínculo
+            </button>
           </div>
         )}
       </div>
-      {adoBinding && adoBindingId && (
-        <button
-          type="button"
-          className="project-link-status project-link-status--cta mono"
-          onClick={() => onConfigureMapping(adoBindingId)}>
-          configurar mapeamento
-        </button>
-      )}
-      {adoBinding && (
-        <button type="button" className="project-link-status project-link-status--cta mono" onClick={onRemove}>
-          remover vínculo
-        </button>
-      )}
     </div>
   );
 }

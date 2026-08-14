@@ -397,7 +397,11 @@ function AzurePatSetupForm({ onSuccess, onCancel }) {
   );
 }
 
-function AzureIntegrationCard() {
+/* onStatusChange é chamado sempre que o status resolvido muda, para que a casca
+ * (AdminSettings) reavalie o banner de "configure o Azure" e a seção de vínculo
+ * de projeto sem depender de um F5 — nada desmonta esta aba ao trocar de seção,
+ * então o estado do pai ficaria congelado no fetch inicial. */
+function AzureIntegrationCard({ onStatusChange }) {
   const [status, setStatus] = React.useState(null); // null=loading, "DISCONNECTED"|"CONNECTED"|"EXPIRED"|"ERROR"|"NETWORK_ERROR"
   const [connection, setConnection] = React.useState(null);
   const [logsOpen, setLogsOpen] = React.useState(false);
@@ -423,6 +427,13 @@ function AzureIntegrationCard() {
   }, []);
 
   React.useEffect(() => { fetchStatus(); }, [fetchStatus]);
+
+  /* Observar `status` (em vez de notificar dentro de cada handler) garante que
+   * conectar via OAuth, via PAT ou desconectar propaguem sem exceção. `null` é
+   * o estado de carregamento, não um veredito — não vale propagar. */
+  React.useEffect(() => {
+    if (status !== null) onStatusChange?.(status);
+  }, [status, onStatusChange]);
 
   const { trigger: triggerOAuth, polling } = useOAuth({
     onSuccess: (data) => {
@@ -746,7 +757,7 @@ function GithubPatSetupForm({ onSuccess, onCancel }) {
 
 /* Espelha a máquina de estados do cartão Azure: loading → disconnected
  * (form de PAT) → connected (badge, meta, ações) → error (reconectar). */
-function GithubIntegrationCard() {
+function GithubIntegrationCard({ onStatusChange }) {
   const [status, setStatus] = React.useState(null); // null=loading, "DISCONNECTED"|"CONNECTED"|"EXPIRED"|"ERROR"|"NETWORK_ERROR"
   const [connection, setConnection] = React.useState(null);
   const [logsOpen, setLogsOpen] = React.useState(false);
@@ -772,6 +783,11 @@ function GithubIntegrationCard() {
   }, []);
 
   React.useEffect(() => { fetchStatus(); }, [fetchStatus]);
+
+  /* Ver a nota em AzureIntegrationCard: o pai precisa reagir a conectar/desconectar. */
+  React.useEffect(() => {
+    if (status !== null) onStatusChange?.(status);
+  }, [status, onStatusChange]);
 
   /* ── Countdown timer ── */
   React.useEffect(() => {
@@ -978,7 +994,7 @@ function GithubIntegrationCard() {
 
 /* ─── IntegrationTab ──────────────────────────────────────── */
 
-export function IntegrationTab({ onNavigate, orgSlug, can }) {
+export function IntegrationTab({ onNavigate, orgSlug, can, onAzureStatusChange, onGithubStatusChange }) {
   return (
     <section>
       <div className="admin-section-head">
@@ -986,8 +1002,8 @@ export function IntegrationTab({ onNavigate, orgSlug, can }) {
         <p className="admin-section-sub">Configure as conexões externas da organização.</p>
       </div>
 
-      <AzureIntegrationCard />
-      <GithubIntegrationCard />
+      <AzureIntegrationCard onStatusChange={onAzureStatusChange} />
+      <GithubIntegrationCard onStatusChange={onGithubStatusChange} />
 
       {can && (can('CONNECTOR_TOKEN_MANAGE_OWN') || can('CONNECTOR_TOKEN_MANAGE_ALL')) && orgSlug && (
         <AiConnectorCard orgSlug={orgSlug} can={can} />

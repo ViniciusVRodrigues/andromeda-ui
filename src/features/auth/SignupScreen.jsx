@@ -9,6 +9,7 @@ import { OrbitWizard } from "../../components/OrbitWizard.jsx";
 import { Field, SelectField } from "../../components/Field.jsx";
 import api from "../../services/api.js";
 import { ALWAYS_ON_PERMISSIONS } from "../admin/permissionLabels.js";
+import { orgUrlLabel } from "../../lib/appUrl.js";
 
 const ADMIN_ROLE = "Administrador";
 
@@ -345,7 +346,7 @@ function StepOrganization({ v, onChange }) {
       <Field full label="Identificador" value={v.slug}
              onChange={(x) => onChange({ ...v, slug: x.toLowerCase().replace(/[^a-z0-9-]/g, "") })}
              placeholder="squad-orion"
-             hint={`andromeda.app/${v.slug || "sua-org"}`} />
+             hint={orgUrlLabel(v.slug || "sua-org")} />
       <SelectField label="Setor" value={v.sector}
                    onChange={(x) => onChange({ ...v, sector: x })}
                    options={["Tecnologia", "Fintech", "Saúde", "Educação", "Indústria", "Varejo", "Outro"]} />
@@ -597,7 +598,7 @@ function StepConfirm({ personal, org, project, customCargos, senioridade, permis
         <SummaryRow k="E-mail"        v={personal.email || "—"} />
         <SummaryRow k="Cargo"         v={ADMIN_ROLE} />
         <SummaryRow k="Organização"   v={org.name || "—"} accent />
-        <SummaryRow k="URL"           v={`andromeda.app/${org.slug || "—"}`} />
+        <SummaryRow k="URL"           v={orgUrlLabel(org.slug || "—")} />
         <SummaryRow k="Setor · país"  v={`${org.sector} · ${org.country}`} />
         <SummaryRow k="Projeto"       v={project.name || "—"} accent />
         <SummaryRow k="Senioridade"   v={senioridade.join(" · ") || "—"} />
