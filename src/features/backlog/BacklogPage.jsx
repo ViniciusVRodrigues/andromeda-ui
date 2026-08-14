@@ -14,10 +14,25 @@ import api, {
   getProjectBacklogOrphans,
   getWorkItemChildren,
   getAzureProjectBindings,
+  getDashboardSprints,
+  getTeamMembers,
 } from "../../services/api.js";
 import { WorkItemManualFieldsEditor } from "../../components/WorkItemManualFieldsEditor.jsx";
+import Combobox from "../../components/Combobox.jsx";
 
 const PAGE_SIZE = 20;
+
+/* Sentinelas de "sem filtro" nos comboboxes: Radix Select reserva a string vazia para
+ * limpar a seleção, então a opção "todos" precisa de um valor próprio. */
+const ALL_SPRINTS = "__all_sprints__";
+const ALL_ASSIGNEES = "__all_assignees__";
+const ALL_TYPES = "__all_types__";
+const ALL_STATUSES = "__all_statuses__";
+
+/* Espelham WorkItem.ResolvedType / ResolvedStatus do backend. Os rótulos são os mesmos
+ * valores exibidos nos badges de cada card, para o filtro casar com o que se vê na tela. */
+const TYPE_OPTIONS = ["EPIC", "FEATURE", "STORY", "TASK", "BUG", "SUB_TASK"];
+const STATUS_OPTIONS = ["TODO", "IN_PROGRESS", "DONE"];
 
 /**
  * Auto-expand-on-load tuning (see TreeNode / BacklogPage):
@@ -99,13 +114,27 @@ function WorkItemRow({ item, onItemChanged, toggle }) {
         {toggle || <span className="backlog-toggle-spacer" aria-hidden="true" />}
         <div className="backlog-card-body">
           <div className="backlog-card-title-row">
+            {item.externalId && (
+              <span className="backlog-card-id mono" title={`ID no Azure DevOps: ${item.externalId}`}>
+                #{item.externalId}
+              </span>
+            )}
             <span className="backlog-card-title">{item.title}</span>
             <TypeBadge type={item.resolvedType || item.type} />
             <StatusPill status={item.resolvedStatus || item.status} />
           </div>
-          {item.sprint && (
+          {(item.sprintName || item.assigneeName || item.assigneeEmail) && (
             <div className="backlog-card-meta">
-              <span className="backlog-card-sprint mono">{item.sprint}</span>
+              {item.sprintName && (
+                <span className="backlog-card-sprint mono">{item.sprintName}</span>
+              )}
+              {/* Sem correspondência com um membro da organização, o e-mail do Azure é o
+                * melhor identificador disponível — melhor que omitir o responsável. */}
+              {(item.assigneeName || item.assigneeEmail) && (
+                <span className="backlog-card-assignee mono" title="Responsável">
+                  {item.assigneeName || item.assigneeEmail}
+                </span>
+              )}
             </div>
           )}
           <div className={`backlog-card-fields${isPlanningContainer(item) ? " is-readonly" : ""}`}>
@@ -367,6 +396,27 @@ export function BacklogPage({ onOpenHierarchyWizard }) {
 
   const [bindings, setBindings] = React.useState([]);
 
+  /* Filtros do backlog. `search` é o que o usuário digita; `debouncedSearch` é o que
+   * chega à API — sem isso cada tecla dispararia uma requisição. */
+  const [sprintFilter, setSprintFilter] = React.useState("");
+  const [assigneeFilter, setAssigneeFilter] = React.useState("");
+  const [typeFilter, setTypeFilter] = React.useState("");
+  const [statusFilter, setStatusFilter] = React.useState("");
+  const [search, setSearch] = React.useState("");
+  const [debouncedSearch, setDebouncedSearch] = React.useState("");
+  const [sprints, setSprints] = React.useState([]);
+  const [members, setMembers] = React.useState([]);
+
+  React.useEffect(() => {
+    const t = setTimeout(() => setDebouncedSearch(search.trim()), 300);
+    return () => clearTimeout(t);
+  }, [search]);
+
+  /* Sob filtro o backend achata a hierarquia numa lista única (servida por /roots) e
+   * devolve orphans vazio; a UI espelha isso escondendo a seção de órfãos e os
+   * controles de expandir/recolher, que não fazem sentido numa lista plana. */
+  const isFiltered = !!(sprintFilter || assigneeFilter || debouncedSearch || typeFilter || statusFilter);
+
   const [rootsPage, setRootsPage] = React.useState(0);
   const [roots, setRoots] = React.useState([]);
   const [rootsTotal, setRootsTotal] = React.useState(0);
@@ -441,13 +491,35 @@ export function BacklogPage({ onOpenHierarchyWizard }) {
     getAzureProjectBindings()
       .then((data) => setBindings(Array.isArray(data) ? data : []))
       .catch(() => setBindings([]));
+
+    /* Opções do filtro por responsável. Silencioso em caso de falha: sem a lista o
+     * filtro fica indisponível, mas o backlog continua utilizável. */
+    getTeamMembers()
+      .then((data) => setMembers(Array.isArray(data) ? data : []))
+      .catch(() => setMembers([]));
   }, []);
 
-  const loadRoots = React.useCallback((pid, page) => {
+  /* Sprints são por projeto, então recarregam a cada troca de seleção. */
+  React.useEffect(() => {
+    if (!projectId) { setSprints([]); return; }
+    getDashboardSprints(projectId)
+      .then((data) => setSprints(Array.isArray(data) ? data : []))
+      .catch(() => setSprints([]));
+  }, [projectId]);
+
+  const filterParams = React.useMemo(() => ({
+    ...(sprintFilter ? { sprintId: sprintFilter } : {}),
+    ...(assigneeFilter ? { assigneeUserId: assigneeFilter } : {}),
+    ...(debouncedSearch ? { search: debouncedSearch } : {}),
+    ...(typeFilter ? { type: typeFilter } : {}),
+    ...(statusFilter ? { status: statusFilter } : {}),
+  }), [sprintFilter, assigneeFilter, debouncedSearch, typeFilter, statusFilter]);
+
+  const loadRoots = React.useCallback((pid, page, filters) => {
     if (!pid) return;
     setRootsLoading(true);
     setRootsError(null);
-    getProjectBacklogRoots(pid, { page, size: PAGE_SIZE })
+    getProjectBacklogRoots(pid, { page, size: PAGE_SIZE, ...filters })
       .then((data) => {
         setRoots(data?.content || []);
         setRootsTotal(data?.totalElements || 0);
@@ -456,11 +528,11 @@ export function BacklogPage({ onOpenHierarchyWizard }) {
       .finally(() => setRootsLoading(false));
   }, []);
 
-  const loadOrphans = React.useCallback((pid, page) => {
+  const loadOrphans = React.useCallback((pid, page, filters) => {
     if (!pid) return;
     setOrphansLoading(true);
     setOrphansError(null);
-    getProjectBacklogOrphans(pid, { page, size: PAGE_SIZE })
+    getProjectBacklogOrphans(pid, { page, size: PAGE_SIZE, ...filters })
       .then((data) => {
         setOrphans(data?.content || []);
         setOrphansTotal(data?.totalElements || 0);
@@ -487,9 +559,22 @@ export function BacklogPage({ onOpenHierarchyWizard }) {
     }
     setRootsPage(0);
     setOrphansPage(0);
-    loadRoots(projectId, 0);
-    loadOrphans(projectId, 0);
+    loadRoots(projectId, 0, filterParams);
+    loadOrphans(projectId, 0, filterParams);
   }, [projectId]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  /* Trocar um filtro reinicia a paginação: manter a página atual deixaria o usuário
+   * numa página que o novo conjunto pode nem ter. Não roda no mount — o efeito de
+   * projeto acima já faz a carga inicial. */
+  const didMountFilters = React.useRef(false);
+  React.useEffect(() => {
+    if (!didMountFilters.current) { didMountFilters.current = true; return; }
+    if (!projectId) return;
+    setRootsPage(0);
+    setOrphansPage(0);
+    loadRoots(projectId, 0, filterParams);
+    loadOrphans(projectId, 0, filterParams);
+  }, [filterParams]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Kick off the "start fully expanded" cascade (change 2) once the first page of
   // roots for a newly selected project has arrived. Bounded by AUTO_EXPAND_MAX_DEPTH
@@ -543,11 +628,11 @@ export function BacklogPage({ onOpenHierarchyWizard }) {
 
   const handleRootsPageChange = (page) => {
     setRootsPage(page);
-    loadRoots(projectId, page);
+    loadRoots(projectId, page, filterParams);
   };
   const handleOrphansPageChange = (page) => {
     setOrphansPage(page);
-    loadOrphans(projectId, page);
+    loadOrphans(projectId, page, filterParams);
   };
 
   const handleRootChanged = (itemId, updated) => {
@@ -584,6 +669,92 @@ export function BacklogPage({ onOpenHierarchyWizard }) {
         </div>
       </label>
 
+      {projectId && (
+        <div className="backlog-filters">
+          <div className="backlog-filter backlog-filter--search">
+            <input
+              className="role-modal-input"
+              type="search"
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder="Buscar por ID ou título…"
+              aria-label="Buscar work items por ID ou título"
+            />
+          </div>
+          <div className="backlog-filter">
+            <Combobox
+              value={sprintFilter || ALL_SPRINTS}
+              onValueChange={(v) => setSprintFilter(v === ALL_SPRINTS ? "" : v)}
+              options={[
+                { value: ALL_SPRINTS, label: "Todas as sprints" },
+                ...sprints.filter((s) => s.id).map((s) => ({ value: s.id, label: s.name })),
+              ]}
+              aria-label="Filtrar por sprint"
+            />
+          </div>
+          <div className="backlog-filter">
+            <Combobox
+              value={assigneeFilter || ALL_ASSIGNEES}
+              onValueChange={(v) => setAssigneeFilter(v === ALL_ASSIGNEES ? "" : v)}
+              options={[
+                { value: ALL_ASSIGNEES, label: "Todos os responsáveis" },
+                /* Sem id não dá para filtrar; sem rótulo a opção apareceria em branco. */
+                ...members
+                  .filter((m) => m.id && (m.name || m.email))
+                  .map((m) => ({ value: m.id, label: m.name || m.email })),
+              ]}
+              aria-label="Filtrar por responsável"
+            />
+          </div>
+          <div className="backlog-filter">
+            <Combobox
+              value={typeFilter || ALL_TYPES}
+              onValueChange={(v) => setTypeFilter(v === ALL_TYPES ? "" : v)}
+              options={[
+                { value: ALL_TYPES, label: "Todos os tipos" },
+                ...TYPE_OPTIONS.map((t) => ({ value: t, label: t })),
+              ]}
+              aria-label="Filtrar por tipo"
+            />
+          </div>
+          <div className="backlog-filter">
+            <Combobox
+              value={statusFilter || ALL_STATUSES}
+              onValueChange={(v) => setStatusFilter(v === ALL_STATUSES ? "" : v)}
+              options={[
+                { value: ALL_STATUSES, label: "Todos os status" },
+                ...STATUS_OPTIONS.map((s) => ({ value: s, label: s })),
+              ]}
+              aria-label="Filtrar por status"
+            />
+          </div>
+          {isFiltered && (
+            <button
+              type="button"
+              className="btn btn-ghost btn-xs"
+              onClick={() => {
+                setSearch("");
+                setSprintFilter("");
+                setAssigneeFilter("");
+                setTypeFilter("");
+                setStatusFilter("");
+              }}>
+              limpar filtros
+            </button>
+          )}
+        </div>
+      )}
+
+      {projectId && isFiltered && !rootsLoading && (
+        <p className="backlog-filter-note mono">
+          {rootsTotal === 0
+            ? "Nenhum work item corresponde aos filtros."
+            : rootsTotal === 1
+              ? "1 item encontrado — exibido como lista, sem hierarquia."
+              : `${rootsTotal} itens encontrados — exibidos como lista, sem hierarquia.`}
+        </p>
+      )}
+
       {!projectId && (
         <div className="backlog-empty-hint">
           <span className="backlog-empty-hint-glyph" aria-hidden="true">◈</span>
@@ -614,7 +785,7 @@ export function BacklogPage({ onOpenHierarchyWizard }) {
           {rootsError && (
             <div className="backlog-error-state">
               <span>{rootsError}</span>
-              <button className="btn" onClick={() => loadRoots(projectId, rootsPage)}>Tentar novamente</button>
+              <button className="btn" onClick={() => loadRoots(projectId, rootsPage, filterParams)}>Tentar novamente</button>
             </div>
           )}
           {!rootsError && rootsLoading && <SkeletonList />}
@@ -623,45 +794,57 @@ export function BacklogPage({ onOpenHierarchyWizard }) {
               <span className="backlog-empty-state-glyph" aria-hidden="true">◇</span>
               <span className="backlog-empty-state-title serif">Nenhum item encontrado</span>
               <span className="backlog-empty-state-sub">
-                Este projeto ainda não tem work items sincronizados, ou nenhum item corresponde à página atual.
+                {isFiltered
+                  ? "Nenhum work item corresponde aos filtros aplicados. Ajuste a busca ou limpe os filtros."
+                  : "Este projeto ainda não tem work items sincronizados, ou nenhum item corresponde à página atual."}
               </span>
             </div>
           )}
           {!rootsError && !rootsLoading && roots.length > 0 && (
             <>
-              <div className="backlog-tree-toolbar">
-                <button
-                  type="button"
-                  className="btn-ghost btn wi-fields-btn"
-                  onClick={handleExpandOneLevel}
-                  disabled={registryStats.shallowestCollapsed === null}>
-                  Expandir 1 nível
-                </button>
-                <button
-                  type="button"
-                  className="btn-ghost btn wi-fields-btn"
-                  onClick={handleCollapseOneLevel}
-                  disabled={registryStats.deepestExpanded === null}>
-                  Recolher 1 nível
-                </button>
-                {autoExpanding && (
-                  <span className="backlog-tree-toolbar-hint mono">
-                    <span className="skeleton circle" style={{ width: 12, height: 12, borderRadius: 3 }} />
-                    Expandindo a árvore…
-                  </span>
-                )}
-              </div>
+              {/* Sob filtro o resultado é uma lista plana: não há níveis a expandir. */}
+              {!isFiltered && (
+                <div className="backlog-tree-toolbar">
+                  <button
+                    type="button"
+                    className="btn-ghost btn wi-fields-btn"
+                    onClick={handleExpandOneLevel}
+                    disabled={registryStats.shallowestCollapsed === null}>
+                    Expandir 1 nível
+                  </button>
+                  <button
+                    type="button"
+                    className="btn-ghost btn wi-fields-btn"
+                    onClick={handleCollapseOneLevel}
+                    disabled={registryStats.deepestExpanded === null}>
+                    Recolher 1 nível
+                  </button>
+                  {autoExpanding && (
+                    <span className="backlog-tree-toolbar-hint mono">
+                      <span className="skeleton circle" style={{ width: 12, height: 12, borderRadius: 3 }} />
+                      Expandindo a árvore…
+                    </span>
+                  )}
+                </div>
+              )}
               <div className="backlog-tree">
                 {roots.map((item) => (
-                  <TreeNode
-                    key={item.id}
-                    item={item}
-                    onItemChanged={handleRootChanged}
-                    registerNode={registerNode}
-                    unregisterNode={unregisterNode}
-                    command={command}
-                    autoExpand={autoExpand}
-                  />
+                  /* Sob filtro os itens vêm achatados, incluindo filhos e órfãos, então
+                   * são linhas simples: TreeNode ofereceria expandir uma hierarquia que
+                   * este modo não representa. */
+                  isFiltered ? (
+                    <WorkItemRow key={item.id} item={item} onItemChanged={handleRootChanged} />
+                  ) : (
+                    <TreeNode
+                      key={item.id}
+                      item={item}
+                      onItemChanged={handleRootChanged}
+                      registerNode={registerNode}
+                      unregisterNode={unregisterNode}
+                      command={command}
+                      autoExpand={autoExpand}
+                    />
+                  )
                 ))}
               </div>
               <Pager page={rootsPage} size={PAGE_SIZE} totalElements={rootsTotal} onPageChange={handleRootsPageChange} />
@@ -702,7 +885,7 @@ export function BacklogPage({ onOpenHierarchyWizard }) {
       {projectId && orphansError && (
         <div className="backlog-error-state">
           <span>{orphansError}</span>
-          <button className="btn" onClick={() => loadOrphans(projectId, orphansPage)}>Tentar novamente</button>
+          <button className="btn" onClick={() => loadOrphans(projectId, orphansPage, filterParams)}>Tentar novamente</button>
         </div>
       )}
     </section>

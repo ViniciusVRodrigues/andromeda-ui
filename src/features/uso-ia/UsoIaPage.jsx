@@ -5,6 +5,12 @@ import { FluencyScoreSection } from "./components/FluencyScoreSection.jsx";
 import { PendingAllocationCard } from "./components/PendingAllocationCard.jsx";
 import { AllocationModal } from "./components/AllocationModal.jsx";
 import { AllocationHistory } from "./components/AllocationHistory.jsx";
+import Combobox from "../../components/Combobox.jsx";
+
+/* Sentinela para "Meu uso" (selectedUserId === null). Radix Select reserva a
+ * string vazia para limpar a seleção, então o estado "sem usuário escolhido"
+ * precisa de um valor próprio que nunca colida com um id real. */
+const MY_USAGE = "__my_usage__";
 
 /**
  * @param {{ can: (tab: string) => boolean }} props
@@ -115,17 +121,22 @@ export function UsoIaPage({ can }) {
           gap: 12,
         }}>
           <span className="mono" style={{ fontSize: "var(--mono-sm)", color: "var(--fg-muted)" }}>Visualizar como</span>
-          <div className="signup-select" style={{ minWidth: 220 }}>
-            <select
-              value={selectedUserId || ""}
-              onChange={(e) => setSelectedUserId(e.target.value || null)}
-              aria-label="Selecionar membro para visualizar">
-              <option value="">Meu uso</option>
-              {teamMembers.map((m) => (
-                <option key={m.id} value={m.id}>{m.name || m.email}</option>
-              ))}
-            </select>
-            <span className="signup-select-caret">▾</span>
+          <div style={{ minWidth: 220 }}>
+            <Combobox
+              value={selectedUserId || MY_USAGE}
+              onValueChange={(v) => setSelectedUserId(v === MY_USAGE ? null : v)}
+              options={[
+                { value: MY_USAGE, label: "Meu uso" },
+                /* Membros sem id são descartados: um <option> sem value cai no
+                 * próprio texto, que era como o nome do usuário acabava sendo
+                 * enviado no lugar do id. Melhor sumir do seletor do que emitir
+                 * uma requisição silenciosamente errada. */
+                ...teamMembers
+                  .filter((m) => m.id && (m.name || m.email))
+                  .map((m) => ({ value: m.id, label: m.name || m.email })),
+              ]}
+              aria-label="Selecionar membro para visualizar"
+            />
           </div>
         </div>
       )}

@@ -21,8 +21,10 @@ import { LoginScreen } from "./features/auth/LoginScreen.jsx";
 import { OnboardingScreen } from "./features/onboarding/OnboardingScreen.jsx";
 import { AdminSettings } from "./features/admin/AdminSettings.jsx";
 import { DashboardPage } from "./features/dashboard/DashboardPage.jsx";
+import { NotFoundScreen } from "./features/not-found/NotFoundScreen.jsx";
 import { ThemePickerModal } from "./components/ThemePickerModal.jsx";
 import api, { setToken, clearToken, onAuthExpired, getToken } from "./services/api.js";
+import { orgRoute, splitOrgPath } from "./lib/orgRoutes.js";
 import {
   useTweaks,
   TweaksPanel,
@@ -82,14 +84,14 @@ function canSee(identity, tab) {
   if (tab === "uso-ia-pricing") return p.includes("PRICE_TABLE_MANAGE") || identity.isAdmin;
   return identity.isAdmin; // roles, seniority, org
 }
-function firstAllowedRoute(identity) {
+function firstAllowedRoute(identity, orgSlug) {
   // Dashboard takes priority when the user has any dashboard permission
   const p = identity.permissions;
   if (p.includes("DASHBOARD_INDIVIDUAL") || p.includes("DASHBOARD_TEAM") || p.includes("DASHBOARD_STRATEGIC")) {
-    return "/dashboard";
+    return orgRoute(orgSlug, "dashboard");
   }
   const first = SHELL_SECTIONS.find((s) => canSee(identity, s.tab));
-  return "/" + (first ? first.route : "");
+  return orgRoute(orgSlug, first ? first.route : "");
 }
 
 function hasManage(identity) {
@@ -177,11 +179,12 @@ function AppShell() {
     });
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const enterApp = (meData, route = "/projetos") => {
-    setIdentity(buildIdentity(meData.permissions));
+  const enterApp = (meData, route) => {
+    const nextIdentity = buildIdentity(meData.permissions);
+    setIdentity(nextIdentity);
     setProfile(buildProfile(meData));
     setAuthStatus("authenticated");
-    navigate(route);
+    navigate(route ?? firstAllowedRoute(nextIdentity, meData.orgSlug));
   };
   const exitApp = () => {
     setIdentity(null);
@@ -196,7 +199,7 @@ function AppShell() {
     setToken(response.token);
     const meData = await api.get("/v1/auth/me");
     setThemePickerOpen(true);
-    enterApp(meData, "/projetos");
+    enterApp(meData, orgRoute(meData.orgSlug, "projetos"));
   };
 
   // segmento de topo: estável dentro da casca (todas as áreas compartilham a
@@ -204,8 +207,16 @@ function AppShell() {
   // sair da casca. Isso preserva o estado interno (projetos, pessoas, etc.).
   // Sub-rotas (ex.: "organizacao/cargos") ainda contam como a mesma área —
   // comparamos pelo primeiro segmento de cada entrada em SHELL_ROUTES.
-  const seg = location.pathname === "/" ? "home" : location.pathname.split("/")[1];
-  const inShell = SHELL_ROUTES.some((r) => r.split("/")[0] === seg);
+  /* Com o prefixo de organização (/:orgSlug/:section) a seção é o SEGUNDO segmento;
+   * as telas públicas continuam no primeiro. Testar os dois cobre ambos os formatos
+   * — inclusive uma URL antiga sem prefixo, que o ShellRoute redireciona. */
+  const { first, rest } = splitOrgPath(location.pathname);
+  const seg = location.pathname === "/" ? "home" : first;
+  const sectionSeg = rest.split("/")[0];
+  const inShell = SHELL_ROUTES.some((r) => {
+    const head = r.split("/")[0];
+    return head === seg || head === sectionSeg;
+  });
   const keyBase = inShell ? "shell" : seg;
 
   if (authStatus === "pending") {
@@ -239,7 +250,9 @@ function AppShell() {
               <OnboardingScreen onDone={async () => {
                 try {
                   const meData = await api.get("/v1/auth/me");
-                  enterApp(meData, firstAllowedRoute(buildIdentity(meData.permissions)));
+                  /* sem rota explícita: enterApp resolve a primeira permitida já com
+                   * o prefixo da organização */
+                  enterApp(meData);
                 } catch {
                   navigate("/");
                 }
@@ -247,12 +260,12 @@ function AppShell() {
             } />
 
             {/* legado: /cargos e /senioridade viraram sub-abas de /organizacao */}
-            <Route path="/cargos" element={<Navigate to="/organizacao/cargos" replace />} />
-            <Route path="/senioridade" element={<Navigate to="/organizacao/senioridade" replace />} />
+            <Route path="/cargos" element={<LegacyShellRedirect to="organizacao/cargos" profile={profile} />} />
+            <Route path="/senioridade" element={<LegacyShellRedirect to="organizacao/senioridade" profile={profile} />} />
 
-            {/* app autenticado: uma rota por função (com sub-rotas opcionais,
-             * ex.: /organizacao/cargos), todas na mesma casca */}
-            <Route path="/:section/*" element={
+            {/* app autenticado: /:orgSlug/:section(/*) — o slug identifica a
+             * organização na URL; a autorização continua vindo do JWT. */}
+            <Route path="/:orgSlug/:section/*" element={
               <ShellRoute
                 identity={identity}
                 profile={profile}
@@ -262,7 +275,20 @@ function AppShell() {
               />
             } />
 
-            <Route path="*" element={<Navigate to="/" replace />} />
+            {/* URLs antigas sem prefixo (/backlog): redireciona para a versão
+             * prefixada preservando a sub-rota, para não quebrar links salvos. */}
+            <Route path="/:section/*" element={
+              <LegacyShellRoute identity={identity} profile={profile} />
+            } />
+
+            {/* 404: rota desconhecida mostra a página em vez de redirecionar em
+             * silêncio para a home — um endereço errado deve se anunciar. */}
+            <Route path="*" element={
+              <NotFoundScreen
+                onBack={() => navigate(identity ? firstAllowedRoute(identity, profile?.org?.slug) : "/")}
+                backLabel={identity ? "Voltar ao painel" : "Voltar ao início"}
+              />
+            } />
           </Routes>
         </div>
       </div>
@@ -293,15 +319,38 @@ function AppShell() {
  * só rota, a AdminSettings é a mesma instância ao trocar de área (estado
  * preservado). O `*` captura sub-rotas como "cargos" em /organizacao/cargos. */
 function ShellRoute({ identity, profile, palette, setPalette, onLogout }) {
-  const { section, "*": rest } = useParams();
+  const { orgSlug, section, "*": rest } = useParams();
   const navigate = useNavigate();
 
+  /* /:orgSlug/:section casa qualquer par de segmentos, então uma seção inexistente
+   * chegaria aqui em vez de cair no catch-all. Checar antes da guarda de sessão evita
+   * mandar um visitante para a home quando o endereço em si é que não existe. */
+  const requestedRoute = rest ? `${section}/${rest}` : section;
+  const knownSection = requestedRoute in ROUTE_TO_TAB || section in ROUTE_TO_TAB;
+  if (!knownSection) {
+    return (
+      <NotFoundScreen
+        onBack={() => navigate(identity ? firstAllowedRoute(identity, profile?.org?.slug) : "/")}
+        backLabel={identity ? "Voltar ao painel" : "Voltar ao início"}
+      />
+    );
+  }
+
   if (!identity) return <Navigate to="/" replace />;
+
+  /* O slug da sessão é a verdade; o da URL é só rótulo. Divergência (link de outra
+   * org, slug renomeado) reescreve o endereço para o da sessão em vez de negar
+   * acesso — quem decide o que o usuário vê é o JWT, não a barra de endereço. */
+  const sessionSlug = profile?.org?.slug;
+  if (sessionSlug && orgSlug !== sessionSlug) {
+    const target = rest ? `${section}/${rest}` : section;
+    return <Navigate to={orgRoute(sessionSlug, target)} replace />;
+  }
 
   // sem permissão de gestão → sem barra lateral: só o dashboard com a pílula
   // inferior (que aqui ganha o botão de Sair, separado por um divisor).
   if (!hasManage(identity)) {
-    if (section !== "dashboard") return <Navigate to="/dashboard" replace />;
+    if (section !== "dashboard") return <Navigate to={orgRoute(sessionSlug, "dashboard")} replace />;
     return (
       <div className="dash-only">
         <DashboardPage dash={dashAccess(identity)} onLogout={onLogout} />
@@ -313,7 +362,9 @@ function ShellRoute({ identity, profile, palette, setPalette, onLogout }) {
   const fullRoute = rest ? `${section}/${rest}` : section;
   const tab = ROUTE_TO_TAB[fullRoute] ?? ROUTE_TO_TAB[section];
   const subtab = ROUTE_TO_SUBTAB[fullRoute] ?? ROUTE_TO_SUBTAB[section] ?? null;
-  if (!tab || !canSee(identity, tab)) return <Navigate to={firstAllowedRoute(identity)} replace />;
+  if (!tab || !canSee(identity, tab)) {
+    return <Navigate to={firstAllowedRoute(identity, sessionSlug)} replace />;
+  }
 
   return (
     <AdminSettings
@@ -324,17 +375,53 @@ function ShellRoute({ identity, profile, palette, setPalette, onLogout }) {
       profile={profile}
       palette={palette}
       setPalette={setPalette}
-      onNavigate={(t) => navigate("/" + TAB_TO_ROUTE[t])}
+      onNavigate={(t) => navigate(orgRoute(sessionSlug, TAB_TO_ROUTE[t]))}
       onNavigateSubtab={(subtabId) => {
         if (tab === "uso-ia") {
-          navigate(`/uso-ia${subtabId === "consumo" ? "" : "/" + subtabId}`);
+          navigate(orgRoute(sessionSlug, `uso-ia${subtabId === "consumo" ? "" : "/" + subtabId}`));
         } else {
-          navigate(`/organizacao${subtabId === "geral" ? "" : "/" + subtabId}`);
+          navigate(orgRoute(sessionSlug, `organizacao${subtabId === "geral" ? "" : "/" + subtabId}`));
         }
       }}
       onLogout={onLogout}
     />
   );
+}
+
+/* URLs da casca sem prefixo de organização (/backlog, /uso-ia/precificacao) — o formato
+ * anterior ao slug na URL. Redireciona para a versão prefixada preservando a sub-rota,
+ * para que links salvos e o histórico do navegador continuem funcionando. */
+function LegacyShellRoute({ identity, profile }) {
+  const { section, "*": rest } = useParams();
+  const navigate = useNavigate();
+
+  const target = rest ? `${section}/${rest}` : section;
+
+  /* Só redireciona o que é de fato uma seção da casca; qualquer outro endereço de um
+   * segmento (/xpto) é 404, não uma rota antiga. */
+  if (!(target in ROUTE_TO_TAB || section in ROUTE_TO_TAB)) {
+    return (
+      <NotFoundScreen
+        onBack={() => navigate(identity ? firstAllowedRoute(identity, profile?.org?.slug) : "/")}
+        backLabel={identity ? "Voltar ao painel" : "Voltar ao início"}
+      />
+    );
+  }
+
+  if (!identity) return <Navigate to="/" replace />;
+
+  const slug = profile?.org?.slug;
+  /* Sem slug (org sem identificador) as rotas seguem sem prefixo — redirecionar para
+   * a mesma URL causaria um laço. */
+  if (!slug) return <Navigate to="/" replace />;
+
+  return <Navigate to={orgRoute(slug, target)} replace />;
+}
+
+/* /cargos e /senioridade viraram sub-abas de /organizacao antes do prefixo existir;
+ * agora precisam também do slug. */
+function LegacyShellRedirect({ to, profile }) {
+  return <Navigate to={orgRoute(profile?.org?.slug, to)} replace />;
 }
 
 function LoginScreenWrapper({ enterApp, onHome }) {
@@ -346,7 +433,7 @@ function LoginScreenWrapper({ enterApp, onHome }) {
       const resp = await api.post("/v1/auth/login", { email, password });
       setToken(resp.accessToken);
       const meData = await api.get("/v1/auth/me");
-      enterApp(meData, firstAllowedRoute(buildIdentity(meData.permissions)));
+      enterApp(meData);
     } catch (err) {
       setLoginError(err.message?.includes("401") ? "E-mail ou senha incorretos." : "Erro ao conectar. Tente novamente.");
     }

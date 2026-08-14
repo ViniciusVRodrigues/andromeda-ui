@@ -117,7 +117,7 @@ export function getDeveloperDashboard(params) {
 }
 
 /**
- * Fetch sprints for a project (for dashboard filter dropdowns).
+ * Fetch sprints for a project — usado nos dropdowns de filtro do dashboard e do backlog.
  * @param {string} projectId
  */
 export function getDashboardSprints(projectId) {
@@ -511,8 +511,11 @@ export function updateWorkItemManualFields(workItemId, fields) {
  * Fetch the first page (or a given page) of a project's root-level backlog
  * work items — items at the org's declared lowest-rank type, or with no
  * resolvable parent when hierarchy isn't configured.
+ * Com qualquer filtro (sprintId, assigneeUserId, search) a hierarquia é achatada e este
+ * endpoint devolve todos os itens que casam, independentemente de classificação — nesse
+ * modo, `orphans` responde vazio para não duplicar a lista.
  * @param {string} projectId
- * @param {{ page?: number, size?: number }} params
+ * @param {{ page?: number, size?: number, sprintId?: string, assigneeUserId?: string, search?: string, type?: string, status?: string }} params
  * @returns {Promise<{ page: number, size: number, totalElements: number, content: Array<object> }>}
  */
 export function getProjectBacklogRoots(projectId, params) {
@@ -529,8 +532,9 @@ export function getProjectBacklogRoots(projectId, params) {
 /**
  * Fetch a project's orphaned backlog work items — items whose parent link
  * doesn't resolve within the project, or violates the declared hierarchy order.
+ * Responde vazio quando há qualquer filtro ativo — ver `getProjectBacklogRoots`.
  * @param {string} projectId
- * @param {{ page?: number, size?: number }} params
+ * @param {{ page?: number, size?: number, sprintId?: string, assigneeUserId?: string, search?: string, type?: string, status?: string }} params
  * @returns {Promise<{ page: number, size: number, totalElements: number, content: Array<object> }>}
  */
 export function getProjectBacklogOrphans(projectId, params) {
