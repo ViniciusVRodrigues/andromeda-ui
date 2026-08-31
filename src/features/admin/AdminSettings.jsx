@@ -8,6 +8,7 @@ import { IntegrationTab } from "./IntegrationTab.jsx";
 import { ConnectedAccounts } from "./ConnectedAccounts.jsx";
 import { AzureFieldMappingWizard } from "./AzureFieldMappingWizard.jsx";
 import { BacklogPage } from "../backlog/BacklogPage.jsx";
+import { ReposPage } from "../repos/ReposPage.jsx";
 import { PERMISSION_LABELS, ALWAYS_ON_PERMISSIONS } from "./permissionLabels.js";
 import { AiPricingTab } from "../uso-ia/components/AiPricingTab.jsx";
 import { UsoIaPage } from "../uso-ia/UsoIaPage.jsx";
@@ -61,6 +62,7 @@ const TAB_ICONS = {
   org: svgIcon(<><path d="M4 21V4h9v17" /><path d="M13 9.5h7V21" /><path d="M7 8h3M7 12h3M7 16h3M16 13h1.5M16 17h1.5" /></>),
   integrations: svgIcon(<><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></>),
   "uso-ia": svgIcon(<><path d="M12 2a7 7 0 0 1 7 7c0 2.4-1.2 4.5-3 5.7V17a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1v-2.3C6.2 13.5 5 11.4 5 9a7 7 0 0 1 7-7z" /><path d="M9 21h6M12 17v4" /></>),
+  repos: svgIcon(<><circle cx="6" cy="6" r="2" /><circle cx="6" cy="18" r="2" /><circle cx="18" cy="12" r="2" /><path d="M6 8v8M8 6h5a3 3 0 0 1 3 3v1" /></>),
   backlog: svgIcon(<><path d="M4 5h16M4 5v14a1 1 0 0 0 1 1h6M4 5l2-2h12l2 2" /><path d="M14 13l3 3 5-5" /></>),
 };
 const ICON_DASH = svgIcon(<><rect x="3" y="3" width="7" height="9" rx="1" /><rect x="14" y="3" width="7" height="5" rx="1" /><rect x="14" y="12" width="7" height="9" rx="1" /><rect x="3" y="16" width="7" height="5" rx="1" /></>);
@@ -71,6 +73,7 @@ const ICON_USER = svgIcon(<><circle cx="12" cy="8" r="4" /><path d="M4 20a8 8 0 
 const TABS = [
   { id: "dashboard",    label: "Dashboard",           icon: ICON_DASH },
   { id: "backlog",      label: "Backlog",             icon: TAB_ICONS.backlog },
+  { id: "repos",        label: "Repositórios",        icon: TAB_ICONS.repos },
   { id: "projects",     label: "Projetos",            icon: TAB_ICONS.projects },
   { id: "team",         label: "Pessoas",             icon: TAB_ICONS.team },
   { id: "org",          label: "Organização",         icon: TAB_ICONS.org },
@@ -1346,6 +1349,8 @@ function AdminSettings({ section, subtab, can, dash, profile, palette, setPalett
               setFieldMappingWizardBindingId(bindingId);
             }} />
           )}
+
+          {section === "repos" && <ReposPage />}
         </main>
       </div>
 
