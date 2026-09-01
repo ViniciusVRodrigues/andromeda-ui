@@ -34,7 +34,7 @@ import {
 import { TokenUsageChart } from "../../components/charts/TokenUsageChart.jsx";
 import { BurndownChart } from "../../components/charts/BurndownChart.jsx";
 import { SprintProgressBar } from "../../components/SprintProgressBar.jsx";
-import { AllocationModal } from "../uso-ia/components/AllocationModal.jsx";
+import { AllocationModal } from "../ai-usage/components/AllocationModal.jsx";
 import { WorkItemManualFieldsEditor } from "../../components/WorkItemManualFieldsEditor.jsx";
 
 /* ── Helpers ─────────────────────────────────────── */
