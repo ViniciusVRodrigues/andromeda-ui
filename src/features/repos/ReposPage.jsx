@@ -6,25 +6,29 @@
  * repositório → indicadores de saúde + atividade de commits → lista de PRs
  * filtrável → drawer com o detalhe e os commits daquele PR.
  *
+ * Piloto do padrão frontend-server-state: todos os dados vêm de hooks React
+ * Query (features/repos/hooks.js), não de useState/useEffect de fetch.
+ *
  * Toda a apresentação vem de componentes compartilhados (PageHeader,
  * MetricGrid, ListCard, Drawer, CommitActivityChart) para que a tela herde o
  * design system em vez de recriá-lo.
  */
 import React from "react";
-import api, {
-  getProjectRepos,
-  getRepoPullRequests,
-  getRepoCommitActivity,
-  getPullRequestCommits,
-} from "../../services/api.js";
 import Combobox from "../../components/Combobox.jsx";
 import PageHeader from "../../components/PageHeader.jsx";
 import MetricGrid, { MetricCard } from "../../components/MetricGrid.jsx";
 import ListCard from "../../components/ListCard.jsx";
 import Drawer from "../../components/Drawer.jsx";
 import { CommitActivityChart } from "../../components/charts/CommitActivityChart.jsx";
-
-const PAGE_SIZE = 20;
+import { useProjects } from "../projects/hooks.js";
+import {
+  useProjectRepos,
+  useRepoCommitActivity,
+  useRepoPullRequests,
+  usePullRequestCommits,
+  PAGE_SIZE,
+} from "./hooks.js";
+import { useTriggerGithubSync } from "../integrations/hooks.js";
 
 /* Radix Select reserva a string vazia para limpar a seleção, então "todos"
  * precisa de um valor próprio — mesmo padrão do BacklogPage. */
@@ -42,12 +46,6 @@ const RANGE_OPTIONS = [
   { value: "180", label: "Últimos 180 dias" },
   { value: "365", label: "Último ano" },
 ];
-
-function rangeToInstants(days) {
-  const to = new Date();
-  const from = new Date(to.getTime() - Number(days) * 24 * 60 * 60 * 1000);
-  return { from: from.toISOString(), to: to.toISOString() };
-}
 
 /** Devolve null quando não há medição, para o MetricCard desenhar o traço. */
 function formatHours(value) {
@@ -73,23 +71,21 @@ function StatusPill({ status }) {
   return <span className={`backlog-status-pill status-${statusVariant(status)}`}>{status}</span>;
 }
 
+/** Mapeia o erro do client (mensagem com status) para texto de tela. */
+function syncErrorMessage(err) {
+  const msg = String(err?.message || "");
+  if (msg.includes("(429)")) return "Aguarde alguns minutos antes de sincronizar novamente.";
+  if (msg.includes("(403)")) return "Você não tem permissão para sincronizar.";
+  if (msg.includes("(409)")) return "Conecte o GitHub em Integrações antes de sincronizar.";
+  return "Falha ao sincronizar. Tente novamente.";
+}
+
 /** Detalhe do pull request, incluindo os commits carregados sob demanda. */
 function PullRequestDrawer({ repoId, repoName, pr, onClose }) {
-  const [commits, setCommits] = React.useState([]);
-  const [commitsState, setCommitsState] = React.useState("loading");
-
-  React.useEffect(() => {
-    if (!pr) return;
-    setCommitsState("loading");
-    /* Os commits vêm da API do GitHub sob demanda, então podem falhar sem que
-     * o resto do detalhe — que vem de dados já sincronizados — falhe junto. */
-    getPullRequestCommits(repoId, pr.id)
-      .then((data) => {
-        setCommits(Array.isArray(data) ? data : []);
-        setCommitsState("ready");
-      })
-      .catch(() => setCommitsState("error"));
-  }, [repoId, pr]);
+  /* Os commits vêm da API do GitHub sob demanda, então podem falhar sem que
+   * o resto do detalhe — que vem de dados já sincronizados — falhe junto. */
+  const commitsQuery = usePullRequestCommits(repoId, pr?.id);
+  const commits = commitsQuery.data ?? [];
 
   if (!pr) return null;
 
@@ -143,14 +139,14 @@ function PullRequestDrawer({ repoId, repoName, pr, onClose }) {
           precisa continuar visível enquanto se percorre os commits. */}
       <div className="pr-drawer-commits">
         <h4 className="serif page-section-title">Commits</h4>
-        {commitsState === "loading" ? <p className="mono drawer-empty">Carregando…</p> : null}
-        {commitsState === "error" ? (
+        {commitsQuery.isLoading ? <p className="mono drawer-empty">Carregando…</p> : null}
+        {commitsQuery.isError ? (
           <p className="mono drawer-empty">Não foi possível carregar os commits agora.</p>
         ) : null}
-        {commitsState === "ready" && !commits.length ? (
+        {commitsQuery.isSuccess && !commits.length ? (
           <p className="mono drawer-empty">Nenhum commit neste pull request.</p>
         ) : null}
-        {commitsState === "ready" && commits.length ? (
+        {commitsQuery.isSuccess && commits.length ? (
           <ul className="commit-list scroll-slim">
             {commits.map((c) => (
               <li key={c.sha} className="commit-card">
@@ -170,81 +166,37 @@ function PullRequestDrawer({ repoId, repoName, pr, onClose }) {
 }
 
 export function ReposPage() {
-  const [projects, setProjects] = React.useState([]);
   const [projectId, setProjectId] = React.useState("");
-
-  const [repos, setRepos] = React.useState([]);
-  const [reposState, setReposState] = React.useState("idle");
   const [repoId, setRepoId] = React.useState("");
-
   const [rangeDays, setRangeDays] = React.useState("90");
-  const [activity, setActivity] = React.useState([]);
-
   const [status, setStatus] = React.useState(ALL_STATUSES);
   const [author, setAuthor] = React.useState(ALL_AUTHORS);
   const [page, setPage] = React.useState(0);
-  const [prPage, setPrPage] = React.useState({ content: [], totalElements: 0 });
-  const [prState, setPrState] = React.useState("idle");
-
   const [selectedPr, setSelectedPr] = React.useState(null);
 
-  React.useEffect(() => {
-    api
-      .get("/v1/projects")
-      .then((data) => setProjects(Array.isArray(data) ? data : []))
-      .catch(() => setProjects([]));
-  }, []);
+  const { data: projects = [] } = useProjects();
+  const reposQuery = useProjectRepos(projectId);
+  const repos = reposQuery.data ?? [];
 
-  React.useEffect(() => {
-    if (!projectId) {
-      setRepos([]);
-      setRepoId("");
-      return;
-    }
-    setReposState("loading");
-    getProjectRepos(projectId)
-      .then((data) => {
-        const list = Array.isArray(data) ? data : [];
-        setRepos(list);
-        // Com um único repositório não há o que escolher: mostra direto.
-        setRepoId(list.length ? list[0].repoId : "");
-        setReposState("ready");
-      })
-      .catch(() => {
-        setRepos([]);
-        setReposState("error");
-      });
-  }, [projectId]);
+  const activityQuery = useRepoCommitActivity(repoId, rangeDays);
+  const activity = activityQuery.data ?? [];
 
-  React.useEffect(() => {
-    if (!repoId) {
-      setActivity([]);
-      return;
-    }
-    const { from, to } = rangeToInstants(rangeDays);
-    getRepoCommitActivity(repoId, { from, to })
-      .then((data) => setActivity(Array.isArray(data) ? data : []))
-      .catch(() => setActivity([]));
-  }, [repoId, rangeDays]);
+  const prsQuery = useRepoPullRequests(repoId, {
+    page,
+    status: status === ALL_STATUSES ? "" : status,
+    author: author === ALL_AUTHORS ? "" : author,
+  });
+  const prPage = prsQuery.data || { content: [], totalElements: 0 };
 
+  const sync = useTriggerGithubSync();
+
+  // Trocar de projeto zera o repositório escolhido: o id não existe no novo escopo.
+  React.useEffect(() => setRepoId(""), [projectId]);
+
+  // Com um único repositório não há o que escolher: mostra direto.
   React.useEffect(() => {
-    if (!repoId) {
-      setPrPage({ content: [], totalElements: 0 });
-      return;
-    }
-    setPrState("loading");
-    getRepoPullRequests(repoId, {
-      page,
-      size: PAGE_SIZE,
-      status: status === ALL_STATUSES ? "" : status,
-      author: author === ALL_AUTHORS ? "" : author,
-    })
-      .then((data) => {
-        setPrPage(data || { content: [], totalElements: 0 });
-        setPrState("ready");
-      })
-      .catch(() => setPrState("error"));
-  }, [repoId, page, status, author]);
+    if (repos.length && !repoId) setRepoId(repos[0].repoId);
+  }, [repos, repoId]);
 
   // Trocar de filtro reinicia a paginação: manter a página atual mostraria um
   // recorte vazio de um conjunto que encolheu.
@@ -310,11 +262,15 @@ export function ReposPage() {
         </div>
       ) : null}
 
-      {projectId && reposState === "ready" && !repos.length ? (
+      {projectId && reposQuery.isSuccess && !repos.length ? (
         <div className="state-notice mono">
           Nenhum repositório vinculado a este projeto. Vincule um em{" "}
           <a href="/integracoes">Integrações</a>.
         </div>
+      ) : null}
+
+      {projectId && reposQuery.isError ? (
+        <div className="state-notice mono">Não foi possível carregar os repositórios.</div>
       ) : null}
 
       {selectedRepo ? (
@@ -376,13 +332,23 @@ export function ReposPage() {
                   aria-label="Filtrar por autor"
                 />
               </div>
+              <button
+                className="btn ml-auto self-start"
+                disabled={sync.isPending}
+                onClick={() => sync.mutate()}
+              >
+                {sync.isPending ? "Sincronizando…" : "Sincronizar"}
+              </button>
             </div>
+            {sync.isError ? (
+              <p className="mono drawer-empty">{syncErrorMessage(sync.error)}</p>
+            ) : null}
 
-            {prState === "loading" ? <p className="mono drawer-empty">Carregando…</p> : null}
-            {prState === "error" ? (
+            {prsQuery.isLoading ? <p className="mono drawer-empty">Carregando…</p> : null}
+            {prsQuery.isError ? (
               <div className="state-notice mono">Não foi possível carregar os pull requests.</div>
             ) : null}
-            {prState === "ready" && !prPage.content.length ? (
+            {prsQuery.isSuccess && !prPage.content.length ? (
               <div className="state-notice mono">
                 Nenhum pull request sincronizado para este repositório.
               </div>

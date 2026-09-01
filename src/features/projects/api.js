@@ -2,6 +2,11 @@
 
 import { api, toQuery } from "../../core/api/client.js";
 
+/** Lista os projetos ativos da organização. */
+export function getProjects() {
+  return api.get("/v1/projects");
+}
+
 export function updateProjectMembers(projectId, memberIds) {
   return api.put(`/v1/projects/${projectId}/members`, { memberIds });
 }
