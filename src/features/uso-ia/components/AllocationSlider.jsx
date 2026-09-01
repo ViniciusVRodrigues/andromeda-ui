@@ -1,4 +1,5 @@
 import React from "react";
+import Slider from "../../../core/ui/Slider.jsx";
 
 /**
  * @param {{
@@ -29,17 +30,15 @@ export function AllocationSlider({ item, onChange, onRemove, disabled }) {
         </span>
       </div>
 
-      {/* Slider */}
-      <input
-        type="range"
-        min={0}
-        max={100}
-        value={item.pct}
-        disabled={disabled}
-        onChange={(e) => onChange(parseInt(e.target.value, 10))}
-        style={{ width: 110, accentColor: "var(--accent)", flexShrink: 0 }}
-        aria-label={`Percentual para ${item.workItemTitle || item.workItemId}`}
-      />
+      {/* Slider — Radix (core/ui/Slider), mesma faixa 0–100 do input nativo */}
+      <div style={{ width: 110, flexShrink: 0 }}>
+        <Slider
+          value={[item.pct]}
+          onValueChange={([v]) => onChange(v)}
+          disabled={disabled}
+          ariaLabel={`Percentual para ${item.workItemTitle || item.workItemId}`}
+        />
+      </div>
 
       {/* Percentage display */}
       <span

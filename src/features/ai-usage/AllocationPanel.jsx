@@ -1,33 +1,6 @@
 import React from "react";
 import api from "../../services/api.js";
-
-// Redistribute remainder proportionally among all items except the one at changedIndex
-function redistribute(items, changedIndex, newPct) {
-  const others = items.filter((_, i) => i !== changedIndex);
-  const remainder = Math.max(0, 100 - newPct);
-
-  if (others.length === 0) {
-    return items.map((item, i) => (i === changedIndex ? { ...item, pct: 100 } : item));
-  }
-
-  const othersSum = others.reduce((s, o) => s + o.pct, 0);
-
-  return items.map((item, i) => {
-    if (i === changedIndex) return { ...item, pct: newPct };
-    if (othersSum === 0) return { ...item, pct: Math.round(remainder / others.length) };
-    return { ...item, pct: Math.round((item.pct / othersSum) * remainder) };
-  });
-}
-
-function normalise(items) {
-  // Ensure sum is exactly 100 by adjusting the last item
-  const sum = items.reduce((s, it) => s + it.pct, 0);
-  if (sum === 0 || items.length === 0) return items;
-  const diff = 100 - sum;
-  return items.map((it, i) =>
-    i === items.length - 1 ? { ...it, pct: Math.max(0, it.pct + diff) } : it,
-  );
-}
+import { redistribute, normalise } from "../../core/allocationMath.js";
 
 export default function AllocationPanel({ pendingDays, onClose, onSaved }) {
   const [dayIndex, setDayIndex] = React.useState(0);

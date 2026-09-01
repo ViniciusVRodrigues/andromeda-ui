@@ -18,7 +18,7 @@ import api, {
   getTeamMembers,
 } from "../../services/api.js";
 import { WorkItemManualFieldsEditor } from "../../components/WorkItemManualFieldsEditor.jsx";
-import Combobox from "../../components/Combobox.jsx";
+import Combobox from "../../core/ui/Combobox.jsx";
 
 const PAGE_SIZE = 20;
 

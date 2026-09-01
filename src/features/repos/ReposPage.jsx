@@ -14,11 +14,11 @@
  * design system em vez de recriá-lo.
  */
 import React from "react";
-import Combobox from "../../components/Combobox.jsx";
-import PageHeader from "../../components/PageHeader.jsx";
-import MetricGrid, { MetricCard } from "../../components/MetricGrid.jsx";
-import ListCard from "../../components/ListCard.jsx";
-import Drawer from "../../components/Drawer.jsx";
+import Combobox from "../../core/ui/Combobox.jsx";
+import PageHeader from "../../core/ui/PageHeader.jsx";
+import MetricGrid, { MetricCard } from "../../core/ui/MetricGrid.jsx";
+import ListCard from "../../core/ui/ListCard.jsx";
+import Drawer from "../../core/ui/Drawer.jsx";
 import { CommitActivityChart } from "../../components/charts/CommitActivityChart.jsx";
 import { useProjects } from "../projects/hooks.js";
 import {

@@ -8,7 +8,7 @@ import api, {
 import { useOAuth } from "../../hooks/useOAuth.js";
 import { AiConnectorCard } from "./AiConnectorCard.jsx";
 import { Icon } from "../../components/charts/Charts.jsx";
-import Drawer from "../../components/Drawer.jsx";
+import Drawer from "../../core/ui/Drawer.jsx";
 
 function statusDot(status) {
   if (status === "CONNECTED") return "●";

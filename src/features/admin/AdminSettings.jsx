@@ -13,8 +13,8 @@ import { PERMISSION_LABELS, ALWAYS_ON_PERMISSIONS } from "./permissionLabels.js"
 import { AiPricingTab } from "../uso-ia/components/AiPricingTab.jsx";
 import { UsoIaPage } from "../uso-ia/UsoIaPage.jsx";
 import { SubTabs } from "../../components/SubTabs.jsx";
-import Combobox from "../../components/Combobox.jsx";
-import Checkbox from "../../components/Checkbox.jsx";
+import Combobox from "../../core/ui/Combobox.jsx";
+import Checkbox from "../../core/ui/Checkbox.jsx";
 import { orgUrlLabel } from "../../lib/appUrl.js";
 import api, {
   getToken,

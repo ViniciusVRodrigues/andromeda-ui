@@ -5,7 +5,7 @@ import { FluencyScoreSection } from "./components/FluencyScoreSection.jsx";
 import { PendingAllocationCard } from "./components/PendingAllocationCard.jsx";
 import { AllocationModal } from "./components/AllocationModal.jsx";
 import { AllocationHistory } from "./components/AllocationHistory.jsx";
-import Combobox from "../../components/Combobox.jsx";
+import Combobox from "../../core/ui/Combobox.jsx";
 
 /* Sentinela para "Meu uso" (selectedUserId === null). Radix Select reserva a
  * string vazia para limpar a seleção, então o estado "sem usuário escolhido"
