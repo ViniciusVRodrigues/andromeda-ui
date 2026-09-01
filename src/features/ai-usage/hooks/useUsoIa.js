@@ -1,15 +1,15 @@
 import React from "react";
 import {
-  getAiUsageSummary,
-  getAiFluencyScore,
-  getPendingAllocations,
+  acceptAllocation,
   getAiAllocationHistory,
+  getAiFluencyScore,
+  getAiUsageSummary,
+  getPendingAllocations,
   getSprintItems,
   getTeamMembers,
-  acceptAllocation,
   manualAllocate,
   manualAllocateNoSuggestion,
-} from "../../../services/api.js";
+} from "../api.js";
 
 export function useUsoIa() {
   const [selectedUserId, setSelectedUserId] = React.useState(null);

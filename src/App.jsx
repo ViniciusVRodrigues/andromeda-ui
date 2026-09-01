@@ -38,7 +38,7 @@ import { IntegrationsPage } from "./features/integrations/IntegrationsPage.jsx";
 import { UsoIaLayout } from "./features/ai-usage/UsoIaLayout.jsx";
 import { NotFoundScreen } from "./features/not-found/NotFoundScreen.jsx";
 import { ThemePickerModal } from "./components/ThemePickerModal.jsx";
-import api, { setToken, clearToken, onAuthExpired, getToken } from "./services/api.js";
+import api, { clearToken, getToken, onAuthExpired, setToken } from "./core/api/client.js";
 import { orgRoute, splitOrgPath } from "./lib/orgRoutes.js";
 import {
   useTweaks,

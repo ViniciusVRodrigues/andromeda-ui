@@ -1,5 +1,5 @@
 import React from "react";
-import api from "../services/api.js";
+import api from "../core/api/client.js";
 
 const POLL_INTERVAL_MS = 2000;
 const TIMEOUT_MS = 5 * 60 * 1000;

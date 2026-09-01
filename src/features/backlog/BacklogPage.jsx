@@ -9,14 +9,15 @@
  * All data comes from real endpoints (project-backlog-view change) — no mocks.
  */
 import React from "react";
-import api, {
-  getProjectBacklogRoots,
-  getProjectBacklogOrphans,
-  getWorkItemChildren,
-  getAzureProjectBindings,
+import api from "../../core/api/client.js";
+import { getAzureProjectBindings } from "../integrations/api.js";
+import {
   getDashboardSprints,
-  getTeamMembers,
-} from "../../services/api.js";
+  getProjectBacklogOrphans,
+  getProjectBacklogRoots,
+  getWorkItemChildren,
+} from "../projects/api.js";
+import { getTeamMembers } from "../ai-usage/api.js";
 import { WorkItemManualFieldsEditor } from "../../components/WorkItemManualFieldsEditor.jsx";
 import Combobox from "../../core/ui/Combobox.jsx";
 

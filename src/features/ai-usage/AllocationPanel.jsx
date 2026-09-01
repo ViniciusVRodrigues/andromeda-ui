@@ -1,5 +1,5 @@
 import React from "react";
-import api from "../../services/api.js";
+import api from "../../core/api/client.js";
 import { redistribute, normalise } from "../../core/allocationMath.js";
 
 export default function AllocationPanel({ pendingDays, onClose, onSaved }) {

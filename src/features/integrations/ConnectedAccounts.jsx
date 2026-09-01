@@ -1,5 +1,5 @@
 import React from "react";
-import { getMyProviderAccounts, unlinkProviderAccount } from "../../services/api.js";
+import { getMyProviderAccounts, unlinkProviderAccount } from "../users/api.js";
 import { useOAuth } from "../../hooks/useOAuth.js";
 import { ConfirmDialog } from "../../core/ui/Modal.jsx";
 

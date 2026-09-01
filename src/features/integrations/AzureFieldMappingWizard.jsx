@@ -1,12 +1,12 @@
 import React from "react";
 import {
-  getAzureWorkItemTypes,
+  getAzureProjectBinding,
   getAzureWorkItemTypeFields,
   getAzureWorkItemTypeStates,
-  updateAzureWorkflowConfig,
+  getAzureWorkItemTypes,
   getSiblingAzureBindings,
-  getAzureProjectBinding,
-} from "../../services/api.js";
+  updateAzureWorkflowConfig,
+} from "./api.js";
 import { Modal } from "../../core/ui/Modal.jsx";
 
 const RESOLVED_TYPES = ["STORY", "BUG", "TASK", "EPIC", "FEATURE", "SUB_TASK"];

@@ -13,7 +13,9 @@ import { TeamDashboard } from "./TeamDashboard.jsx";
 import { ManagerDashboard } from "./ManagerDashboard.jsx";
 import PendingAllocationsBanner from "../../components/PendingAllocationsBanner.jsx";
 import AllocationPanel from "../ai-usage/AllocationPanel.jsx";
-import api, { getAllocationsPending, getDashboardSprints } from "../../services/api.js";
+import api from "../../core/api/client.js";
+import { getAllocationsPending } from "../ai-usage/api.js";
+import { getDashboardSprints } from "../projects/api.js";
 
 /* ── Default filter shapes per tab ── */
 const DEFAULT_INDIVIDUAL = { projectId: "", sprintId: "", startDate: "", endDate: "", model: "" };

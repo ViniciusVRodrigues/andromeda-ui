@@ -1,6 +1,6 @@
 import React from "react";
 import { AllocationSlider } from "./AllocationSlider.jsx";
-import { getAllocationCandidates } from "../../../services/api.js";
+import { getAllocationCandidates } from "../api.js";
 import { Modal } from "../../../core/ui/Modal.jsx";
 
 /**

@@ -14,7 +14,7 @@ import { OrbitWizard } from "../../components/OrbitWizard.jsx";
 import { Field } from "../../components/Field.jsx";
 import { OAuthPopup } from "../../components/OAuthPopup.jsx";
 import { PROVIDERS } from "../../data/providers.jsx";
-import api, { setToken } from "../../services/api.js";
+import api, { setToken } from "../../core/api/client.js";
 
 const ONBOARDING_STEPS = [
   {

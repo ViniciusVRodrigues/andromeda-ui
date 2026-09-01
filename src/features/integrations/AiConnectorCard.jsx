@@ -1,5 +1,5 @@
 import React from "react";
-import api, { BACKEND_URL } from "../../services/api.js";
+import api, { BACKEND_URL } from "../../core/api/client.js";
 import { ConfirmDialog } from "../../core/ui/Modal.jsx";
 
 /**

@@ -1,5 +1,5 @@
 import React from "react";
-import { updateWorkItemManualFields } from "../services/api.js";
+import { updateWorkItemManualFields } from "../features/projects/api.js";
 
 /**
  * Inline editor for a work item's complexity/effort, with a source badge

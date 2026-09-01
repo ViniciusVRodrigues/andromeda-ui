@@ -16,7 +16,7 @@
  */
 
 import React from "react";
-import { getTeamDashboard } from "../../services/api.js";
+import { getTeamDashboard } from "./api.js";
 import { BarChart } from "../../components/charts/Charts.jsx";
 
 /** Format a nullable number to 1 decimal place, or return "—". */

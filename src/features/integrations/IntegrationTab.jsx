@@ -1,10 +1,11 @@
 import React from "react";
-import api, {
-  getGithubConnectionStatus,
+import api from "../../core/api/client.js";
+import {
   configureGithubConnection,
   disconnectGithub,
+  getGithubConnectionStatus,
   triggerGithubSync,
-} from "../../services/api.js";
+} from "./api.js";
 import { useOAuth } from "../../hooks/useOAuth.js";
 import { AiConnectorCard } from "./AiConnectorCard.jsx";
 import { Icon } from "../../components/charts/Charts.jsx";

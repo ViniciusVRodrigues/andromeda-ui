@@ -26,7 +26,7 @@
  */
 
 import React from "react";
-import { getStrategicDashboard } from "../../services/api.js";
+import { getStrategicDashboard } from "./api.js";
 
 /** Format a nullable number to 1 decimal place, or return "—". */
 function fmt1(v) {

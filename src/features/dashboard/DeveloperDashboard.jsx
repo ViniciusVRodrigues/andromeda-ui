@@ -24,13 +24,13 @@
 
 import React from "react";
 import {
-  getDeveloperDashboard,
+  acceptAllocation,
   getPendingAllocations,
   getSprintItems,
-  acceptAllocation,
   manualAllocate,
   manualAllocateNoSuggestion,
-} from "../../services/api.js";
+} from "../ai-usage/api.js";
+import { getDeveloperDashboard } from "./api.js";
 import { TokenUsageChart } from "../../components/charts/TokenUsageChart.jsx";
 import { BurndownChart } from "../../components/charts/BurndownChart.jsx";
 import { SprintProgressBar } from "../../components/SprintProgressBar.jsx";

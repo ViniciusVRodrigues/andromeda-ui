@@ -7,7 +7,7 @@
 import React from "react";
 import { OrbitWizard } from "../../components/OrbitWizard.jsx";
 import { Field, SelectField } from "../../components/Field.jsx";
-import api from "../../services/api.js";
+import api from "../../core/api/client.js";
 import { ALWAYS_ON_PERMISSIONS } from "../../core/auth/permissionLabels.js";
 import { orgUrlLabel } from "../../lib/appUrl.js";
 

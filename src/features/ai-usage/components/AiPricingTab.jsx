@@ -9,8 +9,8 @@
  */
 
 import React from "react";
-import { updateAiPrices } from "../../../services/api.js";
-import api from "../../../services/api.js";
+import { updateAiPrices } from "../api.js";
+import api from "../../../core/api/client.js";
 
 const PRESET_MODELS = [
   { model: "claude-opus-4-8", pricePerKInput: 0.015, pricePerKOutput: 0.075 },
