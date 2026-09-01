@@ -14,8 +14,10 @@ import "./ui.css";
  * @param {import("react").ReactNode} [props.subtitle]
  * @param {"default"|"wide"|"confirm"} [props.size]
  * @param {boolean} [props.stacked]  modal sobre outro modal (z-index +10)
+ * @param {boolean} [props.showClose]  botão "fechar" no cabeçalho (wizard)
  * @param {boolean} [props.closeOnBackdrop]  padrão fecha no fundo; formulários
  *   de edição devem passar false para não perder edição em curso
+ * @param {string} [props.className]  classe extra na caixa (pele específica da tela)
  * @param {import("react").ReactNode} [props.footer]  ação do rodapé (botões)
  */
 export function Modal({
@@ -26,7 +28,9 @@ export function Modal({
   subtitle,
   size = "default",
   stacked = false,
+  showClose = false,
   closeOnBackdrop = true,
+  className = "",
   children,
   footer,
 }) {
@@ -39,9 +43,14 @@ export function Modal({
       <Dialog.Portal>
         <Dialog.Overlay
           className={`ui-modal-backdrop${stacked ? " ui-modal-backdrop--stacked" : ""}`}
-          {...(closeOnBackdrop ? {} : { onClick: (e) => e.preventDefault() })}
         />
-        <Dialog.Content className={`ui-modal${sizeClass}${stackClass}`}>
+        <Dialog.Content
+          className={`ui-modal${sizeClass}${stackClass}${className ? " " + className : ""}`}
+          onPointerDownOutside={(e) => {
+            // Formulários de edição não fecham no fundo — o clique perderia a edição em curso.
+            if (!closeOnBackdrop) e.preventDefault();
+          }}
+        >
           <div className="ui-modal-head">
             <div>
               {eyebrow ? <div className="admin-eyebrow mono">{eyebrow}</div> : null}
@@ -54,6 +63,9 @@ export function Modal({
                 </Dialog.Description>
               ) : null}
             </div>
+            {showClose ? (
+              <Dialog.Close className="btn-ghost btn ui-modal-close mono">fechar</Dialog.Close>
+            ) : null}
           </div>
 
           <div className="ui-modal-body">{children}</div>
