@@ -62,6 +62,22 @@ export function getAzureProjectBindings() {
 }
 
 /**
+ * Bind (or rebind) an Azure DevOps project to an Andromeda project.
+ * @returns {Promise<{ id: string }>} the created/updated binding (id used to open the wizard)
+ */
+export function bindAzureProject(projectId, { azureProjectId, azureProjectName }) {
+  return api.post(`/v1/integrations/azure/projects/${projectId}/binding`, {
+    azureProjectId,
+    azureProjectName,
+  });
+}
+
+/** Remove the Azure DevOps binding of a project. */
+export function unbindAzureProject(projectId) {
+  return api.delete(`/v1/integrations/azure/projects/${projectId}/binding`);
+}
+
+/**
  * List Azure DevOps projects available for binding. When `forProjectId` is
  * given, projects actively bound to OTHER projects are excluded while the one
  * bound to `forProjectId` itself is kept (preselection when editing).

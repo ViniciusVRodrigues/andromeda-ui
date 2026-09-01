@@ -20,6 +20,7 @@ import {
   useNavigate,
   useLocation,
   useParams,
+  useSearchParams,
 } from "react-router-dom";
 import { HomeScreen } from "./features/home/HomeScreen.jsx";
 import { SignupScreen } from "./features/auth/SignupScreen.jsx";
@@ -30,6 +31,8 @@ import { DashboardPage } from "./features/dashboard/DashboardPage.jsx";
 import { ProfilePage } from "./features/profile/ProfilePage.jsx";
 import { OrganizationLayout } from "./features/organization/OrganizationLayout.jsx";
 import { TeamPage } from "./features/team/TeamPage.jsx";
+import { ProjectsPage } from "./features/projects/ProjectsPage.jsx";
+import { AzureFieldMappingWizard } from "./features/admin/AzureFieldMappingWizard.jsx";
 import { NotFoundScreen } from "./features/not-found/NotFoundScreen.jsx";
 import { ThemePickerModal } from "./components/ThemePickerModal.jsx";
 import api, { setToken, clearToken, onAuthExpired, getToken } from "./services/api.js";
@@ -324,36 +327,70 @@ function ShellGate({ identity, profile }) {
   return <ShellLayout />;
 }
 
-/* Página da seção ativa: resolve rota → {tab, subtab} pelo mapa canônico e
- * monta a página fatiada ou o conteúdo legacy remanescente. */
+/* Página da seção ativa: resolve rota → {tab, subtab} pelo mapa canônico, monta
+ * a página fatiada ou o conteúdo legacy, e renderiza por cima o wizard de
+ * mapeamento Azure quando a URL pede (`?wizard=&binding=`) — overlay que pode
+ * ser disparado de Projetos ou do Backlog (design D3b). */
 function SectionContent() {
   const { section, "*": rest } = useParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const fullRest = rest ? `${section}/${rest}` : section;
   const { tab, subtab } = resolveRoute(fullRest);
   if (!tab) return null; // ShellGate já garantiu knownSection
 
-  if (tab === "perfil") {
-    return (
+  const wizardStep = searchParams.get("wizard");
+  const wizardBinding = searchParams.get("binding");
+  const closeWizard = () =>
+    setSearchParams(
+      (prev) => {
+        const n = new URLSearchParams(prev);
+        n.delete("wizard");
+        n.delete("binding");
+        return n;
+      },
+      { replace: true },
+    );
+
+  let page;
+  if (tab === "perfil")
+    page = (
       <RequireTab tab="perfil">
         <ProfilePage />
       </RequireTab>
     );
-  }
-  if (tab === "org") {
-    return (
+  else if (tab === "org")
+    page = (
       <RequireTab tab="org">
         <OrganizationLayout />
       </RequireTab>
     );
-  }
-  if (tab === "team") {
-    return (
+  else if (tab === "team")
+    page = (
       <RequireTab tab="team">
         <TeamPage />
       </RequireTab>
     );
-  }
-  return <LegacySection tab={tab} subtab={subtab} />;
+  else if (tab === "projects")
+    page = (
+      <RequireTab tab="projects">
+        <ProjectsPage />
+      </RequireTab>
+    );
+  else page = <LegacySection tab={tab} subtab={subtab} />;
+
+  return (
+    <>
+      {page}
+      {wizardStep && wizardBinding && (
+        <AzureFieldMappingWizard
+          bindingId={wizardBinding}
+          initialStep={wizardStep === "start" ? null : wizardStep}
+          onDone={closeWizard}
+          onSkip={closeWizard}
+        />
+      )}
+    </>
+  );
 }
 
 /* Conteúdo ainda monolítico (projects/integrations/uso-ia/dashboard/backlog/
