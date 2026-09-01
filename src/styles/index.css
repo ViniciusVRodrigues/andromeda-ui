@@ -6558,3 +6558,23 @@ button.signup-perms-cargo:hover .signup-perms-cargo-edit { opacity: 1; color: va
   font-size: var(--mono-sm);
   color: var(--fg-dim);
 }
+
+/* Detalhe do pull request: cabeçalho e definições ficam fixos, só a lista de
+   commits rola. Rolar o painel inteiro tira de vista justamente o contexto
+   (status, cycle time, work item) enquanto se percorre os commits. */
+.pr-drawer .drawer-body {
+  overflow: hidden;
+  padding-bottom: 24px;
+}
+.pr-drawer-commits {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  flex: 1;
+}
+.pr-drawer-commits .commit-list {
+  overflow-y: auto;
+  min-height: 0;
+  /* Espaço para a barra de rolagem não encostar nos cartões. */
+  padding-right: 4px;
+}

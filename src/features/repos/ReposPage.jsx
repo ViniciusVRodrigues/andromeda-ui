@@ -137,28 +137,32 @@ function PullRequestDrawer({ repoId, repoName, pr, onClose }) {
         ) : null}
       </dl>
 
-      <h4 className="serif page-section-title">Commits</h4>
-      {commitsState === "loading" ? <p className="mono drawer-empty">Carregando…</p> : null}
-      {commitsState === "error" ? (
-        <p className="mono drawer-empty">Não foi possível carregar os commits agora.</p>
-      ) : null}
-      {commitsState === "ready" && !commits.length ? (
-        <p className="mono drawer-empty">Nenhum commit neste pull request.</p>
-      ) : null}
-      {commitsState === "ready" && commits.length ? (
-        <ul className="commit-list">
-          {commits.map((c) => (
-            <li key={c.sha} className="commit-card">
-              <div className="commit-card-head">
-                <code className="commit-sha mono">{(c.sha || "").slice(0, 7)}</code>
-                <span className="commit-meta mono">{formatDate(c.authoredAt)}</span>
-              </div>
-              <p className="commit-message">{(c.message || "").split("\n")[0]}</p>
-              <div className="commit-meta mono">{c.authorLogin || "—"}</div>
-            </li>
-          ))}
-        </ul>
-      ) : null}
+      {/* Só esta região rola: o contexto acima (status, cycle time, work item)
+          precisa continuar visível enquanto se percorre os commits. */}
+      <div className="pr-drawer-commits">
+        <h4 className="serif page-section-title">Commits</h4>
+        {commitsState === "loading" ? <p className="mono drawer-empty">Carregando…</p> : null}
+        {commitsState === "error" ? (
+          <p className="mono drawer-empty">Não foi possível carregar os commits agora.</p>
+        ) : null}
+        {commitsState === "ready" && !commits.length ? (
+          <p className="mono drawer-empty">Nenhum commit neste pull request.</p>
+        ) : null}
+        {commitsState === "ready" && commits.length ? (
+          <ul className="commit-list">
+            {commits.map((c) => (
+              <li key={c.sha} className="commit-card">
+                <div className="commit-card-head">
+                  <code className="commit-sha mono">{(c.sha || "").slice(0, 7)}</code>
+                  <span className="commit-meta mono">{formatDate(c.authoredAt)}</span>
+                </div>
+                <p className="commit-message">{(c.message || "").split("\n")[0]}</p>
+                <div className="commit-meta mono">{c.authorLogin || "—"}</div>
+              </li>
+            ))}
+          </ul>
+        ) : null}
+      </div>
     </Drawer>
   );
 }
