@@ -1,0 +1,6 @@
+{
+  "request": "GET /api/v1/ai/usage/summary?month=2026-09",
+  "status": 200,
+  "contentType": "application/json",
+  "body": "{\"month\":\"2026-09\",\"totalInputTokens\":0,\"totalOutputTokens\":0,\"totalInteractions\":0,\"totalCostUsd\":0,\"modelBreakdown\":[]}"
+}

@@ -1,0 +1,6 @@
+{
+  "request": "GET /api/v1/ai/allocations/pending-batches",
+  "status": 200,
+  "contentType": "application/json",
+  "body": "[]"
+}

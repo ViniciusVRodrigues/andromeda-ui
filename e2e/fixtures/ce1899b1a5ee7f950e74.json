@@ -1,0 +1,6 @@
+{
+  "request": "GET /api/v1/integrations/github/status",
+  "status": 404,
+  "contentType": "application/json",
+  "body": "{\"code\":\"GITHUB_CONNECTION_NOT_FOUND\",\"message\":\"No active GitHub connection for organization: 6a96b750c72203798d740146\",\"timestamp\":\"2026-09-01T12:10:13.052891200Z\"}"
+}

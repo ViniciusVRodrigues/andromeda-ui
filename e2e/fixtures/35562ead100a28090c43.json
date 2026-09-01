@@ -1,0 +1,6 @@
+{
+  "request": "GET /api/v1/users/me/provider-accounts",
+  "status": 200,
+  "contentType": "application/json",
+  "body": "[]"
+}

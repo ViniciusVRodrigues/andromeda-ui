@@ -1,0 +1,6 @@
+{
+  "request": "GET /api/v1/ai/team-members",
+  "status": 200,
+  "contentType": "application/json",
+  "body": "[{\"id\":\"6a96b750c72203798d740147\",\"name\":\"Baselina QA\",\"email\":\"baseline@andromeda.test\"}]"
+}

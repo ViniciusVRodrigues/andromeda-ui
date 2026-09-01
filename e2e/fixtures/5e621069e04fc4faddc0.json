@@ -1,0 +1,6 @@
+{
+  "request": "GET /api/v1/organizations/me",
+  "status": 200,
+  "contentType": "application/json",
+  "body": "{\"id\":\"6a96b750c72203798d740146\",\"name\":\"Baseline QA\",\"slug\":\"baseline-qa\",\"sector\":\"Tecnologia\",\"country\":\"Brasil\",\"seniorities\":[\"JUNIOR\",\"PLENO\",\"SENIO\"],\"aiPrices\":null,\"subscriptionCostPerUserUsd\":null,\"createdAt\":\"2026-09-01T11:30:24.611Z\"}"
+}
