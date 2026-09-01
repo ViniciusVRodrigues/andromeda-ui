@@ -24,9 +24,10 @@ export async function installApiLayer(context) {
   if (API_MODE === "live") return;
   fs.mkdirSync(FIXTURES_DIR, { recursive: true });
 
-  await context.route("**/api/**", async (route) => {
+  // Só as rotas reais da API da aplicação (/api/v1/...) — nunca módulos do
+  // dev server que porventura contenham "/api/" no caminho.
+  await context.route("**/api/v1/**", async (route) => {
     const request = route.request();
-    if (!request.url().includes("/api/")) return route.fallback();
     const key = fixtureKey(request);
     const file = fixturePath(key);
 

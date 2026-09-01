@@ -18,6 +18,7 @@ import Checkbox from "../../components/Checkbox.jsx";
 import { orgUrlLabel } from "../../lib/appUrl.js";
 import api, {
   getToken,
+  decodeJwt,
   linkAzureIdentity,
   getAzureUsers,
   updateProjectMembers,
@@ -34,21 +35,6 @@ import api, {
 /* ──────────────────────────────────────────── */
 /*  Helpers                                     */
 /* ──────────────────────────────────────────── */
-
-/**
- * Decode the JWT stored in localStorage and return its payload.
- * Returns null if the token is absent or malformed.
- */
-function decodeJwt() {
-  try {
-    const token = getToken();
-    if (!token) return null;
-    const payload = token.split(".")[1];
-    return JSON.parse(atob(payload));
-  } catch (_) {
-    return null;
-  }
-}
 
 /* Configurable permission codes — always-on ones are excluded from the table/modal. */
 const ALL_PERMISSION_CODES = Object.keys(PERMISSION_LABELS).filter(
