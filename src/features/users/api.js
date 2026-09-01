@@ -2,6 +2,11 @@
 
 import { api } from "../../core/api/client.js";
 
+/** Lista os usuários/membros da organização. */
+export function getUsers() {
+  return api.get("/v1/users");
+}
+
 /**
  * Link or update a user's Azure DevOps identity.
  * @param {string} userId

@@ -28,6 +28,7 @@ import { OnboardingScreen } from "./features/onboarding/OnboardingScreen.jsx";
 import { AdminSettings } from "./features/admin/AdminSettings.jsx";
 import { DashboardPage } from "./features/dashboard/DashboardPage.jsx";
 import { ProfilePage } from "./features/profile/ProfilePage.jsx";
+import { OrganizationLayout } from "./features/organization/OrganizationLayout.jsx";
 import { NotFoundScreen } from "./features/not-found/NotFoundScreen.jsx";
 import { ThemePickerModal } from "./components/ThemePickerModal.jsx";
 import api, { setToken, clearToken, onAuthExpired, getToken } from "./services/api.js";
@@ -334,6 +335,13 @@ function SectionContent() {
     return (
       <RequireTab tab="perfil">
         <ProfilePage />
+      </RequireTab>
+    );
+  }
+  if (tab === "org") {
+    return (
+      <RequireTab tab="org">
+        <OrganizationLayout />
       </RequireTab>
     );
   }

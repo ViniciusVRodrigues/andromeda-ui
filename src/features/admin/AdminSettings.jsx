@@ -7,7 +7,7 @@ import { IntegrationTab } from "./IntegrationTab.jsx";
 import { AzureFieldMappingWizard } from "./AzureFieldMappingWizard.jsx";
 import { BacklogPage } from "../backlog/BacklogPage.jsx";
 import { ReposPage } from "../repos/ReposPage.jsx";
-import { PERMISSION_LABELS, ALWAYS_ON_PERMISSIONS } from "./permissionLabels.js";
+import { PERMISSION_LABELS, ALWAYS_ON_PERMISSIONS } from "../organization/permissionLabels.js";
 import { AiPricingTab } from "../uso-ia/components/AiPricingTab.jsx";
 import { UsoIaPage } from "../uso-ia/UsoIaPage.jsx";
 import { SubTabs } from "../../components/SubTabs.jsx";
@@ -30,7 +30,10 @@ import api, {
   toggleGithubRepoSync,
   unbindGithubRepo,
 } from "../../services/api.js";
+import { useQueryClient } from "@tanstack/react-query";
 import { useAzureConnectionStatus } from "../integrations/hooks.js";
+import { useRoles, useOrganization } from "../organization/hooks.js";
+import { useUsers } from "../users/hooks.js";
 
 /* ──────────────────────────────────────────── */
 /*  Helpers                                     */
@@ -40,13 +43,6 @@ import { useAzureConnectionStatus } from "../integrations/hooks.js";
 const ALL_PERMISSION_CODES = Object.keys(PERMISSION_LABELS).filter(
   (c) => !ALWAYS_ON_PERMISSIONS.includes(c),
 );
-
-/* Sub-abas da página Organização (Geral é a padrão). */
-const ORG_SUB_TABS = [
-  { id: "geral", label: "Geral" },
-  { id: "cargos", label: "Cargos" },
-  { id: "senioridade", label: "Senioridade" },
-];
 
 /* Sub-abas da página Uso IA (Consumo é a padrão; Precificação é admin/cost-config). */
 const USO_IA_SUB_TABS = [
@@ -71,65 +67,28 @@ function AdminSettings({
   /* The logged-in user's id, decoded from the JWT once. */
   const loggedUserId = React.useMemo(() => decodeJwt()?.sub || null, []);
 
-  /* ── Cargos ── */
-  const [roles, setRoles] = React.useState([]);
-  const [rolesLoading, setRolesLoading] = React.useState(false);
-  const [rolesError, setRolesError] = React.useState(null);
-  const [editingRole, setEditingRole] = React.useState(null);
-  /* rolePerms: { [roleId]: Set<permCode> } — built from API data */
-  const [rolePerms, setRolePerms] = React.useState({});
-  /* editPerms: local checkbox state while modal is open { [permCode]: bool } */
-  const [editPerms, setEditPerms] = React.useState({});
-  /* For "clone" workflow when creating a new role */
-  const [cloneSourceId, setCloneSourceId] = React.useState("");
-
-  const fetchRoles = React.useCallback(async () => {
-    setRolesLoading(true);
-    setRolesError(null);
-    try {
-      const data = await api.get("/v1/roles");
-      const list = Array.isArray(data) ? data : [];
-      setRoles(list);
-      const permsMap = {};
-      for (const r of list) {
-        permsMap[r.id] = new Set(r.permissionCodes || []);
-      }
-      setRolePerms(permsMap);
-    } catch (_) {
-      setRolesError("Não foi possível carregar os cargos.");
-    } finally {
-      setRolesLoading(false);
-    }
-  }, []);
-
-  /* ── Senioridades ── */
-  const [seniorities, setSeniorities] = React.useState([]);
-  const [senioritiesLoading, setSenioritiesLoading] = React.useState(false);
-  const [senioritiesError, setSenioritiesError] = React.useState(null);
-  const [editingSeniority, setEditingSeniority] = React.useState(null);
-
-  const fetchSeniorities = React.useCallback(async () => {
-    setSenioritiesLoading(true);
-    setSenioritiesError(null);
-    try {
-      const data = await api.get("/v1/organizations/me");
-      const list = Array.isArray(data?.seniorities) ? data.seniorities : [];
-      setSeniorities(list.map((name, i) => ({ id: `s-${i}-${name}`, name })));
-    } catch (_) {
-      setSenioritiesError("Não foi possível carregar os níveis de senioridade.");
-    } finally {
-      setSenioritiesLoading(false);
-    }
-  }, []);
-
-  const saveSenioritiesToApi = React.useCallback(async (names) => {
-    await api.put("/v1/organizations/me", { seniorities: names });
-  }, []);
+  /* Dados compartilhados via cache canônico (D3c): cargos e org vêm de hooks
+   * React Query; senioridades derivam do documento da organização. */
+  const queryClient = useQueryClient();
+  const { data: roles = [] } = useRoles();
+  const { data: orgQuery } = useOrganization();
+  const seniorities = React.useMemo(() => {
+    const names = Array.isArray(orgQuery?.seniorities) ? orgQuery.seniorities : [];
+    return names.map((name, i) => ({ id: `s-${i}-${name}`, name }));
+  }, [orgQuery]);
+  const rolePerms = React.useMemo(() => {
+    const map = {};
+    for (const r of roles) map[r.id] = new Set(r.permissionCodes || []);
+    return map;
+  }, [roles]);
 
   /* ── Pessoas ── */
-  const [members, setMembers] = React.useState([]);
-  const [membersLoading, setMembersLoading] = React.useState(false);
-  const [membersError, setMembersError] = React.useState(null);
+  const {
+    data: members = [],
+    isLoading: membersLoading,
+    error: membersError,
+    refetch: refetchUsers,
+  } = useUsers();
   const [memberSearch, setMemberSearch] = React.useState("");
   const [invitingMember, setInvitingMember] = React.useState(false);
   const [inviteDraft, setInviteDraft] = React.useState({ email: "", roleId: "" });
@@ -140,19 +99,6 @@ function AdminSettings({
   const [azureUsersLoading, setAzureUsersLoading] = React.useState(false);
   const [azureUsersError, setAzureUsersError] = React.useState(null);
   const [selectedAzureUser, setSelectedAzureUser] = React.useState(null);
-
-  const fetchMembers = React.useCallback(async () => {
-    setMembersLoading(true);
-    setMembersError(null);
-    try {
-      const data = await api.get("/v1/users");
-      setMembers(Array.isArray(data) ? data : []);
-    } catch (_) {
-      setMembersError("Não foi possível carregar as pessoas.");
-    } finally {
-      setMembersLoading(false);
-    }
-  }, []);
 
   /* ── Projetos ── */
   const [projects, setProjects] = React.useState([]);
@@ -197,51 +143,20 @@ function AdminSettings({
       .catch(() => setGithubBindings([]));
   }, []);
 
-  /* ── Org ── */
-  const [org, setOrg] = React.useState(profile?.org || null);
-
-  const fetchOrg = React.useCallback(async () => {
-    try {
-      const data = await api.get("/v1/organizations/me");
-      setOrg(data);
-    } catch (_) {
-      /* silently fall back to profile prop */
-    }
-  }, []);
-
-  /* ── Tab activation → fetch ──
-   * Organização agora tem sub-abas (Geral/Cargos/Senioridade); cada uma busca
-   * seus próprios dados quando ativada. */
+  /* Só Projetos ainda busca bindings imperativamente (gating do modal);
+   * cargos/senioridades/membros/org vivem no cache RQ compartilhado. */
   React.useEffect(() => {
-    if (section === "org" && subtab === "cargos") fetchRoles();
-    else if (section === "org" && subtab === "senioridade") fetchSeniorities();
-    else if (section === "team") {
-      fetchRoles();
-      fetchSeniorities();
-      fetchMembers();
-    } else if (section === "projects") {
-      fetchMembers();
-      fetchProjects();
-      api
-        .get("/v1/integrations/azure/bindings")
-        .then((data) => setAzureBindings(Array.isArray(data) ? data : []))
-        .catch(() => setAzureBindings([]));
-      /* Vínculos GitHub (chips dos cards) + status da conexão (gating do
-       * modal de projeto) — buscados uma vez por ativação da aba. */
-      refreshGithubBindings();
-      getGithubConnectionStatus()
-        .then((data) => setGithubConnectionStatus(data?.status || "DISCONNECTED"))
-        .catch(() => setGithubConnectionStatus("DISCONNECTED"));
-    } else if (section === "org" && subtab === "geral") fetchOrg();
-    else if (section === "uso-ia" && subtab === "precificacao") fetchOrg();
-  }, [section, subtab]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  /* ── Derived counts ── */
-  const roleCount = (roleId) =>
-    members.filter((m) => m.roleId === roleId && m.active !== false).length;
-
-  /* ── Permission matrix helpers ── */
-  const permsGridCols = `minmax(160px, 1.4fr) repeat(${ALL_PERMISSION_CODES.length}, minmax(90px, 1fr))`;
+    if (section !== "projects") return;
+    fetchProjects();
+    api
+      .get("/v1/integrations/azure/bindings")
+      .then((data) => setAzureBindings(Array.isArray(data) ? data : []))
+      .catch(() => setAzureBindings([]));
+    refreshGithubBindings();
+    getGithubConnectionStatus()
+      .then((data) => setGithubConnectionStatus(data?.status || "DISCONNECTED"))
+      .catch(() => setGithubConnectionStatus("DISCONNECTED"));
+  }, [section]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const permissionSummary = (roleId) => {
     const set = rolePerms[roleId];
@@ -251,126 +166,6 @@ function AdminSettings({
     const alwaysOn = ALWAYS_ON_PERMISSIONS.map((c) => PERMISSION_LABELS[c]);
     const all = [...alwaysOn, ...configured];
     return all.length === 0 ? "Nenhum acesso liberado" : all.join(" · ");
-  };
-
-  /* ── Roles CRUD ── */
-  const openEdit = (role) => {
-    const currentSet = rolePerms[role.id] || new Set();
-    const permsState = {};
-    for (const code of ALL_PERMISSION_CODES) {
-      permsState[code] = currentSet.has(code);
-    }
-    setEditPerms(permsState);
-    setEditingRole({ ...role });
-  };
-
-  const openCreate = () => {
-    setCloneSourceId(roles[0]?.id || "");
-    setEditingRole({ id: null, name: "" });
-  };
-
-  const closeModal = () => {
-    setEditingRole(null);
-    setEditPerms({});
-  };
-
-  const saveRole = async () => {
-    if (!editingRole || !editingRole.name.trim()) return;
-
-    if (editingRole.id) {
-      /* Update permissions via delta */
-      const original = rolePerms[editingRole.id] || new Set();
-      const add = ALL_PERMISSION_CODES.filter((c) => editPerms[c] && !original.has(c));
-      const remove = ALL_PERMISSION_CODES.filter((c) => !editPerms[c] && original.has(c));
-      try {
-        if (add.length > 0 || remove.length > 0) {
-          await api.put(`/v1/roles/${editingRole.id}/permissions`, { add, remove });
-        }
-        /* Update local perms state */
-        const next = new Set(original);
-        for (const c of add) next.add(c);
-        for (const c of remove) next.delete(c);
-        setRolePerms((prev) => ({ ...prev, [editingRole.id]: next }));
-        setEditingRole(null);
-        setEditPerms({});
-      } catch (_) {
-        /* Keep modal open on failure */
-      }
-    } else {
-      /* Clone from source role */
-      try {
-        await api.post("/v1/roles/clone", {
-          sourceRoleId: cloneSourceId,
-          newName: editingRole.name.trim(),
-        });
-        await fetchRoles();
-        setEditingRole(null);
-        setEditPerms({});
-      } catch (_) {
-        /* Keep modal open on failure */
-      }
-    }
-  };
-
-  const deleteRole = async () => {
-    if (!editingRole?.id) return;
-    if (roleCount(editingRole.id) > 0) return;
-    try {
-      await api.delete(`/v1/roles/${editingRole.id}`);
-      setRoles((prev) => prev.filter((r) => r.id !== editingRole.id));
-      setRolePerms((prev) => {
-        const next = { ...prev };
-        delete next[editingRole.id];
-        return next;
-      });
-      setEditingRole(null);
-      setEditPerms({});
-    } catch (_) {
-      /* ignore */
-    }
-  };
-
-  /* ── Seniority CRUD ── */
-  const openEditSeniority = (s) => setEditingSeniority({ ...s });
-  const openCreateSeniority = () => setEditingSeniority({ id: null, name: "" });
-  const closeSeniority = () => setEditingSeniority(null);
-
-  const saveSeniority = async () => {
-    if (!editingSeniority || !editingSeniority.name.trim()) return;
-    const name = editingSeniority.name.trim();
-
-    /* Duplicate check (case-insensitive) */
-    const isDuplicate = seniorities.some(
-      (s) => s.name.toLowerCase() === name.toLowerCase() && s.id !== editingSeniority.id,
-    );
-    if (isDuplicate) return;
-
-    let nextNames;
-    if (editingSeniority.id) {
-      nextNames = seniorities.map((s) => (s.id === editingSeniority.id ? name : s.name));
-    } else {
-      nextNames = [...seniorities.map((s) => s.name), name];
-    }
-
-    try {
-      await saveSenioritiesToApi(nextNames);
-      setSeniorities(nextNames.map((n, i) => ({ id: `s-${i}-${n}`, name: n })));
-      setEditingSeniority(null);
-    } catch (_) {
-      /* Keep modal open on failure */
-    }
-  };
-
-  const deleteSeniority = async () => {
-    if (!editingSeniority?.id) return;
-    const nextNames = seniorities.filter((s) => s.id !== editingSeniority.id).map((s) => s.name);
-    try {
-      await saveSenioritiesToApi(nextNames);
-      setSeniorities(nextNames.map((n, i) => ({ id: `s-${i}-${n}`, name: n })));
-      setEditingSeniority(null);
-    } catch (_) {
-      /* ignore */
-    }
   };
 
   /* ── Members CRUD ── */
@@ -390,7 +185,7 @@ function AdminSettings({
         roleId: inviteDraft.roleId,
         seniority: inviteDraft.seniority || null,
       });
-      await fetchMembers();
+      await queryClient.invalidateQueries({ queryKey: ["users"] });
       setInvitingMember(false);
     } catch (_) {
       /* Keep modal open on failure */
@@ -446,7 +241,7 @@ function AdminSettings({
           azureEmail: selectedAzureUser.azureEmail,
         });
       }
-      await fetchMembers();
+      await queryClient.invalidateQueries({ queryKey: ["users"] });
       setMemberSaveMsg({ ok: true, text: "Alterações salvas com sucesso." });
       setEditingMember(null);
       setMemberSaveMsg(null);
@@ -464,7 +259,7 @@ function AdminSettings({
     setMemberSaving(true);
     try {
       await api.delete(`/v1/users/${editingMember.id}`);
-      await fetchMembers();
+      await queryClient.invalidateQueries({ queryKey: ["users"] });
       setEditingMember(null);
     } catch (_) {
       /* ignore */
@@ -641,7 +436,7 @@ function AdminSettings({
   /* ── Project member add dropdown ── */
   const [addMemberSelectId, setAddMemberSelectId] = React.useState("");
 
-  const orgData = org || profile?.org || {};
+  const orgData = orgQuery || profile?.org || {};
 
   return (
     <>
@@ -678,202 +473,6 @@ function AdminSettings({
         </section>
       )}
 
-      {section === "org" && (
-        <section>
-          <div className="admin-section-head">
-            <h2 className="serif admin-section-title">Organização</h2>
-            <p className="admin-section-sub">
-              Identidade visível para todos os membros, cargos e níveis de senioridade.
-            </p>
-          </div>
-
-          <SubTabs
-            tabs={ORG_SUB_TABS}
-            activeId={subtab || "geral"}
-            onSelect={(id) => onNavigateSubtab && onNavigateSubtab(id)}
-          />
-
-          {subtab === "cargos" ? (
-            <>
-              <div className="admin-section-head admin-section-head--row">
-                <div>
-                  <h3 className="serif admin-section-title">Cargos e Permissões</h3>
-                  <p className="admin-section-sub">
-                    Marque o que cada cargo enxerga na Andrômeda. Clique no nome do cargo para
-                    editar permissões.
-                  </p>
-                </div>
-                <button className="btn" onClick={openCreate}>
-                  + Novo cargo
-                </button>
-              </div>
-
-              {rolesError && (
-                <div className="admin-placeholder mono" style={{ color: "var(--danger, #c0392b)" }}>
-                  {rolesError}{" "}
-                  <button
-                    className="btn"
-                    style={{ marginLeft: "var(--spacing-sm)" }}
-                    onClick={fetchRoles}
-                  >
-                    Tentar novamente
-                  </button>
-                </div>
-              )}
-
-              {!rolesError && (
-                <div className="signup-perms">
-                  <div className="signup-perms-scroll">
-                    <div
-                      className="signup-perms-grid"
-                      style={{ gridTemplateColumns: permsGridCols }}
-                    >
-                      <div className="signup-perms-head is-corner mono">Cargos</div>
-                      {ALL_PERMISSION_CODES.map((code) => (
-                        <div key={code} className="signup-perms-head mono">
-                          {PERMISSION_LABELS[code]}
-                        </div>
-                      ))}
-                      {rolesLoading ? (
-                        <div
-                          className="member-empty mono"
-                          style={{ gridColumn: `1 / span ${ALL_PERMISSION_CODES.length + 1}` }}
-                        >
-                          Carregando…
-                        </div>
-                      ) : (
-                        roles.map((r, rowIdx) => (
-                          <React.Fragment key={r.id}>
-                            <button
-                              type="button"
-                              className={
-                                "signup-perms-cargo" +
-                                (rowIdx === 0 ? " is-first" : "") +
-                                (r.isDefault ? " is-default" : "")
-                              }
-                              onClick={() => !r.isDefault && openEdit(r)}
-                              title={r.isDefault ? "Cargo padrão — não editável" : "Editar cargo"}
-                            >
-                              <span className="signup-perms-cargo-name">{r.label || r.name}</span>
-                              <span className="signup-perms-cargo-meta">
-                                <span
-                                  className="signup-perms-cargo-count mono"
-                                  title={`${roleCount(r.id)} ${roleCount(r.id) === 1 ? "pessoa" : "pessoas"}`}
-                                >
-                                  {roleCount(r.id)}
-                                </span>
-                                {!r.isDefault && (
-                                  <span className="signup-perms-cargo-edit mono">editar</span>
-                                )}
-                              </span>
-                            </button>
-                            {ALL_PERMISSION_CODES.map((code) => {
-                              const on = !!rolePerms[r.id]?.has(code);
-                              return (
-                                <label
-                                  key={code}
-                                  className={
-                                    "signup-perms-cell" +
-                                    (on ? " is-on" : "") +
-                                    (rowIdx === 0 ? " is-first" : "") +
-                                    (r.isDefault ? " is-locked" : "")
-                                  }
-                                  aria-label={`${r.name} · ${PERMISSION_LABELS[code]}`}
-                                >
-                                  <input
-                                    type="checkbox"
-                                    checked={on}
-                                    disabled={r.isDefault}
-                                    onChange={() => {
-                                      if (r.isDefault) return;
-                                      setRolePerms((prev) => {
-                                        const next = new Set(prev[r.id] || []);
-                                        if (next.has(code)) next.delete(code);
-                                        else next.add(code);
-                                        return { ...prev, [r.id]: next };
-                                      });
-                                    }}
-                                  />
-                                  <span className="signup-perms-check" aria-hidden="true">
-                                    {on ? "✓" : ""}
-                                  </span>
-                                </label>
-                              );
-                            })}
-                          </React.Fragment>
-                        ))
-                      )}
-                    </div>
-                  </div>
-                  <p className="signup-step-footer mono">
-                    Cargos padrão não podem ser editados ou excluídos. As alterações na matriz são
-                    salvas ao clicar em "Salvar alterações" no modal do cargo.
-                  </p>
-                </div>
-              )}
-            </>
-          ) : subtab === "senioridade" ? (
-            <>
-              <div className="admin-section-head admin-section-head--row">
-                <div>
-                  <h3 className="serif admin-section-title">Senioridade</h3>
-                  <p className="admin-section-sub">
-                    Defina os níveis de senioridade da organização.
-                  </p>
-                </div>
-                <button className="btn" onClick={openCreateSeniority}>
-                  + Novo nível
-                </button>
-              </div>
-
-              {senioritiesError && (
-                <div className="admin-placeholder mono" style={{ color: "var(--danger, #c0392b)" }}>
-                  {senioritiesError}{" "}
-                  <button
-                    className="btn"
-                    style={{ marginLeft: "var(--spacing-sm)" }}
-                    onClick={fetchSeniorities}
-                  >
-                    Tentar novamente
-                  </button>
-                </div>
-              )}
-
-              {!senioritiesError &&
-                (senioritiesLoading ? (
-                  <div className="admin-placeholder mono">Carregando…</div>
-                ) : (
-                  <div className="role-list role-list--cols">
-                    {seniorities.map((s) => (
-                      <button
-                        key={s.id}
-                        type="button"
-                        className="role-card role-card--clickable"
-                        onClick={() => openEditSeniority(s)}
-                      >
-                        <div className="role-card-main">
-                          <div className="role-card-head">
-                            <div className="serif role-card-name">{s.name}</div>
-                          </div>
-                        </div>
-                        <span className="edit-hint role-card-manage">editar</span>
-                      </button>
-                    ))}
-                  </div>
-                ))}
-            </>
-          ) : (
-            <div className="admin-fields">
-              <AdminRow label="Nome da organização" value={orgData.name} />
-              <AdminRow label="Identificador" value={orgData.slug} mono />
-              <AdminRow label="URL" value={orgData.slug ? orgUrlLabel(orgData.slug) : null} mono />
-              <AdminRow label="Setor" value={orgData.sector} />
-              <AdminRow label="País" value={orgData.country} />
-            </div>
-          )}
-        </section>
-      )}
-
       {section === "team" && (
         <section>
           <div className="admin-section-head admin-section-head--row">
@@ -896,7 +495,7 @@ function AdminSettings({
               <button
                 className="btn"
                 style={{ marginLeft: "var(--spacing-sm)" }}
-                onClick={fetchMembers}
+                onClick={refetchUsers}
               >
                 Tentar novamente
               </button>
@@ -1435,191 +1034,6 @@ function AdminSettings({
       )}
 
       {section === "repos" && <ReposPage />}
-
-      {/* ── Modal: Editar / Criar cargo ── */}
-      {editingRole && (
-        <Modal
-          open
-          onOpenChange={(o) => !o && closeModal()}
-          eyebrow={editingRole.id ? "editar cargo" : "novo cargo"}
-          title={
-            editingRole.id ? (
-              <>
-                Editar <span className="ital accent">{editingRole.name || "cargo"}</span>
-              </>
-            ) : (
-              <>
-                Criar <span className="ital accent">novo cargo</span>
-              </>
-            )
-          }
-          footer={
-            <>
-              <button className="btn-ghost btn" onClick={closeModal}>
-                Cancelar
-              </button>
-              <button
-                className="btn"
-                onClick={saveRole}
-                disabled={!editingRole.id ? !editingRole.name.trim() : false}
-              >
-                {editingRole.id ? "Salvar alterações" : "Criar cargo"} →
-              </button>
-            </>
-          }
-        >
-          {editingRole.id ? (
-            /* Editing existing: show permission checkboxes */
-            <>
-              <p className="ui-field-label" style={{ marginBottom: "var(--spacing-sm)" }}>
-                Permissões
-              </p>
-              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                {ALL_PERMISSION_CODES.map((code) => (
-                  <label
-                    key={code}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "var(--spacing-sm)",
-                      cursor: "pointer",
-                    }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={!!editPerms[code]}
-                      onChange={() => setEditPerms((p) => ({ ...p, [code]: !p[code] }))}
-                    />
-                    <span className="mono" style={{ fontSize: "0.85rem" }}>
-                      {PERMISSION_LABELS[code]}
-                    </span>
-                  </label>
-                ))}
-              </div>
-
-              {roleCount(editingRole.id) > 0 ? (
-                <p
-                  className="role-perm-hint role-perm-hint--block mono"
-                  style={{ marginTop: "var(--spacing-md)" }}
-                >
-                  <span className="role-perm-hint-label">não é possível remover</span>
-                  {roleCount(editingRole.id)}{" "}
-                  {roleCount(editingRole.id) === 1
-                    ? "pessoa está vinculada"
-                    : "pessoas estão vinculadas"}{" "}
-                  a este cargo.
-                </p>
-              ) : (
-                <div
-                  className="member-modal-actions member-modal-actions--single"
-                  style={{ marginTop: "var(--spacing-md)" }}
-                >
-                  <button
-                    className="member-modal-danger member-modal-danger--strong"
-                    onClick={deleteRole}
-                  >
-                    Remover cargo
-                  </button>
-                </div>
-              )}
-            </>
-          ) : (
-            /* Creating: pick source role and new name */
-            <>
-              <label className="ui-field">
-                <span className="ui-field-label">Copiar permissões de</span>
-                <div className="signup-select">
-                  <select value={cloneSourceId} onChange={(e) => setCloneSourceId(e.target.value)}>
-                    {roles.map((r) => (
-                      <option key={r.id} value={r.id}>
-                        {r.name}
-                      </option>
-                    ))}
-                  </select>
-                  <span className="signup-select-caret">▾</span>
-                </div>
-              </label>
-              <label className="ui-field" style={{ marginTop: "var(--spacing-sm)" }}>
-                <span className="ui-field-label">Nome do novo cargo</span>
-                <input
-                  className="ui-field-input"
-                  type="text"
-                  autoFocus
-                  value={editingRole.name}
-                  placeholder="ex: Product Owner"
-                  onChange={(e) => setEditingRole({ ...editingRole, name: e.target.value })}
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") saveRole();
-                  }}
-                />
-              </label>
-            </>
-          )}
-        </Modal>
-      )}
-
-      {/* ── Modal: Editar / Criar nível de senioridade ── */}
-      {editingSeniority && (
-        <Modal
-          open
-          onOpenChange={(o) => !o && closeSeniority()}
-          eyebrow={editingSeniority.id ? "editar nível" : "novo nível"}
-          title={
-            editingSeniority.id ? (
-              <>
-                Editar <span className="ital accent">{editingSeniority.name || "nível"}</span>
-              </>
-            ) : (
-              <>
-                Criar <span className="ital accent">novo nível</span>
-              </>
-            )
-          }
-          footer={
-            <>
-              <button className="btn-ghost btn" onClick={closeSeniority}>
-                Cancelar
-              </button>
-              <button
-                className="btn"
-                onClick={saveSeniority}
-                disabled={!editingSeniority.name.trim()}
-              >
-                {editingSeniority.id ? "Salvar alterações" : "Criar nível"} →
-              </button>
-            </>
-          }
-        >
-          <label className="ui-field">
-            <span className="ui-field-label">Nome do nível</span>
-            <input
-              className="ui-field-input"
-              type="text"
-              autoFocus
-              value={editingSeniority.name}
-              placeholder="ex: Especialista"
-              onChange={(e) => setEditingSeniority({ ...editingSeniority, name: e.target.value })}
-              onKeyDown={(e) => {
-                if (e.key === "Enter") saveSeniority();
-              }}
-            />
-          </label>
-
-          {editingSeniority.id && (
-            <div
-              className="member-modal-actions member-modal-actions--single"
-              style={{ marginTop: "var(--spacing-md)" }}
-            >
-              <button
-                className="member-modal-danger member-modal-danger--strong"
-                onClick={deleteSeniority}
-              >
-                Remover nível
-              </button>
-            </div>
-          )}
-        </Modal>
-      )}
 
       {/* ── Modal: Convidar pessoa ── */}
       {invitingMember && (
