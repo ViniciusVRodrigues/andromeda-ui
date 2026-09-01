@@ -3,10 +3,12 @@
  *
  * Espelha o papel do Backlog para o lado de código: sai de um indicador
  * agregado e chega no pull request concreto. Seletor de projeto → seletor de
- * repositório → cards de saúde + tendência de commits → lista de PRs filtrável
- * → painel lateral com o detalhe e os commits daquele PR.
+ * repositório → indicadores de saúde + atividade de commits → lista de PRs
+ * filtrável → drawer com o detalhe e os commits daquele PR.
  *
- * Todos os dados vêm de endpoints reais (change project-repository-view).
+ * Toda a apresentação vem de componentes compartilhados (PageHeader,
+ * MetricGrid, ListCard, Drawer, CommitActivityChart) para que a tela herde o
+ * design system em vez de recriá-lo.
  */
 import React from "react";
 import api, {
@@ -16,6 +18,11 @@ import api, {
   getPullRequestCommits,
 } from "../../services/api.js";
 import Combobox from "../../components/Combobox.jsx";
+import PageHeader from "../../components/PageHeader.jsx";
+import MetricGrid, { MetricCard } from "../../components/MetricGrid.jsx";
+import ListCard from "../../components/ListCard.jsx";
+import Drawer from "../../components/Drawer.jsx";
+import { CommitActivityChart } from "../../components/charts/CommitActivityChart.jsx";
 
 const PAGE_SIZE = 20;
 
@@ -26,9 +33,9 @@ const ALL_AUTHORS = "__all_authors__";
 
 const STATUS_OPTIONS = ["OPEN", "MERGED", "CLOSED"];
 
-/* Intervalos oferecidos no filtro. A tendência de commits acompanha o mesmo
- * intervalo dos demais painéis: um gráfico ancorado em outra janela contaria
- * uma história sobre um recorte que o usuário não pediu. */
+/* A atividade de commits acompanha o mesmo intervalo dos demais painéis: um
+ * gráfico ancorado em outra janela contaria uma história sobre um recorte que
+ * o usuário não pediu. */
 const RANGE_OPTIONS = [
   { value: "30", label: "Últimos 30 dias" },
   { value: "90", label: "Últimos 90 dias" },
@@ -42,15 +49,13 @@ function rangeToInstants(days) {
   return { from: from.toISOString(), to: to.toISOString() };
 }
 
-/** Horas com uma casa; devolve o traço quando não há medição. */
+/** Devolve null quando não há medição, para o MetricCard desenhar o traço. */
 function formatHours(value) {
-  if (value == null) return "—";
-  return `${Number(value).toFixed(1)}h`;
+  return value == null ? null : `${Number(value).toFixed(1)}h`;
 }
 
 function formatPercent(value) {
-  if (value == null) return "—";
-  return `${(Number(value) * 100).toFixed(0)}%`;
+  return value == null ? null : `${(Number(value) * 100).toFixed(0)}%`;
 }
 
 function formatDate(iso) {
@@ -58,66 +63,18 @@ function formatDate(iso) {
   return new Date(iso).toLocaleDateString("pt-BR", { day: "2-digit", month: "2-digit" });
 }
 
-/**
- * Cartão de métrica. `value` já vem formatado — inclusive o traço de "sem
- * dado", que precisa ser visualmente distinto de um zero medido.
- */
-function MetricCard({ label, value, hint }) {
-  return (
-    <div
-      style={{
-        border: "1px solid var(--line)",
-        borderRadius: 8,
-        padding: "14px 16px",
-        background: "var(--bg-elev)",
-        minWidth: 150,
-        flex: "1 1 150px",
-      }}
-    >
-      <div style={{ fontSize: 11, letterSpacing: "0.08em", textTransform: "uppercase", opacity: 0.65 }}>
-        {label}
-      </div>
-      <div style={{ fontSize: 26, marginTop: 6, fontWeight: 600 }}>{value}</div>
-      {hint ? <div style={{ fontSize: 11, opacity: 0.6, marginTop: 4 }}>{hint}</div> : null}
-    </div>
-  );
+function statusVariant(status) {
+  if (status === "MERGED") return "done";
+  if (status === "CLOSED") return "blocked";
+  return "progress";
 }
 
-/**
- * Tendência de commits como barras proporcionais. Sem biblioteca de gráfico:
- * a leitura aqui é de forma geral (o time está ativo?), não de valor exato.
- */
-function CommitTrend({ points }) {
-  if (!points.length) {
-    return <div style={{ opacity: 0.6, fontSize: 13 }}>Sem commits no período.</div>;
-  }
-  const max = Math.max(...points.map((p) => p.commitCount), 1);
-
-  return (
-    <div style={{ display: "flex", alignItems: "flex-end", gap: 3, height: 90 }}>
-      {points.map((p) => (
-        <div
-          key={p.periodStart}
-          title={`${formatDate(p.periodStart)} — ${p.commitCount} commit(s)`}
-          style={{
-            flex: 1,
-            minWidth: 3,
-            height: `${Math.max((p.commitCount / max) * 100, 2)}%`,
-            background: "var(--accent)",
-            opacity: p.commitCount ? 0.85 : 0.2,
-            borderRadius: "2px 2px 0 0",
-          }}
-        />
-      ))}
-    </div>
-  );
+function StatusPill({ status }) {
+  return <span className={`backlog-status-pill status-${statusVariant(status)}`}>{status}</span>;
 }
 
-/**
- * Painel lateral do pull request. Preserva a lista e seus filtros — investigar
- * um indicador quer dizer varrer vários PRs em sequência.
- */
-function PullRequestPanel({ repoId, pr, onClose }) {
+/** Detalhe do pull request, incluindo os commits carregados sob demanda. */
+function PullRequestDrawer({ repoId, pr, onClose }) {
   const [commits, setCommits] = React.useState([]);
   const [commitsState, setCommitsState] = React.useState("loading");
 
@@ -137,76 +94,63 @@ function PullRequestPanel({ repoId, pr, onClose }) {
   if (!pr) return null;
 
   return (
-    <aside
-      style={{
-        position: "fixed",
-        top: 0,
-        right: 0,
-        bottom: 0,
-        width: "min(480px, 92vw)",
-        background: "var(--bg-elev)",
-        borderLeft: "1px solid var(--line)",
-        padding: 20,
-        overflowY: "auto",
-        zIndex: 50,
-      }}
+    <Drawer
+      open={!!pr}
+      onClose={onClose}
+      title={pr.title}
+      subtitle={`#${pr.number} · ${pr.authorGithubLogin || "sem autor"}`}
+      className="pr-drawer"
     >
-      <div style={{ display: "flex", justifyContent: "space-between", gap: 12 }}>
-        <div>
-          <div style={{ opacity: 0.6, fontSize: 12 }}>#{pr.number}</div>
-          <h3 style={{ margin: "4px 0 0" }}>{pr.title}</h3>
-        </div>
-        <button type="button" onClick={onClose} aria-label="Fechar painel">
-          ✕
-        </button>
-      </div>
-
-      <dl style={{ display: "grid", gridTemplateColumns: "auto 1fr", gap: "6px 14px", marginTop: 18 }}>
-        <dt style={{ opacity: 0.65 }}>Status</dt>
-        <dd style={{ margin: 0 }}>{pr.status}</dd>
-        <dt style={{ opacity: 0.65 }}>Autor</dt>
-        <dd style={{ margin: 0 }}>{pr.authorGithubLogin || "—"}</dd>
-        <dt style={{ opacity: 0.65 }}>Aberto em</dt>
-        <dd style={{ margin: 0 }}>{formatDate(pr.createdAt)}</dd>
-        <dt style={{ opacity: 0.65 }}>Cycle time</dt>
-        <dd style={{ margin: 0 }}>{formatHours(pr.cycleTimeHours)}</dd>
-        <dt style={{ opacity: 0.65 }}>1ª review</dt>
-        <dd style={{ margin: 0 }}>{formatHours(pr.timeToFirstReviewHours)}</dd>
+      <dl className="drawer-defs">
+        <dt>Status</dt>
+        <dd><StatusPill status={pr.status} /></dd>
+        <dt>Aberto em</dt>
+        <dd className="mono">{formatDate(pr.createdAt)}</dd>
+        {pr.mergedAt ? (
+          <>
+            <dt>Merge em</dt>
+            <dd className="mono">{formatDate(pr.mergedAt)}</dd>
+          </>
+        ) : null}
+        <dt>Cycle time</dt>
+        <dd className="mono">{formatHours(pr.cycleTimeHours) ?? "—"}</dd>
+        <dt>1ª review</dt>
+        <dd className="mono">{formatHours(pr.timeToFirstReviewHours) ?? "—"}</dd>
+        {pr.linkedWorkItemId ? (
+          <>
+            <dt>Work item</dt>
+            <dd>
+              <a href={`/backlog?workItemId=${pr.linkedWorkItemId}`}>
+                {pr.linkedWorkItemExternalId}
+                {pr.linkedWorkItemTitle ? ` · ${pr.linkedWorkItemTitle}` : ""}
+              </a>
+            </dd>
+          </>
+        ) : null}
       </dl>
 
-      {pr.linkedWorkItemId ? (
-        <p style={{ marginTop: 16 }}>
-          <a href={`/backlog?workItemId=${pr.linkedWorkItemId}`}>
-            Work item {pr.linkedWorkItemExternalId}
-            {pr.linkedWorkItemTitle ? ` · ${pr.linkedWorkItemTitle}` : ""}
-          </a>
-        </p>
-      ) : null}
-
-      <h4 style={{ marginTop: 24, marginBottom: 8 }}>Commits</h4>
-      {commitsState === "loading" ? <div style={{ opacity: 0.6 }}>Carregando…</div> : null}
+      <h4 className="serif page-section-title">Commits</h4>
+      {commitsState === "loading" ? <p className="mono drawer-empty">Carregando…</p> : null}
       {commitsState === "error" ? (
-        <div style={{ opacity: 0.7, fontSize: 13 }}>
-          Não foi possível carregar os commits agora.
-        </div>
+        <p className="mono drawer-empty">Não foi possível carregar os commits agora.</p>
       ) : null}
       {commitsState === "ready" && !commits.length ? (
-        <div style={{ opacity: 0.6, fontSize: 13 }}>Nenhum commit neste pull request.</div>
+        <p className="mono drawer-empty">Nenhum commit neste pull request.</p>
       ) : null}
       {commitsState === "ready" && commits.length ? (
-        <ul style={{ listStyle: "none", padding: 0, margin: 0, display: "grid", gap: 8 }}>
+        <ul className="commit-list">
           {commits.map((c) => (
-            <li key={c.sha} style={{ borderBottom: "1px solid var(--line)", paddingBottom: 8 }}>
-              <code style={{ fontSize: 11, opacity: 0.7 }}>{(c.sha || "").slice(0, 7)}</code>
-              <div style={{ fontSize: 13 }}>{(c.message || "").split("\n")[0]}</div>
-              <div style={{ fontSize: 11, opacity: 0.6 }}>
+            <li key={c.sha} className="commit-item">
+              <div className="commit-sha mono">{(c.sha || "").slice(0, 7)}</div>
+              <div className="commit-message">{(c.message || "").split("\n")[0]}</div>
+              <div className="commit-meta mono">
                 {c.authorLogin || "—"} · {formatDate(c.authoredAt)}
               </div>
             </li>
           ))}
         </ul>
       ) : null}
-    </aside>
+    </Drawer>
   );
 }
 
@@ -302,56 +246,57 @@ export function ReposPage() {
   const totalPages = Math.max(1, Math.ceil((prPage.totalElements || 0) / PAGE_SIZE));
 
   return (
-    <div>
-      <h1>Repositórios</h1>
-      <p style={{ opacity: 0.75, marginTop: -8 }}>
-        Acompanhe a saúde e os pull requests dos repositórios de cada projeto.
-      </p>
+    <section>
+      <PageHeader
+        title="Repositórios"
+        subtitle="Acompanhe a saúde e os pull requests dos repositórios de cada projeto."
+      />
 
-      <div style={{ display: "flex", gap: 12, flexWrap: "wrap", margin: "18px 0" }}>
-        <label style={{ display: "grid", gap: 4 }}>
-          <span style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em" }}>
-            Projeto
-          </span>
+      <div className="filter-bar">
+        <label className="filter-field">
+          <span className="filter-field-label">Projeto</span>
           <Combobox
             value={projectId}
             onValueChange={setProjectId}
             placeholder="Selecione um projeto"
             options={projects.map((p) => ({ value: p.id, label: p.name }))}
+            aria-label="Selecionar projeto"
           />
         </label>
 
         {repos.length > 1 ? (
-          <label style={{ display: "grid", gap: 4 }}>
-            <span style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em" }}>
-              Repositório
-            </span>
+          <label className="filter-field">
+            <span className="filter-field-label">Repositório</span>
             <Combobox
               value={repoId}
               onValueChange={setRepoId}
               options={repos.map((r) => ({ value: r.repoId, label: r.fullName }))}
+              aria-label="Selecionar repositório"
             />
           </label>
         ) : null}
 
         {repoId ? (
-          <label style={{ display: "grid", gap: 4 }}>
-            <span style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.08em" }}>
-              Período
-            </span>
-            <Combobox value={rangeDays} onValueChange={setRangeDays} options={RANGE_OPTIONS} />
+          <label className="filter-field">
+            <span className="filter-field-label">Período</span>
+            <Combobox
+              value={rangeDays}
+              onValueChange={setRangeDays}
+              options={RANGE_OPTIONS}
+              aria-label="Selecionar período"
+            />
           </label>
         ) : null}
       </div>
 
       {!projectId ? (
-        <div style={{ border: "1px solid var(--line)", borderRadius: 8, padding: 16 }}>
+        <div className="state-notice mono">
           Selecione um projeto acima para ver seus repositórios.
         </div>
       ) : null}
 
       {projectId && reposState === "ready" && !repos.length ? (
-        <div style={{ border: "1px solid var(--line)", borderRadius: 8, padding: 16 }}>
+        <div className="state-notice mono">
           Nenhum repositório vinculado a este projeto. Vincule um em{" "}
           <a href="/integracoes">Integrações</a>.
         </div>
@@ -359,11 +304,11 @@ export function ReposPage() {
 
       {selectedRepo ? (
         <>
-          <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 20 }}>
-            <MetricCard label="PRs abertos" value={selectedRepo.openPrCount ?? "—"} />
+          <MetricGrid>
+            <MetricCard label="PRs abertos" value={selectedRepo.openPrCount} />
             <MetricCard
               label="PRs parados"
-              value={selectedRepo.stalePrCount ?? "—"}
+              value={selectedRepo.stalePrCount}
               hint="abertos há mais de 24h sem review"
             />
             <MetricCard label="Cycle time médio" value={formatHours(selectedRepo.avgCycleTimeHours)} />
@@ -376,98 +321,93 @@ export function ReposPage() {
               value={formatPercent(selectedRepo.latestCfr)}
               hint={selectedRepo.latestCfrEstimated ? "valor estimado" : undefined}
             />
-          </div>
+          </MetricGrid>
 
-          <section style={{ marginBottom: 24 }}>
-            <h2 style={{ fontSize: 14, textTransform: "uppercase", letterSpacing: "0.08em", opacity: 0.7 }}>
-              Atividade de commits
-            </h2>
-            <CommitTrend points={activity} />
+          <section className="page-section">
+            <h3 className="serif page-section-title">Atividade de commits</h3>
+            <CommitActivityChart data={activity} />
           </section>
 
-          <section>
-            <div style={{ display: "flex", gap: 12, flexWrap: "wrap", marginBottom: 12 }}>
-              <Combobox
-                value={status}
-                onValueChange={setStatus}
-                options={[
-                  { value: ALL_STATUSES, label: "Todos os status" },
-                  ...STATUS_OPTIONS.map((s) => ({ value: s, label: s })),
-                ]}
-              />
-              <Combobox
-                value={author}
-                onValueChange={setAuthor}
-                options={[
-                  { value: ALL_AUTHORS, label: "Todos os autores" },
-                  ...authors.map((a) => ({ value: a, label: a })),
-                ]}
-              />
+          <section className="page-section">
+            <h3 className="serif page-section-title">Pull requests</h3>
+
+            <div className="filter-bar">
+              {/* Cada controle num .filter-field: solto, o trigger do Combobox
+                  tem width 100% e o flex item estica pela linha inteira. */}
+              <div className="filter-field">
+                <Combobox
+                  value={status}
+                  onValueChange={setStatus}
+                  options={[
+                    { value: ALL_STATUSES, label: "Todos os status" },
+                    ...STATUS_OPTIONS.map((s) => ({ value: s, label: s })),
+                  ]}
+                  aria-label="Filtrar por status"
+                />
+              </div>
+              <div className="filter-field">
+                <Combobox
+                  value={author}
+                  onValueChange={setAuthor}
+                  options={[
+                    { value: ALL_AUTHORS, label: "Todos os autores" },
+                    ...authors.map((a) => ({ value: a, label: a })),
+                  ]}
+                  aria-label="Filtrar por autor"
+                />
+              </div>
             </div>
 
-            {prState === "loading" ? <div style={{ opacity: 0.6 }}>Carregando…</div> : null}
+            {prState === "loading" ? <p className="mono drawer-empty">Carregando…</p> : null}
             {prState === "error" ? (
-              <div style={{ opacity: 0.7 }}>Não foi possível carregar os pull requests.</div>
+              <div className="state-notice mono">Não foi possível carregar os pull requests.</div>
             ) : null}
             {prState === "ready" && !prPage.content.length ? (
-              <div style={{ border: "1px solid var(--line)", borderRadius: 8, padding: 16 }}>
+              <div className="state-notice mono">
                 Nenhum pull request sincronizado para este repositório.
               </div>
             ) : null}
 
             {prPage.content.map((pr) => (
-              <button
+              <ListCard
                 key={pr.id}
-                type="button"
+                id={`#${pr.number}`}
+                title={pr.title}
+                selected={selectedPr?.id === pr.id}
                 onClick={() => setSelectedPr(pr)}
-                style={{
-                  display: "block",
-                  width: "100%",
-                  textAlign: "left",
-                  border: "1px solid var(--line)",
-                  borderRadius: 8,
-                  padding: "10px 14px",
-                  marginBottom: 8,
-                  background: "transparent",
-                  cursor: "pointer",
-                }}
-              >
-                <div style={{ display: "flex", gap: 10, alignItems: "baseline", flexWrap: "wrap" }}>
-                  <span style={{ opacity: 0.6, fontSize: 12 }}>#{pr.number}</span>
-                  <strong style={{ flex: 1 }}>{pr.title}</strong>
-                  <span style={{ fontSize: 11, opacity: 0.7 }}>{pr.status}</span>
-                  {/* O vínculo só aparece quando resolveu — a ausência é estado
-                      normal, então não ganha marca nenhuma. */}
-                  {pr.linkedWorkItemExternalId ? (
-                    <span
-                      style={{
-                        fontSize: 11,
-                        border: "1px solid var(--line)",
-                        borderRadius: 4,
-                        padding: "1px 6px",
-                      }}
-                    >
-                      {pr.linkedWorkItemExternalId}
-                    </span>
-                  ) : null}
-                </div>
-                <div style={{ fontSize: 11, opacity: 0.65, marginTop: 4 }}>
-                  {pr.authorGithubLogin || "—"} · {formatDate(pr.createdAt)} · cycle{" "}
-                  {formatHours(pr.cycleTimeHours)} · 1ª review {formatHours(pr.timeToFirstReviewHours)}
-                </div>
-              </button>
+                badges={
+                  <>
+                    {/* O vínculo só aparece quando resolveu — a ausência é
+                        estado normal, então não ganha marca nenhuma. */}
+                    {pr.linkedWorkItemExternalId ? (
+                      <span className="chip chip-sm" title={pr.linkedWorkItemTitle || undefined}>
+                        {pr.linkedWorkItemExternalId}
+                      </span>
+                    ) : null}
+                    <StatusPill status={pr.status} />
+                  </>
+                }
+                meta={
+                  <>
+                    <span>{pr.authorGithubLogin || "—"}</span>
+                    <span>{formatDate(pr.createdAt)}</span>
+                    <span>cycle {formatHours(pr.cycleTimeHours) ?? "—"}</span>
+                    <span>1ª review {formatHours(pr.timeToFirstReviewHours) ?? "—"}</span>
+                  </>
+                }
+              />
             ))}
 
             {totalPages > 1 ? (
-              <div style={{ display: "flex", gap: 10, alignItems: "center", marginTop: 12 }}>
-                <button type="button" disabled={page === 0} onClick={() => setPage((p) => p - 1)}>
+              <div className="pager">
+                <button className="btn" disabled={page === 0} onClick={() => setPage((p) => p - 1)}>
                   Anterior
                 </button>
-                <span style={{ fontSize: 12, opacity: 0.7 }}>
+                <span className="pager-status mono">
                   Página {page + 1} de {totalPages}
                 </span>
                 <button
-                  type="button"
+                  className="btn"
                   disabled={page + 1 >= totalPages}
                   onClick={() => setPage((p) => p + 1)}
                 >
@@ -479,8 +419,8 @@ export function ReposPage() {
         </>
       ) : null}
 
-      <PullRequestPanel repoId={repoId} pr={selectedPr} onClose={() => setSelectedPr(null)} />
-    </div>
+      <PullRequestDrawer repoId={repoId} pr={selectedPr} onClose={() => setSelectedPr(null)} />
+    </section>
   );
 }
 

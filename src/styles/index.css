@@ -6326,3 +6326,160 @@ button.signup-perms-cargo:hover .signup-perms-cargo-edit { opacity: 1; color: va
   flex-wrap: wrap;
 }
 
+
+/* ── Componentes compartilhados: ListCard, MetricCard, filtros ──────────────
+   Extraídos de padrões que já existiam presos a uma feature (o cartão do
+   backlog, os indicadores do dashboard) para que telas novas herdem o design
+   system em vez de recriá-lo. */
+
+.list-card {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 100%;
+  text-align: left;
+  padding: 12px 16px;
+  margin-bottom: 8px;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: inherit;
+  font: inherit;
+}
+:root[data-palette="light"] .list-card { background: var(--bg-elev); }
+
+.list-card.is-clickable { cursor: pointer; }
+.list-card.is-clickable:hover {
+  border-color: var(--line-strong);
+  box-shadow: 0 12px 32px -20px rgba(0, 0, 0, 0.5);
+}
+.list-card.is-selected { border-color: var(--accent); }
+
+.list-card-title-row {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.list-card-id {
+  font-size: var(--mono-sm);
+  color: var(--fg-muted);
+  flex-shrink: 0;
+}
+.list-card-title {
+  font-family: "DM Serif Display", serif;
+  font-size: 16px;
+  line-height: 1.3;
+  color: var(--fg);
+  flex: 1;
+  min-width: 0;
+}
+.list-card-badges {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  flex-shrink: 0;
+}
+.list-card-meta {
+  font-size: var(--mono-sm);
+  color: var(--fg-muted);
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* Dica sob o valor de um indicador — explica o critério sem repeti-lo no rótulo. */
+.stat-cell-hint {
+  margin-top: 6px;
+  font-size: var(--mono-sm);
+  color: var(--fg-dim);
+  line-height: 1.4;
+}
+/* "Sem medição" precisa ler como ausência, não como um valor pequeno. */
+.stat-cell .v.is-empty { color: var(--fg-dim); }
+
+/* Barra de filtros: os controles ocupam a largura do próprio conteúdo em vez
+   de esticar por toda a linha, que era o que deixava dois selects sozinhos
+   parecendo campos de formulário. */
+.filter-bar {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  margin-bottom: 18px;
+}
+.filter-bar .cmb-trigger { min-width: 180px; }
+/* O wrapper é quem define a largura do controle; o trigger do Combobox tem
+   width 100% e, solto no flex, esticaria pela linha inteira. */
+.filter-field {
+  display: grid;
+  gap: 6px;
+  flex: 0 0 auto;
+  min-width: 190px;
+}
+.filter-field-label {
+  font-size: var(--mono-sm);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--fg-muted);
+}
+
+/* Seção dentro de uma tela: título menor que o da página, mesma família. */
+.page-section { margin-bottom: 28px; }
+.page-section-title {
+  font-size: 18px;
+  line-height: 1.2;
+  margin-bottom: 12px;
+  color: var(--fg);
+}
+
+/* Estado vazio / de erro reaproveitável. */
+.state-notice {
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  padding: 16px;
+  font-size: var(--mono-sm);
+  color: var(--fg-muted);
+}
+
+/* Paginação simples abaixo de uma listagem. */
+.pager {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 14px;
+}
+.pager-status {
+  font-size: var(--mono-sm);
+  color: var(--fg-muted);
+}
+
+/* Definições do detalhe no drawer (rótulo à esquerda, valor à direita). */
+.drawer-defs {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 8px 16px;
+  margin: 0 0 20px;
+  font-size: var(--mono-sm);
+}
+.drawer-defs dt { color: var(--fg-muted); }
+.drawer-defs dd { margin: 0; color: var(--fg); }
+
+/* Lista de commits dentro do drawer. */
+.commit-list { list-style: none; padding: 0; margin: 0; display: grid; gap: 10px; }
+.commit-item {
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 10px;
+}
+.commit-item:last-child { border-bottom: 0; }
+.commit-sha { font-size: var(--mono-sm); color: var(--fg-muted); }
+.commit-message { font-size: 13px; color: var(--fg); margin: 2px 0; }
+.commit-meta { font-size: var(--mono-sm); color: var(--fg-dim); }
+
+/* Grade de indicadores dirigida pela quantidade real de cartões: sem isto o
+   quinto indicador cai sozinho numa segunda linha, porque .stat-row fixa 4
+   colunas. As telas que não passam a variável seguem com as 4 de sempre. */
+.stat-row[style*="--metric-count"] {
+  grid-template-columns: repeat(var(--metric-count, 4), 1fr);
+}
+

@@ -8,6 +8,7 @@ import api, {
 import { useOAuth } from "../../hooks/useOAuth.js";
 import { AiConnectorCard } from "./AiConnectorCard.jsx";
 import { Icon } from "../../components/charts/Charts.jsx";
+import Drawer from "../../components/Drawer.jsx";
 
 function statusDot(status) {
   if (status === "CONNECTED") return "●";
@@ -112,7 +113,6 @@ function SyncLogDrawer({ open, onClose, integration = "AZURE_DEVOPS" }) {
   const [error, setError] = React.useState(null);
   const [statusFilter, setStatusFilter] = React.useState("ALL");
   const [expanded, setExpanded] = React.useState(null);
-  const drawerRef = React.useRef(null);
 
   const fetchLogs = React.useCallback(async () => {
     setLoading(true);
@@ -132,18 +132,9 @@ function SyncLogDrawer({ open, onClose, integration = "AZURE_DEVOPS" }) {
     if (open) fetchLogs();
   }, [open, fetchLogs]);
 
-  React.useEffect(() => {
-    if (!open) return;
-    const onKey = (e) => { if (e.key === "Escape") onClose(); };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
-
   // Fecha qualquer detalhe aberto ao trocar de filtro/integração, senão o painel
   // expandido fica preso a uma entrada que saiu da lista visível.
   React.useEffect(() => { setExpanded(null); }, [statusFilter, integration]);
-
-  if (!open) return null;
 
   const statusVariant = (value) => {
     if (value === "SUCCESS") return "is-success";
@@ -179,37 +170,22 @@ function SyncLogDrawer({ open, onClose, integration = "AZURE_DEVOPS" }) {
   const lastFinished = logs.find((l) => l.finishedAt)?.finishedAt;
 
   return (
-    <div className="drawer-backdrop" onClick={onClose}>
-      <aside
-        className="drawer sync-log-drawer"
-        ref={drawerRef}
-        role="dialog"
-        aria-modal="true"
-        aria-label="Logs de sincronização"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="drawer-head">
-          <div className="drawer-head-text">
-            <h3 className="serif drawer-title">Logs de sincronização</h3>
-            <p className="drawer-subtitle mono">
-              {integration === "GITHUB" ? "GitHub" : "Azure DevOps"}
-              {lastFinished ? ` · última execução ${formatRelative(lastFinished)}` : ""}
-            </p>
-          </div>
-          <div className="drawer-head-actions">
-            <button
-              className="drawer-refresh mono"
-              onClick={fetchLogs}
-              disabled={loading}
-              title="Atualizar"
-            >
-              {loading ? "…" : "↻"}
-            </button>
-            <button className="drawer-close" onClick={onClose} aria-label="Fechar">×</button>
-          </div>
-        </div>
-
-        {!error && logs.length > 0 && (
+    <Drawer
+      open={open}
+      onClose={onClose}
+      title="Logs de sincronização"
+      subtitle={
+        (integration === "GITHUB" ? "GitHub" : "Azure DevOps") +
+        (lastFinished ? ` · última execução ${formatRelative(lastFinished)}` : "")
+      }
+      className="sync-log-drawer"
+      actions={
+        <button className="drawer-refresh mono" onClick={fetchLogs} disabled={loading} title="Atualizar">
+          {loading ? "…" : "↻"}
+        </button>
+      }
+      toolbar={
+        !error && logs.length > 0 ? (
           <div className="log-filter-bar">
             {filters.map((f) => (
               <button
@@ -222,9 +198,9 @@ function SyncLogDrawer({ open, onClose, integration = "AZURE_DEVOPS" }) {
               </button>
             ))}
           </div>
-        )}
-
-        <div className="drawer-body">
+        ) : null
+      }
+    >
           {loading && logs.length === 0 && (
             <div className="log-skeleton-list">
               {[0, 1, 2, 3].map((i) => <div key={i} className="log-skeleton" />)}
@@ -309,9 +285,7 @@ function SyncLogDrawer({ open, onClose, integration = "AZURE_DEVOPS" }) {
               </article>
             );
           })}
-        </div>
-      </aside>
-    </div>
+    </Drawer>
   );
 }
 
