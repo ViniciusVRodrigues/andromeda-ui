@@ -136,6 +136,25 @@ h1, h2, h3, .serif {
 .page-layer::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 4px; }
 .page-layer::-webkit-scrollbar-track { background: transparent; }
 
+/* Barra de rolagem fina, no mesmo desenho já usado em .page-layer, .admin-main
+   e nos modais — aqui como utilitário, para não repetir o bloco a cada nova
+   região rolável. Firefox usa as propriedades padronizadas; WebKit, os
+   pseudo-elementos. */
+.scroll-slim {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+}
+.scroll-slim::-webkit-scrollbar { width: 8px; height: 8px; }
+.scroll-slim::-webkit-scrollbar-track { background: transparent; }
+.scroll-slim::-webkit-scrollbar-thumb {
+  background: var(--line-strong);
+  border-radius: 4px;
+}
+/* O polegar só ganha contraste sob o ponteiro: uma barra sempre destacada
+   compete com o conteúdo. */
+.scroll-slim:hover::-webkit-scrollbar-thumb { background: var(--fg-dim); }
+
+
 /* ---- top bar ---- */
 .topbar {
   position: relative;
@@ -932,6 +951,15 @@ h1, h2, h3, .serif {
    drawer comprime cada card abaixo da sua altura natural e o overflow do
    .log-entry corta o conteúdo (chips, bloco de erro). */
 .drawer-body > * { flex-shrink: 0; }
+/* O corpo do drawer rola no log de sincronização; segue o mesmo desenho de
+   barra do restante do app. */
+.drawer-body {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+}
+.drawer-body::-webkit-scrollbar { width: 8px; }
+.drawer-body::-webkit-scrollbar-track { background: transparent; }
+.drawer-body::-webkit-scrollbar-thumb { background: var(--line-strong); border-radius: 4px; }
 .drawer-loading,
 .drawer-empty {
   color: var(--fg-dim);

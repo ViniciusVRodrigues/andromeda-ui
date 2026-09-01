@@ -149,7 +149,7 @@ function PullRequestDrawer({ repoId, repoName, pr, onClose }) {
           <p className="mono drawer-empty">Nenhum commit neste pull request.</p>
         ) : null}
         {commitsState === "ready" && commits.length ? (
-          <ul className="commit-list">
+          <ul className="commit-list scroll-slim">
             {commits.map((c) => (
               <li key={c.sha} className="commit-card">
                 <div className="commit-card-head">
