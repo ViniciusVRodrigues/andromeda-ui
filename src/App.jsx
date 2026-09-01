@@ -32,7 +32,8 @@ import { ProfilePage } from "./features/profile/ProfilePage.jsx";
 import { OrganizationLayout } from "./features/organization/OrganizationLayout.jsx";
 import { TeamPage } from "./features/team/TeamPage.jsx";
 import { ProjectsPage } from "./features/projects/ProjectsPage.jsx";
-import { AzureFieldMappingWizard } from "./features/admin/AzureFieldMappingWizard.jsx";
+import { AzureFieldMappingWizard } from "./features/integrations/AzureFieldMappingWizard.jsx";
+import { IntegrationsPage } from "./features/integrations/IntegrationsPage.jsx";
 import { NotFoundScreen } from "./features/not-found/NotFoundScreen.jsx";
 import { ThemePickerModal } from "./components/ThemePickerModal.jsx";
 import api, { setToken, clearToken, onAuthExpired, getToken } from "./services/api.js";
@@ -45,7 +46,7 @@ import {
 } from "./components/tweaks/TweaksPanel.jsx";
 import { IdentityProvider, useIdentity } from "./core/auth/IdentityContext.jsx";
 import { RequireTab } from "./core/auth/RequireTab.jsx";
-import { ShellLayout, useAzureConnectionInvalidator } from "./app/ShellLayout.jsx";
+import { ShellLayout } from "./app/ShellLayout.jsx";
 import {
   buildIdentity,
   buildProfile,
@@ -376,6 +377,12 @@ function SectionContent() {
         <ProjectsPage />
       </RequireTab>
     );
+  else if (tab === "integrations")
+    page = (
+      <RequireTab tab="integrations">
+        <IntegrationsPage />
+      </RequireTab>
+    );
   else page = <LegacySection tab={tab} subtab={subtab} />;
 
   return (
@@ -398,7 +405,6 @@ function SectionContent() {
 function LegacySection({ tab, subtab }) {
   const navigate = useNavigate();
   const { identity, profile, can, dash, orgSlug } = useIdentity();
-  const invalidateAzure = useAzureConnectionInvalidator();
   if (!can(tab)) return <Navigate to={firstAllowedRoute(identity, orgSlug)} replace />;
   return (
     <AdminSettings
@@ -415,7 +421,6 @@ function LegacySection({ tab, subtab }) {
           navigate(orgRoute(orgSlug, `organizacao${subtabId === "geral" ? "" : "/" + subtabId}`));
         }
       }}
-      onAzureStatusChange={invalidateAzure}
     />
   );
 }

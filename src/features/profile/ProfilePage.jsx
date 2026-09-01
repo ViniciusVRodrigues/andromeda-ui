@@ -2,7 +2,7 @@
  * Ler-only: dados da sessão via useIdentity + contas de provedor conectadas. */
 
 import React from "react";
-import { ConnectedAccounts } from "../admin/ConnectedAccounts.jsx";
+import { ConnectedAccounts } from "../integrations/ConnectedAccounts.jsx";
 import { useIdentity } from "../../core/auth/IdentityContext.jsx";
 
 export function ProfilePage() {

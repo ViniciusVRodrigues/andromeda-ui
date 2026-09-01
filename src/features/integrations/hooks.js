@@ -16,6 +16,12 @@ export function useAzureConnectionStatus() {
   });
 }
 
+/** Invalida o status Azure compartilhado (banner do chrome ← Integrações). */
+export function useAzureConnectionInvalidator() {
+  const queryClient = useQueryClient();
+  return () => queryClient.invalidateQueries({ queryKey: ["integrations", "azure", "connection"] });
+}
+
 /**
  * Sync manual do GitHub (org inteiro). 202 dispara; 429 é cooldown e 409 conexão
  * inexistente — o chamador trata pela mensagem do client ("(429)"/"(409)").

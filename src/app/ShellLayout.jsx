@@ -7,7 +7,6 @@
 
 import React from "react";
 import { Outlet, useNavigate, useParams } from "react-router-dom";
-import { useQueryClient } from "@tanstack/react-query";
 import { Wordmark } from "../components/Wordmark.jsx";
 import { useIdentity } from "../core/auth/IdentityContext.jsx";
 import { TAB_TO_ROUTE, resolveRoute } from "../core/auth/shell.js";
@@ -117,7 +116,6 @@ const THEME_OPTS = [
 export function ShellLayout() {
   const { identity, profile, can, palette, setPalette, onLogout, orgSlug } = useIdentity();
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
 
   const [collapsed, setCollapsed] = React.useState(false);
   const [bannerDismissed, setBannerDismissed] = React.useState(
@@ -250,11 +248,4 @@ export function ShellLayout() {
       </div>
     </div>
   );
-}
-
-/* Invalidate compartilhado para quando uma página muda o status Azure, o banner
- * reagir sem refetch manual (usado pelas páginas de Integração). */
-export function useAzureConnectionInvalidator() {
-  const queryClient = useQueryClient();
-  return () => queryClient.invalidateQueries({ queryKey: ["integrations", "azure", "connection"] });
 }

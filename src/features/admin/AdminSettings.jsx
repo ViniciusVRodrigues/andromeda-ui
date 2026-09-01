@@ -5,7 +5,6 @@
 import React from "react";
 import { useSearchParams } from "react-router-dom";
 import { DashboardPage } from "../dashboard/DashboardPage.jsx";
-import { IntegrationTab } from "./IntegrationTab.jsx";
 import { BacklogPage } from "../backlog/BacklogPage.jsx";
 import { ReposPage } from "../repos/ReposPage.jsx";
 import { AiPricingTab } from "../uso-ia/components/AiPricingTab.jsx";
@@ -27,16 +26,7 @@ const USO_IA_SUB_TABS = [
 /*  AdminSettings                               */
 /* ──────────────────────────────────────────── */
 
-function AdminSettings({
-  section,
-  subtab,
-  can,
-  dash,
-  profile,
-  onNavigate,
-  onNavigateSubtab,
-  onAzureStatusChange,
-}) {
+function AdminSettings({ section, subtab, can, dash, profile, onNavigate, onNavigateSubtab }) {
   const [, setSearchParams] = useSearchParams();
 
   /* Dados da org via cache canônico — a precificação lê preços/assinatura daqui. */
@@ -48,15 +38,6 @@ function AdminSettings({
     <>
       {/* O chrome (sidebar + banner Azure) vive em app/ShellLayout.jsx; aqui só
           o conteúdo da seção ativa e os modais/overlays que ainda pertencem a ela. */}
-      {section === "integrations" && (
-        <IntegrationTab
-          onNavigate={onNavigate}
-          orgSlug={profile?.org?.slug}
-          can={can}
-          onAzureStatusChange={onAzureStatusChange}
-        />
-      )}
-
       {section === "uso-ia" && (
         <section>
           {can("uso-ia-pricing") && (
