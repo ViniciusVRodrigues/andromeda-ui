@@ -26,14 +26,16 @@ import { HomeScreen } from "./features/home/HomeScreen.jsx";
 import { SignupScreen } from "./features/auth/SignupScreen.jsx";
 import { LoginScreen } from "./features/auth/LoginScreen.jsx";
 import { OnboardingScreen } from "./features/onboarding/OnboardingScreen.jsx";
-import { AdminSettings } from "./features/admin/AdminSettings.jsx";
 import { DashboardPage } from "./features/dashboard/DashboardPage.jsx";
+import { BacklogPage } from "./features/backlog/BacklogPage.jsx";
+import { ReposPage } from "./features/repos/ReposPage.jsx";
 import { ProfilePage } from "./features/profile/ProfilePage.jsx";
 import { OrganizationLayout } from "./features/organization/OrganizationLayout.jsx";
 import { TeamPage } from "./features/team/TeamPage.jsx";
 import { ProjectsPage } from "./features/projects/ProjectsPage.jsx";
 import { AzureFieldMappingWizard } from "./features/integrations/AzureFieldMappingWizard.jsx";
 import { IntegrationsPage } from "./features/integrations/IntegrationsPage.jsx";
+import { UsoIaLayout } from "./features/ai-usage/UsoIaLayout.jsx";
 import { NotFoundScreen } from "./features/not-found/NotFoundScreen.jsx";
 import { ThemePickerModal } from "./components/ThemePickerModal.jsx";
 import api, { setToken, clearToken, onAuthExpired, getToken } from "./services/api.js";
@@ -336,7 +338,7 @@ function SectionContent() {
   const { section, "*": rest } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
   const fullRest = rest ? `${section}/${rest}` : section;
-  const { tab, subtab } = resolveRoute(fullRest);
+  const { tab } = resolveRoute(fullRest);
   if (!tab) return null; // ShellGate já garantiu knownSection
 
   const wizardStep = searchParams.get("wizard");
@@ -383,7 +385,31 @@ function SectionContent() {
         <IntegrationsPage />
       </RequireTab>
     );
-  else page = <LegacySection tab={tab} subtab={subtab} />;
+  else if (tab === "uso-ia")
+    page = (
+      <RequireTab tab="uso-ia">
+        <UsoIaLayout />
+      </RequireTab>
+    );
+  else if (tab === "dashboard")
+    page = (
+      <RequireTab tab="dashboard">
+        <DashboardRoute />
+      </RequireTab>
+    );
+  else if (tab === "backlog")
+    page = (
+      <RequireTab tab="backlog">
+        <BacklogRoute />
+      </RequireTab>
+    );
+  else if (tab === "repos")
+    page = (
+      <RequireTab tab="repos">
+        <ReposPage />
+      </RequireTab>
+    );
+  else page = null;
 
   return (
     <>
@@ -400,27 +426,34 @@ function SectionContent() {
   );
 }
 
-/* Conteúdo ainda monolítico (projects/integrations/uso-ia/dashboard/backlog/
- * repos) — desaparece conforme as fatias D–G promovem cada seção. */
-function LegacySection({ tab, subtab }) {
+/* Rota do dashboard (admin): wrapper fino — dash/onNavigate do contexto+navegador,
+ * idêntico ao que o monólito passava. */
+function DashboardRoute() {
   const navigate = useNavigate();
-  const { identity, profile, can, dash, orgSlug } = useIdentity();
-  if (!can(tab)) return <Navigate to={firstAllowedRoute(identity, orgSlug)} replace />;
+  const { dash, orgSlug } = useIdentity();
   return (
-    <AdminSettings
-      section={tab}
-      subtab={subtab}
-      can={can}
-      dash={dash}
-      profile={profile}
-      onNavigate={(t) => navigate(orgRoute(orgSlug, TAB_TO_ROUTE[t]))}
-      onNavigateSubtab={(subtabId) => {
-        if (tab === "uso-ia") {
-          navigate(orgRoute(orgSlug, `uso-ia${subtabId === "consumo" ? "" : "/" + subtabId}`));
-        } else {
-          navigate(orgRoute(orgSlug, `organizacao${subtabId === "geral" ? "" : "/" + subtabId}`));
-        }
-      }}
+    <section className="admin-dash">
+      <DashboardPage dash={dash} onNavigate={(t) => navigate(orgRoute(orgSlug, TAB_TO_ROUTE[t]))} />
+    </section>
+  );
+}
+
+/* Rota do backlog: dispara o wizard de hierarquia (overlay em SectionContent) por URL. */
+function BacklogRoute() {
+  const [, setSearchParams] = useSearchParams();
+  return (
+    <BacklogPage
+      onOpenHierarchyWizard={(bindingId) =>
+        setSearchParams(
+          (prev) => {
+            const n = new URLSearchParams(prev);
+            n.set("wizard", "hierarchy");
+            n.set("binding", bindingId);
+            return n;
+          },
+          { replace: true },
+        )
+      }
     />
   );
 }

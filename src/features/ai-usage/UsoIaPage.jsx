@@ -3,7 +3,7 @@ import { useUsoIa } from "./hooks/useUsoIa.js";
 import { MetricsHeader } from "./components/MetricsHeader.jsx";
 import { FluencyScoreSection } from "./components/FluencyScoreSection.jsx";
 import { PendingAllocationCard } from "./components/PendingAllocationCard.jsx";
-import { AllocationModal } from "../ai-usage/components/AllocationModal.jsx";
+import { AllocationModal } from "./components/AllocationModal.jsx";
 import { AllocationHistory } from "./components/AllocationHistory.jsx";
 import Combobox from "../../core/ui/Combobox.jsx";
 

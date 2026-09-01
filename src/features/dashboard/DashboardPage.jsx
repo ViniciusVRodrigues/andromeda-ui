@@ -8,7 +8,7 @@
  */
 
 import React from "react";
-import { DeveloperDashboard } from "../developer-dashboard/DeveloperDashboard.jsx";
+import { DeveloperDashboard } from "./DeveloperDashboard.jsx";
 import { TeamDashboard } from "./TeamDashboard.jsx";
 import { ManagerDashboard } from "./ManagerDashboard.jsx";
 import PendingAllocationsBanner from "../../components/PendingAllocationsBanner.jsx";
