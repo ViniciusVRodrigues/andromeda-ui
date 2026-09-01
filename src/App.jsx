@@ -8,8 +8,8 @@
  * URL-addressable (/organizacao, /organizacao/cargos, /organizacao/senioridade);
  * as antigas rotas /cargos e /senioridade redirecionam para as novas.
  *
- * Identidade no protótipo (sem backend): signup ⇒ admin; login ⇒ membro. Em
- * produção viria do /api/me da sessão (e sobreviveria a um refresh). */
+ * Identidade vem da sessão real: POST /v1/auth/login → JWT → GET /v1/auth/me
+ * (permissões no token). Não há mais identidade fake de protótipo. */
 
 import React from "react";
 import {
@@ -308,9 +308,6 @@ function AppShell() {
           <TweakButton label="Criar conta" onClick={() => navigate("/signup")} />
           <TweakButton label="Tela de login" onClick={() => navigate("/login")} />
           <TweakButton label="Onboarding" onClick={() => navigate("/onboard")} />
-          <TweakButton label="Entrar no app · admin" onClick={() => enterApp({ name: "Maria Andrade", email: "maria@andromeda.tcc", orgName: "Andrômeda Core", orgSlug: "andromeda-org", permissions: ["USER_MANAGE","ROLE_MANAGE","AZURE_CONFIGURE","AZURE_READ","GITHUB_CONFIGURE","GITHUB_READ","AI_READ_OWN","AI_READ_ALL","PRICE_TABLE_MANAGE","CONNECTOR_TOKEN_MANAGE_OWN","CONNECTOR_TOKEN_MANAGE_ALL","DASHBOARD_INDIVIDUAL","DASHBOARD_TEAM","DASHBOARD_STRATEGIC","gerProjeto","gerEquipe"] })} />
-          <TweakButton label="Entrar no app · membro" onClick={() => enterApp({ name: "João Pereira", email: "joao@andromeda.tcc", orgName: "Andrômeda Core", permissions: ["gerProjeto","gerEquipe","DASHBOARD_INDIVIDUAL","DASHBOARD_TEAM"] })} />
-          <TweakButton label="Entrar no app · só dashboard" onClick={() => enterApp({ name: "Ana Lima", email: "ana@andromeda.tcc", orgName: "Andrômeda Core", permissions: ["DASHBOARD_INDIVIDUAL"] }, "/dashboard")} />
         </TweakSection>
       </TweaksPanel>
     </>
