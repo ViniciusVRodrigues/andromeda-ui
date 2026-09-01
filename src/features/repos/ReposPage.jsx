@@ -74,7 +74,7 @@ function StatusPill({ status }) {
 }
 
 /** Detalhe do pull request, incluindo os commits carregados sob demanda. */
-function PullRequestDrawer({ repoId, pr, onClose }) {
+function PullRequestDrawer({ repoId, repoName, pr, onClose }) {
   const [commits, setCommits] = React.useState([]);
   const [commitsState, setCommitsState] = React.useState("loading");
 
@@ -98,18 +98,26 @@ function PullRequestDrawer({ repoId, pr, onClose }) {
       open={!!pr}
       onClose={onClose}
       title={pr.title}
-      subtitle={`#${pr.number} · ${pr.authorGithubLogin || "sem autor"}`}
+      subtitle={`#${pr.number}${repoName ? ` · ${repoName}` : ""}`}
       className="pr-drawer"
     >
       <dl className="drawer-defs">
         <dt>Status</dt>
         <dd><StatusPill status={pr.status} /></dd>
+        <dt>Autor</dt>
+        <dd className="mono">{pr.authorGithubLogin || "—"}</dd>
         <dt>Aberto em</dt>
         <dd className="mono">{formatDate(pr.createdAt)}</dd>
         {pr.mergedAt ? (
           <>
             <dt>Merge em</dt>
             <dd className="mono">{formatDate(pr.mergedAt)}</dd>
+          </>
+        ) : null}
+        {!pr.mergedAt && pr.closedAt ? (
+          <>
+            <dt>Fechado em</dt>
+            <dd className="mono">{formatDate(pr.closedAt)}</dd>
           </>
         ) : null}
         <dt>Cycle time</dt>
@@ -140,12 +148,13 @@ function PullRequestDrawer({ repoId, pr, onClose }) {
       {commitsState === "ready" && commits.length ? (
         <ul className="commit-list">
           {commits.map((c) => (
-            <li key={c.sha} className="commit-item">
-              <div className="commit-sha mono">{(c.sha || "").slice(0, 7)}</div>
-              <div className="commit-message">{(c.message || "").split("\n")[0]}</div>
-              <div className="commit-meta mono">
-                {c.authorLogin || "—"} · {formatDate(c.authoredAt)}
+            <li key={c.sha} className="commit-card">
+              <div className="commit-card-head">
+                <code className="commit-sha mono">{(c.sha || "").slice(0, 7)}</code>
+                <span className="commit-meta mono">{formatDate(c.authoredAt)}</span>
               </div>
+              <p className="commit-message">{(c.message || "").split("\n")[0]}</p>
+              <div className="commit-meta mono">{c.authorLogin || "—"}</div>
             </li>
           ))}
         </ul>
@@ -325,7 +334,9 @@ export function ReposPage() {
 
           <section className="page-section">
             <h3 className="serif page-section-title">Atividade de commits</h3>
-            <CommitActivityChart data={activity} />
+            <div className="chart-panel">
+              <CommitActivityChart data={activity} />
+            </div>
           </section>
 
           <section className="page-section">
@@ -419,7 +430,12 @@ export function ReposPage() {
         </>
       ) : null}
 
-      <PullRequestDrawer repoId={repoId} pr={selectedPr} onClose={() => setSelectedPr(null)} />
+      <PullRequestDrawer
+        repoId={repoId}
+        repoName={selectedRepo?.fullName}
+        pr={selectedPr}
+        onClose={() => setSelectedPr(null)}
+      />
     </section>
   );
 }
