@@ -28,7 +28,8 @@ export default function Checkbox({
       onCheckedChange={onCheckedChange}
       disabled={disabled}
       aria-label={label ? undefined : ariaLabel}
-      className="cbx-box">
+      className="cbx-box"
+    >
       <RadixCheckbox.Indicator className="cbx-indicator">✓</RadixCheckbox.Indicator>
     </RadixCheckbox.Root>
   );
@@ -38,7 +39,9 @@ export default function Checkbox({
   return (
     <div className={"cbx" + (className ? " " + className : "")}>
       {box}
-      <label className="cbx-label mono" htmlFor={inputId}>{label}</label>
+      <label className="cbx-label mono" htmlFor={inputId}>
+        {label}
+      </label>
     </div>
   );
 }

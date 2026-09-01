@@ -38,7 +38,9 @@ export function ConnectedAccounts() {
     }
   }, []);
 
-  React.useEffect(() => { fetchAccounts(); }, [fetchAccounts]);
+  React.useEffect(() => {
+    fetchAccounts();
+  }, [fetchAccounts]);
 
   const githubAccount = accounts.find((a) => a.provider === "GITHUB") || null;
 
@@ -52,7 +54,9 @@ export function ConnectedAccounts() {
       setOauthError(null);
     },
     onError: (reason) => {
-      setOauthError(reason === "timeout" ? "Tempo esgotado ao aguardar a autorização." : "Conexão cancelada.");
+      setOauthError(
+        reason === "timeout" ? "Tempo esgotado ao aguardar a autorização." : "Conexão cancelada.",
+      );
     },
   });
 
@@ -105,11 +109,7 @@ export function ConnectedAccounts() {
                 Desconectar
               </button>
             ) : (
-              <button
-                className="admin-row-edit"
-                onClick={handleConnect}
-                disabled={polling}
-              >
+              <button className="admin-row-edit" onClick={handleConnect} disabled={polling}>
                 {polling ? "Aguardando autorização…" : "Conectar GitHub"}
               </button>
             )}
@@ -138,7 +138,11 @@ export function ConnectedAccounts() {
               Sua conta do GitHub será desvinculada. Você pode reconectar a qualquer momento.
             </p>
             <div className="role-modal-foot">
-              <button className="btn-ghost btn" onClick={() => setConfirmingUnlink(false)} disabled={unlinking}>
+              <button
+                className="btn-ghost btn"
+                onClick={() => setConfirmingUnlink(false)}
+                disabled={unlinking}
+              >
                 Cancelar
               </button>
               <button className="btn btn-danger" onClick={handleUnlink} disabled={unlinking}>

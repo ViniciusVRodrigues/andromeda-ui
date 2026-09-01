@@ -34,14 +34,14 @@ export default function Combobox({
     const q = query.trim().toLowerCase();
     if (!q) return options;
     return options.filter(
-      (o) =>
-        o.label.toLowerCase().includes(q) ||
-        (o.hint && o.hint.toLowerCase().includes(q))
+      (o) => o.label.toLowerCase().includes(q) || (o.hint && o.hint.toLowerCase().includes(q)),
     );
   }, [options, query]);
 
   /* O filtro é estado de uma sessão de abertura, não do valor escolhido. */
-  React.useEffect(() => { if (!open) setQuery(""); }, [open]);
+  React.useEffect(() => {
+    if (!open) setQuery("");
+  }, [open]);
 
   return (
     <RadixSelect.Root
@@ -49,10 +49,12 @@ export default function Combobox({
       onValueChange={onValueChange}
       open={open}
       onOpenChange={setOpen}
-      disabled={disabled}>
+      disabled={disabled}
+    >
       <RadixSelect.Trigger
         className={"cmb-trigger" + (className ? " " + className : "")}
-        aria-label={ariaLabel}>
+        aria-label={ariaLabel}
+      >
         <RadixSelect.Value placeholder={placeholder} />
         <RadixSelect.Icon className="cmb-caret">▾</RadixSelect.Icon>
       </RadixSelect.Trigger>
@@ -83,7 +85,9 @@ export default function Combobox({
                 <RadixSelect.Item key={o.value} value={o.value} className="cmb-item">
                   <RadixSelect.ItemText>{o.label}</RadixSelect.ItemText>
                   {o.hint && <span className="cmb-item-hint mono">{o.hint}</span>}
-                  <RadixSelect.ItemIndicator className="cmb-item-check">✓</RadixSelect.ItemIndicator>
+                  <RadixSelect.ItemIndicator className="cmb-item-check">
+                    ✓
+                  </RadixSelect.ItemIndicator>
                 </RadixSelect.Item>
               ))
             )}

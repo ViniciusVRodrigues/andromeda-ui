@@ -102,7 +102,13 @@ function StatusPill({ status }) {
 function ChevronIcon() {
   return (
     <svg width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true">
-      <path d="M6 3.5 L11 8 L6 12.5" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+      <path
+        d="M6 3.5 L11 8 L6 12.5"
+        stroke="currentColor"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </svg>
   );
 }
@@ -115,7 +121,10 @@ function WorkItemRow({ item, onItemChanged, toggle }) {
         <div className="backlog-card-body">
           <div className="backlog-card-title-row">
             {item.externalId && (
-              <span className="backlog-card-id mono" title={`ID no Azure DevOps: ${item.externalId}`}>
+              <span
+                className="backlog-card-id mono"
+                title={`ID no Azure DevOps: ${item.externalId}`}
+              >
                 #{item.externalId}
               </span>
             )}
@@ -129,7 +138,7 @@ function WorkItemRow({ item, onItemChanged, toggle }) {
                 <span className="backlog-card-sprint mono">{item.sprintName}</span>
               )}
               {/* Sem correspondência com um membro da organização, o e-mail do Azure é o
-                * melhor identificador disponível — melhor que omitir o responsável. */}
+               * melhor identificador disponível — melhor que omitir o responsável. */}
               {(item.assigneeName || item.assigneeEmail) && (
                 <span className="backlog-card-assignee mono" title="Responsável">
                   {item.assigneeName || item.assigneeEmail}
@@ -147,7 +156,9 @@ function WorkItemRow({ item, onItemChanged, toggle }) {
               readOnly={isPlanningContainer(item)}
               rolledUp={item.rolledUpComplexity ?? null}
               descendantCount={item.descendantCount ?? 0}
-              onChanged={(updated) => onItemChanged(item.id, applyManualFieldsUpdate(item, updated))}
+              onChanged={(updated) =>
+                onItemChanged(item.id, applyManualFieldsUpdate(item, updated))
+              }
             />
             <WorkItemManualFieldsEditor
               workItemId={item.id}
@@ -158,7 +169,9 @@ function WorkItemRow({ item, onItemChanged, toggle }) {
               readOnly={isPlanningContainer(item)}
               rolledUp={item.rolledUpEffort ?? null}
               descendantCount={item.descendantCount ?? 0}
-              onChanged={(updated) => onItemChanged(item.id, applyManualFieldsUpdate(item, updated))}
+              onChanged={(updated) =>
+                onItemChanged(item.id, applyManualFieldsUpdate(item, updated))
+              }
             />
           </div>
         </div>
@@ -190,7 +203,15 @@ function WorkItemRow({ item, onItemChanged, toggle }) {
  *     count) is positive, decrementing it as they load. This cascades level-by-level
  *     because a child only mounts once its parent has loaded it.
  */
-function TreeNode({ item, depth = 0, onItemChanged, registerNode, unregisterNode, command, autoExpand }) {
+function TreeNode({
+  item,
+  depth = 0,
+  onItemChanged,
+  registerNode,
+  unregisterNode,
+  command,
+  autoExpand,
+}) {
   const isLeafByFlag = item?.hasChildren === false;
   const [expanded, setExpanded] = React.useState(false);
   const [children, setChildren] = React.useState(null); // null = not loaded yet
@@ -299,7 +320,8 @@ function TreeNode({ item, depth = 0, onItemChanged, registerNode, unregisterNode
               className={`backlog-toggle${expanded ? " is-expanded" : ""}`}
               onClick={toggle}
               aria-expanded={expanded}
-              aria-label={expanded ? `Recolher ${item.title}` : `Expandir ${item.title}`}>
+              aria-label={expanded ? `Recolher ${item.title}` : `Expandir ${item.title}`}
+            >
               <ChevronIcon />
             </button>
           ) : undefined
@@ -310,14 +332,19 @@ function TreeNode({ item, depth = 0, onItemChanged, registerNode, unregisterNode
         <div className="backlog-node-children">
           {loading && (
             <div className="backlog-children-state mono">
-              <span className="skeleton circle" style={{ width: 16, height: 16, borderRadius: 4 }} />
+              <span
+                className="skeleton circle"
+                style={{ width: 16, height: 16, borderRadius: 4 }}
+              />
               Carregando itens filhos…
             </div>
           )}
           {error && (
             <div className="backlog-children-error mono">
               {error}
-              <button type="button" className="btn-ghost btn" onClick={loadChildren}>Tentar novamente</button>
+              <button type="button" className="btn-ghost btn" onClick={loadChildren}>
+                Tentar novamente
+              </button>
             </div>
           )}
           {!loading && !error && children && children.length === 0 && (
@@ -374,15 +401,19 @@ function Pager({ page, size, totalElements, onPageChange }) {
         type="button"
         className="btn-ghost btn backlog-pager-btn"
         disabled={page <= 0}
-        onClick={() => onPageChange(page - 1)}>
+        onClick={() => onPageChange(page - 1)}
+      >
         ← anterior
       </button>
-      <span className="backlog-pager-info mono">página {page + 1} de {totalPages}</span>
+      <span className="backlog-pager-info mono">
+        página {page + 1} de {totalPages}
+      </span>
       <button
         type="button"
         className="btn-ghost btn backlog-pager-btn"
         disabled={page >= totalPages - 1}
-        onClick={() => onPageChange(page + 1)}>
+        onClick={() => onPageChange(page + 1)}
+      >
         próxima →
       </button>
     </div>
@@ -415,7 +446,13 @@ export function BacklogPage({ onOpenHierarchyWizard }) {
   /* Sob filtro o backend achata a hierarquia numa lista única (servida por /roots) e
    * devolve orphans vazio; a UI espelha isso escondendo a seção de órfãos e os
    * controles de expandir/recolher, que não fazem sentido numa lista plana. */
-  const isFiltered = !!(sprintFilter || assigneeFilter || debouncedSearch || typeFilter || statusFilter);
+  const isFiltered = !!(
+    sprintFilter ||
+    assigneeFilter ||
+    debouncedSearch ||
+    typeFilter ||
+    statusFilter
+  );
 
   const [rootsPage, setRootsPage] = React.useState(0);
   const [roots, setRoots] = React.useState([]);
@@ -460,12 +497,14 @@ export function BacklogPage({ onOpenHierarchyWizard }) {
     for (const { depth, expanded, leaf } of nodeRegistryRef.current.values()) {
       if (!expanded && !leaf) {
         pendingCount += 1;
-        if (shallowestCollapsed === null || depth < shallowestCollapsed) shallowestCollapsed = depth;
+        if (shallowestCollapsed === null || depth < shallowestCollapsed)
+          shallowestCollapsed = depth;
       }
       // A leaf can end up flagged `expanded` (the cascade opened it before its children came back
       // empty), but collapsing it changes nothing on screen. Counting leaves here made the first
       // "recolher" target a depth with nothing to close, so the click appeared to do nothing.
-      if (expanded && !leaf && (deepestExpanded === null || depth > deepestExpanded)) deepestExpanded = depth;
+      if (expanded && !leaf && (deepestExpanded === null || depth > deepestExpanded))
+        deepestExpanded = depth;
     }
     return { shallowestCollapsed, deepestExpanded, pendingCount };
   }, [registryVersion]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -473,17 +512,26 @@ export function BacklogPage({ onOpenHierarchyWizard }) {
   const handleExpandOneLevel = () => {
     if (registryStats.shallowestCollapsed === null) return;
     commandVersionRef.current += 1;
-    setCommand({ version: commandVersionRef.current, type: "expand", depth: registryStats.shallowestCollapsed });
+    setCommand({
+      version: commandVersionRef.current,
+      type: "expand",
+      depth: registryStats.shallowestCollapsed,
+    });
   };
   const handleCollapseOneLevel = () => {
     if (registryStats.deepestExpanded === null) return;
     commandVersionRef.current += 1;
-    setCommand({ version: commandVersionRef.current, type: "collapse", depth: registryStats.deepestExpanded });
+    setCommand({
+      version: commandVersionRef.current,
+      type: "collapse",
+      depth: registryStats.deepestExpanded,
+    });
   };
 
   React.useEffect(() => {
     setProjectsLoading(true);
-    api.get("/v1/projects")
+    api
+      .get("/v1/projects")
       .then((data) => setProjects(Array.isArray(data) ? data : []))
       .catch(() => setProjects([]))
       .finally(() => setProjectsLoading(false));
@@ -501,19 +549,25 @@ export function BacklogPage({ onOpenHierarchyWizard }) {
 
   /* Sprints são por projeto, então recarregam a cada troca de seleção. */
   React.useEffect(() => {
-    if (!projectId) { setSprints([]); return; }
+    if (!projectId) {
+      setSprints([]);
+      return;
+    }
     getDashboardSprints(projectId)
       .then((data) => setSprints(Array.isArray(data) ? data : []))
       .catch(() => setSprints([]));
   }, [projectId]);
 
-  const filterParams = React.useMemo(() => ({
-    ...(sprintFilter ? { sprintId: sprintFilter } : {}),
-    ...(assigneeFilter ? { assigneeUserId: assigneeFilter } : {}),
-    ...(debouncedSearch ? { search: debouncedSearch } : {}),
-    ...(typeFilter ? { type: typeFilter } : {}),
-    ...(statusFilter ? { status: statusFilter } : {}),
-  }), [sprintFilter, assigneeFilter, debouncedSearch, typeFilter, statusFilter]);
+  const filterParams = React.useMemo(
+    () => ({
+      ...(sprintFilter ? { sprintId: sprintFilter } : {}),
+      ...(assigneeFilter ? { assigneeUserId: assigneeFilter } : {}),
+      ...(debouncedSearch ? { search: debouncedSearch } : {}),
+      ...(typeFilter ? { type: typeFilter } : {}),
+      ...(statusFilter ? { status: statusFilter } : {}),
+    }),
+    [sprintFilter, assigneeFilter, debouncedSearch, typeFilter, statusFilter],
+  );
 
   const loadRoots = React.useCallback((pid, page, filters) => {
     if (!pid) return;
@@ -568,7 +622,10 @@ export function BacklogPage({ onOpenHierarchyWizard }) {
    * projeto acima já faz a carga inicial. */
   const didMountFilters = React.useRef(false);
   React.useEffect(() => {
-    if (!didMountFilters.current) { didMountFilters.current = true; return; }
+    if (!didMountFilters.current) {
+      didMountFilters.current = true;
+      return;
+    }
     if (!projectId) return;
     setRootsPage(0);
     setOrphansPage(0);
@@ -649,7 +706,9 @@ export function BacklogPage({ onOpenHierarchyWizard }) {
     <section>
       <div className="admin-section-head">
         <h2 className="serif admin-section-title">Backlog</h2>
-        <p className="admin-section-sub">Navegue pelo backlog do projeto em árvore, por hierarquia de work items.</p>
+        <p className="admin-section-sub">
+          Navegue pelo backlog do projeto em árvore, por hierarquia de work items.
+        </p>
       </div>
 
       <label className="role-modal-field backlog-project-picker">
@@ -659,11 +718,20 @@ export function BacklogPage({ onOpenHierarchyWizard }) {
             value={projectId}
             disabled={projectsLoading || projects.length === 0}
             onChange={(e) => setProjectId(e.target.value)}
-            aria-label="Selecionar projeto">
+            aria-label="Selecionar projeto"
+          >
             <option value="">
-              {projectsLoading ? "Carregando…" : projects.length === 0 ? "Sem projetos" : "Selecione um projeto"}
+              {projectsLoading
+                ? "Carregando…"
+                : projects.length === 0
+                  ? "Sem projetos"
+                  : "Selecione um projeto"}
             </option>
-            {projects.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+            {projects.map((p) => (
+              <option key={p.id} value={p.id}>
+                {p.name}
+              </option>
+            ))}
           </select>
           <span className="signup-select-caret">▾</span>
         </div>
@@ -738,7 +806,8 @@ export function BacklogPage({ onOpenHierarchyWizard }) {
                 setAssigneeFilter("");
                 setTypeFilter("");
                 setStatusFilter("");
-              }}>
+              }}
+            >
               limpar filtros
             </button>
           )}
@@ -757,14 +826,18 @@ export function BacklogPage({ onOpenHierarchyWizard }) {
 
       {!projectId && (
         <div className="backlog-empty-hint">
-          <span className="backlog-empty-hint-glyph" aria-hidden="true">◈</span>
+          <span className="backlog-empty-hint-glyph" aria-hidden="true">
+            ◈
+          </span>
           <span>Selecione um projeto acima para ver o backlog.</span>
         </div>
       )}
 
       {projectId && !hierarchyConfigured && (
         <div className="backlog-banner">
-          <span className="backlog-banner-icon" aria-hidden="true">⚠</span>
+          <span className="backlog-banner-icon" aria-hidden="true">
+            ⚠
+          </span>
           <span className="backlog-banner-text">
             Este projeto ainda não tem a ordem de hierarquia configurada — a árvore está usando
             inferência estrutural (baseada apenas em vínculos de pai/filho do Azure DevOps).
@@ -773,7 +846,8 @@ export function BacklogPage({ onOpenHierarchyWizard }) {
             <button
               type="button"
               className="btn backlog-banner-cta"
-              onClick={() => onOpenHierarchyWizard?.(binding.id)}>
+              onClick={() => onOpenHierarchyWizard?.(binding.id)}
+            >
               Configurar hierarquia →
             </button>
           )}
@@ -785,13 +859,17 @@ export function BacklogPage({ onOpenHierarchyWizard }) {
           {rootsError && (
             <div className="backlog-error-state">
               <span>{rootsError}</span>
-              <button className="btn" onClick={() => loadRoots(projectId, rootsPage, filterParams)}>Tentar novamente</button>
+              <button className="btn" onClick={() => loadRoots(projectId, rootsPage, filterParams)}>
+                Tentar novamente
+              </button>
             </div>
           )}
           {!rootsError && rootsLoading && <SkeletonList />}
           {!rootsError && !rootsLoading && roots.length === 0 && (
             <div className="backlog-empty-state">
-              <span className="backlog-empty-state-glyph" aria-hidden="true">◇</span>
+              <span className="backlog-empty-state-glyph" aria-hidden="true">
+                ◇
+              </span>
               <span className="backlog-empty-state-title serif">Nenhum item encontrado</span>
               <span className="backlog-empty-state-sub">
                 {isFiltered
@@ -809,26 +887,31 @@ export function BacklogPage({ onOpenHierarchyWizard }) {
                     type="button"
                     className="btn-ghost btn wi-fields-btn"
                     onClick={handleExpandOneLevel}
-                    disabled={registryStats.shallowestCollapsed === null}>
+                    disabled={registryStats.shallowestCollapsed === null}
+                  >
                     Expandir 1 nível
                   </button>
                   <button
                     type="button"
                     className="btn-ghost btn wi-fields-btn"
                     onClick={handleCollapseOneLevel}
-                    disabled={registryStats.deepestExpanded === null}>
+                    disabled={registryStats.deepestExpanded === null}
+                  >
                     Recolher 1 nível
                   </button>
                   {autoExpanding && (
                     <span className="backlog-tree-toolbar-hint mono">
-                      <span className="skeleton circle" style={{ width: 12, height: 12, borderRadius: 3 }} />
+                      <span
+                        className="skeleton circle"
+                        style={{ width: 12, height: 12, borderRadius: 3 }}
+                      />
                       Expandindo a árvore…
                     </span>
                   )}
                 </div>
               )}
               <div className="backlog-tree">
-                {roots.map((item) => (
+                {roots.map((item) =>
                   /* Sob filtro os itens vêm achatados, incluindo filhos e órfãos, então
                    * são linhas simples: TreeNode ofereceria expandir uma hierarquia que
                    * este modo não representa. */
@@ -844,10 +927,15 @@ export function BacklogPage({ onOpenHierarchyWizard }) {
                       command={command}
                       autoExpand={autoExpand}
                     />
-                  )
-                ))}
+                  ),
+                )}
               </div>
-              <Pager page={rootsPage} size={PAGE_SIZE} totalElements={rootsTotal} onPageChange={handleRootsPageChange} />
+              <Pager
+                page={rootsPage}
+                size={PAGE_SIZE}
+                totalElements={rootsTotal}
+                onPageChange={handleRootsPageChange}
+              />
             </>
           )}
         </div>
@@ -869,7 +957,8 @@ export function BacklogPage({ onOpenHierarchyWizard }) {
             <span className="backlog-section-count mono">{orphansTotal}</span>
           </div>
           <p className="backlog-section-hint">
-            Itens sem vínculo de item pai identificado — revise a hierarquia no Azure DevOps se isso for inesperado.
+            Itens sem vínculo de item pai identificado — revise a hierarquia no Azure DevOps se isso
+            for inesperado.
           </p>
           <div className="backlog-orphans">
             <div className="backlog-tree">
@@ -877,7 +966,12 @@ export function BacklogPage({ onOpenHierarchyWizard }) {
                 <WorkItemRow key={item.id} item={item} onItemChanged={handleOrphanChanged} />
               ))}
             </div>
-            <Pager page={orphansPage} size={PAGE_SIZE} totalElements={orphansTotal} onPageChange={handleOrphansPageChange} />
+            <Pager
+              page={orphansPage}
+              size={PAGE_SIZE}
+              totalElements={orphansTotal}
+              onPageChange={handleOrphansPageChange}
+            />
           </div>
         </div>
       )}
@@ -885,7 +979,9 @@ export function BacklogPage({ onOpenHierarchyWizard }) {
       {projectId && orphansError && (
         <div className="backlog-error-state">
           <span>{orphansError}</span>
-          <button className="btn" onClick={() => loadOrphans(projectId, orphansPage, filterParams)}>Tentar novamente</button>
+          <button className="btn" onClick={() => loadOrphans(projectId, orphansPage, filterParams)}>
+            Tentar novamente
+          </button>
         </div>
       )}
     </section>

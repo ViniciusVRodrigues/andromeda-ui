@@ -75,7 +75,9 @@ function TeamDashboard({ projectId, sprintId, startDate, endDate }) {
     <div className="dash-wrap">
       <div style={styles.header}>
         <div>
-          <div className="mono" style={styles.eyebrow}>painel de equipe</div>
+          <div className="mono" style={styles.eyebrow}>
+            painel de equipe
+          </div>
           <h1 className="serif" style={styles.title}>
             Team <span style={{ fontStyle: "italic", color: "var(--accent)" }}>Dashboard</span>
           </h1>
@@ -100,16 +102,30 @@ function TeamDashboard({ projectId, sprintId, startDate, endDate }) {
       <div style={styles.metricsRow} role="list" aria-label="Métricas do time">
         {[
           { label: "Team Velocity", value: loading ? "…" : fmtInt(data?.teamVelocity), unit: "SP" },
-          { label: "Avg Cycle Time", value: loading ? "…" : fmt1(data?.avgCycleTimeHours), unit: "h" },
-          { label: "Avg Lead Time",  value: loading ? "…" : fmt1(data?.avgLeadTimeHours),  unit: "h" },
-          { label: "AI Cost",        value: loading ? "…" : fmtUsd(data?.teamAiCostUsd),   unit: "" },
+          {
+            label: "Avg Cycle Time",
+            value: loading ? "…" : fmt1(data?.avgCycleTimeHours),
+            unit: "h",
+          },
+          {
+            label: "Avg Lead Time",
+            value: loading ? "…" : fmt1(data?.avgLeadTimeHours),
+            unit: "h",
+          },
+          { label: "AI Cost", value: loading ? "…" : fmtUsd(data?.teamAiCostUsd), unit: "" },
         ].map((c) => (
           <div key={c.label} style={styles.chip} role="listitem">
-            <div className="mono" style={styles.chipLabel}>{c.label}</div>
+            <div className="mono" style={styles.chipLabel}>
+              {c.label}
+            </div>
             <div style={styles.chipValue}>
-              <span className="serif" style={styles.chipNum}>{c.value}</span>
+              <span className="serif" style={styles.chipNum}>
+                {c.value}
+              </span>
               {c.unit && c.value !== "—" && c.value !== "…" && (
-                <span className="mono" style={styles.chipUnit}>{c.unit}</span>
+                <span className="mono" style={styles.chipUnit}>
+                  {c.unit}
+                </span>
               )}
             </div>
           </div>
@@ -119,14 +135,22 @@ function TeamDashboard({ projectId, sprintId, startDate, endDate }) {
       {/* ── Members table ── */}
       <div style={styles.card}>
         <div style={styles.cardHead}>
-          <span className="mono" style={styles.cardEyebrow}>sprint atual</span>
-          <h3 className="serif" style={styles.cardTitle}>Membros do Time</h3>
+          <span className="mono" style={styles.cardEyebrow}>
+            sprint atual
+          </span>
+          <h3 className="serif" style={styles.cardTitle}>
+            Membros do Time
+          </h3>
         </div>
 
         {loading ? (
-          <div className="mono" style={styles.emptyState}>Carregando…</div>
+          <div className="mono" style={styles.emptyState}>
+            Carregando…
+          </div>
         ) : members.length === 0 ? (
-          <div className="mono" style={styles.emptyState}>Nenhum dado disponível</div>
+          <div className="mono" style={styles.emptyState}>
+            Nenhum dado disponível
+          </div>
         ) : (
           <div style={{ overflowX: "auto" }}>
             <table style={{ width: "100%", borderCollapse: "collapse" }}>
@@ -150,7 +174,9 @@ function TeamDashboard({ projectId, sprintId, startDate, endDate }) {
                         <span>{m.name || m.userId}</span>
                       </div>
                     </td>
-                    <td style={{ ...styles.td, textAlign: "right" }}>{fmtInt(m.storyPointsDelivered)}</td>
+                    <td style={{ ...styles.td, textAlign: "right" }}>
+                      {fmtInt(m.storyPointsDelivered)}
+                    </td>
                     <td style={{ ...styles.td, textAlign: "right" }}>{fmt1(m.cycleTimeHours)}</td>
                     <td style={{ ...styles.td, textAlign: "right" }}>{fmt1(m.leadTimeHours)}</td>
                     <td style={{ ...styles.td, textAlign: "right" }}>{fmtUsd(m.aiCostUsd)}</td>
@@ -167,16 +193,27 @@ function TeamDashboard({ projectId, sprintId, startDate, endDate }) {
       {/* ── Stale PRs (open >24h, no reviews) ── */}
       <div style={styles.card}>
         <div style={styles.cardHead}>
-          <span className="mono" style={styles.cardEyebrow}>revisão pendente</span>
-          <h3 className="serif" style={styles.cardTitle}>PRs Paradas</h3>
+          <span className="mono" style={styles.cardEyebrow}>
+            revisão pendente
+          </span>
+          <h3 className="serif" style={styles.cardTitle}>
+            PRs Paradas
+          </h3>
         </div>
 
         {loading ? (
-          <div className="mono" style={styles.emptyState}>Carregando…</div>
+          <div className="mono" style={styles.emptyState}>
+            Carregando…
+          </div>
         ) : stalePrs.length === 0 ? (
-          <div className="mono" style={styles.emptyState}>Nenhuma PR parada — tudo revisado ou sem repositório GitHub vinculado</div>
+          <div className="mono" style={styles.emptyState}>
+            Nenhuma PR parada — tudo revisado ou sem repositório GitHub vinculado
+          </div>
         ) : (
-          <ul style={{ listStyle: "none", margin: 0, padding: 0 }} aria-label="PRs paradas sem revisão">
+          <ul
+            style={{ listStyle: "none", margin: 0, padding: 0 }}
+            aria-label="PRs paradas sem revisão"
+          >
             {stalePrs.map((pr, idx) => (
               <li
                 key={pr.prId}
@@ -190,22 +227,36 @@ function TeamDashboard({ projectId, sprintId, startDate, endDate }) {
                 }}
               >
                 <div style={{ minWidth: 0, flex: 1 }}>
-                  <div style={{ fontSize: "var(--mono-base)", color: "var(--fg)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                  <div
+                    style={{
+                      fontSize: "var(--mono-base)",
+                      color: "var(--fg)",
+                      overflow: "hidden",
+                      textOverflow: "ellipsis",
+                      whiteSpace: "nowrap",
+                    }}
+                  >
                     {pr.title || "—"}
                   </div>
-                  <div className="mono" style={{ fontSize: "var(--mono-sm)", color: "var(--fg-muted)", marginTop: 2 }}>
+                  <div
+                    className="mono"
+                    style={{ fontSize: "var(--mono-sm)", color: "var(--fg-muted)", marginTop: 2 }}
+                  >
                     {pr.authorName || "—"}
                   </div>
                 </div>
-                <span className="mono" style={{
-                  flexShrink: 0,
-                  fontSize: "var(--mono-sm)",
-                  color: "var(--bad)",
-                  background: "color-mix(in srgb, var(--bad) 12%, transparent)",
-                  border: "1px solid color-mix(in srgb, var(--bad) 25%, transparent)",
-                  borderRadius: 4,
-                  padding: "2px 8px",
-                }}>
+                <span
+                  className="mono"
+                  style={{
+                    flexShrink: 0,
+                    fontSize: "var(--mono-sm)",
+                    color: "var(--bad)",
+                    background: "color-mix(in srgb, var(--bad) 12%, transparent)",
+                    border: "1px solid color-mix(in srgb, var(--bad) 25%, transparent)",
+                    borderRadius: 4,
+                    padding: "2px 8px",
+                  }}
+                >
                   {fmt1(pr.hoursOpen)}h aberta
                 </span>
               </li>
@@ -218,10 +269,20 @@ function TeamDashboard({ projectId, sprintId, startDate, endDate }) {
       {trendChartData.length > 0 && (
         <div style={styles.card}>
           <div style={styles.cardHead}>
-            <span className="mono" style={styles.cardEyebrow}>histórico</span>
-            <h3 className="serif" style={styles.cardTitle}>Velocity por Sprint</h3>
+            <span className="mono" style={styles.cardEyebrow}>
+              histórico
+            </span>
+            <h3 className="serif" style={styles.cardTitle}>
+              Velocity por Sprint
+            </h3>
           </div>
-          <BarChart data={trendChartData} w={600} h={160} max={Math.max(...trendChartData.map((d) => d.value), 1)} accentIdx={trendChartData.length - 1} />
+          <BarChart
+            data={trendChartData}
+            w={600}
+            h={160}
+            max={Math.max(...trendChartData.map((d) => d.value), 1)}
+            accentIdx={trendChartData.length - 1}
+          />
         </div>
       )}
     </div>

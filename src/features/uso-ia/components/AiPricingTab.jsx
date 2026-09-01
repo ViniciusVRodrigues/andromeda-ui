@@ -13,22 +13,32 @@ import { updateAiPrices } from "../../../services/api.js";
 import api from "../../../services/api.js";
 
 const PRESET_MODELS = [
-  { model: "claude-opus-4-8",            pricePerKInput: 0.015,    pricePerKOutput: 0.075   },
-  { model: "claude-sonnet-4-6",          pricePerKInput: 0.003,    pricePerKOutput: 0.015   },
-  { model: "claude-haiku-4-5-20251001",  pricePerKInput: 0.00025,  pricePerKOutput: 0.00125 },
-  { model: "gpt-4o",                     pricePerKInput: 0.0025,   pricePerKOutput: 0.01    },
-  { model: "gpt-4o-mini",                pricePerKInput: 0.00015,  pricePerKOutput: 0.0006  },
-  { model: "gpt-4-turbo",                pricePerKInput: 0.01,     pricePerKOutput: 0.03    },
-  { model: "gemini-2.5-pro",             pricePerKInput: 0.00125,  pricePerKOutput: 0.01    },
-  { model: "gemini-2.5-flash",           pricePerKInput: 0.0003,   pricePerKOutput: 0.0025  },
+  { model: "claude-opus-4-8", pricePerKInput: 0.015, pricePerKOutput: 0.075 },
+  { model: "claude-sonnet-4-6", pricePerKInput: 0.003, pricePerKOutput: 0.015 },
+  { model: "claude-haiku-4-5-20251001", pricePerKInput: 0.00025, pricePerKOutput: 0.00125 },
+  { model: "gpt-4o", pricePerKInput: 0.0025, pricePerKOutput: 0.01 },
+  { model: "gpt-4o-mini", pricePerKInput: 0.00015, pricePerKOutput: 0.0006 },
+  { model: "gpt-4-turbo", pricePerKInput: 0.01, pricePerKOutput: 0.03 },
+  { model: "gemini-2.5-pro", pricePerKInput: 0.00125, pricePerKOutput: 0.01 },
+  { model: "gemini-2.5-flash", pricePerKInput: 0.0003, pricePerKOutput: 0.0025 },
 ];
 
 function emptyRow() {
-  return { _key: Math.random().toString(36).slice(2), model: "", pricePerKInput: "", pricePerKOutput: "" };
+  return {
+    _key: Math.random().toString(36).slice(2),
+    model: "",
+    pricePerKInput: "",
+    pricePerKOutput: "",
+  };
 }
 
 function rowFromPreset(p) {
-  return { _key: Math.random().toString(36).slice(2), model: p.model, pricePerKInput: String(p.pricePerKInput), pricePerKOutput: String(p.pricePerKOutput) };
+  return {
+    _key: Math.random().toString(36).slice(2),
+    model: p.model,
+    pricePerKInput: String(p.pricePerKInput),
+    pricePerKOutput: String(p.pricePerKOutput),
+  };
 }
 
 /**
@@ -41,16 +51,18 @@ export function AiPricingTab({ initialEntries = [], initialSubscriptionCost = nu
   const [rows, setRows] = React.useState(() =>
     initialEntries.length > 0
       ? initialEntries.map((e) => ({ ...e, _key: Math.random().toString(36).slice(2) }))
-      : [emptyRow()]
+      : [emptyRow()],
   );
   const [saving, setSaving] = React.useState(false);
   const [feedback, setFeedback] = React.useState(null); // { type: "success"|"error", text: string }
   const [importConfirm, setImportConfirm] = React.useState(null); // null | "merge" | "replace"
 
   // Subscription cost state
-  const [hasSubscription, setHasSubscription] = React.useState(() => initialSubscriptionCost != null && Number(initialSubscriptionCost) > 0);
+  const [hasSubscription, setHasSubscription] = React.useState(
+    () => initialSubscriptionCost != null && Number(initialSubscriptionCost) > 0,
+  );
   const [subscriptionCost, setSubscriptionCost] = React.useState(() =>
-    initialSubscriptionCost != null ? String(initialSubscriptionCost) : ""
+    initialSubscriptionCost != null ? String(initialSubscriptionCost) : "",
   );
   const [subSaving, setSubSaving] = React.useState(false);
   const [subFeedback, setSubFeedback] = React.useState(null);
@@ -68,7 +80,7 @@ export function AiPricingTab({ initialEntries = [], initialSubscriptionCost = nu
   }, [initialSubscriptionCost]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const updateRow = (key, field, value) => {
-    setRows((prev) => prev.map((r) => r._key === key ? { ...r, [field]: value } : r));
+    setRows((prev) => prev.map((r) => (r._key === key ? { ...r, [field]: value } : r)));
   };
 
   const addRow = () => setRows((prev) => [...prev, emptyRow()]);
@@ -125,7 +137,10 @@ export function AiPricingTab({ initialEntries = [], initialSubscriptionCost = nu
     setRecalcSaving(true);
     try {
       const result = await api.post("/v1/ai/recalculate-costs");
-      setRecalcFeedback({ type: "success", text: `${result.updatedRecords} registros recalculados.` });
+      setRecalcFeedback({
+        type: "success",
+        text: `${result.updatedRecords} registros recalculados.`,
+      });
     } catch (err) {
       setRecalcFeedback({ type: "error", text: err.message || "Erro ao recalcular custos." });
     } finally {
@@ -135,7 +150,7 @@ export function AiPricingTab({ initialEntries = [], initialSubscriptionCost = nu
 
   const handleSaveSubscription = async () => {
     setSubFeedback(null);
-    const cost = hasSubscription ? (parseFloat(subscriptionCost) || 0) : 0;
+    const cost = hasSubscription ? parseFloat(subscriptionCost) || 0 : 0;
     setSubSaving(true);
     try {
       // We need the current seniorities to satisfy the @NotEmpty validation on the PUT endpoint.
@@ -161,26 +176,41 @@ export function AiPricingTab({ initialEntries = [], initialSubscriptionCost = nu
           <div>
             <h3 className="serif ai-pricing-card-title">Custo de assinatura por usuário</h3>
             <p className="mono ai-pricing-card-sub">
-              Quanto a organização paga de assinatura de IA por usuário/mês (ex: Claude.ai Pro = $20).
-              Usado para calcular o saldo: valor gerado em tokens − custo da assinatura.
+              Quanto a organização paga de assinatura de IA por usuário/mês (ex: Claude.ai Pro =
+              $20). Usado para calcular o saldo: valor gerado em tokens − custo da assinatura.
             </p>
           </div>
-          <button className="btn" onClick={handleSaveSubscription} disabled={subSaving} style={{ whiteSpace: "nowrap" }}>
+          <button
+            className="btn"
+            onClick={handleSaveSubscription}
+            disabled={subSaving}
+            style={{ whiteSpace: "nowrap" }}
+          >
             {subSaving ? "Salvando…" : "Salvar →"}
           </button>
         </div>
 
         <div className="ai-pricing-toggle-row">
           <label className="ai-pricing-chip">
-            <input type="checkbox" checked={!hasSubscription}
-                   onChange={(e) => { setHasSubscription(!e.target.checked); if (e.target.checked) setSubscriptionCost(""); }}
-                   style={{ width: 14, height: 14 }} />
-            <span className="mono" style={{ fontSize: 12 }}>Sem assinatura ($0)</span>
+            <input
+              type="checkbox"
+              checked={!hasSubscription}
+              onChange={(e) => {
+                setHasSubscription(!e.target.checked);
+                if (e.target.checked) setSubscriptionCost("");
+              }}
+              style={{ width: 14, height: 14 }}
+            />
+            <span className="mono" style={{ fontSize: 12 }}>
+              Sem assinatura ($0)
+            </span>
           </label>
 
           {hasSubscription && (
             <div className="ai-pricing-amount-field">
-              <span className="mono" style={{ fontSize: 12, color: "var(--fg-muted)" }}>$</span>
+              <span className="mono" style={{ fontSize: 12, color: "var(--fg-muted)" }}>
+                $
+              </span>
               <input
                 type="number"
                 min="0"
@@ -190,20 +220,31 @@ export function AiPricingTab({ initialEntries = [], initialSubscriptionCost = nu
                 aria-label="Custo de assinatura por usuário em dólares"
                 onChange={(e) => setSubscriptionCost(e.target.value)}
               />
-              <span className="mono" style={{ fontSize: 11, color: "var(--fg-muted)" }}>USD / usuário / mês</span>
+              <span className="mono" style={{ fontSize: 11, color: "var(--fg-muted)" }}>
+                USD / usuário / mês
+              </span>
             </div>
           )}
 
           {!hasSubscription && (
-            <button type="button" className="btn-ghost btn" style={{ fontSize: 12 }}
-                    onClick={() => setHasSubscription(true)}>
+            <button
+              type="button"
+              className="btn-ghost btn"
+              style={{ fontSize: 12 }}
+              onClick={() => setHasSubscription(true)}
+            >
               + Definir valor
             </button>
           )}
         </div>
 
         {subFeedback && (
-          <p className={"mono ai-pricing-feedback " + (subFeedback.type === "success" ? "is-success" : "is-error")}>
+          <p
+            className={
+              "mono ai-pricing-feedback " +
+              (subFeedback.type === "success" ? "is-success" : "is-error")
+            }
+          >
             {subFeedback.text}
           </p>
         )}
@@ -213,26 +254,53 @@ export function AiPricingTab({ initialEntries = [], initialSubscriptionCost = nu
       <div className="ai-pricing-card">
         <div className="ai-pricing-card-head">
           <div>
-            <h2 className="serif ai-pricing-card-title" style={{ fontSize: "var(--serif-md, 20px)" }}>Precificação de IA</h2>
+            <h2
+              className="serif ai-pricing-card-title"
+              style={{ fontSize: "var(--serif-md, 20px)" }}
+            >
+              Precificação de IA
+            </h2>
             <p className="mono ai-pricing-card-sub">
-              Defina o custo por 1 000 tokens de input e output para cada modelo.
-              Usado no cálculo de custo do dashboard.
+              Defina o custo por 1 000 tokens de input e output para cada modelo. Usado no cálculo
+              de custo do dashboard.
             </p>
           </div>
-          <button className="btn" onClick={handleSave} disabled={saving} style={{ whiteSpace: "nowrap" }}>
+          <button
+            className="btn"
+            onClick={handleSave}
+            disabled={saving}
+            style={{ whiteSpace: "nowrap" }}
+          >
             {saving ? "Salvando…" : "Salvar alterações →"}
           </button>
         </div>
 
         <div className="ai-pricing-toolbar">
-          <button type="button" className="btn-ghost btn" onClick={handleImportPresets} style={{ fontSize: 12 }}>
+          <button
+            type="button"
+            className="btn-ghost btn"
+            onClick={handleImportPresets}
+            style={{ fontSize: 12 }}
+          >
             Importar modelos comuns
           </button>
-          <button type="button" className="btn-ghost btn" onClick={handleRecalculate} disabled={recalcSaving} style={{ fontSize: 12 }}>
+          <button
+            type="button"
+            className="btn-ghost btn"
+            onClick={handleRecalculate}
+            disabled={recalcSaving}
+            style={{ fontSize: 12 }}
+          >
             {recalcSaving ? "Recalculando…" : "Recalcular custos históricos →"}
           </button>
           {recalcFeedback && (
-            <span className={"mono " + (recalcFeedback.type === "success" ? "" : "")} style={{ fontSize: 11, color: recalcFeedback.type === "success" ? "var(--good)" : "var(--bad)" }}>
+            <span
+              className={"mono " + (recalcFeedback.type === "success" ? "" : "")}
+              style={{
+                fontSize: 11,
+                color: recalcFeedback.type === "success" ? "var(--good)" : "var(--bad)",
+              }}
+            >
               {recalcFeedback.text}
             </span>
           )}
@@ -244,15 +312,43 @@ export function AiPricingTab({ initialEntries = [], initialSubscriptionCost = nu
         {/* Import confirmation */}
         {importConfirm === "ask" && (
           <div className="ai-pricing-import-confirm">
-            <span className="mono" style={{ fontSize: 12 }}>Já existem modelos na tabela. O que deseja fazer?</span>
-            <button type="button" className="btn" style={{ fontSize: 12 }} onClick={() => doImport("merge")}>Mesclar (adicionar que faltam)</button>
-            <button type="button" className="btn-ghost btn" style={{ fontSize: 12 }} onClick={() => doImport("replace")}>Substituir tudo</button>
-            <button type="button" className="btn-ghost btn" style={{ fontSize: 12 }} onClick={() => setImportConfirm(null)}>Cancelar</button>
+            <span className="mono" style={{ fontSize: 12 }}>
+              Já existem modelos na tabela. O que deseja fazer?
+            </span>
+            <button
+              type="button"
+              className="btn"
+              style={{ fontSize: 12 }}
+              onClick={() => doImport("merge")}
+            >
+              Mesclar (adicionar que faltam)
+            </button>
+            <button
+              type="button"
+              className="btn-ghost btn"
+              style={{ fontSize: 12 }}
+              onClick={() => doImport("replace")}
+            >
+              Substituir tudo
+            </button>
+            <button
+              type="button"
+              className="btn-ghost btn"
+              style={{ fontSize: 12 }}
+              onClick={() => setImportConfirm(null)}
+            >
+              Cancelar
+            </button>
           </div>
         )}
 
         {feedback && (
-          <div className={"mono ai-pricing-feedback " + (feedback.type === "success" ? "is-success" : "is-error")}>
+          <div
+            className={
+              "mono ai-pricing-feedback " +
+              (feedback.type === "success" ? "is-success" : "is-error")
+            }
+          >
             {feedback.text}
           </div>
         )}
@@ -309,7 +405,8 @@ export function AiPricingTab({ initialEntries = [], initialSubscriptionCost = nu
                       type="button"
                       className="ai-pricing-row-remove"
                       aria-label={`Remover linha ${row.model || "vazia"}`}
-                      onClick={() => removeRow(row._key)}>
+                      onClick={() => removeRow(row._key)}
+                    >
                       ×
                     </button>
                   </td>
@@ -324,7 +421,8 @@ export function AiPricingTab({ initialEntries = [], initialSubscriptionCost = nu
             type="button"
             className="btn-ghost btn"
             onClick={addRow}
-            style={{ fontSize: "var(--mono-sm, 14px)" }}>
+            style={{ fontSize: "var(--mono-sm, 14px)" }}
+          >
             + Adicionar modelo
           </button>
         </div>

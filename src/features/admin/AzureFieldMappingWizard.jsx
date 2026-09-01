@@ -34,7 +34,8 @@ function guessResolvedStatus(stateName) {
   const n = (stateName || "").toLowerCase();
   if (/(new|proposed|to ?do|novo|proposto)/.test(n)) return "TODO";
   if (/(active|doing|in progress|ativo|em andamento|committed)/.test(n)) return "IN_PROGRESS";
-  if (/(resolved|closed|done|removed|resolvido|fechado|concluído|concluido|removido)/.test(n)) return "DONE";
+  if (/(resolved|closed|done|removed|resolvido|fechado|concluído|concluido|removido)/.test(n))
+    return "DONE";
   return "TODO";
 }
 
@@ -156,12 +157,15 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
         setTypeMappingsSeeded(true);
       })
       .catch(() => {
-        if (!cancelled) setTypesError("Não foi possível carregar os tipos de work item do Azure DevOps.");
+        if (!cancelled)
+          setTypesError("Não foi possível carregar os tipos de work item do Azure DevOps.");
       })
       .finally(() => {
         if (!cancelled) setTypesLoading(false);
       });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [bindingId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Copy-once template step (7.1/7.4): load candidate sibling bindings up
@@ -179,7 +183,9 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
       .finally(() => {
         if (!cancelled) setSiblingsLoading(false);
       });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [bindingId]);
 
   // Seeds every draft state from a workflowConfig object — shared by the
@@ -198,8 +204,12 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
     for (const m of Array.isArray(cfg.fieldMappings) ? cfg.fieldMappings : []) {
       if (!m || !m.internalField || !m.azureFieldReferenceName) continue;
       if (m.workItemType) {
-        const sel = nextSelections[m.workItemType]
-          || { complexityField: "", complexityFieldType: "", effortField: "", effortFieldType: "" };
+        const sel = nextSelections[m.workItemType] || {
+          complexityField: "",
+          complexityFieldType: "",
+          effortField: "",
+          effortFieldType: "",
+        };
         if (m.internalField === "COMPLEXITY") {
           sel.complexityField = m.azureFieldReferenceName;
           sel.complexityFieldType = m.azureFieldType || "";
@@ -226,7 +236,9 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
 
     if (Array.isArray(cfg.hierarchyLevels) && cfg.hierarchyLevels.length > 0) {
       const nextRanks = {};
-      cfg.hierarchyLevels.forEach((lvl) => { nextRanks[lvl.rawType] = lvl.rank; });
+      cfg.hierarchyLevels.forEach((lvl) => {
+        nextRanks[lvl.rawType] = lvl.rank;
+      });
       setRanks(nextRanks);
       setRanksSeeded(true);
     }
@@ -248,23 +260,30 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
         seedDraftFromConfig(cfg);
         setHasOwnConfig(true);
       })
-      .catch(() => { /* fetch failed: draft stays blank, admin rebuilds from scratch */ });
-    return () => { cancelled = true; };
+      .catch(() => {
+        /* fetch failed: draft stays blank, admin rebuilds from scratch */
+      });
+    return () => {
+      cancelled = true;
+    };
   }, [bindingId]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const loadFieldsForType = React.useCallback((typeName) => {
-    if (!typeName || fieldsByType[typeName]) return;
-    setFieldsLoading(true);
-    setFieldsError(null);
-    getAzureWorkItemTypeFields(bindingId, typeName)
-      .then((data) => {
-        setFieldsByType((prev) => ({ ...prev, [typeName]: data || [] }));
-      })
-      .catch(() => {
-        setFieldsError("Não foi possível carregar os campos deste tipo de work item.");
-      })
-      .finally(() => setFieldsLoading(false));
-  }, [bindingId, fieldsByType]);
+  const loadFieldsForType = React.useCallback(
+    (typeName) => {
+      if (!typeName || fieldsByType[typeName]) return;
+      setFieldsLoading(true);
+      setFieldsError(null);
+      getAzureWorkItemTypeFields(bindingId, typeName)
+        .then((data) => {
+          setFieldsByType((prev) => ({ ...prev, [typeName]: data || [] }));
+        })
+        .catch(() => {
+          setFieldsError("Não foi possível carregar os campos deste tipo de work item.");
+        })
+        .finally(() => setFieldsLoading(false));
+    },
+    [bindingId, fieldsByType],
+  );
 
   React.useEffect(() => {
     if (step === "mapping" && selectedTypeForFields) {
@@ -273,60 +292,82 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
   }, [step, selectedTypeForFields, loadFieldsForType]);
 
   const currentFields = fieldsByType[selectedTypeForFields] || [];
-  const currentSelection = fieldSelections[selectedTypeForFields]
-    || { complexityField: "", complexityFieldType: "", effortField: "", effortFieldType: "" };
+  const currentSelection = fieldSelections[selectedTypeForFields] || {
+    complexityField: "",
+    complexityFieldType: "",
+    effortField: "",
+    effortFieldType: "",
+  };
 
   // Display name for a selected field: the introspected name when that type's
   // field list is loaded, otherwise the reference name's last segment.
   const fieldNameFor = (typeName, referenceName) => {
     const list = fieldsByType[typeName] || [];
-    return list.find((f) => f.referenceName === referenceName)?.name
-      || (referenceName || "").split(".").pop();
+    return (
+      list.find((f) => f.referenceName === referenceName)?.name ||
+      (referenceName || "").split(".").pop()
+    );
   };
 
   // Cross-type view of everything configured so far — one row per type that
   // has a complexity and/or effort selection, rendered as a summary under the
   // mapping step's selectors.
-  const fieldMappingSummary = React.useMemo(() => types
-    .map((t) => {
-      const sel = fieldSelections[t.name];
-      if (!sel || (!sel.complexityField && !sel.effortField)) return null;
-      return {
-        typeName: t.name,
-        complexity: sel.complexityField ? fieldNameFor(t.name, sel.complexityField) : "",
-        effort: sel.effortField ? fieldNameFor(t.name, sel.effortField) : "",
-      };
-    })
-    .filter(Boolean), [types, fieldSelections, fieldsByType]); // eslint-disable-line react-hooks/exhaustive-deps
+  const fieldMappingSummary = React.useMemo(
+    () =>
+      types
+        .map((t) => {
+          const sel = fieldSelections[t.name];
+          if (!sel || (!sel.complexityField && !sel.effortField)) return null;
+          return {
+            typeName: t.name,
+            complexity: sel.complexityField ? fieldNameFor(t.name, sel.complexityField) : "",
+            effort: sel.effortField ? fieldNameFor(t.name, sel.effortField) : "",
+          };
+        })
+        .filter(Boolean),
+    [types, fieldSelections, fieldsByType],
+  ); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 10.1 — fetch real Azure states for a work item type, then (10.4) default
   // any not-yet-mapped state via name heuristic so nothing is left blank.
-  const loadStatesForType = React.useCallback((typeName) => {
-    if (!typeName || statesByType[typeName] || statesLoading[typeName]) return;
-    setStatesLoading((prev) => ({ ...prev, [typeName]: true }));
-    setStatesError((prev) => ({ ...prev, [typeName]: null }));
-    getAzureWorkItemTypeStates(bindingId, typeName)
-      .then((data) => {
-        const list = data || [];
-        setStatesByType((prev) => ({ ...prev, [typeName]: list }));
-        setStatusMappings((prev) => {
-          const next = [...prev];
-          for (const s of list) {
-            const exists = next.some((m) => m.workItemType === typeName && m.rawStatus === s.name);
-            if (!exists) {
-              next.push({ workItemType: typeName, rawStatus: s.name, resolvedStatus: guessResolvedStatus(s.name) });
+  const loadStatesForType = React.useCallback(
+    (typeName) => {
+      if (!typeName || statesByType[typeName] || statesLoading[typeName]) return;
+      setStatesLoading((prev) => ({ ...prev, [typeName]: true }));
+      setStatesError((prev) => ({ ...prev, [typeName]: null }));
+      getAzureWorkItemTypeStates(bindingId, typeName)
+        .then((data) => {
+          const list = data || [];
+          setStatesByType((prev) => ({ ...prev, [typeName]: list }));
+          setStatusMappings((prev) => {
+            const next = [...prev];
+            for (const s of list) {
+              const exists = next.some(
+                (m) => m.workItemType === typeName && m.rawStatus === s.name,
+              );
+              if (!exists) {
+                next.push({
+                  workItemType: typeName,
+                  rawStatus: s.name,
+                  resolvedStatus: guessResolvedStatus(s.name),
+                });
+              }
             }
-          }
-          return next;
+            return next;
+          });
+        })
+        .catch(() => {
+          setStatesError((prev) => ({
+            ...prev,
+            [typeName]: "Não foi possível carregar os status deste tipo de work item.",
+          }));
+        })
+        .finally(() => {
+          setStatesLoading((prev) => ({ ...prev, [typeName]: false }));
         });
-      })
-      .catch(() => {
-        setStatesError((prev) => ({ ...prev, [typeName]: "Não foi possível carregar os status deste tipo de work item." }));
-      })
-      .finally(() => {
-        setStatesLoading((prev) => ({ ...prev, [typeName]: false }));
-      });
-  }, [bindingId, statesByType, statesLoading]);
+    },
+    [bindingId, statesByType, statesLoading],
+  );
 
   React.useEffect(() => {
     if (step === "status") {
@@ -363,7 +404,9 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
   // 10.3 — update a single (workItemType, rawStatus) mapping's resolvedStatus.
   const updateStatusMapping = (workItemType, rawStatus, resolvedStatus) => {
     setStatusMappings((prev) => {
-      const next = prev.filter((m) => !(m.workItemType === workItemType && m.rawStatus === rawStatus));
+      const next = prev.filter(
+        (m) => !(m.workItemType === workItemType && m.rawStatus === rawStatus),
+      );
       next.push({ workItemType, rawStatus, resolvedStatus });
       return next;
     });
@@ -371,7 +414,8 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
 
   const toggleFilterType = (typeName) => {
     setFilterTypes((prev) =>
-      prev.includes(typeName) ? prev.filter((t) => t !== typeName) : [...prev, typeName]);
+      prev.includes(typeName) ? prev.filter((t) => t !== typeName) : [...prev, typeName],
+    );
   };
 
   // 6.1 — hierarchy only ranks types selected in the "filter" step; an empty
@@ -439,7 +483,8 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
     const targetIndex = currentIndex + direction;
     if (targetIndex < 0 || targetIndex >= rankGroups.length) {
       // No adjacent group in that direction: create a new rank slot beyond the edge.
-      const edgeRank = direction < 0 ? rankGroups[0]?.rank ?? 0 : rankGroups[rankGroups.length - 1]?.rank ?? 0;
+      const edgeRank =
+        direction < 0 ? (rankGroups[0]?.rank ?? 0) : (rankGroups[rankGroups.length - 1]?.rank ?? 0);
       setRanks((prev) => ({ ...prev, [typeName]: edgeRank + direction }));
       return;
     }
@@ -449,7 +494,8 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
   const buildHierarchyLevels = () => {
     // Normalize to dense 0..N ranks in declared order before submitting.
     return rankGroups.flatMap((g, denseRank) =>
-      g.typeNames.map((rawType) => ({ rawType, rank: denseRank })));
+      g.typeNames.map((rawType) => ({ rawType, rank: denseRank })),
+    );
   };
 
   // 10.3 (per-type) — set or clear the complexity/effort field selected for
@@ -457,15 +503,19 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
   // loaded field list, or null to clear the selection.
   const updateFieldSelection = (typeName, internalField, field) => {
     setFieldSelections((prev) => {
-      const current = prev[typeName]
-        || { complexityField: "", complexityFieldType: "", effortField: "", effortFieldType: "" };
+      const current = prev[typeName] || {
+        complexityField: "",
+        complexityFieldType: "",
+        effortField: "",
+        effortFieldType: "",
+      };
       const next = { ...current };
       if (internalField === "COMPLEXITY") {
         next.complexityField = field ? field.referenceName : "";
-        next.complexityFieldType = field ? (field.type || "") : "";
+        next.complexityFieldType = field ? field.type || "" : "";
       } else {
         next.effortField = field ? field.referenceName : "";
-        next.effortFieldType = field ? (field.type || "") : "";
+        next.effortFieldType = field ? field.type || "" : "";
       }
       return { ...prev, [typeName]: next };
     });
@@ -522,13 +572,14 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
     statusMappings: statusMappingsOverride ?? statusMappings,
     typeMappings,
     fieldMappings: buildFieldMappings(),
-    syncFilter: (filterTypes.length > 0 || areaPath.trim() || iterationPath.trim())
-      ? {
-        workItemTypes: filterTypes,
-        areaPath: areaPath.trim() || null,
-        iterationPath: iterationPath.trim() || null,
-      }
-      : null,
+    syncFilter:
+      filterTypes.length > 0 || areaPath.trim() || iterationPath.trim()
+        ? {
+            workItemTypes: filterTypes,
+            areaPath: areaPath.trim() || null,
+            iterationPath: iterationPath.trim() || null,
+          }
+        : null,
     hierarchyLevels: buildHierarchyLevels(),
   });
 
@@ -547,7 +598,8 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
       if (message.includes("AZURE_WORKFLOW_CONFIG_MAPPINGS_EMPTY")) {
         setSaveError(
           "Os mapeamentos de tipo/status não podem ficar vazios para um projeto já configurado. " +
-          "Volte às etapas anteriores e confirme os mapeamentos antes de salvar novamente.");
+            "Volte às etapas anteriores e confirme os mapeamentos antes de salvar novamente.",
+        );
       } else {
         setSaveError("Não foi possível salvar a configuração. Tente novamente.");
       }
@@ -585,15 +637,20 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
           missingTypes.map((t) =>
             getAzureWorkItemTypeStates(bindingId, t.name)
               .then((data) => ({ typeName: t.name, states: data || [] }))
-              .catch(() => ({ typeName: t.name, states: [] }))));
+              .catch(() => ({ typeName: t.name, states: [] })),
+          ),
+        );
         resolvedStatusMappings = [...statusMappings];
         for (const { typeName, states } of fetched) {
           for (const s of states) {
             const exists = resolvedStatusMappings.some(
-              (m) => m.workItemType === typeName && m.rawStatus === s.name);
+              (m) => m.workItemType === typeName && m.rawStatus === s.name,
+            );
             if (!exists) {
               resolvedStatusMappings.push({
-                workItemType: typeName, rawStatus: s.name, resolvedStatus: guessResolvedStatus(s.name),
+                workItemType: typeName,
+                rawStatus: s.name,
+                resolvedStatus: guessResolvedStatus(s.name),
               });
             }
           }
@@ -601,14 +658,17 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
         setStatusMappings(resolvedStatusMappings);
       }
       await updateAzureWorkflowConfig(
-        bindingId, buildWorkflowConfigPayload({ statusMappingsOverride: resolvedStatusMappings }));
+        bindingId,
+        buildWorkflowConfigPayload({ statusMappingsOverride: resolvedStatusMappings }),
+      );
       onSkip();
     } catch (err) {
       const message = err?.message || "";
       if (message.includes("AZURE_WORKFLOW_CONFIG_MAPPINGS_EMPTY")) {
         setSaveError(
           "Os mapeamentos de tipo/status não podem ficar vazios para um projeto já configurado. " +
-          "Volte às etapas anteriores e confirme os mapeamentos antes de pular.");
+            "Volte às etapas anteriores e confirme os mapeamentos antes de pular.",
+        );
       } else {
         setSaveError("Não foi possível concluir com os padrões. Tente novamente.");
       }
@@ -660,7 +720,8 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
             onClick={handleClose}
             disabled={saving}
             aria-label="Fechar sem salvar"
-            title="Fechar sem salvar">
+            title="Fechar sem salvar"
+          >
             Fechar ✕
           </button>
         </div>
@@ -677,7 +738,11 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
               <button
                 type="button"
                 className={"role-modal-option" + (!showCopyPicker ? " is-active" : "")}
-                onClick={() => { setShowCopyPicker(false); setStep("types"); }}>
+                onClick={() => {
+                  setShowCopyPicker(false);
+                  setStep("types");
+                }}
+              >
                 <span className="role-modal-option-mark" />
                 <span>
                   <div className="role-modal-option-label">
@@ -695,7 +760,8 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
                 <button
                   type="button"
                   className={"role-modal-option" + (showCopyPicker ? " is-active" : "")}
-                  onClick={() => setShowCopyPicker(true)}>
+                  onClick={() => setShowCopyPicker(true)}
+                >
                   <span className="role-modal-option-mark" />
                   <span>
                     <div className="role-modal-option-label">Copiar de outro projeto vinculado</div>
@@ -708,7 +774,9 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
               )}
             </div>
 
-            {siblingsLoading && <p className="mono integration-loading">Carregando projetos vinculados…</p>}
+            {siblingsLoading && (
+              <p className="mono integration-loading">Carregando projetos vinculados…</p>
+            )}
 
             {showCopyPicker && !siblingsLoading && (
               <label className="role-modal-field">
@@ -716,10 +784,13 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
                 <div className="signup-select">
                   <select
                     value={selectedSiblingId}
-                    onChange={(e) => setSelectedSiblingId(e.target.value)}>
+                    onChange={(e) => setSelectedSiblingId(e.target.value)}
+                  >
                     <option value="">Selecione um projeto</option>
                     {siblings.map((s) => (
-                      <option key={s.id} value={s.id}>{s.azureProjectName}</option>
+                      <option key={s.id} value={s.id}>
+                        {s.azureProjectName}
+                      </option>
                     ))}
                   </select>
                   <span className="signup-select-caret">▾</span>
@@ -734,23 +805,34 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
         {step === "types" && (
           <div className="role-modal-body">
             <p className="confirm-text">
-              Encontramos os seguintes tipos de work item no seu processo Azure DevOps.
-              No próximo passo você poderá mapear complexidade e esforço para os campos certos.
+              Encontramos os seguintes tipos de work item no seu processo Azure DevOps. No próximo
+              passo você poderá mapear complexidade e esforço para os campos certos.
             </p>
             {typesLoading && <p className="mono integration-loading">Carregando tipos…</p>}
             {typesError && <p className="mono integration-error">{typesError}</p>}
             {!typesLoading && !typesError && (
-              <ul className="mono integration-pat-scopes-list" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+              <ul
+                className="mono integration-pat-scopes-list"
+                style={{ display: "flex", flexDirection: "column", gap: 8 }}
+              >
                 {types.map((t) => {
                   const current = typeMappings.find((m) => m.rawType === t.name);
                   return (
-                    <li key={t.referenceName} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <li
+                      key={t.referenceName}
+                      style={{ display: "flex", alignItems: "center", gap: 8 }}
+                    >
                       <span style={{ flex: 1 }}>{t.name}</span>
                       <div className="signup-select">
                         <select
                           value={current?.resolvedType || guessResolvedType(t.name)}
-                          onChange={(e) => updateTypeMapping(t.name, e.target.value)}>
-                          {RESOLVED_TYPES.map((rt) => <option key={rt} value={rt}>{rt}</option>)}
+                          onChange={(e) => updateTypeMapping(t.name, e.target.value)}
+                        >
+                          {RESOLVED_TYPES.map((rt) => (
+                            <option key={rt} value={rt}>
+                              {rt}
+                            </option>
+                          ))}
                         </select>
                         <span className="signup-select-caret">▾</span>
                       </div>
@@ -781,43 +863,67 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 {RESOLVED_STATUSES.map((rs) => (
                   <div key={rs} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <span className="mono" style={{ opacity: 0.7, width: 110 }}>{rs}</span>
+                    <span className="mono" style={{ opacity: 0.7, width: 110 }}>
+                      {rs}
+                    </span>
                     <input
                       className="role-modal-input"
                       type="text"
                       value={statusBucketLabels[rs]}
                       onChange={(e) =>
-                        setStatusBucketLabels((prev) => ({ ...prev, [rs]: e.target.value }))}
+                        setStatusBucketLabels((prev) => ({ ...prev, [rs]: e.target.value }))
+                      }
                     />
                   </div>
                 ))}
               </div>
             </div>
 
-            {types.length === 0 && <p className="mono integration-loading">Nenhum tipo disponível.</p>}
+            {types.length === 0 && (
+              <p className="mono integration-loading">Nenhum tipo disponível.</p>
+            )}
             {types.map((t) => {
               const states = statesByType[t.name] || [];
               const loading = !!statesLoading[t.name];
               const error = statesError[t.name];
               return (
-                <div key={t.referenceName} style={{ border: "1px solid var(--line)", borderRadius: 6, padding: 8, marginBottom: 8 }}>
-                  <div className="mono" style={{ opacity: 0.7, marginBottom: 6 }}>{t.name}</div>
+                <div
+                  key={t.referenceName}
+                  style={{
+                    border: "1px solid var(--line)",
+                    borderRadius: 6,
+                    padding: 8,
+                    marginBottom: 8,
+                  }}
+                >
+                  <div className="mono" style={{ opacity: 0.7, marginBottom: 6 }}>
+                    {t.name}
+                  </div>
                   {loading && <p className="mono integration-loading">Carregando status…</p>}
                   {error && <p className="mono integration-error">{error}</p>}
                   {!loading && !error && (
                     <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                       {states.map((s) => {
                         const current = statusMappings.find(
-                          (m) => m.workItemType === t.name && m.rawStatus === s.name);
+                          (m) => m.workItemType === t.name && m.rawStatus === s.name,
+                        );
                         return (
-                          <div key={s.name} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <div
+                            key={s.name}
+                            style={{ display: "flex", alignItems: "center", gap: 8 }}
+                          >
                             <span style={{ flex: 1 }}>{s.name}</span>
                             <div className="signup-select">
                               <select
                                 value={current?.resolvedStatus || guessResolvedStatus(s.name)}
-                                onChange={(e) => updateStatusMapping(t.name, s.name, e.target.value)}>
+                                onChange={(e) =>
+                                  updateStatusMapping(t.name, s.name, e.target.value)
+                                }
+                              >
                                 {RESOLVED_STATUSES.map((rs) => (
-                                  <option key={rs} value={rs}>{statusBucketLabels[rs] || rs}</option>
+                                  <option key={rs} value={rs}>
+                                    {statusBucketLabels[rs] || rs}
+                                  </option>
                                 ))}
                               </select>
                               <span className="signup-select-caret">▾</span>
@@ -839,9 +945,9 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
           <div className="role-modal-body">
             <p className="confirm-text">
               Para cada tipo de work item, escolha qual campo do Azure DevOps representa
-              complexidade e esforço — eles podem ficar em tipos diferentes (ex.: Story Points
-              no User Story e Completed Work na Task). Deixe em branco para preencher
-              manualmente depois.
+              complexidade e esforço — eles podem ficar em tipos diferentes (ex.: Story Points no
+              User Story e Completed Work na Task). Deixe em branco para preencher manualmente
+              depois.
             </p>
 
             <label className="role-modal-field">
@@ -849,8 +955,13 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
               <div className="signup-select">
                 <select
                   value={selectedTypeForFields || ""}
-                  onChange={(e) => setSelectedTypeForFields(e.target.value)}>
-                  {types.map((t) => <option key={t.referenceName} value={t.name}>{t.name}</option>)}
+                  onChange={(e) => setSelectedTypeForFields(e.target.value)}
+                >
+                  {types.map((t) => (
+                    <option key={t.referenceName} value={t.name}>
+                      {t.name}
+                    </option>
+                  ))}
                 </select>
                 <span className="signup-select-caret">▾</span>
               </div>
@@ -862,16 +973,25 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
             {!fieldsLoading && !fieldsError && (
               <>
                 <label className="role-modal-field">
-                  <span className="role-modal-label">Campo de Complexidade · {selectedTypeForFields}</span>
+                  <span className="role-modal-label">
+                    Campo de Complexidade · {selectedTypeForFields}
+                  </span>
                   <div className="signup-select">
                     <select
                       value={currentSelection.complexityField || ""}
-                      onChange={(e) => updateFieldSelection(
-                        selectedTypeForFields, "COMPLEXITY",
-                        currentFields.find((f) => f.referenceName === e.target.value) || null)}>
+                      onChange={(e) =>
+                        updateFieldSelection(
+                          selectedTypeForFields,
+                          "COMPLEXITY",
+                          currentFields.find((f) => f.referenceName === e.target.value) || null,
+                        )
+                      }
+                    >
                       <option value="">Nenhum (preencher manualmente)</option>
                       {currentFields.map((f) => (
-                        <option key={f.referenceName} value={f.referenceName}>{f.name}</option>
+                        <option key={f.referenceName} value={f.referenceName}>
+                          {f.name}
+                        </option>
                       ))}
                     </select>
                     <span className="signup-select-caret">▾</span>
@@ -879,16 +999,25 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
                 </label>
 
                 <label className="role-modal-field">
-                  <span className="role-modal-label">Campo de Esforço · {selectedTypeForFields}</span>
+                  <span className="role-modal-label">
+                    Campo de Esforço · {selectedTypeForFields}
+                  </span>
                   <div className="signup-select">
                     <select
                       value={currentSelection.effortField || ""}
-                      onChange={(e) => updateFieldSelection(
-                        selectedTypeForFields, "EFFORT",
-                        currentFields.find((f) => f.referenceName === e.target.value) || null)}>
+                      onChange={(e) =>
+                        updateFieldSelection(
+                          selectedTypeForFields,
+                          "EFFORT",
+                          currentFields.find((f) => f.referenceName === e.target.value) || null,
+                        )
+                      }
+                    >
                       <option value="">Nenhum (preencher manualmente)</option>
                       {currentFields.map((f) => (
-                        <option key={f.referenceName} value={f.referenceName}>{f.name}</option>
+                        <option key={f.referenceName} value={f.referenceName}>
+                          {f.name}
+                        </option>
                       ))}
                     </select>
                     <span className="signup-select-caret">▾</span>
@@ -900,7 +1029,10 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
             {fieldMappingSummary.length > 0 && (
               <div className="role-modal-field">
                 <span className="role-modal-label">Mapeamentos definidos</span>
-                <ul className="mono" style={{ display: "flex", flexDirection: "column", gap: 4, opacity: 0.85 }}>
+                <ul
+                  className="mono"
+                  style={{ display: "flex", flexDirection: "column", gap: 4, opacity: 0.85 }}
+                >
                   {fieldMappingSummary.map((row) => (
                     <li key={row.typeName}>
                       {row.typeName}
@@ -916,22 +1048,28 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
               <div className="role-modal-field">
                 <span className="role-modal-label">Mapeamentos globais (fallback)</span>
                 <p className="mono" style={{ opacity: 0.7, marginBottom: 6 }}>
-                  Herdados da configuração de origem — valem para qualquer tipo sem um campo
-                  próprio definido acima.
+                  Herdados da configuração de origem — valem para qualquer tipo sem um campo próprio
+                  definido acima.
                 </p>
                 <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                   {wildcardFieldMappings.map((w, idx) => (
-                    <div key={w.internalField + "-" + w.azureFieldReferenceName}
-                         style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <div
+                      key={w.internalField + "-" + w.azureFieldReferenceName}
+                      style={{ display: "flex", alignItems: "center", gap: 8 }}
+                    >
                       <span className="mono" style={{ flex: 1 }}>
-                        {w.internalField === "COMPLEXITY" ? "Complexidade" : "Esforço"}: {w.azureFieldReferenceName}
+                        {w.internalField === "COMPLEXITY" ? "Complexidade" : "Esforço"}:{" "}
+                        {w.azureFieldReferenceName}
                       </span>
                       <button
                         type="button"
                         className="btn-ghost btn"
-                        onClick={() => setWildcardFieldMappings((prev) => prev.filter((_, i) => i !== idx))}
+                        onClick={() =>
+                          setWildcardFieldMappings((prev) => prev.filter((_, i) => i !== idx))
+                        }
                         aria-label={`Remover mapeamento global de ${w.internalField === "COMPLEXITY" ? "complexidade" : "esforço"}`}
-                        title="Remover mapeamento global">
+                        title="Remover mapeamento global"
+                      >
                         ×
                       </button>
                     </div>
@@ -945,14 +1083,19 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
         {step === "filter" && (
           <div className="role-modal-body">
             <p className="confirm-text">
-              Opcionalmente, restrinja quais work items serão sincronizados. Deixe em branco para sincronizar tudo.
+              Opcionalmente, restrinja quais work items serão sincronizados. Deixe em branco para
+              sincronizar tudo.
             </p>
 
             <label className="role-modal-field">
               <span className="role-modal-label">Tipos de work item a sincronizar</span>
               <div className="integration-pat-scopes">
                 {types.map((t) => (
-                  <label key={t.referenceName} className="mono" style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 4 }}>
+                  <label
+                    key={t.referenceName}
+                    className="mono"
+                    style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 4 }}
+                  >
                     <input
                       type="checkbox"
                       checked={filterTypes.includes(t.name)}
@@ -1002,9 +1145,15 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
               <p className="mono integration-loading">Nenhum tipo disponível para ordenar.</p>
             )}
 
-            <ol className="mono integration-pat-scopes-list" style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            <ol
+              className="mono integration-pat-scopes-list"
+              style={{ display: "flex", flexDirection: "column", gap: 8 }}
+            >
               {rankGroups.map((group, groupIndex) => (
-                <li key={group.rank} style={{ border: "1px solid var(--line)", borderRadius: 6, padding: 8 }}>
+                <li
+                  key={group.rank}
+                  style={{ border: "1px solid var(--line)", borderRadius: 6, padding: 8 }}
+                >
                   <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
                     <span style={{ opacity: 0.7 }}>Nível {groupIndex}</span>
                     <div style={{ marginLeft: "auto", display: "flex", gap: 4 }}>
@@ -1014,7 +1163,8 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
                         onClick={() => moveGroup(groupIndex, -1)}
                         disabled={groupIndex === 0}
                         aria-label="Mover nível para cima"
-                        title="Mover nível para cima">
+                        title="Mover nível para cima"
+                      >
                         ↑
                       </button>
                       <button
@@ -1023,7 +1173,8 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
                         onClick={() => moveGroup(groupIndex, 1)}
                         disabled={groupIndex === rankGroups.length - 1}
                         aria-label="Mover nível para baixo"
-                        title="Mover nível para baixo">
+                        title="Mover nível para baixo"
+                      >
                         ↓
                       </button>
                     </div>
@@ -1037,7 +1188,8 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
                           className="btn-ghost btn"
                           onClick={() => moveTypeToAdjacentGroup(typeName, -1)}
                           aria-label={`Mover ${typeName} para o nível acima`}
-                          title="Mover para o nível acima">
+                          title="Mover para o nível acima"
+                        >
                           ▲
                         </button>
                         <button
@@ -1045,7 +1197,8 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
                           className="btn-ghost btn"
                           onClick={() => moveTypeToAdjacentGroup(typeName, 1)}
                           aria-label={`Mover ${typeName} para o nível abaixo`}
-                          title="Mover para o nível abaixo">
+                          title="Mover para o nível abaixo"
+                        >
                           ▼
                         </button>
                       </div>
@@ -1080,12 +1233,18 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
               type="button"
               className="btn"
               onClick={handleCopyFromSibling}
-              disabled={!selectedSiblingId || copyLoading}>
+              disabled={!selectedSiblingId || copyLoading}
+            >
               {copyLoading ? "Copiando…" : "Copiar e continuar →"}
             </button>
           )}
           {step === "types" && (
-            <button type="button" className="btn" onClick={() => goToStep("status")} disabled={typesLoading}>
+            <button
+              type="button"
+              className="btn"
+              onClick={() => goToStep("status")}
+              disabled={typesLoading}
+            >
               Continuar →
             </button>
           )}

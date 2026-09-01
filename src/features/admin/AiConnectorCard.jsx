@@ -15,8 +15,7 @@ export function AiConnectorCard({ orgSlug, can }) {
   const [copied, setCopied] = React.useState(false);
   const [confirmRegen, setConfirmRegen] = React.useState(false);
 
-  const buildUrl = (token) =>
-    `${BACKEND_URL}/connector/${orgSlug}/${token}`;
+  const buildUrl = (token) => `${BACKEND_URL}/connector/${orgSlug}/${token}`;
 
   const fetchTokens = React.useCallback(async () => {
     setUiState("loading");
@@ -36,7 +35,9 @@ export function AiConnectorCard({ orgSlug, can }) {
     }
   }, []);
 
-  React.useEffect(() => { fetchTokens(); }, [fetchTokens]);
+  React.useEffect(() => {
+    fetchTokens();
+  }, [fetchTokens]);
 
   const handleGenerate = React.useCallback(async () => {
     setWorking(true);
@@ -90,9 +91,25 @@ export function AiConnectorCard({ orgSlug, can }) {
       {/* ── Card header ── */}
       <div className="integration-card-head">
         <div className="integration-card-icon" aria-hidden="true">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-            <path d="M1.5 7.5L12 2l10.5 5.5v9L12 22 1.5 16.5v-9Z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
-            <path d="M12 2v20M1.5 7.5l10.5 5.5 10.5-5.5" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round"/>
+          <svg
+            width="20"
+            height="20"
+            viewBox="0 0 24 24"
+            fill="none"
+            xmlns="http://www.w3.org/2000/svg"
+          >
+            <path
+              d="M1.5 7.5L12 2l10.5 5.5v9L12 22 1.5 16.5v-9Z"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinejoin="round"
+            />
+            <path
+              d="M12 2v20M1.5 7.5l10.5 5.5 10.5-5.5"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinejoin="round"
+            />
           </svg>
         </div>
         <span className="integration-card-name">AI Connector — VS Code</span>
@@ -112,14 +129,14 @@ export function AiConnectorCard({ orgSlug, can }) {
       </p>
 
       {/* ── Token states ── */}
-      {uiState === "loading" && (
-        <p className="mono integration-loading">Verificando tokens…</p>
-      )}
+      {uiState === "loading" && <p className="mono integration-loading">Verificando tokens…</p>}
 
       {uiState === "error" && (
         <>
           <p className="mono integration-error">{error}</p>
-          <button className="btn" onClick={fetchTokens}>Tentar novamente</button>
+          <button className="btn" onClick={fetchTokens}>
+            Tentar novamente
+          </button>
         </>
       )}
 
@@ -130,7 +147,11 @@ export function AiConnectorCard({ orgSlug, can }) {
               {working ? "Gerando…" : "Gerar URL →"}
             </button>
           </div>
-          {error && <p className="mono integration-error" style={{ marginTop: "var(--spacing-sm)" }}>{error}</p>}
+          {error && (
+            <p className="mono integration-error" style={{ marginTop: "var(--spacing-sm)" }}>
+              {error}
+            </p>
+          )}
         </>
       )}
 
@@ -161,7 +182,11 @@ export function AiConnectorCard({ orgSlug, can }) {
               {working ? "Gerando…" : "Gerar novo token →"}
             </button>
           </div>
-          {error && <p className="mono integration-error" style={{ marginTop: "var(--spacing-sm)" }}>{error}</p>}
+          {error && (
+            <p className="mono integration-error" style={{ marginTop: "var(--spacing-sm)" }}>
+              {error}
+            </p>
+          )}
         </>
       )}
 
@@ -178,11 +203,16 @@ export function AiConnectorCard({ orgSlug, can }) {
               </h3>
             </div>
             <p className="confirm-text">
-              Sua configuração atual do VS Code vai <strong>parar de funcionar</strong> até você atualizar o endereço.
+              Sua configuração atual do VS Code vai <strong>parar de funcionar</strong> até você
+              atualizar o endereço.
             </p>
             <div className="role-modal-foot">
-              <button className="btn-ghost btn" onClick={() => setConfirmRegen(false)}>Cancelar</button>
-              <button className="btn btn-danger" onClick={handleRegen}>Confirmar →</button>
+              <button className="btn-ghost btn" onClick={() => setConfirmRegen(false)}>
+                Cancelar
+              </button>
+              <button className="btn btn-danger" onClick={handleRegen}>
+                Confirmar →
+              </button>
             </div>
           </div>
         </div>
@@ -216,7 +246,8 @@ function AiConnectorTutorial() {
           <div className="integration-tutorial-step-body">
             <p className="integration-tutorial-step-title">Configure o endereço</p>
             <p className="integration-tutorial-step-desc">
-              Abra as configurações do VS Code (<kbd>Ctrl+,</kbd>) e defina <code>aief.serverUrl</code> com a URL gerada acima.
+              Abra as configurações do VS Code (<kbd>Ctrl+,</kbd>) e defina{" "}
+              <code>aief.serverUrl</code> com a URL gerada acima.
             </p>
           </div>
         </div>

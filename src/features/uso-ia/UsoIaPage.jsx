@@ -87,40 +87,62 @@ export function UsoIaPage({ can }) {
     }
   }
 
-  const selectedMember = canSeeTeam && selectedUserId
-    ? teamMembers.find((m) => m.id === selectedUserId)
-    : null;
+  const selectedMember =
+    canSeeTeam && selectedUserId ? teamMembers.find((m) => m.id === selectedUserId) : null;
 
   return (
     <div className="dash-wrap">
       {/* Page header */}
       <div style={{ marginBottom: 28 }}>
-        <div className="mono" style={{ fontSize: "var(--mono-sm)", color: "var(--fg-muted)", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 6 }}>
+        <div
+          className="mono"
+          style={{
+            fontSize: "var(--mono-sm)",
+            color: "var(--fg-muted)",
+            textTransform: "uppercase",
+            letterSpacing: "0.12em",
+            marginBottom: 6,
+          }}
+        >
           consumo individual
         </div>
         <h1 className="serif" style={{ fontSize: 40, lineHeight: 1.1 }}>
-          {selectedMember
-            ? <>{selectedMember.name || selectedMember.email} — <span style={{ fontStyle: "italic", color: "var(--accent)" }}>Uso IA</span></>
-            : <>Uso <span style={{ fontStyle: "italic", color: "var(--accent)" }}>IA</span></>}
+          {selectedMember ? (
+            <>
+              {selectedMember.name || selectedMember.email} —{" "}
+              <span style={{ fontStyle: "italic", color: "var(--accent)" }}>Uso IA</span>
+            </>
+          ) : (
+            <>
+              Uso <span style={{ fontStyle: "italic", color: "var(--accent)" }}>IA</span>
+            </>
+          )}
         </h1>
-        <p className="mono" style={{ color: "var(--fg-muted)", fontSize: "var(--mono-sm)", marginTop: 8 }}>
+        <p
+          className="mono"
+          style={{ color: "var(--fg-muted)", fontSize: "var(--mono-sm)", marginTop: 8 }}
+        >
           Consumo de tokens, score de fluência e alocação por work item.
         </p>
       </div>
 
       {/* Team member selector */}
       {canSeeTeam && teamMembers.length > 0 && (
-        <div style={{
-          background: "var(--bg-elev)",
-          border: "1px solid var(--line)",
-          borderRadius: "var(--radius-sm)",
-          padding: "12px 16px",
-          marginBottom: 24,
-          display: "flex",
-          alignItems: "center",
-          gap: 12,
-        }}>
-          <span className="mono" style={{ fontSize: "var(--mono-sm)", color: "var(--fg-muted)" }}>Visualizar como</span>
+        <div
+          style={{
+            background: "var(--bg-elev)",
+            border: "1px solid var(--line)",
+            borderRadius: "var(--radius-sm)",
+            padding: "12px 16px",
+            marginBottom: 24,
+            display: "flex",
+            alignItems: "center",
+            gap: 12,
+          }}
+        >
+          <span className="mono" style={{ fontSize: "var(--mono-sm)", color: "var(--fg-muted)" }}>
+            Visualizar como
+          </span>
           <div style={{ minWidth: 220 }}>
             <Combobox
               value={selectedUserId || MY_USAGE}
@@ -150,29 +172,43 @@ export function UsoIaPage({ can }) {
       />
 
       {summaryError && (
-        <div className="mono" style={{ color: "var(--bad)", fontSize: "var(--mono-sm)", marginBottom: 20 }}>
+        <div
+          className="mono"
+          style={{ color: "var(--bad)", fontSize: "var(--mono-sm)", marginBottom: 20 }}
+        >
           Erro ao carregar resumo: {summaryError}
         </div>
       )}
 
       {/* Fluency score */}
-      <FluencyScoreSection
-        fluency={fluency}
-        loading={fluencyLoading}
-        error={fluencyError}
-      />
+      <FluencyScoreSection fluency={fluency} loading={fluencyLoading} error={fluencyError} />
 
       {/* Pending allocations */}
       {(pendingLoading || pendingError || pending.length > 0) && (
         <div style={{ marginBottom: 32 }}>
           <div style={{ marginBottom: 12 }}>
-            <span className="mono" style={{ fontSize: "var(--mono-sm)", color: "var(--fg-muted)", textTransform: "uppercase", letterSpacing: "0.10em" }}>
+            <span
+              className="mono"
+              style={{
+                fontSize: "var(--mono-sm)",
+                color: "var(--fg-muted)",
+                textTransform: "uppercase",
+                letterSpacing: "0.10em",
+              }}
+            >
               Alocações pendentes
             </span>
           </div>
 
           {pendingLoading && (
-            <div style={{ background: "var(--bg-elev)", border: "1px solid var(--line)", borderRadius: "var(--radius-sm)", height: 72 }} />
+            <div
+              style={{
+                background: "var(--bg-elev)",
+                border: "1px solid var(--line)",
+                borderRadius: "var(--radius-sm)",
+                height: 72,
+              }}
+            />
           )}
 
           {!pendingLoading && pendingError && (
@@ -187,15 +223,17 @@ export function UsoIaPage({ can }) {
             </p>
           )}
 
-          {!pendingLoading && !pendingError && pending.map((batch) => (
-            <PendingAllocationCard
-              key={batch.day}
-              batch={batch}
-              onAccept={handleAccept}
-              onAdjust={handleAdjust}
-              readOnly={isReadOnly}
-            />
-          ))}
+          {!pendingLoading &&
+            !pendingError &&
+            pending.map((batch) => (
+              <PendingAllocationCard
+                key={batch.day}
+                batch={batch}
+                onAccept={handleAccept}
+                onAdjust={handleAdjust}
+                readOnly={isReadOnly}
+              />
+            ))}
         </div>
       )}
 
@@ -221,20 +259,22 @@ export function UsoIaPage({ can }) {
 
       {/* Toast */}
       {toast && (
-        <div style={{
-          position: "fixed",
-          bottom: 24,
-          left: "50%",
-          transform: "translateX(-50%)",
-          background: toast.ok ? "var(--good)" : "var(--bad)",
-          color: "var(--bg)",
-          padding: "10px 22px",
-          borderRadius: "var(--radius-sm)",
-          zIndex: 2000,
-          fontSize: "var(--mono-sm)",
-          fontFamily: "inherit",
-          pointerEvents: "none",
-        }}>
+        <div
+          style={{
+            position: "fixed",
+            bottom: 24,
+            left: "50%",
+            transform: "translateX(-50%)",
+            background: toast.ok ? "var(--good)" : "var(--bad)",
+            color: "var(--bg)",
+            padding: "10px 22px",
+            borderRadius: "var(--radius-sm)",
+            zIndex: 2000,
+            fontSize: "var(--mono-sm)",
+            fontFamily: "inherit",
+            pointerEvents: "none",
+          }}
+        >
           {toast.msg}
         </div>
       )}

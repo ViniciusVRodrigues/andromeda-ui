@@ -23,7 +23,14 @@
  */
 
 import React from "react";
-import { getDeveloperDashboard, getPendingAllocations, getSprintItems, acceptAllocation, manualAllocate, manualAllocateNoSuggestion } from "../../services/api.js";
+import {
+  getDeveloperDashboard,
+  getPendingAllocations,
+  getSprintItems,
+  acceptAllocation,
+  manualAllocate,
+  manualAllocateNoSuggestion,
+} from "../../services/api.js";
 import { TokenUsageChart } from "../../components/charts/TokenUsageChart.jsx";
 import { BurndownChart } from "../../components/charts/BurndownChart.jsx";
 import { SprintProgressBar } from "../../components/SprintProgressBar.jsx";
@@ -79,7 +86,9 @@ function DevDashCard({ eyebrow, title, extra, compact, children }) {
 function EmptyState({ icon, title, desc, actionLabel, onAction }) {
   return (
     <div className="dev-dash-empty">
-      <div className="dev-dash-empty-icon" aria-hidden="true">{icon}</div>
+      <div className="dev-dash-empty-icon" aria-hidden="true">
+        {icon}
+      </div>
       <div className="dev-dash-empty-body">
         <div className="dev-dash-empty-title">{title}</div>
         <div className="dev-dash-empty-desc">{desc}</div>
@@ -118,11 +127,11 @@ function CardSkeleton({ lines = 2 }) {
  */
 function MetricsRow({ data, loading }) {
   const tiles = [
-    { label: "Ciclo Médio",      value: fmt1(data?.avgCycleTimeHours), unit: "h" },
-    { label: "Lead Time Médio",  value: fmt1(data?.avgLeadTimeHours),  unit: "h" },
-    { label: "Story Points",     value: fmtInt(data?.storyPointsDelivered), unit: "sp" },
-    { label: "PRs Abertas",      value: fmtInt(data?.openPrs),   unit: "prs" },
-    { label: "PRs Mescladas",    value: fmtInt(data?.mergedPrs), unit: "prs" },
+    { label: "Ciclo Médio", value: fmt1(data?.avgCycleTimeHours), unit: "h" },
+    { label: "Lead Time Médio", value: fmt1(data?.avgLeadTimeHours), unit: "h" },
+    { label: "Story Points", value: fmtInt(data?.storyPointsDelivered), unit: "sp" },
+    { label: "PRs Abertas", value: fmtInt(data?.openPrs), unit: "prs" },
+    { label: "PRs Mescladas", value: fmtInt(data?.mergedPrs), unit: "prs" },
   ];
 
   if (loading) {
@@ -131,7 +140,10 @@ function MetricsRow({ data, loading }) {
         {tiles.map((t) => (
           <div key={t.label} className="dev-dash-metric-tile">
             <div className="skeleton dev-dash-skel-line" style={{ width: "60%", height: 12 }} />
-            <div className="skeleton dev-dash-skel-line" style={{ width: "40%", height: 22, marginTop: 8 }} />
+            <div
+              className="skeleton dev-dash-skel-line"
+              style={{ width: "40%", height: 22, marginTop: 8 }}
+            />
           </div>
         ))}
       </div>
@@ -145,9 +157,7 @@ function MetricsRow({ data, loading }) {
           <div className="mono dev-dash-metric-label">{t.label}</div>
           <div className="dev-dash-metric-value-row">
             <span className="serif dev-dash-metric-num">{t.value}</span>
-            {t.value !== "—" && (
-              <span className="mono dev-dash-metric-unit">{t.unit}</span>
-            )}
+            {t.value !== "—" && <span className="mono dev-dash-metric-unit">{t.unit}</span>}
           </div>
         </div>
       ))}
@@ -258,22 +268,41 @@ function InProgressPanel({ items, loading }) {
               }}
             >
               <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                <span className="mono" style={{
-                  display: "inline-block", fontSize: "var(--mono-sm)",
-                  background: "var(--accent)", color: "var(--bg)", borderRadius: 4, padding: "1px 7px",
-                }}>
+                <span
+                  className="mono"
+                  style={{
+                    display: "inline-block",
+                    fontSize: "var(--mono-sm)",
+                    background: "var(--accent)",
+                    color: "var(--bg)",
+                    borderRadius: 4,
+                    padding: "1px 7px",
+                  }}
+                >
                   {item.type || "Item"}
                 </span>
-                <span className="mono" style={{ fontSize: "var(--mono-sm)", color: "var(--fg-dim)" }}>
+                <span
+                  className="mono"
+                  style={{ fontSize: "var(--mono-sm)", color: "var(--fg-dim)" }}
+                >
                   {item.externalId || ""}
                 </span>
               </div>
-              <div style={{ fontSize: "var(--mono-base)", color: "var(--fg)" }}>{item.title || "—"}</div>
+              <div style={{ fontSize: "var(--mono-base)", color: "var(--fg)" }}>
+                {item.title || "—"}
+              </div>
               <div>
-                <span className="mono" style={{
-                  display: "inline-block", fontSize: "var(--mono-sm)", color: "var(--fg-muted)",
-                  background: "var(--line-strong)", borderRadius: 4, padding: "1px 7px",
-                }}>
+                <span
+                  className="mono"
+                  style={{
+                    display: "inline-block",
+                    fontSize: "var(--mono-sm)",
+                    color: "var(--fg-muted)",
+                    background: "var(--line-strong)",
+                    borderRadius: 4,
+                    padding: "1px 7px",
+                  }}
+                >
                   {item.storyPoints != null ? `${item.storyPoints} SP` : "—"}
                 </span>
               </div>
@@ -288,10 +317,20 @@ function InProgressPanel({ items, loading }) {
 /**
  * Unified AI card — tokens, cost, chart, ROI, pending allocations.
  */
-function AiCard({ data, loading, pending, pendingLoading, onAllocationAccepted, onAllocationAdjust, onNavigate }) {
+function AiCard({
+  data,
+  loading,
+  pending,
+  pendingLoading,
+  onAllocationAccepted,
+  onAllocationAdjust,
+  onNavigate,
+}) {
   const summary = data?.aiSprintSummary;
-  const hasTokens = (summary && summary.totalTokens > 0) ||
-    (Array.isArray(data?.tokensByDay) && data.tokensByDay.some(d => (d.inputTokens ?? 0) + (d.outputTokens ?? 0) > 0)) ||
+  const hasTokens =
+    (summary && summary.totalTokens > 0) ||
+    (Array.isArray(data?.tokensByDay) &&
+      data.tokensByDay.some((d) => (d.inputTokens ?? 0) + (d.outputTokens ?? 0) > 0)) ||
     (!pendingLoading && pending.length > 0);
 
   const subCost = data?.subscriptionCostPerUserUsd;
@@ -321,7 +360,11 @@ function AiCard({ data, loading, pending, pendingLoading, onAllocationAccepted, 
         <>
           {/* Section 1: key numbers */}
           <div style={{ display: "flex", gap: 32, flexWrap: "wrap", marginBottom: 20 }}>
-            <AiStat label="Tokens alocados" value={summary.totalTokens.toLocaleString()} unit="tokens" />
+            <AiStat
+              label="Tokens alocados"
+              value={summary.totalTokens.toLocaleString()}
+              unit="tokens"
+            />
             <AiStat label="Custo" value={fmtUsd(data?.sprintCostUsd)} />
             <AiStat label="Tokens / SP" value={fmt1(data?.avgTokensPerSp)} />
             {hasRoi && (
@@ -334,27 +377,66 @@ function AiCard({ data, loading, pending, pendingLoading, onAllocationAccepted, 
           </div>
 
           {/* Section 2: token usage chart */}
-          <div style={{ borderTop: "1px solid var(--line)", paddingTop: 16, marginBottom: hasRoi ? 16 : 0 }}>
-            <div className="mono" style={{ fontSize: "var(--mono-sm)", color: "var(--fg-muted)", marginBottom: 10 }}>Uso de Tokens na Sprint</div>
+          <div
+            style={{
+              borderTop: "1px solid var(--line)",
+              paddingTop: 16,
+              marginBottom: hasRoi ? 16 : 0,
+            }}
+          >
+            <div
+              className="mono"
+              style={{ fontSize: "var(--mono-sm)", color: "var(--fg-muted)", marginBottom: 10 }}
+            >
+              Uso de Tokens na Sprint
+            </div>
             <TokenUsageChart data={data?.tokensByDay} />
           </div>
 
           {/* Section 3: ROI detail */}
           {hasRoi && (
-            <div style={{ borderTop: "1px solid var(--line)", paddingTop: 14, marginBottom: hasPending ? 16 : 0 }}>
-              <div className="mono" style={{ fontSize: "var(--mono-sm)", color: "var(--fg-muted)", marginBottom: 10 }}>Assinatura vs. Uso</div>
+            <div
+              style={{
+                borderTop: "1px solid var(--line)",
+                paddingTop: 14,
+                marginBottom: hasPending ? 16 : 0,
+              }}
+            >
+              <div
+                className="mono"
+                style={{ fontSize: "var(--mono-sm)", color: "var(--fg-muted)", marginBottom: 10 }}
+              >
+                Assinatura vs. Uso
+              </div>
               <div style={{ display: "flex", gap: 24, flexWrap: "wrap", alignItems: "flex-end" }}>
                 <AiStat label="Valor gerado" value={fmtUsd(sprintCost)} />
                 <AiStat label="Custo assinatura (sprint)" value={fmtUsd(proratedSub)} />
-                <div style={{
-                  padding: "6px 12px",
-                  borderRadius: 6,
-                  background: roiPositive
-                    ? "color-mix(in srgb, var(--good) 12%, transparent)"
-                    : "color-mix(in srgb, var(--bad) 12%, transparent)",
-                }}>
-                  <div className="mono" style={{ fontSize: "var(--mono-sm)", color: "var(--fg-muted)", marginBottom: 2 }}>saldo</div>
-                  <div className="serif" style={{ fontSize: "1.2rem", color: roiPositive ? "var(--good)" : "var(--bad)" }}>
+                <div
+                  style={{
+                    padding: "6px 12px",
+                    borderRadius: 6,
+                    background: roiPositive
+                      ? "color-mix(in srgb, var(--good) 12%, transparent)"
+                      : "color-mix(in srgb, var(--bad) 12%, transparent)",
+                  }}
+                >
+                  <div
+                    className="mono"
+                    style={{
+                      fontSize: "var(--mono-sm)",
+                      color: "var(--fg-muted)",
+                      marginBottom: 2,
+                    }}
+                  >
+                    saldo
+                  </div>
+                  <div
+                    className="serif"
+                    style={{
+                      fontSize: "1.2rem",
+                      color: roiPositive ? "var(--good)" : "var(--bad)",
+                    }}
+                  >
                     {(roiPositive ? "+" : "") + fmtUsd(roi)}
                   </div>
                 </div>
@@ -365,7 +447,12 @@ function AiCard({ data, loading, pending, pendingLoading, onAllocationAccepted, 
           {/* Section 4: pending allocations for this sprint */}
           {(pendingLoading || hasPending) && (
             <div style={{ borderTop: "1px solid var(--line)", paddingTop: 14 }}>
-              <div className="mono" style={{ fontSize: "var(--mono-sm)", color: "var(--fg-muted)", marginBottom: 10 }}>Alocações pendentes</div>
+              <div
+                className="mono"
+                style={{ fontSize: "var(--mono-sm)", color: "var(--fg-muted)", marginBottom: 10 }}
+              >
+                Alocações pendentes
+              </div>
               {pendingLoading ? (
                 <div className="skeleton" style={{ height: 52 }} />
               ) : (
@@ -395,17 +482,24 @@ function PendingAllocationRow({ batch, onAccept, onAdjust }) {
   const hasSuggestion = batch.suggestion?.length > 0;
 
   return (
-    <div style={{
-      display: "flex",
-      alignItems: "center",
-      gap: 12,
-      padding: "10px 12px",
-      background: "var(--bg-deep)",
-      borderRadius: "var(--radius-sm)",
-      border: "1px solid var(--line)",
-    }}>
-      <span className="serif" style={{ fontSize: 15, color: "var(--fg)", minWidth: 72 }}>{dateLabel}</span>
-      <span className="mono" style={{ fontSize: "var(--mono-sm)", color: "var(--fg-muted)", flex: 1 }}>
+    <div
+      style={{
+        display: "flex",
+        alignItems: "center",
+        gap: 12,
+        padding: "10px 12px",
+        background: "var(--bg-deep)",
+        borderRadius: "var(--radius-sm)",
+        border: "1px solid var(--line)",
+      }}
+    >
+      <span className="serif" style={{ fontSize: 15, color: "var(--fg)", minWidth: 72 }}>
+        {dateLabel}
+      </span>
+      <span
+        className="mono"
+        style={{ fontSize: "var(--mono-sm)", color: "var(--fg-muted)", flex: 1 }}
+      >
         <span style={{ color: "var(--fg)" }}>{totalTokens.toLocaleString()}</span> tokens
         {" · "}
         <span style={{ color: "var(--fg)" }}>${(batch.estimatedCostUsd || 0).toFixed(2)}</span>
@@ -413,14 +507,18 @@ function PendingAllocationRow({ batch, onAccept, onAdjust }) {
       {hasSuggestion && (
         <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
           {batch.suggestion.map((s) => (
-            <span key={s.workItemId} className="mono" style={{
-              fontSize: "var(--mono-sm)",
-              color: "var(--accent)",
-              background: "color-mix(in srgb, var(--accent) 10%, transparent)",
-              border: "1px solid color-mix(in srgb, var(--accent) 25%, transparent)",
-              borderRadius: 4,
-              padding: "1px 7px",
-            }}>
+            <span
+              key={s.workItemId}
+              className="mono"
+              style={{
+                fontSize: "var(--mono-sm)",
+                color: "var(--accent)",
+                background: "color-mix(in srgb, var(--accent) 10%, transparent)",
+                border: "1px solid color-mix(in srgb, var(--accent) 25%, transparent)",
+                borderRadius: 4,
+                padding: "1px 7px",
+              }}
+            >
               {s.workItemTitle} · {(parseFloat(s.percentage) * 100).toFixed(0)}%
             </span>
           ))}
@@ -428,11 +526,19 @@ function PendingAllocationRow({ batch, onAccept, onAdjust }) {
       )}
       <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
         {batch.suggestionAllocationId && (
-          <button className="btn" style={{ fontSize: "var(--mono-sm)", padding: "4px 12px" }} onClick={() => onAccept(batch)}>
+          <button
+            className="btn"
+            style={{ fontSize: "var(--mono-sm)", padding: "4px 12px" }}
+            onClick={() => onAccept(batch)}
+          >
             Aceitar
           </button>
         )}
-        <button className="btn btn-ghost" style={{ fontSize: "var(--mono-sm)", padding: "4px 12px" }} onClick={() => onAdjust(batch)}>
+        <button
+          className="btn btn-ghost"
+          style={{ fontSize: "var(--mono-sm)", padding: "4px 12px" }}
+          onClick={() => onAdjust(batch)}
+        >
           {hasSuggestion ? "Ajustar" : "+ Alocar"}
         </button>
       </div>
@@ -443,10 +549,21 @@ function PendingAllocationRow({ batch, onAccept, onAdjust }) {
 function AiStat({ label, value, unit, valueColor }) {
   return (
     <div>
-      <div className="mono" style={{ fontSize: "var(--mono-sm)", color: "var(--fg-muted)", marginBottom: 6 }}>{label}</div>
+      <div
+        className="mono"
+        style={{ fontSize: "var(--mono-sm)", color: "var(--fg-muted)", marginBottom: 6 }}
+      >
+        {label}
+      </div>
       <div style={{ display: "flex", alignItems: "baseline", gap: 4 }}>
-        <span className="serif" style={{ fontSize: 32, color: valueColor || "var(--fg)" }}>{value}</span>
-        {unit && <span className="mono" style={{ fontSize: "var(--mono-sm)", color: "var(--fg-muted)" }}>{unit}</span>}
+        <span className="serif" style={{ fontSize: 32, color: valueColor || "var(--fg)" }}>
+          {value}
+        </span>
+        {unit && (
+          <span className="mono" style={{ fontSize: "var(--mono-sm)", color: "var(--fg-muted)" }}>
+            {unit}
+          </span>
+        )}
       </div>
     </div>
   );
@@ -507,9 +624,13 @@ function SprintProgressSection({ data, loading, startDate, endDate, onNavigate }
       eyebrow="sprint atual"
       title="Progresso da Sprint"
       compact={noItems}
-      extra={sprintDay && (
-        <span className="dev-dash-day-pill">Dia {sprintDay.dayX} de {sprintDay.dayY}</span>
-      )}
+      extra={
+        sprintDay && (
+          <span className="dev-dash-day-pill">
+            Dia {sprintDay.dayX} de {sprintDay.dayY}
+          </span>
+        )
+      }
     >
       {noItems ? (
         <EmptyState
@@ -528,10 +649,17 @@ function SprintProgressSection({ data, loading, startDate, endDate, onNavigate }
           />
           {noSp ? (
             <div className="dev-dash-empty" style={{ padding: "4px 0 0" }}>
-              <div className="dev-dash-empty-icon" aria-hidden="true" style={{ width: 28, height: 28, fontSize: 13 }}>Ø</div>
+              <div
+                className="dev-dash-empty-icon"
+                aria-hidden="true"
+                style={{ width: 28, height: 28, fontSize: 13 }}
+              >
+                Ø
+              </div>
               <div className="dev-dash-empty-body">
                 <div className="dev-dash-empty-desc" style={{ marginBottom: 0 }}>
-                  Nenhum story point definido — adicione pontos aos work items no Azure DevOps para habilitar o acompanhamento por SP.
+                  Nenhum story point definido — adicione pontos aos work items no Azure DevOps para
+                  habilitar o acompanhamento por SP.
                 </div>
               </div>
             </div>
@@ -554,7 +682,11 @@ function SprintProgressSection({ data, loading, startDate, endDate, onNavigate }
  * @param {{ data: Array|undefined, loading: boolean, onNavigate?: (tab: string) => void }} props
  */
 function BurndownCard({ data, loading, onNavigate }) {
-  const empty = !loading && (!Array.isArray(data) || data.length === 0 || data.every((d) => d.remainingSp == null || d.remainingSp === 0));
+  const empty =
+    !loading &&
+    (!Array.isArray(data) ||
+      data.length === 0 ||
+      data.every((d) => d.remainingSp == null || d.remainingSp === 0));
 
   return (
     <DevDashCard eyebrow="sprint atual" title="Burndown" compact={empty}>
@@ -598,7 +730,13 @@ export function DeveloperDashboard({ projectId, sprintId, startDate, endDate, mo
     setLoading(true);
     setError(null);
     try {
-      const result = await getDeveloperDashboard({ projectId, sprintId, startDate, endDate, model });
+      const result = await getDeveloperDashboard({
+        projectId,
+        sprintId,
+        startDate,
+        endDate,
+        model,
+      });
       setData(result);
     } catch (err) {
       setError(err.message || "Erro ao carregar o dashboard.");
@@ -609,14 +747,17 @@ export function DeveloperDashboard({ projectId, sprintId, startDate, endDate, mo
 
   const fetchPending = React.useCallback(async (tokensByDay) => {
     if (!tokensByDay?.length) return;
-    const days = tokensByDay.map((d) => d.date).filter(Boolean).sort();
+    const days = tokensByDay
+      .map((d) => d.date)
+      .filter(Boolean)
+      .sort();
     const sprintFrom = days[0];
     const sprintTo = days[days.length - 1];
     setPendingLoading(true);
     try {
       const all = await getPendingAllocations();
       const inSprint = (Array.isArray(all) ? all : []).filter(
-        (b) => b.day >= sprintFrom && b.day <= sprintTo
+        (b) => b.day >= sprintFrom && b.day <= sprintTo,
       );
       setPending(inSprint);
     } catch {
@@ -626,7 +767,9 @@ export function DeveloperDashboard({ projectId, sprintId, startDate, endDate, mo
     }
   }, []);
 
-  React.useEffect(() => { fetchData(); }, [fetchData]);
+  React.useEffect(() => {
+    fetchData();
+  }, [fetchData]);
 
   React.useEffect(() => {
     if (data?.tokensByDay) fetchPending(data.tokensByDay);
@@ -653,7 +796,7 @@ export function DeveloperDashboard({ projectId, sprintId, startDate, endDate, mo
       return {
         ...prev,
         currentSprintItems: prev.currentSprintItems.map((it) =>
-          it.id === itemId ? { ...it, ...updated } : it
+          it.id === itemId ? { ...it, ...updated } : it,
         ),
       };
     });
@@ -689,13 +832,31 @@ export function DeveloperDashboard({ projectId, sprintId, startDate, endDate, mo
 
   return (
     <div className="dash-wrap">
-      <div style={{ marginBottom: 24, display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 24 }}>
+      <div
+        style={{
+          marginBottom: 24,
+          display: "flex",
+          alignItems: "flex-end",
+          justifyContent: "space-between",
+          gap: 24,
+        }}
+      >
         <div>
-          <div className="mono" style={{ fontSize: "var(--mono-sm)", color: "var(--fg-muted)", textTransform: "uppercase", letterSpacing: "0.12em", marginBottom: 6 }}>
+          <div
+            className="mono"
+            style={{
+              fontSize: "var(--mono-sm)",
+              color: "var(--fg-muted)",
+              textTransform: "uppercase",
+              letterSpacing: "0.12em",
+              marginBottom: 6,
+            }}
+          >
             painel individual
           </div>
           <h1 className="serif" style={{ fontSize: 40, lineHeight: 1.1 }}>
-            Dashboard <span style={{ fontStyle: "italic", color: "var(--accent)" }}>do Desenvolvedor</span>
+            Dashboard{" "}
+            <span style={{ fontStyle: "italic", color: "var(--accent)" }}>do Desenvolvedor</span>
           </h1>
         </div>
       </div>
@@ -719,7 +880,10 @@ export function DeveloperDashboard({ projectId, sprintId, startDate, endDate, mo
       />
 
       {/* Row 3: burndown (60%) + in-progress (40%) side by side */}
-      <div className="dev-dash-burndown-row" style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
+      <div
+        className="dev-dash-burndown-row"
+        style={{ display: "flex", gap: 16, alignItems: "flex-start" }}
+      >
         <div style={{ flex: "0 0 60%", minWidth: 0 }}>
           <BurndownCard data={data?.burndownSeries} loading={loading} onNavigate={onNavigate} />
         </div>
@@ -762,20 +926,22 @@ export function DeveloperDashboard({ projectId, sprintId, startDate, endDate, mo
 
       {/* Toast */}
       {toast && (
-        <div style={{
-          position: "fixed",
-          bottom: 24,
-          left: "50%",
-          transform: "translateX(-50%)",
-          background: toast.ok ? "var(--good)" : "var(--bad)",
-          color: "var(--bg)",
-          padding: "10px 22px",
-          borderRadius: "var(--radius-sm)",
-          zIndex: 2000,
-          fontSize: "var(--mono-sm)",
-          fontFamily: "inherit",
-          pointerEvents: "none",
-        }}>
+        <div
+          style={{
+            position: "fixed",
+            bottom: 24,
+            left: "50%",
+            transform: "translateX(-50%)",
+            background: toast.ok ? "var(--good)" : "var(--bad)",
+            color: "var(--bg)",
+            padding: "10px 22px",
+            borderRadius: "var(--radius-sm)",
+            zIndex: 2000,
+            fontSize: "var(--mono-sm)",
+            fontFamily: "inherit",
+            pointerEvents: "none",
+          }}
+        >
           {toast.msg}
         </div>
       )}

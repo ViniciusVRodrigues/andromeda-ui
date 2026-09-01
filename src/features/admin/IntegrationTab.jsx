@@ -12,22 +12,22 @@ import Drawer from "../../components/Drawer.jsx";
 
 function statusDot(status) {
   if (status === "CONNECTED") return "●";
-  if (status === "EXPIRED")   return "●";
-  if (status === "ERROR")     return "●";
+  if (status === "EXPIRED") return "●";
+  if (status === "ERROR") return "●";
   return "●";
 }
 
 function dotClass(status) {
   if (status === "CONNECTED") return "integration-dot is-connected";
-  if (status === "EXPIRED")   return "integration-dot is-expired";
-  if (status === "ERROR")     return "integration-dot is-error";
+  if (status === "EXPIRED") return "integration-dot is-expired";
+  if (status === "ERROR") return "integration-dot is-error";
   return "integration-dot is-disconnected";
 }
 
 function formatRelative(iso) {
   if (!iso) return "—";
   const diff = Math.floor((Date.now() - new Date(iso).getTime()) / 1000);
-  if (diff < 60)   return "há menos de 1 min";
+  if (diff < 60) return "há menos de 1 min";
   if (diff < 3600) return `há ${Math.floor(diff / 60)} min`;
   if (diff < 86400) return `há ${Math.floor(diff / 3600)} h`;
   return `há ${Math.floor(diff / 86400)} dia${Math.floor(diff / 86400) > 1 ? "s" : ""}`;
@@ -46,8 +46,12 @@ function formatAbsolute(iso) {
   if (!iso) return "—";
   try {
     return new Date(iso).toLocaleString("pt-BR", {
-      day: "2-digit", month: "2-digit", year: "numeric",
-      hour: "2-digit", minute: "2-digit", second: "2-digit",
+      day: "2-digit",
+      month: "2-digit",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
     });
   } catch (_) {
     return iso;
@@ -81,9 +85,15 @@ function humanize(value) {
   return label.charAt(0).toUpperCase() + label.slice(1);
 }
 
-function operationLabel(op) { return OPERATION_LABELS[op] || humanize(op); }
-function statusLabel(s) { return STATUS_LABELS[s] || humanize(s); }
-function triggerLabel(t) { return TRIGGER_LABELS[t] || humanize(t); }
+function operationLabel(op) {
+  return OPERATION_LABELS[op] || humanize(op);
+}
+function statusLabel(s) {
+  return STATUS_LABELS[s] || humanize(s);
+}
+function triggerLabel(t) {
+  return TRIGGER_LABELS[t] || humanize(t);
+}
 
 /* O corpo de erro da Azure vem como JSON (`{"message": "...", ...}`) ou texto
  * puro. Extrai a mensagem quando for JSON para não despejar o objeto inteiro. */
@@ -96,7 +106,9 @@ function parseErrorDetail(detail) {
       const parsed = JSON.parse(trimmed);
       const message = parsed?.message || parsed?.value?.Message || parsed?.Message;
       if (message) return { message, raw: trimmed };
-    } catch (_) { /* não é JSON válido: cai no texto puro abaixo */ }
+    } catch (_) {
+      /* não é JSON válido: cai no texto puro abaixo */
+    }
   }
   return { message: trimmed, raw: trimmed };
 }
@@ -134,7 +146,9 @@ function SyncLogDrawer({ open, onClose, integration = "AZURE_DEVOPS" }) {
 
   // Fecha qualquer detalhe aberto ao trocar de filtro/integração, senão o painel
   // expandido fica preso a uma entrada que saiu da lista visível.
-  React.useEffect(() => { setExpanded(null); }, [statusFilter, integration]);
+  React.useEffect(() => {
+    setExpanded(null);
+  }, [statusFilter, integration]);
 
   const statusVariant = (value) => {
     if (value === "SUCCESS") return "is-success";
@@ -151,7 +165,7 @@ function SyncLogDrawer({ open, onClose, integration = "AZURE_DEVOPS" }) {
       else acc.FAILED += 1;
       return acc;
     },
-    { ALL: 0, SUCCESS: 0, FAILED: 0, RUNNING: 0 }
+    { ALL: 0, SUCCESS: 0, FAILED: 0, RUNNING: 0 },
   );
 
   const visible = logs.filter((log) => {
@@ -180,7 +194,12 @@ function SyncLogDrawer({ open, onClose, integration = "AZURE_DEVOPS" }) {
       }
       className="sync-log-drawer"
       actions={
-        <button className="drawer-refresh mono" onClick={fetchLogs} disabled={loading} title="Atualizar">
+        <button
+          className="drawer-refresh mono"
+          onClick={fetchLogs}
+          disabled={loading}
+          title="Atualizar"
+        >
           {loading ? "…" : "↻"}
         </button>
       }
@@ -201,90 +220,91 @@ function SyncLogDrawer({ open, onClose, integration = "AZURE_DEVOPS" }) {
         ) : null
       }
     >
-          {loading && logs.length === 0 && (
-            <div className="log-skeleton-list">
-              {[0, 1, 2, 3].map((i) => <div key={i} className="log-skeleton" />)}
-            </div>
-          )}
-          {error && (
-            <div className="drawer-error">
-              <p className="mono">{error}</p>
-              <button className="btn" onClick={fetchLogs}>Tentar novamente</button>
-            </div>
-          )}
-          {!loading && !error && logs.length === 0 && (
-            <p className="mono drawer-empty">Nenhuma sincronização registrada ainda.</p>
-          )}
-          {!error && logs.length > 0 && visible.length === 0 && (
-            <p className="mono drawer-empty">Nenhum registro para este filtro.</p>
-          )}
+      {loading && logs.length === 0 && (
+        <div className="log-skeleton-list">
+          {[0, 1, 2, 3].map((i) => (
+            <div key={i} className="log-skeleton" />
+          ))}
+        </div>
+      )}
+      {error && (
+        <div className="drawer-error">
+          <p className="mono">{error}</p>
+          <button className="btn" onClick={fetchLogs}>
+            Tentar novamente
+          </button>
+        </div>
+      )}
+      {!loading && !error && logs.length === 0 && (
+        <p className="mono drawer-empty">Nenhuma sincronização registrada ainda.</p>
+      )}
+      {!error && logs.length > 0 && visible.length === 0 && (
+        <p className="mono drawer-empty">Nenhum registro para este filtro.</p>
+      )}
 
-          {!error && visible.map((log, i) => {
-            const key = log.id || `log-${i}`;
-            const isFailure = log.status === "FAILED" || log.status === "PARTIAL";
-            const detail = parseErrorDetail(log.errorDetail);
-            const hasDetail = isFailure && (detail || log.errorMessage || log.errorCode);
-            const isOpen = expanded === key;
+      {!error &&
+        visible.map((log, i) => {
+          const key = log.id || `log-${i}`;
+          const isFailure = log.status === "FAILED" || log.status === "PARTIAL";
+          const detail = parseErrorDetail(log.errorDetail);
+          const hasDetail = isFailure && (detail || log.errorMessage || log.errorCode);
+          const isOpen = expanded === key;
 
-            return (
-              <article key={key} className={"log-entry " + statusVariant(log.status)}>
-                <header className="log-entry-head">
-                  <span className={"log-status-badge mono " + statusVariant(log.status)}>
-                    <span className="log-status-dot" aria-hidden="true" />
-                    {statusLabel(log.status)}
-                  </span>
-                  <span className="log-operation">{operationLabel(log.operation)}</span>
-                  <span
-                    className="log-time mono"
-                    title={formatAbsolute(log.finishedAt || log.startedAt)}
-                  >
-                    {formatRelative(log.finishedAt || log.startedAt)}
-                  </span>
-                </header>
+          return (
+            <article key={key} className={"log-entry " + statusVariant(log.status)}>
+              <header className="log-entry-head">
+                <span className={"log-status-badge mono " + statusVariant(log.status)}>
+                  <span className="log-status-dot" aria-hidden="true" />
+                  {statusLabel(log.status)}
+                </span>
+                <span className="log-operation">{operationLabel(log.operation)}</span>
+                <span
+                  className="log-time mono"
+                  title={formatAbsolute(log.finishedAt || log.startedAt)}
+                >
+                  {formatRelative(log.finishedAt || log.startedAt)}
+                </span>
+              </header>
 
-                <div className="log-entry-meta mono">
-                  <span className={"log-chip" + (log.triggeredBy === "MANUAL" ? " is-manual" : "")}>
-                    {triggerLabel(log.triggeredBy)}
+              <div className="log-entry-meta mono">
+                <span className={"log-chip" + (log.triggeredBy === "MANUAL" ? " is-manual" : "")}>
+                  {triggerLabel(log.triggeredBy)}
+                </span>
+                <span className="log-metric">
+                  <strong>{log.itemsProcessed ?? 0}</strong> itens
+                </span>
+                {(log.itemsFailed ?? 0) > 0 && (
+                  <span className="log-metric is-bad">
+                    <strong>{log.itemsFailed}</strong> falhas
                   </span>
-                  <span className="log-metric">
-                    <strong>{log.itemsProcessed ?? 0}</strong> itens
-                  </span>
-                  {(log.itemsFailed ?? 0) > 0 && (
-                    <span className="log-metric is-bad">
-                      <strong>{log.itemsFailed}</strong> falhas
-                    </span>
-                  )}
-                  <span className="log-metric">{formatDuration(log.durationMs)}</span>
-                </div>
+                )}
+                <span className="log-metric">{formatDuration(log.durationMs)}</span>
+              </div>
 
-                {hasDetail && (
-                  <div className="log-error">
-                    <div className="log-error-head">
-                      {log.errorCode && <code className="log-error-code mono">{log.errorCode}</code>}
-                      {log.httpStatus != null && (
-                        <code className="log-error-code mono is-http">HTTP {log.httpStatus}</code>
-                      )}
-                      {detail?.raw && (
-                        <button
-                          className="log-error-toggle mono"
-                          onClick={() => setExpanded(isOpen ? null : key)}
-                          aria-expanded={isOpen}
-                        >
-                          {isOpen ? "Ocultar resposta" : "Ver resposta"}
-                        </button>
-                      )}
-                    </div>
-                    <p className="log-error-msg mono">
-                      {detail?.message || log.errorMessage}
-                    </p>
-                    {isOpen && detail?.raw && (
-                      <pre className="log-error-raw mono">{detail.raw}</pre>
+              {hasDetail && (
+                <div className="log-error">
+                  <div className="log-error-head">
+                    {log.errorCode && <code className="log-error-code mono">{log.errorCode}</code>}
+                    {log.httpStatus != null && (
+                      <code className="log-error-code mono is-http">HTTP {log.httpStatus}</code>
+                    )}
+                    {detail?.raw && (
+                      <button
+                        className="log-error-toggle mono"
+                        onClick={() => setExpanded(isOpen ? null : key)}
+                        aria-expanded={isOpen}
+                      >
+                        {isOpen ? "Ocultar resposta" : "Ver resposta"}
+                      </button>
                     )}
                   </div>
-                )}
-              </article>
-            );
-          })}
+                  <p className="log-error-msg mono">{detail?.message || log.errorMessage}</p>
+                  {isOpen && detail?.raw && <pre className="log-error-raw mono">{detail.raw}</pre>}
+                </div>
+              )}
+            </article>
+          );
+        })}
     </Drawer>
   );
 }
@@ -297,7 +317,10 @@ function AzurePatSetupForm({ onSuccess, onCancel }) {
   const [error, setError] = React.useState(null);
   const [saving, setSaving] = React.useState(false);
 
-  const slug = orgUrl.replace(/^https?:\/\/dev\.azure\.com\//i, "").replace(/\/$/, "").trim();
+  const slug = orgUrl
+    .replace(/^https?:\/\/dev\.azure\.com\//i, "")
+    .replace(/\/$/, "")
+    .trim();
   const patLink = slug
     ? `https://dev.azure.com/${slug}/_usersSettings/tokens`
     : "https://aex.dev.azure.com/me";
@@ -342,7 +365,12 @@ function AzurePatSetupForm({ onSuccess, onCancel }) {
           <li>Build (Read)</li>
           <li>Project and Team (Read)</li>
         </ul>
-        <a className="integration-pat-link" href={patLink} target="_blank" rel="noopener noreferrer">
+        <a
+          className="integration-pat-link"
+          href={patLink}
+          target="_blank"
+          rel="noopener noreferrer"
+        >
           Criar PAT na Azure DevOps ↗
         </a>
       </div>
@@ -362,7 +390,9 @@ function AzurePatSetupForm({ onSuccess, onCancel }) {
       {error && <p className="mono integration-error">{error}</p>}
 
       <div className="role-modal-foot">
-        <button type="button" className="btn-ghost btn" onClick={onCancel}>Cancelar</button>
+        <button type="button" className="btn-ghost btn" onClick={onCancel}>
+          Cancelar
+        </button>
         <button type="submit" className="btn" disabled={saving || !orgUrl.trim() || !pat.trim()}>
           {saving ? "Salvando…" : "Conectar →"}
         </button>
@@ -400,7 +430,9 @@ function AzureIntegrationCard({ onStatusChange }) {
     }
   }, []);
 
-  React.useEffect(() => { fetchStatus(); }, [fetchStatus]);
+  React.useEffect(() => {
+    fetchStatus();
+  }, [fetchStatus]);
 
   /* Observar `status` (em vez de notificar dentro de cada handler) garante que
    * conectar via OAuth, via PAT ou desconectar propaguem sem exceção. `null` é
@@ -469,14 +501,22 @@ function AzureIntegrationCard({ onStatusChange }) {
   return (
     <>
       {syncToast && (
-        <div style={{
-          position: "fixed", bottom: 24, right: 24, zIndex: 1000,
-          background: syncToast.type === "success" ? "#1a2e1a" : "#2e1a1a",
-          border: `1px solid ${syncToast.type === "success" ? "#2d5a2d" : "#5a2d2d"}`,
-          color: syncToast.type === "success" ? "#86efac" : "#fca5a5",
-          padding: "12px 20px", borderRadius: 8, fontSize: 13,
-          boxShadow: "0 4px 16px rgba(0,0,0,0.4)", maxWidth: 340,
-        }}>
+        <div
+          style={{
+            position: "fixed",
+            bottom: 24,
+            right: 24,
+            zIndex: 1000,
+            background: syncToast.type === "success" ? "#1a2e1a" : "#2e1a1a",
+            border: `1px solid ${syncToast.type === "success" ? "#2d5a2d" : "#5a2d2d"}`,
+            color: syncToast.type === "success" ? "#86efac" : "#fca5a5",
+            padding: "12px 20px",
+            borderRadius: 8,
+            fontSize: 13,
+            boxShadow: "0 4px 16px rgba(0,0,0,0.4)",
+            maxWidth: 340,
+          }}
+        >
           {syncToast.msg}
         </div>
       )}
@@ -485,8 +525,18 @@ function AzureIntegrationCard({ onStatusChange }) {
         {/* ── Card header ── */}
         <div className="integration-card-head">
           <div className="integration-card-icon" aria-hidden="true">
-            <svg width="22" height="22" viewBox="0 0 256 256" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M143.9 0L78.3 46.4 16 95.1v65.7l29.2 25.5 107.3-130.8v97.3l-59.9 52.3 103.5 0.9 59.9-51.8V62.7L143.9 0Z" fill="currentColor" opacity="0.9"/>
+            <svg
+              width="22"
+              height="22"
+              viewBox="0 0 256 256"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path
+                d="M143.9 0L78.3 46.4 16 95.1v65.7l29.2 25.5 107.3-130.8v97.3l-59.9 52.3 103.5 0.9 59.9-51.8V62.7L143.9 0Z"
+                fill="currentColor"
+                opacity="0.9"
+              />
             </svg>
           </div>
           <span className="integration-card-name">Azure DevOps</span>
@@ -517,9 +567,7 @@ function AzureIntegrationCard({ onStatusChange }) {
         </div>
 
         {/* ── Loading ── */}
-        {status === null && (
-          <p className="mono integration-loading">Verificando conexão…</p>
-        )}
+        {status === null && <p className="mono integration-loading">Verificando conexão…</p>}
 
         {/* ── Network error ── */}
         {networkError && (
@@ -530,7 +578,8 @@ function AzureIntegrationCard({ onStatusChange }) {
         {status === "DISCONNECTED" && (
           <>
             <p className="integration-desc">
-              Conecte o Azure DevOps para habilitar a sincronização automática de sprints e work items.
+              Conecte o Azure DevOps para habilitar a sincronização automática de sprints e work
+              items.
             </p>
             {authMethod === null && (
               <div className="integration-method-chooser">
@@ -566,7 +615,8 @@ function AzureIntegrationCard({ onStatusChange }) {
             )}
             {status === "ERROR" && (
               <div className="integration-alert is-error">
-                Erros consecutivos detectados · {connection?.consecutiveFailures ?? 0} falha{(connection?.consecutiveFailures ?? 0) !== 1 ? "s" : ""}
+                Erros consecutivos detectados · {connection?.consecutiveFailures ?? 0} falha
+                {(connection?.consecutiveFailures ?? 0) !== 1 ? "s" : ""}
               </div>
             )}
             {authMethod === null && (
@@ -618,19 +668,22 @@ function AzureIntegrationCard({ onStatusChange }) {
               <button
                 className="btn"
                 onClick={handleSync}
-                disabled={secondsLeft > 0 || networkError}>
+                disabled={secondsLeft > 0 || networkError}
+              >
                 {secondsLeft > 0 ? `Aguarde ${secondsLeft}s…` : "Sincronizar agora"}
               </button>
               <button
                 className="btn-ghost btn"
                 onClick={() => setLogsOpen(true)}
-                disabled={networkError}>
+                disabled={networkError}
+              >
                 Ver logs →
               </button>
               <button
                 className="btn-ghost btn integration-disconnect"
                 onClick={() => setDisconnectConfirm(true)}
-                disabled={networkError}>
+                disabled={networkError}
+              >
                 Desconectar
               </button>
             </div>
@@ -648,18 +701,26 @@ function AzureIntegrationCard({ onStatusChange }) {
               </h3>
             </div>
             <p className="confirm-text">
-              A sincronização automática será <strong>interrompida</strong> em todos os projetos vinculados.
-              Você poderá reconectar a qualquer momento.
+              A sincronização automática será <strong>interrompida</strong> em todos os projetos
+              vinculados. Você poderá reconectar a qualquer momento.
             </p>
             <div className="role-modal-foot">
-              <button className="btn-ghost btn" onClick={() => setDisconnectConfirm(false)}>Cancelar</button>
-              <button className="btn btn-danger" onClick={handleDisconnect}>Desconectar →</button>
+              <button className="btn-ghost btn" onClick={() => setDisconnectConfirm(false)}>
+                Cancelar
+              </button>
+              <button className="btn btn-danger" onClick={handleDisconnect}>
+                Desconectar →
+              </button>
             </div>
           </div>
         </div>
       )}
 
-      <SyncLogDrawer integration="AZURE_DEVOPS" open={logsOpen} onClose={() => setLogsOpen(false)} />
+      <SyncLogDrawer
+        integration="AZURE_DEVOPS"
+        open={logsOpen}
+        onClose={() => setLogsOpen(false)}
+      />
     </>
   );
 }
@@ -698,7 +759,12 @@ function GithubPatSetupForm({ onSuccess, onCancel }) {
           <li>read:org</li>
           <li>read:user</li>
         </ul>
-        <a className="integration-pat-link" href="https://github.com/settings/tokens" target="_blank" rel="noopener noreferrer">
+        <a
+          className="integration-pat-link"
+          href="https://github.com/settings/tokens"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
           Criar PAT no GitHub ↗
         </a>
       </div>
@@ -719,7 +785,9 @@ function GithubPatSetupForm({ onSuccess, onCancel }) {
 
       <div className="role-modal-foot">
         {onCancel && (
-          <button type="button" className="btn-ghost btn" onClick={onCancel}>Cancelar</button>
+          <button type="button" className="btn-ghost btn" onClick={onCancel}>
+            Cancelar
+          </button>
         )}
         <button type="submit" className="btn" disabled={saving || !pat.trim()}>
           {saving ? "Salvando…" : "Conectar →"}
@@ -756,7 +824,9 @@ function GithubIntegrationCard({ onStatusChange }) {
     }
   }, []);
 
-  React.useEffect(() => { fetchStatus(); }, [fetchStatus]);
+  React.useEffect(() => {
+    fetchStatus();
+  }, [fetchStatus]);
 
   /* Ver a nota em AzureIntegrationCard: o pai precisa reagir a conectar/desconectar. */
   React.useEffect(() => {
@@ -810,14 +880,22 @@ function GithubIntegrationCard({ onStatusChange }) {
   return (
     <>
       {syncToast && (
-        <div style={{
-          position: "fixed", bottom: 24, right: 24, zIndex: 1000,
-          background: syncToast.type === "success" ? "#1a2e1a" : "#2e1a1a",
-          border: `1px solid ${syncToast.type === "success" ? "#2d5a2d" : "#5a2d2d"}`,
-          color: syncToast.type === "success" ? "#86efac" : "#fca5a5",
-          padding: "12px 20px", borderRadius: 8, fontSize: 13,
-          boxShadow: "0 4px 16px rgba(0,0,0,0.4)", maxWidth: 340,
-        }}>
+        <div
+          style={{
+            position: "fixed",
+            bottom: 24,
+            right: 24,
+            zIndex: 1000,
+            background: syncToast.type === "success" ? "#1a2e1a" : "#2e1a1a",
+            border: `1px solid ${syncToast.type === "success" ? "#2d5a2d" : "#5a2d2d"}`,
+            color: syncToast.type === "success" ? "#86efac" : "#fca5a5",
+            padding: "12px 20px",
+            borderRadius: 8,
+            fontSize: 13,
+            boxShadow: "0 4px 16px rgba(0,0,0,0.4)",
+            maxWidth: 340,
+          }}
+        >
           {syncToast.msg}
         </div>
       )}
@@ -852,9 +930,7 @@ function GithubIntegrationCard({ onStatusChange }) {
         </div>
 
         {/* ── Loading ── */}
-        {status === null && (
-          <p className="mono integration-loading">Verificando conexão…</p>
-        )}
+        {status === null && <p className="mono integration-loading">Verificando conexão…</p>}
 
         {/* ── Network error ── */}
         {networkError && (
@@ -865,7 +941,8 @@ function GithubIntegrationCard({ onStatusChange }) {
         {status === "DISCONNECTED" && (
           <>
             <p className="integration-desc">
-              Conecte o GitHub para habilitar a sincronização automática de repositórios, commits e pull requests.
+              Conecte o GitHub para habilitar a sincronização automática de repositórios, commits e
+              pull requests.
             </p>
             <GithubPatSetupForm onSuccess={() => fetchStatus()} />
           </>
@@ -881,7 +958,8 @@ function GithubIntegrationCard({ onStatusChange }) {
             )}
             {status === "ERROR" && (
               <div className="integration-alert is-error">
-                Erros consecutivos detectados · {connection?.consecutiveFailures ?? 0} falha{(connection?.consecutiveFailures ?? 0) !== 1 ? "s" : ""}
+                Erros consecutivos detectados · {connection?.consecutiveFailures ?? 0} falha
+                {(connection?.consecutiveFailures ?? 0) !== 1 ? "s" : ""}
               </div>
             )}
             {!showPatForm ? (
@@ -920,19 +998,22 @@ function GithubIntegrationCard({ onStatusChange }) {
               <button
                 className="btn"
                 onClick={handleSync}
-                disabled={secondsLeft > 0 || networkError}>
+                disabled={secondsLeft > 0 || networkError}
+              >
                 {secondsLeft > 0 ? `Aguarde ${secondsLeft}s…` : "Sincronizar agora"}
               </button>
               <button
                 className="btn-ghost btn"
                 onClick={() => setLogsOpen(true)}
-                disabled={networkError}>
+                disabled={networkError}
+              >
                 Ver logs →
               </button>
               <button
                 className="btn-ghost btn integration-disconnect"
                 onClick={() => setDisconnectConfirm(true)}
-                disabled={networkError}>
+                disabled={networkError}
+              >
                 Desconectar
               </button>
             </div>
@@ -950,12 +1031,16 @@ function GithubIntegrationCard({ onStatusChange }) {
               </h3>
             </div>
             <p className="confirm-text">
-              A sincronização automática será <strong>interrompida</strong> em todos os repositórios vinculados.
-              Você poderá reconectar a qualquer momento.
+              A sincronização automática será <strong>interrompida</strong> em todos os repositórios
+              vinculados. Você poderá reconectar a qualquer momento.
             </p>
             <div className="role-modal-foot">
-              <button className="btn-ghost btn" onClick={() => setDisconnectConfirm(false)}>Cancelar</button>
-              <button className="btn btn-danger" onClick={handleDisconnect}>Desconectar →</button>
+              <button className="btn-ghost btn" onClick={() => setDisconnectConfirm(false)}>
+                Cancelar
+              </button>
+              <button className="btn btn-danger" onClick={handleDisconnect}>
+                Desconectar →
+              </button>
             </div>
           </div>
         </div>
@@ -968,7 +1053,13 @@ function GithubIntegrationCard({ onStatusChange }) {
 
 /* ─── IntegrationTab ──────────────────────────────────────── */
 
-export function IntegrationTab({ onNavigate, orgSlug, can, onAzureStatusChange, onGithubStatusChange }) {
+export function IntegrationTab({
+  onNavigate,
+  orgSlug,
+  can,
+  onAzureStatusChange,
+  onGithubStatusChange,
+}) {
   return (
     <section>
       <div className="admin-section-head">
@@ -979,9 +1070,9 @@ export function IntegrationTab({ onNavigate, orgSlug, can, onAzureStatusChange, 
       <AzureIntegrationCard onStatusChange={onAzureStatusChange} />
       <GithubIntegrationCard onStatusChange={onGithubStatusChange} />
 
-      {can && (can('CONNECTOR_TOKEN_MANAGE_OWN') || can('CONNECTOR_TOKEN_MANAGE_ALL')) && orgSlug && (
-        <AiConnectorCard orgSlug={orgSlug} can={can} />
-      )}
+      {can &&
+        (can("CONNECTOR_TOKEN_MANAGE_OWN") || can("CONNECTOR_TOKEN_MANAGE_ALL")) &&
+        orgSlug && <AiConnectorCard orgSlug={orgSlug} can={can} />}
     </section>
   );
 }

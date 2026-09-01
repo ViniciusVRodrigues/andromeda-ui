@@ -13,7 +13,13 @@
 
 import React from "react";
 import {
-  BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation, useParams,
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate,
+  useNavigate,
+  useLocation,
+  useParams,
 } from "react-router-dom";
 import { HomeScreen } from "./features/home/HomeScreen.jsx";
 import { SignupScreen } from "./features/auth/SignupScreen.jsx";
@@ -37,18 +43,18 @@ import {
  * então suas entradas carregam também `subtab`. Rotas de mais de um segmento
  * (ex.: "organizacao/cargos") são casadas via SHELL_ROUTES/inShell abaixo. */
 const SHELL_SECTIONS = [
-  { route: "projetos",              tab: "projects" },
-  { route: "pessoas",               tab: "team" },
-  { route: "organizacao",           tab: "org", subtab: "geral" },
-  { route: "organizacao/cargos",    tab: "org", subtab: "cargos" },
+  { route: "projetos", tab: "projects" },
+  { route: "pessoas", tab: "team" },
+  { route: "organizacao", tab: "org", subtab: "geral" },
+  { route: "organizacao/cargos", tab: "org", subtab: "cargos" },
   { route: "organizacao/senioridade", tab: "org", subtab: "senioridade" },
-  { route: "dashboard",             tab: "dashboard" },
-  { route: "backlog",               tab: "backlog" },
-  { route: "repositorios",          tab: "repos" },
-  { route: "integracoes",           tab: "integrations" },
-  { route: "uso-ia",                tab: "uso-ia", subtab: "consumo" },
-  { route: "uso-ia/precificacao",   tab: "uso-ia", subtab: "precificacao" },
-  { route: "perfil",                tab: "perfil" },
+  { route: "dashboard", tab: "dashboard" },
+  { route: "backlog", tab: "backlog" },
+  { route: "repositorios", tab: "repos" },
+  { route: "integracoes", tab: "integrations" },
+  { route: "uso-ia", tab: "uso-ia", subtab: "consumo" },
+  { route: "uso-ia/precificacao", tab: "uso-ia", subtab: "precificacao" },
+  { route: "perfil", tab: "perfil" },
 ];
 const ROUTE_TO_TAB = Object.fromEntries(SHELL_SECTIONS.map((s) => [s.route, s.tab]));
 const ROUTE_TO_SUBTAB = Object.fromEntries(SHELL_SECTIONS.map((s) => [s.route, s.subtab || null]));
@@ -75,21 +81,39 @@ function buildIdentity(permissions) {
 function canSee(identity, tab) {
   if (!identity) return false;
   const p = identity.permissions;
-  if (tab === "projects")     return p.includes("gerProjeto") || identity.isAdmin;
-  if (tab === "team")         return p.includes("gerEquipe") || p.includes("USER_MANAGE") || identity.isAdmin;
-  if (tab === "dashboard")    return p.includes("DASHBOARD_INDIVIDUAL") || p.includes("DASHBOARD_TEAM") || p.includes("DASHBOARD_STRATEGIC");
-  if (tab === "backlog")      return p.includes("DASHBOARD_TEAM") || identity.isAdmin;
-  if (tab === "repos")        return p.includes("GITHUB_READ") || p.includes("GITHUB_CONFIGURE") || identity.isAdmin;
-  if (tab === "integrations") return p.includes("AZURE_CONFIGURE") || p.includes("AZURE_READ") || p.includes("GITHUB_CONFIGURE") || p.includes("GITHUB_READ") || identity.isAdmin;
-  if (tab === "uso-ia")       return p.includes("AI_READ_OWN") || p.includes("AI_READ_ALL");
-  if (tab === "uso-ia-team")  return p.includes("DASHBOARD_TEAM") || p.includes("AI_READ_ALL");
+  if (tab === "projects") return p.includes("gerProjeto") || identity.isAdmin;
+  if (tab === "team")
+    return p.includes("gerEquipe") || p.includes("USER_MANAGE") || identity.isAdmin;
+  if (tab === "dashboard")
+    return (
+      p.includes("DASHBOARD_INDIVIDUAL") ||
+      p.includes("DASHBOARD_TEAM") ||
+      p.includes("DASHBOARD_STRATEGIC")
+    );
+  if (tab === "backlog") return p.includes("DASHBOARD_TEAM") || identity.isAdmin;
+  if (tab === "repos")
+    return p.includes("GITHUB_READ") || p.includes("GITHUB_CONFIGURE") || identity.isAdmin;
+  if (tab === "integrations")
+    return (
+      p.includes("AZURE_CONFIGURE") ||
+      p.includes("AZURE_READ") ||
+      p.includes("GITHUB_CONFIGURE") ||
+      p.includes("GITHUB_READ") ||
+      identity.isAdmin
+    );
+  if (tab === "uso-ia") return p.includes("AI_READ_OWN") || p.includes("AI_READ_ALL");
+  if (tab === "uso-ia-team") return p.includes("DASHBOARD_TEAM") || p.includes("AI_READ_ALL");
   if (tab === "uso-ia-pricing") return p.includes("PRICE_TABLE_MANAGE") || identity.isAdmin;
   return identity.isAdmin; // roles, seniority, org
 }
 function firstAllowedRoute(identity, orgSlug) {
   // Dashboard takes priority when the user has any dashboard permission
   const p = identity.permissions;
-  if (p.includes("DASHBOARD_INDIVIDUAL") || p.includes("DASHBOARD_TEAM") || p.includes("DASHBOARD_STRATEGIC")) {
+  if (
+    p.includes("DASHBOARD_INDIVIDUAL") ||
+    p.includes("DASHBOARD_TEAM") ||
+    p.includes("DASHBOARD_STRATEGIC")
+  ) {
     return orgRoute(orgSlug, "dashboard");
   }
   const first = SHELL_SECTIONS.find((s) => canSee(identity, s.tab));
@@ -98,19 +122,21 @@ function firstAllowedRoute(identity, orgSlug) {
 
 function hasManage(identity) {
   const p = identity.permissions;
-  return identity.isAdmin
-    || p.includes("gerProjeto")
-    || p.includes("gerEquipe")
-    || p.includes("USER_MANAGE");
+  return (
+    identity.isAdmin ||
+    p.includes("gerProjeto") ||
+    p.includes("gerEquipe") ||
+    p.includes("USER_MANAGE")
+  );
 }
 
 function dashAccess(identity) {
   const p = identity.permissions;
   return {
-    projects:   identity.projects || [],
+    projects: identity.projects || [],
     individual: p.includes("DASHBOARD_INDIVIDUAL"),
-    equipe:     p.includes("DASHBOARD_TEAM"),
-    org:        p.includes("DASHBOARD_STRATEGIC"),
+    equipe: p.includes("DASHBOARD_TEAM"),
+    org: p.includes("DASHBOARD_STRATEGIC"),
   };
 }
 
@@ -136,14 +162,16 @@ function AppShell() {
   const location = useLocation();
 
   // "pending" while verifying existing token; "authenticated" | "unauthenticated" after
-  const [authStatus, setAuthStatus] = React.useState(() => getToken() ? "pending" : "unauthenticated");
+  const [authStatus, setAuthStatus] = React.useState(() =>
+    getToken() ? "pending" : "unauthenticated",
+  );
   const [identity, setIdentity] = React.useState(null);
   const [profile, setProfile] = React.useState(null);
   const [themePickerOpen, setThemePickerOpen] = React.useState(false);
 
-  const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
-    "palette": "default"
-  }/*EDITMODE-END*/;
+  const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/ {
+    palette: "default",
+  }; /*EDITMODE-END*/
 
   const [tweaks, setTweak] = useTweaks(TWEAK_DEFAULTS);
   const palette = tweaks.palette || "default";
@@ -157,7 +185,8 @@ function AppShell() {
   // bootstrap: restore session from existing token
   React.useEffect(() => {
     if (authStatus !== "pending") return;
-    api.get("/v1/auth/me")
+    api
+      .get("/v1/auth/me")
       .then((meData) => {
         setIdentity(buildIdentity(meData.permissions));
         setProfile(buildProfile(meData));
@@ -222,7 +251,12 @@ function AppShell() {
   const keyBase = inShell ? "shell" : seg;
 
   if (authStatus === "pending") {
-    return <div className="app-shell" style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh" }} />;
+    return (
+      <div
+        className="app-shell"
+        style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh" }}
+      />
+    );
   }
 
   return (
@@ -230,67 +264,86 @@ function AppShell() {
       <div className="app-shell">
         <div className="page-layer" data-screen-label={`page-${keyBase}`} key={keyBase}>
           <Routes>
-            <Route path="/" element={
-              <HomeScreen
-                onLogin={() => navigate("/login")}
-                onSignup={() => navigate("/signup")}
-              />
-            } />
-            <Route path="/signup" element={
-              <SignupScreen
-                onCancel={() => navigate("/")}
-                onDone={handleSignupDone}
-              />
-            } />
-            <Route path="/login" element={
-              <LoginScreenWrapper
-                enterApp={enterApp}
-                onHome={() => navigate("/")}
-              />
-            } />
-            <Route path="/onboard" element={
-              <OnboardingScreen onDone={async () => {
-                try {
-                  const meData = await api.get("/v1/auth/me");
-                  /* sem rota explícita: enterApp resolve a primeira permitida já com
-                   * o prefixo da organização */
-                  enterApp(meData);
-                } catch {
-                  navigate("/");
-                }
-              }} />
-            } />
+            <Route
+              path="/"
+              element={
+                <HomeScreen
+                  onLogin={() => navigate("/login")}
+                  onSignup={() => navigate("/signup")}
+                />
+              }
+            />
+            <Route
+              path="/signup"
+              element={<SignupScreen onCancel={() => navigate("/")} onDone={handleSignupDone} />}
+            />
+            <Route
+              path="/login"
+              element={<LoginScreenWrapper enterApp={enterApp} onHome={() => navigate("/")} />}
+            />
+            <Route
+              path="/onboard"
+              element={
+                <OnboardingScreen
+                  onDone={async () => {
+                    try {
+                      const meData = await api.get("/v1/auth/me");
+                      /* sem rota explícita: enterApp resolve a primeira permitida já com
+                       * o prefixo da organização */
+                      enterApp(meData);
+                    } catch {
+                      navigate("/");
+                    }
+                  }}
+                />
+              }
+            />
 
             {/* legado: /cargos e /senioridade viraram sub-abas de /organizacao */}
-            <Route path="/cargos" element={<LegacyShellRedirect to="organizacao/cargos" profile={profile} />} />
-            <Route path="/senioridade" element={<LegacyShellRedirect to="organizacao/senioridade" profile={profile} />} />
+            <Route
+              path="/cargos"
+              element={<LegacyShellRedirect to="organizacao/cargos" profile={profile} />}
+            />
+            <Route
+              path="/senioridade"
+              element={<LegacyShellRedirect to="organizacao/senioridade" profile={profile} />}
+            />
 
             {/* app autenticado: /:orgSlug/:section(/*) — o slug identifica a
              * organização na URL; a autorização continua vindo do JWT. */}
-            <Route path="/:orgSlug/:section/*" element={
-              <ShellRoute
-                identity={identity}
-                profile={profile}
-                palette={palette}
-                setPalette={setPalette}
-                onLogout={exitApp}
-              />
-            } />
+            <Route
+              path="/:orgSlug/:section/*"
+              element={
+                <ShellRoute
+                  identity={identity}
+                  profile={profile}
+                  palette={palette}
+                  setPalette={setPalette}
+                  onLogout={exitApp}
+                />
+              }
+            />
 
             {/* URLs antigas sem prefixo (/backlog): redireciona para a versão
              * prefixada preservando a sub-rota, para não quebrar links salvos. */}
-            <Route path="/:section/*" element={
-              <LegacyShellRoute identity={identity} profile={profile} />
-            } />
+            <Route
+              path="/:section/*"
+              element={<LegacyShellRoute identity={identity} profile={profile} />}
+            />
 
             {/* 404: rota desconhecida mostra a página em vez de redirecionar em
              * silêncio para a home — um endereço errado deve se anunciar. */}
-            <Route path="*" element={
-              <NotFoundScreen
-                onBack={() => navigate(identity ? firstAllowedRoute(identity, profile?.org?.slug) : "/")}
-                backLabel={identity ? "Voltar ao painel" : "Voltar ao início"}
-              />
-            } />
+            <Route
+              path="*"
+              element={
+                <NotFoundScreen
+                  onBack={() =>
+                    navigate(identity ? firstAllowedRoute(identity, profile?.org?.slug) : "/")
+                  }
+                  backLabel={identity ? "Voltar ao painel" : "Voltar ao início"}
+                />
+              }
+            />
           </Routes>
         </div>
       </div>
@@ -349,7 +402,8 @@ function ShellRoute({ identity, profile, palette, setPalette, onLogout }) {
   // sem permissão de gestão → sem barra lateral: só o dashboard com a pílula
   // inferior (que aqui ganha o botão de Sair, separado por um divisor).
   if (!hasManage(identity)) {
-    if (section !== "dashboard") return <Navigate to={orgRoute(sessionSlug, "dashboard")} replace />;
+    if (section !== "dashboard")
+      return <Navigate to={orgRoute(sessionSlug, "dashboard")} replace />;
     return (
       <div className="dash-only">
         <DashboardPage dash={dashAccess(identity)} onLogout={onLogout} />
@@ -379,7 +433,9 @@ function ShellRoute({ identity, profile, palette, setPalette, onLogout }) {
         if (tab === "uso-ia") {
           navigate(orgRoute(sessionSlug, `uso-ia${subtabId === "consumo" ? "" : "/" + subtabId}`));
         } else {
-          navigate(orgRoute(sessionSlug, `organizacao${subtabId === "geral" ? "" : "/" + subtabId}`));
+          navigate(
+            orgRoute(sessionSlug, `organizacao${subtabId === "geral" ? "" : "/" + subtabId}`),
+          );
         }
       }}
       onLogout={onLogout}
@@ -434,7 +490,11 @@ function LoginScreenWrapper({ enterApp, onHome }) {
       const meData = await api.get("/v1/auth/me");
       enterApp(meData);
     } catch (err) {
-      setLoginError(err.message?.includes("401") ? "E-mail ou senha incorretos." : "Erro ao conectar. Tente novamente.");
+      setLoginError(
+        err.message?.includes("401")
+          ? "E-mail ou senha incorretos."
+          : "Erro ao conectar. Tente novamente.",
+      );
     }
   };
 

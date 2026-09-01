@@ -27,18 +27,29 @@ export function PendingAllocationCard({ batch, onAccept, onAdjust, readOnly }) {
   const hasSuggestion = batch.suggestion && batch.suggestion.length > 0;
 
   return (
-    <div style={{
-      background: "var(--bg-elev)",
-      border: "1px solid var(--line)",
-      borderRadius: "var(--radius-sm)",
-      padding: "14px 16px",
-      marginBottom: 8,
-    }}>
-      <div style={{ display: "flex", alignItems: "flex-start", justifyContent: "space-between", gap: 16 }}>
+    <div
+      style={{
+        background: "var(--bg-elev)",
+        border: "1px solid var(--line)",
+        borderRadius: "var(--radius-sm)",
+        padding: "14px 16px",
+        marginBottom: 8,
+      }}
+    >
+      <div
+        style={{
+          display: "flex",
+          alignItems: "flex-start",
+          justifyContent: "space-between",
+          gap: 16,
+        }}
+      >
         {/* Left: date + stats */}
         <div style={{ flex: 1 }}>
           <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginBottom: 8 }}>
-            <span className="serif" style={{ fontSize: 18, color: "var(--fg)" }}>{formatDay(batch.day)}</span>
+            <span className="serif" style={{ fontSize: 18, color: "var(--fg)" }}>
+              {formatDay(batch.day)}
+            </span>
           </div>
 
           <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
@@ -50,14 +61,18 @@ export function PendingAllocationCard({ batch, onAccept, onAdjust, readOnly }) {
           {hasSuggestion && (
             <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 10 }}>
               {batch.suggestion.map((s) => (
-                <span key={s.workItemId} className="mono" style={{
-                  fontSize: "var(--mono-sm)",
-                  color: "var(--accent)",
-                  background: "color-mix(in srgb, var(--accent) 10%, transparent)",
-                  border: "1px solid color-mix(in srgb, var(--accent) 25%, transparent)",
-                  borderRadius: 4,
-                  padding: "2px 8px",
-                }}>
+                <span
+                  key={s.workItemId}
+                  className="mono"
+                  style={{
+                    fontSize: "var(--mono-sm)",
+                    color: "var(--accent)",
+                    background: "color-mix(in srgb, var(--accent) 10%, transparent)",
+                    border: "1px solid color-mix(in srgb, var(--accent) 25%, transparent)",
+                    borderRadius: 4,
+                    padding: "2px 8px",
+                  }}
+                >
                   {s.workItemTitle} · {(parseFloat(s.percentage) * 100).toFixed(0)}%
                 </span>
               ))}
@@ -72,14 +87,16 @@ export function PendingAllocationCard({ batch, onAccept, onAdjust, readOnly }) {
               <button
                 className="btn"
                 style={{ fontSize: "var(--mono-sm)", padding: "5px 14px" }}
-                onClick={() => onAccept(batch)}>
+                onClick={() => onAccept(batch)}
+              >
                 Aceitar
               </button>
             )}
             <button
               className="btn btn-ghost"
               style={{ fontSize: "var(--mono-sm)", padding: "5px 14px" }}
-              onClick={() => onAdjust(batch)}>
+              onClick={() => onAdjust(batch)}
+            >
               {hasSuggestion ? "Ajustar" : "+ Alocar"}
             </button>
           </div>

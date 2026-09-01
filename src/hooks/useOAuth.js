@@ -48,11 +48,7 @@ export function useOAuth({
   }, []);
 
   const trigger = React.useCallback(() => {
-    popupRef.current = window.open(
-      popupUrl,
-      popupName,
-      "width=600,height=700"
-    );
+    popupRef.current = window.open(popupUrl, popupName, "width=600,height=700");
     setPolling(true);
 
     intervalRef.current = setInterval(async () => {

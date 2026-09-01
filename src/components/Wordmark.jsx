@@ -1,7 +1,8 @@
 /* Wordmark — logotipo da Andrômeda em três variações de paleta. */
 
 function Wordmark({ size = "md", style }) {
-  const cls = "wordmark" + (size === "sm" ? " sm" : size === "lg" ? " lg" : size === "xl" ? " xl" : "");
+  const cls =
+    "wordmark" + (size === "sm" ? " sm" : size === "lg" ? " lg" : size === "xl" ? " xl" : "");
   return (
     <span className={cls} style={style}>
       <img src="/assets/wordmark-color.svg" alt="Andrômeda" className="wordmark-color" />

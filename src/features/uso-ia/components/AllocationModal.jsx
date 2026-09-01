@@ -61,21 +61,36 @@ function CandidateRow({ si, onAdd }) {
         cursor: "pointer",
         transition: "background 0.15s, border-color 0.15s",
       }}
-      onClick={() => onAdd(si)}>
-      <span style={{ fontSize: "0.82rem", fontWeight: 500, color: "var(--fg)", flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+      onClick={() => onAdd(si)}
+    >
+      <span
+        style={{
+          fontSize: "0.82rem",
+          fontWeight: 500,
+          color: "var(--fg)",
+          flex: 1,
+          minWidth: 0,
+          overflow: "hidden",
+          textOverflow: "ellipsis",
+          whiteSpace: "nowrap",
+        }}
+      >
         {si.workItemTitle}
       </span>
       {si.sprintName && (
-        <span className="mono" style={{
-          fontSize: "0.68rem",
-          color: "var(--fg-dim)",
-          background: "var(--bg-deep)",
-          border: "1px solid var(--line)",
-          borderRadius: 4,
-          padding: "1px 6px",
-          flexShrink: 0,
-          letterSpacing: "0.04em",
-        }}>
+        <span
+          className="mono"
+          style={{
+            fontSize: "0.68rem",
+            color: "var(--fg-dim)",
+            background: "var(--bg-deep)",
+            border: "1px solid var(--line)",
+            borderRadius: 4,
+            padding: "1px 6px",
+            flexShrink: 0,
+            letterSpacing: "0.04em",
+          }}
+        >
           {si.sprintName}
         </span>
       )}
@@ -166,7 +181,7 @@ export function AllocationModal({ batch, sprintItems, onClose, onConfirm, loadin
     });
     // Fix rounding
     const newSum = distributed.reduce((s, it) => s + it.pct, 0);
-    const diff = (totalRemaining + toDistribute) - newSum;
+    const diff = totalRemaining + toDistribute - newSum;
     if (diff !== 0 && distributed.length > 0) {
       distributed[distributed.length - 1] = {
         ...distributed[distributed.length - 1],
@@ -177,12 +192,19 @@ export function AllocationModal({ batch, sprintItems, onClose, onConfirm, loadin
   }
 
   function handleAddItem(sprintItem) {
-    setItems((prev) => [...prev, { workItemId: sprintItem.workItemId, workItemTitle: sprintItem.workItemTitle || "", pct: 0 }]);
+    setItems((prev) => [
+      ...prev,
+      { workItemId: sprintItem.workItemId, workItemTitle: sprintItem.workItemTitle || "", pct: 0 },
+    ]);
     setSearch("");
   }
 
   function handleConfirm() {
-    const splits = items.map((it) => ({ workItemId: it.workItemId, workItemTitle: it.workItemTitle || "", percentage: it.pct / 100 }));
+    const splits = items.map((it) => ({
+      workItemId: it.workItemId,
+      workItemTitle: it.workItemTitle || "",
+      percentage: it.pct / 100,
+    }));
     onConfirm(splits);
   }
 
@@ -192,18 +214,27 @@ export function AllocationModal({ batch, sprintItems, onClose, onConfirm, loadin
       onClick={onClose}
       role="dialog"
       aria-modal="true"
-      aria-label="Alocar uso de IA">
+      aria-label="Alocar uso de IA"
+    >
       <div
         className="role-modal"
         style={{ maxWidth: 560, width: "100%" }}
-        onClick={(e) => e.stopPropagation()}>
-
+        onClick={(e) => e.stopPropagation()}
+      >
         <div className="role-modal-head">
           <div className="admin-eyebrow mono">alocar uso de IA</div>
           <h3 className="serif role-modal-title">
             Alocação · <span className="ital accent">{batch.day}</span>
           </h3>
-          <p className="mono" style={{ fontSize: "0.78rem", color: "var(--fg-muted)", margin: "4px 0 0", fontWeight: 400 }}>
+          <p
+            className="mono"
+            style={{
+              fontSize: "0.78rem",
+              color: "var(--fg-muted)",
+              margin: "4px 0 0",
+              fontWeight: 400,
+            }}
+          >
             Distribua os tokens deste dia entre os work items do sprint
           </p>
         </div>
@@ -211,14 +242,19 @@ export function AllocationModal({ batch, sprintItems, onClose, onConfirm, loadin
         <div className="role-modal-body">
           {/* Sliders */}
           {items.length === 0 ? (
-            <div style={{
-              padding: "14px 16px",
-              border: "1px dashed var(--line-strong)",
-              borderRadius: "var(--radius-sm)",
-              marginBottom: 12,
-              textAlign: "center",
-            }}>
-              <p className="mono" style={{ fontSize: "0.82rem", color: "var(--fg-muted)", margin: 0 }}>
+            <div
+              style={{
+                padding: "14px 16px",
+                border: "1px dashed var(--line-strong)",
+                borderRadius: "var(--radius-sm)",
+                marginBottom: 12,
+                textAlign: "center",
+              }}
+            >
+              <p
+                className="mono"
+                style={{ fontSize: "0.82rem", color: "var(--fg-muted)", margin: 0 }}
+              >
                 Nenhum item adicionado. Busque abaixo para alocar o uso.
               </p>
             </div>
@@ -237,16 +273,23 @@ export function AllocationModal({ batch, sprintItems, onClose, onConfirm, loadin
           )}
 
           {/* Sum indicator */}
-          <div style={{
-            display: "flex",
-            alignItems: "center",
-            gap: 8,
-            padding: "6px 10px",
-            borderRadius: "var(--radius-sm)",
-            background: sumOk ? "color-mix(in srgb, var(--good) 12%, transparent)" : "color-mix(in srgb, var(--bad) 12%, transparent)",
-            marginBottom: 12,
-          }}>
-            <span className="mono" style={{ fontSize: "0.8rem", color: sumOk ? "var(--good)" : "var(--bad)" }}>
+          <div
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 8,
+              padding: "6px 10px",
+              borderRadius: "var(--radius-sm)",
+              background: sumOk
+                ? "color-mix(in srgb, var(--good) 12%, transparent)"
+                : "color-mix(in srgb, var(--bad) 12%, transparent)",
+              marginBottom: 12,
+            }}
+          >
+            <span
+              className="mono"
+              style={{ fontSize: "0.8rem", color: sumOk ? "var(--good)" : "var(--bad)" }}
+            >
               {sumOk ? `Σ = 100% ✓` : `Σ = ${sum}%`}
             </span>
             {!sumOk && (
@@ -258,7 +301,10 @@ export function AllocationModal({ batch, sprintItems, onClose, onConfirm, loadin
 
           {/* Add item search */}
           <div style={{ borderTop: "1px solid var(--line)", paddingTop: 12 }}>
-            <span className="label" style={{ fontSize: "0.75rem", display: "block", marginBottom: 6 }}>
+            <span
+              className="label"
+              style={{ fontSize: "0.75rem", display: "block", marginBottom: 6 }}
+            >
               Adicionar work item
             </span>
             <input
@@ -271,12 +317,14 @@ export function AllocationModal({ batch, sprintItems, onClose, onConfirm, loadin
               style={{ marginBottom: 6 }}
             />
             {filteredSprint.length > 0 ? (
-              <div style={{
-                border: "1px solid var(--line)",
-                borderRadius: "var(--radius-sm)",
-                maxHeight: 160,
-                overflowY: "auto",
-              }}>
+              <div
+                style={{
+                  border: "1px solid var(--line)",
+                  borderRadius: "var(--radius-sm)",
+                  maxHeight: 160,
+                  overflowY: "auto",
+                }}
+              >
                 {filteredSprint.slice(0, 20).map((si) => (
                   <CandidateRow key={si.workItemId} si={si} onAdd={handleAddItem} />
                 ))}
@@ -296,7 +344,8 @@ export function AllocationModal({ batch, sprintItems, onClose, onConfirm, loadin
           <button
             className="btn"
             onClick={handleConfirm}
-            disabled={loading || !sumOk || items.length === 0}>
+            disabled={loading || !sumOk || items.length === 0}
+          >
             {loading ? "Salvando…" : "Confirmar alocação →"}
           </button>
         </div>

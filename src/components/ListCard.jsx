@@ -15,7 +15,15 @@ import React from "react";
  * @param {() => void} [onClick]
  * @param {boolean} [selected]
  */
-export default function ListCard({ id, title, badges, meta, onClick, selected = false, className = "" }) {
+export default function ListCard({
+  id,
+  title,
+  badges,
+  meta,
+  onClick,
+  selected = false,
+  className = "",
+}) {
   const content = (
     <>
       <div className="list-card-title-row">
@@ -28,7 +36,9 @@ export default function ListCard({ id, title, badges, meta, onClick, selected = 
   );
 
   const classes =
-    "list-card" + (onClick ? " is-clickable" : "") + (selected ? " is-selected" : "") +
+    "list-card" +
+    (onClick ? " is-clickable" : "") +
+    (selected ? " is-selected" : "") +
     (className ? " " + className : "");
 
   if (!onClick) return <div className={classes}>{content}</div>;

@@ -15,15 +15,18 @@ export function NotFoundScreen({ onBack, backLabel = "Voltar ao início" }) {
           <Wordmark size="lg" />
         </div>
 
-        <div className="notfound-code mono" aria-hidden="true">404</div>
+        <div className="notfound-code mono" aria-hidden="true">
+          404
+        </div>
 
         <h1 className="serif notfound-title">
-          Esta órbita está <span className="ital accent">vazia</span><span className="accent">.</span>
+          Esta órbita está <span className="ital accent">vazia</span>
+          <span className="accent">.</span>
         </h1>
 
         <p className="notfound-lede">
-          O endereço que você tentou acessar não existe — ou deixou de existir.
-          Confira o link, ou volte para um ponto conhecido do mapa.
+          O endereço que você tentou acessar não existe — ou deixou de existir. Confira o link, ou
+          volte para um ponto conhecido do mapa.
         </p>
 
         <button type="button" className="btn btn-lg" onClick={onBack}>

@@ -17,10 +17,18 @@ import Combobox from "../../components/Combobox.jsx";
 import Checkbox from "../../components/Checkbox.jsx";
 import { orgUrlLabel } from "../../lib/appUrl.js";
 import api, {
-  getToken, linkAzureIdentity, getAzureUsers, updateProjectMembers,
+  getToken,
+  linkAzureIdentity,
+  getAzureUsers,
+  updateProjectMembers,
   getAzureProjects,
-  getGithubConnectionStatus, getGithubBindings, getGithubProjectBindings,
-  getAvailableGithubRepos, bindGithubRepo, toggleGithubRepoSync, unbindGithubRepo,
+  getGithubConnectionStatus,
+  getGithubBindings,
+  getGithubProjectBindings,
+  getAvailableGithubRepos,
+  bindGithubRepo,
+  toggleGithubRepoSync,
+  unbindGithubRepo,
 } from "../../services/api.js";
 
 /* ──────────────────────────────────────────── */
@@ -49,66 +57,151 @@ const ALL_PERMISSION_CODES = Object.keys(PERMISSION_LABELS).filter(
 
 /* Ícones de linha (stroke) para o menu lateral. */
 const svgIcon = (children) => (
-  <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor"
-       strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round">
+  <svg
+    viewBox="0 0 24 24"
+    width="20"
+    height="20"
+    fill="none"
+    stroke="currentColor"
+    strokeWidth="1.6"
+    strokeLinecap="round"
+    strokeLinejoin="round"
+  >
     {children}
   </svg>
 );
 const TAB_ICONS = {
-  projects: svgIcon(<path d="M3 7a2 2 0 0 1 2-2h3.6l2 2H19a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z" />),
-  team: svgIcon(<><circle cx="9" cy="8" r="3" /><path d="M2.5 20a6.5 6.5 0 0 1 13 0" /><path d="M16 5.4a3 3 0 0 1 0 5.6" /><path d="M17.5 14.2A6.5 6.5 0 0 1 21.5 20" /></>),
-  roles: svgIcon(<><path d="M12 3l7 3v5c0 4.6-3 7.7-7 9-4-1.3-7-4.4-7-9V6l7-3z" /><path d="M9 12l2 2 4-4.5" /></>),
-  seniority: svgIcon(<><rect x="4" y="13" width="4" height="7" rx="1" /><rect x="10" y="9" width="4" height="11" rx="1" /><rect x="16" y="4" width="4" height="16" rx="1" /></>),
-  org: svgIcon(<><path d="M4 21V4h9v17" /><path d="M13 9.5h7V21" /><path d="M7 8h3M7 12h3M7 16h3M16 13h1.5M16 17h1.5" /></>),
-  integrations: svgIcon(<><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" /><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" /></>),
-  "uso-ia": svgIcon(<><path d="M12 2a7 7 0 0 1 7 7c0 2.4-1.2 4.5-3 5.7V17a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1v-2.3C6.2 13.5 5 11.4 5 9a7 7 0 0 1 7-7z" /><path d="M9 21h6M12 17v4" /></>),
-  repos: svgIcon(<><circle cx="6" cy="6" r="2" /><circle cx="6" cy="18" r="2" /><circle cx="18" cy="12" r="2" /><path d="M6 8v8M8 6h5a3 3 0 0 1 3 3v1" /></>),
-  backlog: svgIcon(<><path d="M4 5h16M4 5v14a1 1 0 0 0 1 1h6M4 5l2-2h12l2 2" /><path d="M14 13l3 3 5-5" /></>),
+  projects: svgIcon(
+    <path d="M3 7a2 2 0 0 1 2-2h3.6l2 2H19a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z" />,
+  ),
+  team: svgIcon(
+    <>
+      <circle cx="9" cy="8" r="3" />
+      <path d="M2.5 20a6.5 6.5 0 0 1 13 0" />
+      <path d="M16 5.4a3 3 0 0 1 0 5.6" />
+      <path d="M17.5 14.2A6.5 6.5 0 0 1 21.5 20" />
+    </>,
+  ),
+  roles: svgIcon(
+    <>
+      <path d="M12 3l7 3v5c0 4.6-3 7.7-7 9-4-1.3-7-4.4-7-9V6l7-3z" />
+      <path d="M9 12l2 2 4-4.5" />
+    </>,
+  ),
+  seniority: svgIcon(
+    <>
+      <rect x="4" y="13" width="4" height="7" rx="1" />
+      <rect x="10" y="9" width="4" height="11" rx="1" />
+      <rect x="16" y="4" width="4" height="16" rx="1" />
+    </>,
+  ),
+  org: svgIcon(
+    <>
+      <path d="M4 21V4h9v17" />
+      <path d="M13 9.5h7V21" />
+      <path d="M7 8h3M7 12h3M7 16h3M16 13h1.5M16 17h1.5" />
+    </>,
+  ),
+  integrations: svgIcon(
+    <>
+      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+    </>,
+  ),
+  "uso-ia": svgIcon(
+    <>
+      <path d="M12 2a7 7 0 0 1 7 7c0 2.4-1.2 4.5-3 5.7V17a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1v-2.3C6.2 13.5 5 11.4 5 9a7 7 0 0 1 7-7z" />
+      <path d="M9 21h6M12 17v4" />
+    </>,
+  ),
+  repos: svgIcon(
+    <>
+      <circle cx="6" cy="6" r="2" />
+      <circle cx="6" cy="18" r="2" />
+      <circle cx="18" cy="12" r="2" />
+      <path d="M6 8v8M8 6h5a3 3 0 0 1 3 3v1" />
+    </>,
+  ),
+  backlog: svgIcon(
+    <>
+      <path d="M4 5h16M4 5v14a1 1 0 0 0 1 1h6M4 5l2-2h12l2 2" />
+      <path d="M14 13l3 3 5-5" />
+    </>,
+  ),
 };
-const ICON_DASH = svgIcon(<><rect x="3" y="3" width="7" height="9" rx="1" /><rect x="14" y="3" width="7" height="5" rx="1" /><rect x="14" y="12" width="7" height="9" rx="1" /><rect x="3" y="16" width="7" height="5" rx="1" /></>);
-const ICON_LOGOUT = svgIcon(<><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" /><path d="M16 17l5-5-5-5" /><path d="M21 12H9" /></>);
+const ICON_DASH = svgIcon(
+  <>
+    <rect x="3" y="3" width="7" height="9" rx="1" />
+    <rect x="14" y="3" width="7" height="5" rx="1" />
+    <rect x="14" y="12" width="7" height="9" rx="1" />
+    <rect x="3" y="16" width="7" height="5" rx="1" />
+  </>,
+);
+const ICON_LOGOUT = svgIcon(
+  <>
+    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
+    <path d="M16 17l5-5-5-5" />
+    <path d="M21 12H9" />
+  </>,
+);
 const ICON_CHEVRON = svgIcon(<path d="M15 6l-6 6 6 6" />);
-const ICON_USER = svgIcon(<><circle cx="12" cy="8" r="4" /><path d="M4 20a8 8 0 0 1 16 0" /></>);
+const ICON_USER = svgIcon(
+  <>
+    <circle cx="12" cy="8" r="4" />
+    <path d="M4 20a8 8 0 0 1 16 0" />
+  </>,
+);
 
 const TABS = [
-  { id: "dashboard",    label: "Dashboard",           icon: ICON_DASH },
-  { id: "backlog",      label: "Backlog",             icon: TAB_ICONS.backlog },
-  { id: "repos",        label: "Repositórios",        icon: TAB_ICONS.repos },
-  { id: "projects",     label: "Projetos",            icon: TAB_ICONS.projects },
-  { id: "team",         label: "Pessoas",             icon: TAB_ICONS.team },
-  { id: "org",          label: "Organização",         icon: TAB_ICONS.org },
-  { id: "integrations", label: "Integrações",         icon: TAB_ICONS.integrations },
-  { id: "uso-ia",       label: "Uso IA",              icon: TAB_ICONS["uso-ia"] },
+  { id: "dashboard", label: "Dashboard", icon: ICON_DASH },
+  { id: "backlog", label: "Backlog", icon: TAB_ICONS.backlog },
+  { id: "repos", label: "Repositórios", icon: TAB_ICONS.repos },
+  { id: "projects", label: "Projetos", icon: TAB_ICONS.projects },
+  { id: "team", label: "Pessoas", icon: TAB_ICONS.team },
+  { id: "org", label: "Organização", icon: TAB_ICONS.org },
+  { id: "integrations", label: "Integrações", icon: TAB_ICONS.integrations },
+  { id: "uso-ia", label: "Uso IA", icon: TAB_ICONS["uso-ia"] },
 ];
 
 /* Sub-abas da página Organização (Geral é a padrão). */
 const ORG_SUB_TABS = [
-  { id: "geral",       label: "Geral" },
-  { id: "cargos",      label: "Cargos" },
+  { id: "geral", label: "Geral" },
+  { id: "cargos", label: "Cargos" },
   { id: "senioridade", label: "Senioridade" },
 ];
 
 /* Sub-abas da página Uso IA (Consumo é a padrão; Precificação é admin/cost-config). */
 const USO_IA_SUB_TABS = [
-  { id: "consumo",       label: "Consumo" },
-  { id: "precificacao",  label: "Precificação" },
+  { id: "consumo", label: "Consumo" },
+  { id: "precificacao", label: "Precificação" },
 ];
 
 const THEME_OPTS = [
-  { id: "default", label: "Cósmica",    swatch: "#C68B66" },
-  { id: "mono",    label: "Mono",       swatch: "#E9E9E9" },
-  { id: "light",   label: "Pergaminho", swatch: "#E8D5A8" },
+  { id: "default", label: "Cósmica", swatch: "#C68B66" },
+  { id: "mono", label: "Mono", swatch: "#E9E9E9" },
+  { id: "light", label: "Pergaminho", swatch: "#E8D5A8" },
 ];
 
 /* ──────────────────────────────────────────── */
 /*  AdminSettings                               */
 /* ──────────────────────────────────────────── */
 
-function AdminSettings({ section, subtab, can, dash, profile, palette, setPalette, onNavigate, onNavigateSubtab, onLogout }) {
+function AdminSettings({
+  section,
+  subtab,
+  can,
+  dash,
+  profile,
+  palette,
+  setPalette,
+  onNavigate,
+  onNavigateSubtab,
+  onLogout,
+}) {
   const [collapsed, setCollapsed] = React.useState(false);
   const [connectionStatus, setConnectionStatus] = React.useState(null);
   const [bannerDismissed, setBannerDismissed] = React.useState(
-    () => localStorage.getItem("azure_banner_dismissed") === "true"
+    () => localStorage.getItem("azure_banner_dismissed") === "true",
   );
 
   /* The logged-in user's id, decoded from the JWT once. */
@@ -127,7 +220,8 @@ function AdminSettings({ section, subtab, can, dash, profile, palette, setPalett
   }, []);
 
   React.useEffect(() => {
-    api.get("/v1/integrations/azure/connection")
+    api
+      .get("/v1/integrations/azure/connection")
       .then((data) => applyAzureStatus(data?.status))
       .catch(() => applyAzureStatus("DISCONNECTED"));
   }, [applyAzureStatus]);
@@ -137,7 +231,9 @@ function AdminSettings({ section, subtab, can, dash, profile, palette, setPalett
     localStorage.setItem("azure_banner_dismissed", "true");
   };
 
-  React.useEffect(() => { setCollapsed(section === "dashboard"); }, [section]);
+  React.useEffect(() => {
+    setCollapsed(section === "dashboard");
+  }, [section]);
 
   /* ── Cargos ── */
   const [roles, setRoles] = React.useState([]);
@@ -286,7 +382,8 @@ function AdminSettings({ section, subtab, can, dash, profile, palette, setPalett
     } else if (section === "projects") {
       fetchMembers();
       fetchProjects();
-      api.get("/v1/integrations/azure/bindings")
+      api
+        .get("/v1/integrations/azure/bindings")
         .then((data) => setAzureBindings(Array.isArray(data) ? data : []))
         .catch(() => setAzureBindings([]));
       /* Vínculos GitHub (chips dos cards) + status da conexão (gating do
@@ -300,14 +397,17 @@ function AdminSettings({ section, subtab, can, dash, profile, palette, setPalett
   }, [section, subtab]); // eslint-disable-line react-hooks/exhaustive-deps
 
   /* ── Derived counts ── */
-  const roleCount = (roleId) => members.filter((m) => m.roleId === roleId && m.active !== false).length;
+  const roleCount = (roleId) =>
+    members.filter((m) => m.roleId === roleId && m.active !== false).length;
 
   /* ── Permission matrix helpers ── */
   const permsGridCols = `minmax(160px, 1.4fr) repeat(${ALL_PERMISSION_CODES.length}, minmax(90px, 1fr))`;
 
   const permissionSummary = (roleId) => {
     const set = rolePerms[roleId];
-    const configured = ALL_PERMISSION_CODES.filter((c) => set?.has(c)).map((c) => PERMISSION_LABELS[c]);
+    const configured = ALL_PERMISSION_CODES.filter((c) => set?.has(c)).map(
+      (c) => PERMISSION_LABELS[c],
+    );
     const alwaysOn = ALWAYS_ON_PERMISSIONS.map((c) => PERMISSION_LABELS[c]);
     const all = [...alwaysOn, ...configured];
     return all.length === 0 ? "Nenhum acesso liberado" : all.join(" · ");
@@ -329,7 +429,10 @@ function AdminSettings({ section, subtab, can, dash, profile, palette, setPalett
     setEditingRole({ id: null, name: "" });
   };
 
-  const closeModal = () => { setEditingRole(null); setEditPerms({}); };
+  const closeModal = () => {
+    setEditingRole(null);
+    setEditPerms({});
+  };
 
   const saveRole = async () => {
     if (!editingRole || !editingRole.name.trim()) return;
@@ -356,7 +459,10 @@ function AdminSettings({ section, subtab, can, dash, profile, palette, setPalett
     } else {
       /* Clone from source role */
       try {
-        await api.post("/v1/roles/clone", { sourceRoleId: cloneSourceId, newName: editingRole.name.trim() });
+        await api.post("/v1/roles/clone", {
+          sourceRoleId: cloneSourceId,
+          newName: editingRole.name.trim(),
+        });
         await fetchRoles();
         setEditingRole(null);
         setEditPerms({});
@@ -372,7 +478,11 @@ function AdminSettings({ section, subtab, can, dash, profile, palette, setPalett
     try {
       await api.delete(`/v1/roles/${editingRole.id}`);
       setRoles((prev) => prev.filter((r) => r.id !== editingRole.id));
-      setRolePerms((prev) => { const next = { ...prev }; delete next[editingRole.id]; return next; });
+      setRolePerms((prev) => {
+        const next = { ...prev };
+        delete next[editingRole.id];
+        return next;
+      });
       setEditingRole(null);
       setEditPerms({});
     } catch (_) {
@@ -391,7 +501,7 @@ function AdminSettings({ section, subtab, can, dash, profile, palette, setPalett
 
     /* Duplicate check (case-insensitive) */
     const isDuplicate = seniorities.some(
-      (s) => s.name.toLowerCase() === name.toLowerCase() && s.id !== editingSeniority.id
+      (s) => s.name.toLowerCase() === name.toLowerCase() && s.id !== editingSeniority.id,
     );
     if (isDuplicate) return;
 
@@ -435,7 +545,11 @@ function AdminSettings({ section, subtab, can, dash, profile, palette, setPalett
     if (!email || !inviteDraft.roleId) return;
     setMemberSaving(true);
     try {
-      await api.post("/v1/users", { email, roleId: inviteDraft.roleId, seniority: inviteDraft.seniority || null });
+      await api.post("/v1/users", {
+        email,
+        roleId: inviteDraft.roleId,
+        seniority: inviteDraft.seniority || null,
+      });
       await fetchMembers();
       setInvitingMember(false);
     } catch (_) {
@@ -453,7 +567,10 @@ function AdminSettings({ section, subtab, can, dash, profile, palette, setPalett
     setMemberSaveMsg(null);
     loadAzureUsers(m.azureId || null);
   };
-  const closeMemberEdit = () => { setEditingMember(null); setMemberSaveMsg(null); };
+  const closeMemberEdit = () => {
+    setEditingMember(null);
+    setMemberSaveMsg(null);
+  };
 
   const loadAzureUsers = async (currentAzureId = null) => {
     setAzureUsersLoading(true);
@@ -478,7 +595,11 @@ function AdminSettings({ section, subtab, can, dash, profile, palette, setPalett
     setMemberSaving(true);
     setMemberSaveMsg(null);
     try {
-      await api.put(`/v1/users/${editingMember.id}`, { name: editingMember.name, roleId: editingMember.roleId, seniority: editingMember.seniority || null });
+      await api.put(`/v1/users/${editingMember.id}`, {
+        name: editingMember.name,
+        roleId: editingMember.roleId,
+        seniority: editingMember.seniority || null,
+      });
       if (selectedAzureUser) {
         await linkAzureIdentity(editingMember.id, {
           azureId: selectedAzureUser.azureId,
@@ -512,11 +633,18 @@ function AdminSettings({ section, subtab, can, dash, profile, palette, setPalett
     }
   };
 
-  const roleName = (id) => { const r = roles.find((r) => r.id === id); return r ? (r.label || r.name) : "—"; };
+  const roleName = (id) => {
+    const r = roles.find((r) => r.id === id);
+    return r ? r.label || r.name : "—";
+  };
 
   const memberQuery = memberSearch.trim().toLowerCase();
   const visibleMembers = memberQuery
-    ? members.filter((m) => `${m.name || ""} ${m.email} ${roleName(m.roleId)} ${m.active === false ? "desativado" : "ativo"}`.toLowerCase().includes(memberQuery))
+    ? members.filter((m) =>
+        `${m.name || ""} ${m.email} ${roleName(m.roleId)} ${m.active === false ? "desativado" : "ativo"}`
+          .toLowerCase()
+          .includes(memberQuery),
+      )
     : members;
 
   /* ── Projects CRUD ── */
@@ -530,7 +658,9 @@ function AdminSettings({ section, subtab, can, dash, profile, palette, setPalett
     if (connectionStatus === "CONNECTED") {
       getAzureProjects(p.id)
         .then((data) => setAdoProjects(data || []))
-        .catch(() => setAdoProjectsError("Não foi possível carregar projetos. Verifique a conexão."));
+        .catch(() =>
+          setAdoProjectsError("Não foi possível carregar projetos. Verifique a conexão."),
+        );
     }
   };
 
@@ -543,11 +673,16 @@ function AdminSettings({ section, subtab, can, dash, profile, palette, setPalett
     if (connectionStatus === "CONNECTED") {
       getAzureProjects()
         .then((data) => setAdoProjects(data || []))
-        .catch(() => setAdoProjectsError("Não foi possível carregar projetos. Verifique a conexão."));
+        .catch(() =>
+          setAdoProjectsError("Não foi possível carregar projetos. Verifique a conexão."),
+        );
     }
   };
 
-  const closeProject = () => { setEditingProject(null); setProjectAction(null); };
+  const closeProject = () => {
+    setEditingProject(null);
+    setProjectAction(null);
+  };
 
   const toggleProjectMember = (uid) => {
     setEditingProject((proj) => {
@@ -555,7 +690,9 @@ function AdminSettings({ section, subtab, can, dash, profile, palette, setPalett
       const has = (proj.memberIds || []).includes(uid);
       return {
         ...proj,
-        memberIds: has ? proj.memberIds.filter((id) => id !== uid) : [...(proj.memberIds || []), uid],
+        memberIds: has
+          ? proj.memberIds.filter((id) => id !== uid)
+          : [...(proj.memberIds || []), uid],
       };
     });
   };
@@ -603,7 +740,7 @@ function AdminSettings({ section, subtab, can, dash, profile, palette, setPalett
           active: true,
         });
         await fetchProjects();
-        setEditingProject((proj) => proj ? { ...proj, status: "ativo", active: true } : proj);
+        setEditingProject((proj) => (proj ? { ...proj, status: "ativo", active: true } : proj));
       } catch (_) {
         /* ignore */
       }
@@ -618,7 +755,7 @@ function AdminSettings({ section, subtab, can, dash, profile, palette, setPalett
         active: false,
       });
       await fetchProjects();
-      setEditingProject((proj) => proj ? { ...proj, status: "finalizado", active: false } : proj);
+      setEditingProject((proj) => (proj ? { ...proj, status: "finalizado", active: false } : proj));
       setProjectAction(null);
     } catch (_) {
       setProjectAction(null);
@@ -656,7 +793,9 @@ function AdminSettings({ section, subtab, can, dash, profile, palette, setPalett
 
   const projectQuery = projectSearch.trim().toLowerCase();
   const filteredPeople = projectQuery
-    ? projectPeople.filter((u) => `${u.name} ${u.email} ${u.role}`.toLowerCase().includes(projectQuery))
+    ? projectPeople.filter((u) =>
+        `${u.name} ${u.email} ${u.role}`.toLowerCase().includes(projectQuery),
+      )
     : projectPeople;
 
   /* ── Project member add dropdown ── */
@@ -676,17 +815,20 @@ function AdminSettings({ section, subtab, can, dash, profile, palette, setPalett
               className="admin-side-collapse"
               onClick={() => setCollapsed((c) => !c)}
               aria-label={collapsed ? "Expandir menu" : "Recolher menu"}
-              title={collapsed ? "Expandir menu" : "Recolher menu"}>
+              title={collapsed ? "Expandir menu" : "Recolher menu"}
+            >
               {ICON_CHEVRON}
             </button>
           </div>
 
           <nav className="admin-side-nav">
             {TABS.filter((t) => can(t.id)).map((t) => (
-              <button key={t.id}
+              <button
+                key={t.id}
                 className={"admin-side-item" + (section === t.id ? " is-active" : "")}
                 onClick={() => onNavigate(t.id)}
-                title={t.label}>
+                title={t.label}
+              >
                 <span className="admin-side-icon">{t.icon}</span>
                 <span className="admin-side-label">{t.label}</span>
               </button>
@@ -698,7 +840,11 @@ function AdminSettings({ section, subtab, can, dash, profile, palette, setPalett
               <span className="admin-side-icon">{ICON_USER}</span>
               <span className="admin-side-label">{profile?.personal?.fullName || "Perfil"}</span>
             </button>
-            <button className="admin-side-item admin-side-item--action" onClick={onLogout} title="Sair">
+            <button
+              className="admin-side-item admin-side-item--action"
+              onClick={onLogout}
+              title="Sair"
+            >
               <span className="admin-side-icon">{ICON_LOGOUT}</span>
               <span className="admin-side-label">Sair</span>
             </button>
@@ -726,12 +872,25 @@ function AdminSettings({ section, subtab, can, dash, profile, palette, setPalett
           {can("integrations") && connectionStatus !== "CONNECTED" && !bannerDismissed && (
             <div className="integration-banner">
               <span className="integration-banner-text">
-                Configure o Azure DevOps para ativar a coleta automática de métricas de sprint e work items.
+                Configure o Azure DevOps para ativar a coleta automática de métricas de sprint e
+                work items.
               </span>
-              <button className="btn integration-banner-cta" onClick={() => { dismissBanner(); onNavigate("integrations"); }}>
+              <button
+                className="btn integration-banner-cta"
+                onClick={() => {
+                  dismissBanner();
+                  onNavigate("integrations");
+                }}
+              >
                 Configurar →
               </button>
-              <button className="integration-banner-dismiss" onClick={dismissBanner} aria-label="Dispensar">×</button>
+              <button
+                className="integration-banner-dismiss"
+                onClick={dismissBanner}
+                aria-label="Dispensar"
+              >
+                ×
+              </button>
             </div>
           )}
 
@@ -749,7 +908,9 @@ function AdminSettings({ section, subtab, can, dash, profile, palette, setPalett
                 ].map(({ label, value }) => (
                   <div key={label} className="admin-row">
                     <div className="admin-row-label">{label}</div>
-                    <div className="admin-row-value">{value || <span className="admin-row-empty">— vazio —</span>}</div>
+                    <div className="admin-row-value">
+                      {value || <span className="admin-row-empty">— vazio —</span>}
+                    </div>
                   </div>
                 ))}
               </div>
@@ -793,7 +954,9 @@ function AdminSettings({ section, subtab, can, dash, profile, palette, setPalett
             <section>
               <div className="admin-section-head">
                 <h2 className="serif admin-section-title">Organização</h2>
-                <p className="admin-section-sub">Identidade visível para todos os membros, cargos e níveis de senioridade.</p>
+                <p className="admin-section-sub">
+                  Identidade visível para todos os membros, cargos e níveis de senioridade.
+                </p>
               </div>
 
               <SubTabs
@@ -807,70 +970,123 @@ function AdminSettings({ section, subtab, can, dash, profile, palette, setPalett
                   <div className="admin-section-head admin-section-head--row">
                     <div>
                       <h3 className="serif admin-section-title">Cargos e Permissões</h3>
-                      <p className="admin-section-sub">Marque o que cada cargo enxerga na Andrômeda. Clique no nome do cargo para editar permissões.</p>
+                      <p className="admin-section-sub">
+                        Marque o que cada cargo enxerga na Andrômeda. Clique no nome do cargo para
+                        editar permissões.
+                      </p>
                     </div>
-                    <button className="btn" onClick={openCreate}>+ Novo cargo</button>
+                    <button className="btn" onClick={openCreate}>
+                      + Novo cargo
+                    </button>
                   </div>
 
                   {rolesError && (
-                    <div className="admin-placeholder mono" style={{ color: "var(--danger, #c0392b)" }}>
-                      {rolesError} <button className="btn" style={{ marginLeft: "var(--spacing-sm)" }} onClick={fetchRoles}>Tentar novamente</button>
+                    <div
+                      className="admin-placeholder mono"
+                      style={{ color: "var(--danger, #c0392b)" }}
+                    >
+                      {rolesError}{" "}
+                      <button
+                        className="btn"
+                        style={{ marginLeft: "var(--spacing-sm)" }}
+                        onClick={fetchRoles}
+                      >
+                        Tentar novamente
+                      </button>
                     </div>
                   )}
 
                   {!rolesError && (
                     <div className="signup-perms">
                       <div className="signup-perms-scroll">
-                        <div className="signup-perms-grid" style={{ gridTemplateColumns: permsGridCols }}>
+                        <div
+                          className="signup-perms-grid"
+                          style={{ gridTemplateColumns: permsGridCols }}
+                        >
                           <div className="signup-perms-head is-corner mono">Cargos</div>
                           {ALL_PERMISSION_CODES.map((code) => (
-                            <div key={code} className="signup-perms-head mono">{PERMISSION_LABELS[code]}</div>
+                            <div key={code} className="signup-perms-head mono">
+                              {PERMISSION_LABELS[code]}
+                            </div>
                           ))}
                           {rolesLoading ? (
-                            <div className="member-empty mono" style={{ gridColumn: `1 / span ${ALL_PERMISSION_CODES.length + 1}` }}>
+                            <div
+                              className="member-empty mono"
+                              style={{ gridColumn: `1 / span ${ALL_PERMISSION_CODES.length + 1}` }}
+                            >
                               Carregando…
                             </div>
-                          ) : roles.map((r, rowIdx) => (
-                            <React.Fragment key={r.id}>
-                              <button type="button"
-                                className={"signup-perms-cargo" + (rowIdx === 0 ? " is-first" : "") + (r.isDefault ? " is-default" : "")}
-                                onClick={() => !r.isDefault && openEdit(r)}
-                                title={r.isDefault ? "Cargo padrão — não editável" : "Editar cargo"}>
-                                <span className="signup-perms-cargo-name">{r.label || r.name}</span>
-                                <span className="signup-perms-cargo-meta">
-                                  <span className="signup-perms-cargo-count mono" title={`${roleCount(r.id)} ${roleCount(r.id) === 1 ? "pessoa" : "pessoas"}`}>{roleCount(r.id)}</span>
-                                  {!r.isDefault && <span className="signup-perms-cargo-edit mono">editar</span>}
-                                </span>
-                              </button>
-                              {ALL_PERMISSION_CODES.map((code) => {
-                                const on = !!(rolePerms[r.id]?.has(code));
-                                return (
-                                  <label key={code}
-                                    className={"signup-perms-cell" + (on ? " is-on" : "") + (rowIdx === 0 ? " is-first" : "") + (r.isDefault ? " is-locked" : "")}
-                                    aria-label={`${r.name} · ${PERMISSION_LABELS[code]}`}>
-                                    <input
-                                      type="checkbox"
-                                      checked={on}
-                                      disabled={r.isDefault}
-                                      onChange={() => {
-                                        if (r.isDefault) return;
-                                        setRolePerms((prev) => {
-                                          const next = new Set(prev[r.id] || []);
-                                          if (next.has(code)) next.delete(code); else next.add(code);
-                                          return { ...prev, [r.id]: next };
-                                        });
-                                      }}
-                                    />
-                                    <span className="signup-perms-check" aria-hidden="true">{on ? "✓" : ""}</span>
-                                  </label>
-                                );
-                              })}
-                            </React.Fragment>
-                          ))}
+                          ) : (
+                            roles.map((r, rowIdx) => (
+                              <React.Fragment key={r.id}>
+                                <button
+                                  type="button"
+                                  className={
+                                    "signup-perms-cargo" +
+                                    (rowIdx === 0 ? " is-first" : "") +
+                                    (r.isDefault ? " is-default" : "")
+                                  }
+                                  onClick={() => !r.isDefault && openEdit(r)}
+                                  title={
+                                    r.isDefault ? "Cargo padrão — não editável" : "Editar cargo"
+                                  }
+                                >
+                                  <span className="signup-perms-cargo-name">
+                                    {r.label || r.name}
+                                  </span>
+                                  <span className="signup-perms-cargo-meta">
+                                    <span
+                                      className="signup-perms-cargo-count mono"
+                                      title={`${roleCount(r.id)} ${roleCount(r.id) === 1 ? "pessoa" : "pessoas"}`}
+                                    >
+                                      {roleCount(r.id)}
+                                    </span>
+                                    {!r.isDefault && (
+                                      <span className="signup-perms-cargo-edit mono">editar</span>
+                                    )}
+                                  </span>
+                                </button>
+                                {ALL_PERMISSION_CODES.map((code) => {
+                                  const on = !!rolePerms[r.id]?.has(code);
+                                  return (
+                                    <label
+                                      key={code}
+                                      className={
+                                        "signup-perms-cell" +
+                                        (on ? " is-on" : "") +
+                                        (rowIdx === 0 ? " is-first" : "") +
+                                        (r.isDefault ? " is-locked" : "")
+                                      }
+                                      aria-label={`${r.name} · ${PERMISSION_LABELS[code]}`}
+                                    >
+                                      <input
+                                        type="checkbox"
+                                        checked={on}
+                                        disabled={r.isDefault}
+                                        onChange={() => {
+                                          if (r.isDefault) return;
+                                          setRolePerms((prev) => {
+                                            const next = new Set(prev[r.id] || []);
+                                            if (next.has(code)) next.delete(code);
+                                            else next.add(code);
+                                            return { ...prev, [r.id]: next };
+                                          });
+                                        }}
+                                      />
+                                      <span className="signup-perms-check" aria-hidden="true">
+                                        {on ? "✓" : ""}
+                                      </span>
+                                    </label>
+                                  );
+                                })}
+                              </React.Fragment>
+                            ))
+                          )}
                         </div>
                       </div>
                       <p className="signup-step-footer mono">
-                        Cargos padrão não podem ser editados ou excluídos. As alterações na matriz são salvas ao clicar em "Salvar alterações" no modal do cargo.
+                        Cargos padrão não podem ser editados ou excluídos. As alterações na matriz
+                        são salvas ao clicar em "Salvar alterações" no modal do cargo.
                       </p>
                     </div>
                   )}
@@ -880,24 +1096,43 @@ function AdminSettings({ section, subtab, can, dash, profile, palette, setPalett
                   <div className="admin-section-head admin-section-head--row">
                     <div>
                       <h3 className="serif admin-section-title">Senioridade</h3>
-                      <p className="admin-section-sub">Defina os níveis de senioridade da organização.</p>
+                      <p className="admin-section-sub">
+                        Defina os níveis de senioridade da organização.
+                      </p>
                     </div>
-                    <button className="btn" onClick={openCreateSeniority}>+ Novo nível</button>
+                    <button className="btn" onClick={openCreateSeniority}>
+                      + Novo nível
+                    </button>
                   </div>
 
                   {senioritiesError && (
-                    <div className="admin-placeholder mono" style={{ color: "var(--danger, #c0392b)" }}>
-                      {senioritiesError} <button className="btn" style={{ marginLeft: "var(--spacing-sm)" }} onClick={fetchSeniorities}>Tentar novamente</button>
+                    <div
+                      className="admin-placeholder mono"
+                      style={{ color: "var(--danger, #c0392b)" }}
+                    >
+                      {senioritiesError}{" "}
+                      <button
+                        className="btn"
+                        style={{ marginLeft: "var(--spacing-sm)" }}
+                        onClick={fetchSeniorities}
+                      >
+                        Tentar novamente
+                      </button>
                     </div>
                   )}
 
-                  {!senioritiesError && (
-                    senioritiesLoading ? (
+                  {!senioritiesError &&
+                    (senioritiesLoading ? (
                       <div className="admin-placeholder mono">Carregando…</div>
                     ) : (
                       <div className="role-list role-list--cols">
                         {seniorities.map((s) => (
-                          <button key={s.id} type="button" className="role-card role-card--clickable" onClick={() => openEditSeniority(s)}>
+                          <button
+                            key={s.id}
+                            type="button"
+                            className="role-card role-card--clickable"
+                            onClick={() => openEditSeniority(s)}
+                          >
                             <div className="role-card-main">
                               <div className="role-card-head">
                                 <div className="serif role-card-name">{s.name}</div>
@@ -907,14 +1142,17 @@ function AdminSettings({ section, subtab, can, dash, profile, palette, setPalett
                           </button>
                         ))}
                       </div>
-                    )
-                  )}
+                    ))}
                 </>
               ) : (
                 <div className="admin-fields">
                   <AdminRow label="Nome da organização" value={orgData.name} />
                   <AdminRow label="Identificador" value={orgData.slug} mono />
-                  <AdminRow label="URL" value={orgData.slug ? orgUrlLabel(orgData.slug) : null} mono />
+                  <AdminRow
+                    label="URL"
+                    value={orgData.slug ? orgUrlLabel(orgData.slug) : null}
+                    mono
+                  />
                   <AdminRow label="Setor" value={orgData.sector} />
                   <AdminRow label="País" value={orgData.country} />
                 </div>
@@ -928,22 +1166,35 @@ function AdminSettings({ section, subtab, can, dash, profile, palette, setPalett
                 <div>
                   <h2 className="serif admin-section-title">Pessoas</h2>
                   <p className="admin-section-sub">
-                    {membersLoading ? "Carregando…" : `${members.length} ${members.length === 1 ? "pessoa na organização" : "pessoas na organização"}.`}
+                    {membersLoading
+                      ? "Carregando…"
+                      : `${members.length} ${members.length === 1 ? "pessoa na organização" : "pessoas na organização"}.`}
                   </p>
                 </div>
-                <button className="btn" onClick={openInvite}>+ Convidar pessoas</button>
+                <button className="btn" onClick={openInvite}>
+                  + Convidar pessoas
+                </button>
               </div>
 
               {membersError && (
                 <div className="admin-placeholder mono" style={{ color: "var(--danger, #c0392b)" }}>
-                  {membersError} <button className="btn" style={{ marginLeft: "var(--spacing-sm)" }} onClick={fetchMembers}>Tentar novamente</button>
+                  {membersError}{" "}
+                  <button
+                    className="btn"
+                    style={{ marginLeft: "var(--spacing-sm)" }}
+                    onClick={fetchMembers}
+                  >
+                    Tentar novamente
+                  </button>
                 </div>
               )}
 
               {!membersError && (
                 <>
                   <div className="admin-search">
-                    <span className="admin-search-icon" aria-hidden="true">⌕</span>
+                    <span className="admin-search-icon" aria-hidden="true">
+                      ⌕
+                    </span>
                     <input
                       className="admin-search-input"
                       type="text"
@@ -965,31 +1216,43 @@ function AdminSettings({ section, subtab, can, dash, profile, palette, setPalett
                       <div className="member-empty mono">Carregando…</div>
                     ) : visibleMembers.length === 0 ? (
                       <div className="member-empty mono">nenhuma pessoa encontrada</div>
-                    ) : visibleMembers.map((m) => (
-                      <button key={m.id} type="button" className="member-row member-row--clickable" onClick={() => openMemberEdit(m)}>
-                        <div className={"member-cell-name" + (m.name ? "" : " is-empty")}>
-                          {m.name
-                            ? m.name
-                            : <span className="mono">— convite pendente —</span>}
-                        </div>
-                        <div className="member-cell-email mono">{m.email}</div>
-                        <div className="member-cell-role">{roleName(m.roleId)}</div>
-                        <div>
-                          {m.name == null ? (
-                            <span className="member-status member-status--pendente">
-                              <span className="member-status-dot"></span>
-                              Convite pendente
-                            </span>
-                          ) : (
-                            <span className={"member-status member-status--" + (m.active === false ? "desativado" : "ativo")}>
-                              <span className="member-status-dot"></span>
-                              {m.active === false ? "desativado" : "ativo"}
-                            </span>
-                          )}
-                        </div>
-                        <div className="member-cell-edit"><span className="edit-hint">editar</span></div>
-                      </button>
-                    ))}
+                    ) : (
+                      visibleMembers.map((m) => (
+                        <button
+                          key={m.id}
+                          type="button"
+                          className="member-row member-row--clickable"
+                          onClick={() => openMemberEdit(m)}
+                        >
+                          <div className={"member-cell-name" + (m.name ? "" : " is-empty")}>
+                            {m.name ? m.name : <span className="mono">— convite pendente —</span>}
+                          </div>
+                          <div className="member-cell-email mono">{m.email}</div>
+                          <div className="member-cell-role">{roleName(m.roleId)}</div>
+                          <div>
+                            {m.name == null ? (
+                              <span className="member-status member-status--pendente">
+                                <span className="member-status-dot"></span>
+                                Convite pendente
+                              </span>
+                            ) : (
+                              <span
+                                className={
+                                  "member-status member-status--" +
+                                  (m.active === false ? "desativado" : "ativo")
+                                }
+                              >
+                                <span className="member-status-dot"></span>
+                                {m.active === false ? "desativado" : "ativo"}
+                              </span>
+                            )}
+                          </div>
+                          <div className="member-cell-edit">
+                            <span className="edit-hint">editar</span>
+                          </div>
+                        </button>
+                      ))
+                    )}
                   </div>
                 </>
               )}
@@ -1001,24 +1264,39 @@ function AdminSettings({ section, subtab, can, dash, profile, palette, setPalett
               <div className="admin-section-head admin-section-head--row">
                 <div>
                   <h2 className="serif admin-section-title">Projetos</h2>
-                  <p className="admin-section-sub">Gerencie as pessoas, descrição e integrações de cada projeto da organização.</p>
+                  <p className="admin-section-sub">
+                    Gerencie as pessoas, descrição e integrações de cada projeto da organização.
+                  </p>
                 </div>
                 <div className="admin-head-actions">
                   <div className="signup-select admin-filter-select">
-                    <select value={projectFilter} onChange={(e) => setProjectFilter(e.target.value)} aria-label="Filtrar projetos por status">
+                    <select
+                      value={projectFilter}
+                      onChange={(e) => setProjectFilter(e.target.value)}
+                      aria-label="Filtrar projetos por status"
+                    >
                       <option value="ativo">Ativos</option>
                       <option value="finalizado">Finalizados</option>
                       <option value="todos">Todos</option>
                     </select>
                     <span className="signup-select-caret">▾</span>
                   </div>
-                  <button className="btn" onClick={openCreateProject}>+ Novo projeto</button>
+                  <button className="btn" onClick={openCreateProject}>
+                    + Novo projeto
+                  </button>
                 </div>
               </div>
 
               {projectsError && (
                 <div className="admin-placeholder mono projects-error">
-                  {projectsError} <button className="btn" style={{ marginLeft: "var(--spacing-sm)" }} onClick={fetchProjects}>Tentar novamente</button>
+                  {projectsError}{" "}
+                  <button
+                    className="btn"
+                    style={{ marginLeft: "var(--spacing-sm)" }}
+                    onClick={fetchProjects}
+                  >
+                    Tentar novamente
+                  </button>
                 </div>
               )}
 
@@ -1038,17 +1316,22 @@ function AdminSettings({ section, subtab, can, dash, profile, palette, setPalett
                 </div>
               )}
 
-              {!projectsError && !projectsLoading && visibleProjects.length === 0 && (
-                projects.length === 0 ? (
+              {!projectsError &&
+                !projectsLoading &&
+                visibleProjects.length === 0 &&
+                (projects.length === 0 ? (
                   <div className="projects-empty-state">
                     <div className="projects-empty-icon" aria-hidden="true">
                       <Icon name="azure" size={28} color="var(--fg-dim)" />
                     </div>
                     <h3 className="serif projects-empty-title">Nenhum projeto ainda</h3>
                     <p className="projects-empty-sub mono">
-                      Crie o primeiro projeto da organização para começar a vincular pessoas, repositórios e boards.
+                      Crie o primeiro projeto da organização para começar a vincular pessoas,
+                      repositórios e boards.
                     </p>
-                    <button className="btn" onClick={openCreateProject}>+ Novo projeto</button>
+                    <button className="btn" onClick={openCreateProject}>
+                      + Novo projeto
+                    </button>
                   </div>
                 ) : (
                   <div className="projects-empty-state">
@@ -1060,10 +1343,11 @@ function AdminSettings({ section, subtab, can, dash, profile, palette, setPalett
                         ? "Todos os projetos desta organização estão finalizados."
                         : "Nenhum projeto foi finalizado até agora."}
                     </p>
-                    <button className="btn-ghost btn" onClick={() => setProjectFilter("todos")}>Ver todos os projetos</button>
+                    <button className="btn-ghost btn" onClick={() => setProjectFilter("todos")}>
+                      Ver todos os projetos
+                    </button>
                   </div>
-                )
-              )}
+                ))}
 
               {!projectsError && !projectsLoading && visibleProjects.length > 0 && (
                 <div className="projects-grid">
@@ -1076,11 +1360,19 @@ function AdminSettings({ section, subtab, can, dash, profile, palette, setPalett
                     const githubBound = githubBindings.some((b) => b.projectId === p.id);
                     const isSelected = editingProject?.id === p.id;
                     return (
-                      <button key={p.id} type="button"
+                      <button
+                        key={p.id}
+                        type="button"
                         className={"project-card" + (isSelected ? " is-selected" : "")}
-                        onClick={() => openProject(p)}>
+                        onClick={() => openProject(p)}
+                      >
                         <div className="project-card-top">
-                          <span className={"project-status-tag project-status-tag--" + (isActive ? "ativo" : "finalizado")}>
+                          <span
+                            className={
+                              "project-status-tag project-status-tag--" +
+                              (isActive ? "ativo" : "finalizado")
+                            }
+                          >
                             <span className="project-status-tag-dot" />
                             {isActive ? "ativo" : "finalizado"}
                           </span>
@@ -1090,7 +1382,9 @@ function AdminSettings({ section, subtab, can, dash, profile, palette, setPalett
                         {p.description ? (
                           <p className="project-card-desc mono">{p.description}</p>
                         ) : (
-                          <p className="project-card-desc project-card-desc--empty mono">sem descrição</p>
+                          <p className="project-card-desc project-card-desc--empty mono">
+                            sem descrição
+                          </p>
                         )}
 
                         <div className="project-card-integrations">
@@ -1108,7 +1402,11 @@ function AdminSettings({ section, subtab, can, dash, profile, palette, setPalett
                           {memberCount > 0 ? (
                             <div className="project-card-avatars">
                               {cardMembers.map((m) => (
-                                <span key={m.id} className="dev-avatar project-card-avatar" title={m.name || m.email}>
+                                <span
+                                  key={m.id}
+                                  className="dev-avatar project-card-avatar"
+                                  title={m.name || m.email}
+                                >
                                   {(m.name || m.email || "?").trim().charAt(0).toUpperCase()}
                                 </span>
                               ))}
@@ -1119,7 +1417,9 @@ function AdminSettings({ section, subtab, can, dash, profile, palette, setPalett
                               )}
                             </div>
                           ) : (
-                            <span className="project-card-no-members mono">sem pessoas vinculadas</span>
+                            <span className="project-card-no-members mono">
+                              sem pessoas vinculadas
+                            </span>
                           )}
                           <span className="project-card-open mono">editar →</span>
                         </div>
@@ -1132,19 +1432,46 @@ function AdminSettings({ section, subtab, can, dash, profile, palette, setPalett
               {/* ── Painel de detalhe ── */}
               {editingProject && (
                 <div className="project-detail-overlay" onClick={closeProject}>
-                  <div className="project-detail-panel project-detail-panel--modal" onClick={(e) => e.stopPropagation()}>
-                    <button type="button" className="project-detail-close" onClick={closeProject} aria-label="Fechar">×</button>
+                  <div
+                    className="project-detail-panel project-detail-panel--modal"
+                    onClick={(e) => e.stopPropagation()}
+                  >
+                    <button
+                      type="button"
+                      className="project-detail-close"
+                      onClick={closeProject}
+                      aria-label="Fechar"
+                    >
+                      ×
+                    </button>
                     <div className="project-detail-content">
                       <div className="project-detail-head">
                         <div className="project-head-top">
-                          <div className="admin-eyebrow mono">{editingProject.id ? "gerenciar projeto" : "novo projeto"}</div>
+                          <div className="admin-eyebrow mono">
+                            {editingProject.id ? "gerenciar projeto" : "novo projeto"}
+                          </div>
                           {editingProject.id && (
-                            <div className={"signup-select project-status-select is-" + ((editingProject.active === false || editingProject.status === "finalizado") ? "finalizado" : "ativo")}>
+                            <div
+                              className={
+                                "signup-select project-status-select is-" +
+                                (editingProject.active === false ||
+                                editingProject.status === "finalizado"
+                                  ? "finalizado"
+                                  : "ativo")
+                              }
+                            >
                               <select
-                                value={(editingProject.active === false || editingProject.status === "finalizado") ? "finalizado" : "ativo"}
+                                value={
+                                  editingProject.active === false ||
+                                  editingProject.status === "finalizado"
+                                    ? "finalizado"
+                                    : "ativo"
+                                }
                                 onChange={(e) => onProjectStatusAction(e.target.value)}
-                                aria-label="Status do projeto">
-                                {(editingProject.active !== false && editingProject.status !== "finalizado") ? (
+                                aria-label="Status do projeto"
+                              >
+                                {editingProject.active !== false &&
+                                editingProject.status !== "finalizado" ? (
                                   <>
                                     <option value="ativo">Status: Ativo</option>
                                     <option value="__finalize">Finalizar projeto</option>
@@ -1167,7 +1494,9 @@ function AdminSettings({ section, subtab, can, dash, profile, palette, setPalett
                           autoFocus={!editingProject.id}
                           value={editingProject.name}
                           placeholder="Nome do novo projeto"
-                          onChange={(e) => setEditingProject({ ...editingProject, name: e.target.value })}
+                          onChange={(e) =>
+                            setEditingProject({ ...editingProject, name: e.target.value })
+                          }
                         />
                       </div>
 
@@ -1179,7 +1508,9 @@ function AdminSettings({ section, subtab, can, dash, profile, palette, setPalett
                             rows={2}
                             value={editingProject.description || ""}
                             placeholder="Para que serve este projeto?"
-                            onChange={(e) => setEditingProject({ ...editingProject, description: e.target.value })}
+                            onChange={(e) =>
+                              setEditingProject({ ...editingProject, description: e.target.value })
+                            }
                           />
                         </label>
 
@@ -1195,31 +1526,55 @@ function AdminSettings({ section, subtab, can, dash, profile, palette, setPalett
                             adoProjects={adoProjects}
                             adoProjectsError={adoProjectsError}
                             adoBinding={adoBinding}
-                            adoBindingId={azureBindings.find((b) => b.projectId === editingProject.id)?.id || null}
+                            adoBindingId={
+                              azureBindings.find((b) => b.projectId === editingProject.id)?.id ||
+                              null
+                            }
                             projectId={editingProject.id}
                             onNavigate={onNavigate}
                             onChange={async (azureProjectId, azureProjectName) => {
                               setAdoBinding(azureProjectId);
                               if (editingProject.id) {
                                 try {
-                                  const binding = await api.post(`/v1/integrations/azure/projects/${editingProject.id}/binding`, { azureProjectId, azureProjectName });
+                                  const binding = await api.post(
+                                    `/v1/integrations/azure/projects/${editingProject.id}/binding`,
+                                    { azureProjectId, azureProjectName },
+                                  );
                                   setAzureBindings((prev) => {
-                                    const without = prev.filter((b) => b.projectId !== editingProject.id);
-                                    return [...without, { projectId: editingProject.id, azureProjectId, azureProjectName, id: binding?.id }];
+                                    const without = prev.filter(
+                                      (b) => b.projectId !== editingProject.id,
+                                    );
+                                    return [
+                                      ...without,
+                                      {
+                                        projectId: editingProject.id,
+                                        azureProjectId,
+                                        azureProjectName,
+                                        id: binding?.id,
+                                      },
+                                    ];
                                   });
                                   // Onboarding: show the field-mapping wizard once per new binding,
                                   // before the first sync would otherwise pick up defaults silently.
                                   if (binding?.id) setFieldMappingWizardBindingId(binding.id);
-                                } catch (_) { /* ignore */ }
+                                } catch (_) {
+                                  /* ignore */
+                                }
                               }
                             }}
                             onRemove={async () => {
                               if (editingProject.id) {
                                 try {
-                                  await api.delete(`/v1/integrations/azure/projects/${editingProject.id}/binding`);
+                                  await api.delete(
+                                    `/v1/integrations/azure/projects/${editingProject.id}/binding`,
+                                  );
                                   setAdoBinding("");
-                                  setAzureBindings((prev) => prev.filter((b) => b.projectId !== editingProject.id));
-                                } catch (_) { /* ignore */ }
+                                  setAzureBindings((prev) =>
+                                    prev.filter((b) => b.projectId !== editingProject.id),
+                                  );
+                                } catch (_) {
+                                  /* ignore */
+                                }
                               }
                             }}
                             onConfigureMapping={(bindingId) => {
@@ -1237,7 +1592,9 @@ function AdminSettings({ section, subtab, can, dash, profile, palette, setPalett
                           {/* ── Current members table ── */}
                           <div className="project-members-table">
                             {(editingProject.memberIds || []).length === 0 ? (
-                              <div className="project-people-empty mono">nenhum membro adicionado</div>
+                              <div className="project-people-empty mono">
+                                nenhum membro adicionado
+                              </div>
                             ) : (
                               <>
                                 <div className="project-members-head mono">
@@ -1251,19 +1608,26 @@ function AdminSettings({ section, subtab, can, dash, profile, palette, setPalett
                                     <div key={u.id} className="project-members-row">
                                       <div className="project-members-identity">
                                         <span className="project-members-name">{u.name}</span>
-                                        <span className="project-members-email mono">{u.email}</span>
+                                        <span className="project-members-email mono">
+                                          {u.email}
+                                        </span>
                                       </div>
                                       <div className="project-members-azure">
                                         {u.azureEmail ? (
-                                          <span className="project-person-azure-bound mono">{u.azureEmail}</span>
+                                          <span className="project-person-azure-bound mono">
+                                            {u.azureEmail}
+                                          </span>
                                         ) : (
                                           <span className="project-members-unbound">
-                                            <span className="project-members-unbound-text mono">Não vinculado</span>
+                                            <span className="project-members-unbound-text mono">
+                                              Não vinculado
+                                            </span>
                                             <button
                                               type="button"
                                               className="project-person-azure-link mono"
                                               onClick={() => onNavigate("team")}
-                                              title="Ir para Pessoas para configurar a vinculação Azure">
+                                              title="Ir para Pessoas para configurar a vinculação Azure"
+                                            >
                                               Vincular no Pessoas →
                                             </button>
                                           </span>
@@ -1275,7 +1639,8 @@ function AdminSettings({ section, subtab, can, dash, profile, palette, setPalett
                                           className="project-members-remove btn-ghost btn"
                                           onClick={() => toggleProjectMember(u.id)}
                                           aria-label={`Remover ${u.name} do projeto`}
-                                          title="Remover do projeto">
+                                          title="Remover do projeto"
+                                        >
                                           ×
                                         </button>
                                       </div>
@@ -1288,7 +1653,9 @@ function AdminSettings({ section, subtab, can, dash, profile, palette, setPalett
                           {/* ── Add member row ── */}
                           {(() => {
                             const currentIds = editingProject.memberIds || [];
-                            const available = projectPeople.filter((u) => !currentIds.includes(u.id));
+                            const available = projectPeople.filter(
+                              (u) => !currentIds.includes(u.id),
+                            );
                             if (available.length === 0) return null;
                             return (
                               <div className="project-members-add">
@@ -1296,7 +1663,8 @@ function AdminSettings({ section, subtab, can, dash, profile, palette, setPalett
                                   <select
                                     value={addMemberSelectId}
                                     onChange={(e) => setAddMemberSelectId(e.target.value)}
-                                    aria-label="Selecionar pessoa para adicionar">
+                                    aria-label="Selecionar pessoa para adicionar"
+                                  >
                                     <option value="">Selecionar pessoa…</option>
                                     {available.map((u) => (
                                       <option key={u.id} value={u.id}>
@@ -1315,7 +1683,8 @@ function AdminSettings({ section, subtab, can, dash, profile, palette, setPalett
                                       toggleProjectMember(addMemberSelectId);
                                       setAddMemberSelectId("");
                                     }
-                                  }}>
+                                  }}
+                                >
                                   Adicionar
                                 </button>
                               </div>
@@ -1325,9 +1694,17 @@ function AdminSettings({ section, subtab, can, dash, profile, palette, setPalett
                       </div>
 
                       <div className="project-detail-foot">
-                        <button className="btn-ghost btn" onClick={closeProject}>Cancelar</button>
-                        <button className="btn" onClick={saveProject} disabled={projectSaving || !editingProject.name.trim()}>
-                          {projectSaving ? "Salvando…" : (editingProject.id ? "Salvar alterações" : "Criar projeto") + " →"}
+                        <button className="btn-ghost btn" onClick={closeProject}>
+                          Cancelar
+                        </button>
+                        <button
+                          className="btn"
+                          onClick={saveProject}
+                          disabled={projectSaving || !editingProject.name.trim()}
+                        >
+                          {projectSaving
+                            ? "Salvando…"
+                            : (editingProject.id ? "Salvar alterações" : "Criar projeto") + " →"}
                         </button>
                       </div>
                     </div>
@@ -1344,10 +1721,12 @@ function AdminSettings({ section, subtab, can, dash, profile, palette, setPalett
           )}
 
           {section === "backlog" && (
-            <BacklogPage onOpenHierarchyWizard={(bindingId) => {
-              setFieldMappingWizardStep("hierarchy");
-              setFieldMappingWizardBindingId(bindingId);
-            }} />
+            <BacklogPage
+              onOpenHierarchyWizard={(bindingId) => {
+                setFieldMappingWizardStep("hierarchy");
+                setFieldMappingWizardBindingId(bindingId);
+              }}
+            />
           )}
 
           {section === "repos" && <ReposPage />}
@@ -1364,9 +1743,13 @@ function AdminSettings({ section, subtab, can, dash, profile, palette, setPalett
               </div>
               <h3 className="serif role-modal-title">
                 {editingRole.id ? (
-                  <>Editar <span className="ital accent">{editingRole.name || "cargo"}</span></>
+                  <>
+                    Editar <span className="ital accent">{editingRole.name || "cargo"}</span>
+                  </>
                 ) : (
-                  <>Criar <span className="ital accent">novo cargo</span></>
+                  <>
+                    Criar <span className="ital accent">novo cargo</span>
+                  </>
                 )}
               </h3>
             </div>
@@ -1375,28 +1758,53 @@ function AdminSettings({ section, subtab, can, dash, profile, palette, setPalett
               {editingRole.id ? (
                 /* Editing existing: show permission checkboxes */
                 <>
-                  <p className="role-modal-label" style={{ marginBottom: "var(--spacing-sm)" }}>Permissões</p>
+                  <p className="role-modal-label" style={{ marginBottom: "var(--spacing-sm)" }}>
+                    Permissões
+                  </p>
                   <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
                     {ALL_PERMISSION_CODES.map((code) => (
-                      <label key={code} style={{ display: "flex", alignItems: "center", gap: "var(--spacing-sm)", cursor: "pointer" }}>
+                      <label
+                        key={code}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "var(--spacing-sm)",
+                          cursor: "pointer",
+                        }}
+                      >
                         <input
                           type="checkbox"
                           checked={!!editPerms[code]}
                           onChange={() => setEditPerms((p) => ({ ...p, [code]: !p[code] }))}
                         />
-                        <span className="mono" style={{ fontSize: "0.85rem" }}>{PERMISSION_LABELS[code]}</span>
+                        <span className="mono" style={{ fontSize: "0.85rem" }}>
+                          {PERMISSION_LABELS[code]}
+                        </span>
                       </label>
                     ))}
                   </div>
 
                   {roleCount(editingRole.id) > 0 ? (
-                    <p className="role-perm-hint role-perm-hint--block mono" style={{ marginTop: "var(--spacing-md)" }}>
+                    <p
+                      className="role-perm-hint role-perm-hint--block mono"
+                      style={{ marginTop: "var(--spacing-md)" }}
+                    >
                       <span className="role-perm-hint-label">não é possível remover</span>
-                      {roleCount(editingRole.id)} {roleCount(editingRole.id) === 1 ? "pessoa está vinculada" : "pessoas estão vinculadas"} a este cargo.
+                      {roleCount(editingRole.id)}{" "}
+                      {roleCount(editingRole.id) === 1
+                        ? "pessoa está vinculada"
+                        : "pessoas estão vinculadas"}{" "}
+                      a este cargo.
                     </p>
                   ) : (
-                    <div className="member-modal-actions member-modal-actions--single" style={{ marginTop: "var(--spacing-md)" }}>
-                      <button className="member-modal-danger member-modal-danger--strong" onClick={deleteRole}>
+                    <div
+                      className="member-modal-actions member-modal-actions--single"
+                      style={{ marginTop: "var(--spacing-md)" }}
+                    >
+                      <button
+                        className="member-modal-danger member-modal-danger--strong"
+                        onClick={deleteRole}
+                      >
                         Remover cargo
                       </button>
                     </div>
@@ -1408,8 +1816,15 @@ function AdminSettings({ section, subtab, can, dash, profile, palette, setPalett
                   <label className="role-modal-field">
                     <span className="role-modal-label">Copiar permissões de</span>
                     <div className="signup-select">
-                      <select value={cloneSourceId} onChange={(e) => setCloneSourceId(e.target.value)}>
-                        {roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+                      <select
+                        value={cloneSourceId}
+                        onChange={(e) => setCloneSourceId(e.target.value)}
+                      >
+                        {roles.map((r) => (
+                          <option key={r.id} value={r.id}>
+                            {r.name}
+                          </option>
+                        ))}
                       </select>
                       <span className="signup-select-caret">▾</span>
                     </div>
@@ -1423,7 +1838,9 @@ function AdminSettings({ section, subtab, can, dash, profile, palette, setPalett
                       value={editingRole.name}
                       placeholder="ex: Product Owner"
                       onChange={(e) => setEditingRole({ ...editingRole, name: e.target.value })}
-                      onKeyDown={(e) => { if (e.key === "Enter") saveRole(); }}
+                      onKeyDown={(e) => {
+                        if (e.key === "Enter") saveRole();
+                      }}
                     />
                   </label>
                 </>
@@ -1431,8 +1848,14 @@ function AdminSettings({ section, subtab, can, dash, profile, palette, setPalett
             </div>
 
             <div className="role-modal-foot">
-              <button className="btn-ghost btn" onClick={closeModal}>Cancelar</button>
-              <button className="btn" onClick={saveRole} disabled={!editingRole.id ? !editingRole.name.trim() : false}>
+              <button className="btn-ghost btn" onClick={closeModal}>
+                Cancelar
+              </button>
+              <button
+                className="btn"
+                onClick={saveRole}
+                disabled={!editingRole.id ? !editingRole.name.trim() : false}
+              >
                 {editingRole.id ? "Salvar alterações" : "Criar cargo"} →
               </button>
             </div>
@@ -1450,9 +1873,13 @@ function AdminSettings({ section, subtab, can, dash, profile, palette, setPalett
               </div>
               <h3 className="serif role-modal-title">
                 {editingSeniority.id ? (
-                  <>Editar <span className="ital accent">{editingSeniority.name || "nível"}</span></>
+                  <>
+                    Editar <span className="ital accent">{editingSeniority.name || "nível"}</span>
+                  </>
                 ) : (
-                  <>Criar <span className="ital accent">novo nível</span></>
+                  <>
+                    Criar <span className="ital accent">novo nível</span>
+                  </>
                 )}
               </h3>
             </div>
@@ -1466,14 +1893,24 @@ function AdminSettings({ section, subtab, can, dash, profile, palette, setPalett
                   autoFocus
                   value={editingSeniority.name}
                   placeholder="ex: Especialista"
-                  onChange={(e) => setEditingSeniority({ ...editingSeniority, name: e.target.value })}
-                  onKeyDown={(e) => { if (e.key === "Enter") saveSeniority(); }}
+                  onChange={(e) =>
+                    setEditingSeniority({ ...editingSeniority, name: e.target.value })
+                  }
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") saveSeniority();
+                  }}
                 />
               </label>
 
               {editingSeniority.id && (
-                <div className="member-modal-actions member-modal-actions--single" style={{ marginTop: "var(--spacing-md)" }}>
-                  <button className="member-modal-danger member-modal-danger--strong" onClick={deleteSeniority}>
+                <div
+                  className="member-modal-actions member-modal-actions--single"
+                  style={{ marginTop: "var(--spacing-md)" }}
+                >
+                  <button
+                    className="member-modal-danger member-modal-danger--strong"
+                    onClick={deleteSeniority}
+                  >
                     Remover nível
                   </button>
                 </div>
@@ -1481,8 +1918,14 @@ function AdminSettings({ section, subtab, can, dash, profile, palette, setPalett
             </div>
 
             <div className="role-modal-foot">
-              <button className="btn-ghost btn" onClick={closeSeniority}>Cancelar</button>
-              <button className="btn" onClick={saveSeniority} disabled={!editingSeniority.name.trim()}>
+              <button className="btn-ghost btn" onClick={closeSeniority}>
+                Cancelar
+              </button>
+              <button
+                className="btn"
+                onClick={saveSeniority}
+                disabled={!editingSeniority.name.trim()}
+              >
                 {editingSeniority.id ? "Salvar alterações" : "Criar nível"} →
               </button>
             </div>
@@ -1517,8 +1960,15 @@ function AdminSettings({ section, subtab, can, dash, profile, palette, setPalett
               <label className="role-modal-field" style={{ marginTop: "var(--spacing-sm)" }}>
                 <span className="role-modal-label">Cargo</span>
                 <div className="signup-select">
-                  <select value={inviteDraft.roleId} onChange={(e) => setInviteDraft({ ...inviteDraft, roleId: e.target.value })}>
-                    {roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+                  <select
+                    value={inviteDraft.roleId}
+                    onChange={(e) => setInviteDraft({ ...inviteDraft, roleId: e.target.value })}
+                  >
+                    {roles.map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {r.name}
+                      </option>
+                    ))}
                   </select>
                   <span className="signup-select-caret">▾</span>
                 </div>
@@ -1527,9 +1977,18 @@ function AdminSettings({ section, subtab, can, dash, profile, palette, setPalett
               <label className="role-modal-field" style={{ marginTop: "var(--spacing-sm)" }}>
                 <span className="role-modal-label">Senioridade</span>
                 <div className="signup-select">
-                  <select value={inviteDraft.seniority || ""} onChange={(e) => setInviteDraft({ ...inviteDraft, seniority: e.target.value || null })}>
+                  <select
+                    value={inviteDraft.seniority || ""}
+                    onChange={(e) =>
+                      setInviteDraft({ ...inviteDraft, seniority: e.target.value || null })
+                    }
+                  >
                     <option value="">— Sem senioridade —</option>
-                    {seniorities.map((s) => <option key={s.id} value={s.name}>{s.name}</option>)}
+                    {seniorities.map((s) => (
+                      <option key={s.id} value={s.name}>
+                        {s.name}
+                      </option>
+                    ))}
                   </select>
                   <span className="signup-select-caret">▾</span>
                 </div>
@@ -1544,8 +2003,14 @@ function AdminSettings({ section, subtab, can, dash, profile, palette, setPalett
             </div>
 
             <div className="role-modal-foot">
-              <button className="btn-ghost btn" onClick={closeInvite}>Cancelar</button>
-              <button className="btn" onClick={sendInvite} disabled={memberSaving || !inviteDraft.email.trim() || !inviteDraft.roleId}>
+              <button className="btn-ghost btn" onClick={closeInvite}>
+                Cancelar
+              </button>
+              <button
+                className="btn"
+                onClick={sendInvite}
+                disabled={memberSaving || !inviteDraft.email.trim() || !inviteDraft.roleId}
+              >
                 {memberSaving ? "Enviando…" : "Enviar convite por email →"}
               </button>
             </div>
@@ -1559,12 +2024,23 @@ function AdminSettings({ section, subtab, can, dash, profile, palette, setPalett
           <div className="role-modal" onClick={(e) => e.stopPropagation()}>
             <div className="role-modal-head">
               <div className="admin-eyebrow mono">
-                editar membro · {editingMember.name == null ? "convite pendente" : editingMember.active === false ? "desativado" : "ativo"}
+                editar membro ·{" "}
+                {editingMember.name == null
+                  ? "convite pendente"
+                  : editingMember.active === false
+                    ? "desativado"
+                    : "ativo"}
               </div>
               <h3 className="serif role-modal-title">
-                {editingMember.name
-                  ? <>Editar <span className="ital accent">{editingMember.name}</span></>
-                  : <>Editar <span className="ital accent">membro</span></>}
+                {editingMember.name ? (
+                  <>
+                    Editar <span className="ital accent">{editingMember.name}</span>
+                  </>
+                ) : (
+                  <>
+                    Editar <span className="ital accent">membro</span>
+                  </>
+                )}
               </h3>
               <div className="role-modal-subtitle mono">{editingMember.email}</div>
             </div>
@@ -1573,8 +2049,15 @@ function AdminSettings({ section, subtab, can, dash, profile, palette, setPalett
               <label className="role-modal-field">
                 <span className="role-modal-label">Cargo</span>
                 <div className="signup-select">
-                  <select value={editingMember.roleId} onChange={(e) => setEditingMember({ ...editingMember, roleId: e.target.value })}>
-                    {roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
+                  <select
+                    value={editingMember.roleId}
+                    onChange={(e) => setEditingMember({ ...editingMember, roleId: e.target.value })}
+                  >
+                    {roles.map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {r.name}
+                      </option>
+                    ))}
                   </select>
                   <span className="signup-select-caret">▾</span>
                 </div>
@@ -1590,9 +2073,18 @@ function AdminSettings({ section, subtab, can, dash, profile, palette, setPalett
               <label className="role-modal-field" style={{ marginTop: "var(--spacing-sm)" }}>
                 <span className="role-modal-label">Senioridade</span>
                 <div className="signup-select">
-                  <select value={editingMember.seniority || ""} onChange={(e) => setEditingMember({ ...editingMember, seniority: e.target.value || null })}>
+                  <select
+                    value={editingMember.seniority || ""}
+                    onChange={(e) =>
+                      setEditingMember({ ...editingMember, seniority: e.target.value || null })
+                    }
+                  >
                     <option value="">— Sem senioridade —</option>
-                    {seniorities.map((s) => <option key={s.id} value={s.name}>{s.name}</option>)}
+                    {seniorities.map((s) => (
+                      <option key={s.id} value={s.name}>
+                        {s.name}
+                      </option>
+                    ))}
                   </select>
                   <span className="signup-select-caret">▾</span>
                 </div>
@@ -1600,9 +2092,7 @@ function AdminSettings({ section, subtab, can, dash, profile, palette, setPalett
 
               <div className="role-modal-field" style={{ marginTop: "var(--spacing-md)" }}>
                 <span className="role-modal-label">Identidade Azure</span>
-                {azureUsersLoading && (
-                  <div className="skeleton" style={{ height: "2.4rem" }} />
-                )}
+                {azureUsersLoading && <div className="skeleton" style={{ height: "2.4rem" }} />}
                 {azureUsersError && (
                   <div style={{ fontSize: "0.8rem", color: "var(--bad)" }}>{azureUsersError}</div>
                 )}
@@ -1612,7 +2102,8 @@ function AdminSettings({ section, subtab, can, dash, profile, palette, setPalett
                     value={selectedAzureUser?.azureId || ""}
                     disabled={azureUserOptions.length === 0}
                     onChange={(e) => {
-                      const user = azureUserOptions.find((u) => u.azureId === e.target.value) || null;
+                      const user =
+                        azureUserOptions.find((u) => u.azureId === e.target.value) || null;
                       setSelectedAzureUser(user);
                     }}
                   >
@@ -1627,7 +2118,14 @@ function AdminSettings({ section, subtab, can, dash, profile, palette, setPalett
               </div>
 
               {memberSaveMsg && (
-                <p className="mono" style={{ marginTop: "var(--spacing-sm)", fontSize: "0.8rem", color: memberSaveMsg.ok ? "var(--good)" : "var(--bad)" }}>
+                <p
+                  className="mono"
+                  style={{
+                    marginTop: "var(--spacing-sm)",
+                    fontSize: "0.8rem",
+                    color: memberSaveMsg.ok ? "var(--good)" : "var(--bad)",
+                  }}
+                >
                   {memberSaveMsg.text}
                 </p>
               )}
@@ -1636,14 +2134,23 @@ function AdminSettings({ section, subtab, can, dash, profile, palette, setPalett
                 <button
                   className="member-modal-danger"
                   onClick={deactivateMember}
-                  disabled={memberSaving || editingMember.active === false || String(editingMember.id) === String(loggedUserId)}>
-                  {String(editingMember.id) === String(loggedUserId) ? "Não é possível desativar a si mesmo" : "Desativar usuário"}
+                  disabled={
+                    memberSaving ||
+                    editingMember.active === false ||
+                    String(editingMember.id) === String(loggedUserId)
+                  }
+                >
+                  {String(editingMember.id) === String(loggedUserId)
+                    ? "Não é possível desativar a si mesmo"
+                    : "Desativar usuário"}
                 </button>
               </div>
             </div>
 
             <div className="role-modal-foot">
-              <button className="btn-ghost btn" onClick={closeMemberEdit}>Fechar</button>
+              <button className="btn-ghost btn" onClick={closeMemberEdit}>
+                Fechar
+              </button>
               <button className="btn" onClick={saveMember} disabled={memberSaving}>
                 {memberSaving ? "Salvando…" : "Salvar alterações →"}
               </button>
@@ -1654,7 +2161,10 @@ function AdminSettings({ section, subtab, can, dash, profile, palette, setPalett
 
       {/* ── Confirm: Finalizar projeto ── */}
       {editingProject && projectAction === "finalize" && (
-        <div className="role-modal-backdrop role-modal-backdrop--stacked" onClick={() => setProjectAction(null)}>
+        <div
+          className="role-modal-backdrop role-modal-backdrop--stacked"
+          onClick={() => setProjectAction(null)}
+        >
           <div className="role-modal role-modal--confirm" onClick={(e) => e.stopPropagation()}>
             <div className="role-modal-head">
               <div className="admin-eyebrow mono">finalizar projeto</div>
@@ -1664,12 +2174,16 @@ function AdminSettings({ section, subtab, can, dash, profile, palette, setPalett
             </div>
             <p className="confirm-text">
               Os dados já coletados deste projeto <strong>não serão excluídos</strong>, mas ele
-              <strong> deixará de ser atualizado</strong> com os dados coletados externamente.
-              Você poderá <strong>reativá-lo</strong> a qualquer momento.
+              <strong> deixará de ser atualizado</strong> com os dados coletados externamente. Você
+              poderá <strong>reativá-lo</strong> a qualquer momento.
             </p>
             <div className="role-modal-foot">
-              <button className="btn-ghost btn" onClick={() => setProjectAction(null)}>Cancelar</button>
-              <button className="btn" onClick={confirmFinalizeProject}>Finalizar projeto →</button>
+              <button className="btn-ghost btn" onClick={() => setProjectAction(null)}>
+                Cancelar
+              </button>
+              <button className="btn" onClick={confirmFinalizeProject}>
+                Finalizar projeto →
+              </button>
             </div>
           </div>
         </div>
@@ -1677,7 +2191,10 @@ function AdminSettings({ section, subtab, can, dash, profile, palette, setPalett
 
       {/* ── Confirm: Excluir projeto ── */}
       {editingProject && projectAction === "delete" && (
-        <div className="role-modal-backdrop role-modal-backdrop--stacked" onClick={() => setProjectAction(null)}>
+        <div
+          className="role-modal-backdrop role-modal-backdrop--stacked"
+          onClick={() => setProjectAction(null)}
+        >
           <div className="role-modal role-modal--confirm" onClick={(e) => e.stopPropagation()}>
             <div className="role-modal-head">
               <div className="admin-eyebrow mono">excluir projeto</div>
@@ -1686,12 +2203,16 @@ function AdminSettings({ section, subtab, can, dash, profile, palette, setPalett
               </h3>
             </div>
             <p className="confirm-text">
-              Todos os dados salvos deste projeto serão <strong>excluídos permanentemente</strong> e o
-              <strong> dashboard será atualizado</strong>. Esta ação não pode ser desfeita.
+              Todos os dados salvos deste projeto serão <strong>excluídos permanentemente</strong> e
+              o<strong> dashboard será atualizado</strong>. Esta ação não pode ser desfeita.
             </p>
             <div className="role-modal-foot">
-              <button className="btn-ghost btn" onClick={() => setProjectAction(null)}>Cancelar</button>
-              <button className="btn btn-danger" onClick={confirmDeleteProject}>Excluir permanentemente →</button>
+              <button className="btn-ghost btn" onClick={() => setProjectAction(null)}>
+                Cancelar
+              </button>
+              <button className="btn btn-danger" onClick={confirmDeleteProject}>
+                Excluir permanentemente →
+              </button>
             </div>
           </div>
         </div>
@@ -1701,8 +2222,14 @@ function AdminSettings({ section, subtab, can, dash, profile, palette, setPalett
         <AzureFieldMappingWizard
           bindingId={fieldMappingWizardBindingId}
           initialStep={fieldMappingWizardStep}
-          onDone={() => { setFieldMappingWizardBindingId(null); setFieldMappingWizardStep(null); }}
-          onSkip={() => { setFieldMappingWizardBindingId(null); setFieldMappingWizardStep(null); }}
+          onDone={() => {
+            setFieldMappingWizardBindingId(null);
+            setFieldMappingWizardStep(null);
+          }}
+          onSkip={() => {
+            setFieldMappingWizardBindingId(null);
+            setFieldMappingWizardStep(null);
+          }}
         />
       )}
     </div>
@@ -1746,7 +2273,9 @@ function GithubBindingsSection({ connectionStatus, projectId, onNavigate, onOrgB
       }
       setLoading(false);
     });
-    return () => { cancelled = true; };
+    return () => {
+      cancelled = true;
+    };
   }, [connectionStatus, projectId]);
 
   if (connectionStatus !== "CONNECTED") {
@@ -1757,7 +2286,11 @@ function GithubBindingsSection({ connectionStatus, projectId, onNavigate, onOrgB
           <div className="project-link-label">Repositórios GitHub</div>
           <div className="project-link-value mono">
             Conecte o GitHub em{" "}
-            <button type="button" className="inline-link" onClick={() => onNavigate("integrations")}>
+            <button
+              type="button"
+              className="inline-link"
+              onClick={() => onNavigate("integrations")}
+            >
               Integrações
             </button>{" "}
             para vincular este projeto.
@@ -1773,7 +2306,9 @@ function GithubBindingsSection({ connectionStatus, projectId, onNavigate, onOrgB
         <div className="project-link-icon">{icon}</div>
         <div className="project-link-info">
           <div className="project-link-label">Repositórios GitHub</div>
-          <div className="project-link-value mono">Salve o projeto para vincular repositórios GitHub.</div>
+          <div className="project-link-value mono">
+            Salve o projeto para vincular repositórios GitHub.
+          </div>
         </div>
       </div>
     );
@@ -1828,12 +2363,8 @@ function GithubBindingsSection({ connectionStatus, projectId, onNavigate, onOrgB
       <div className="project-link-info">
         <div className="project-link-label">Repositórios GitHub</div>
 
-        {loading && (
-          <div className="project-link-value mono">Carregando repositórios…</div>
-        )}
-        {loadError && (
-          <div className="project-link-value mono is-error">{loadError}</div>
-        )}
+        {loading && <div className="project-link-value mono">Carregando repositórios…</div>}
+        {loadError && <div className="project-link-value mono is-error">{loadError}</div>}
 
         {!loading && !loadError && (
           <>
@@ -1841,7 +2372,9 @@ function GithubBindingsSection({ connectionStatus, projectId, onNavigate, onOrgB
               <div className="gh-binding-list">
                 {bindings.map((b) => (
                   <div key={b.id} className="gh-binding-row">
-                    <span className="gh-binding-repo mono" title={b.repoId}>{b.repoId}</span>
+                    <span className="gh-binding-repo mono" title={b.repoId}>
+                      {b.repoId}
+                    </span>
                     <Checkbox
                       checked={b.syncEnabled}
                       onCheckedChange={() => handleToggleSync(b)}
@@ -1851,7 +2384,8 @@ function GithubBindingsSection({ connectionStatus, projectId, onNavigate, onOrgB
                     <button
                       type="button"
                       className="btn btn-ghost btn-xs is-danger"
-                      onClick={() => handleRemove(b)}>
+                      onClick={() => handleRemove(b)}
+                    >
                       remover
                     </button>
                   </div>
@@ -1866,7 +2400,12 @@ function GithubBindingsSection({ connectionStatus, projectId, onNavigate, onOrgB
                 options={availableRepos.map((r) => ({
                   value: r.repoId,
                   label: r.fullName,
-                  hint: r.boundToProjectId === projectId ? "vinculado" : r.source === "CACHED" ? "cache" : undefined,
+                  hint:
+                    r.boundToProjectId === projectId
+                      ? "vinculado"
+                      : r.source === "CACHED"
+                        ? "cache"
+                        : undefined,
                 }))}
                 placeholder="Selecionar repositório…"
                 emptyMessage="Nenhum repositório encontrado."
@@ -1877,7 +2416,8 @@ function GithubBindingsSection({ connectionStatus, projectId, onNavigate, onOrgB
                 type="button"
                 className="btn"
                 onClick={handleBind}
-                disabled={adding || !selectedRepoId}>
+                disabled={adding || !selectedRepoId}
+              >
                 {adding ? "Vinculando…" : "Vincular"}
               </button>
             </div>
@@ -1894,13 +2434,26 @@ function AdminRow({ label, value, mono }) {
   return (
     <div className="admin-row">
       <div className="admin-row-label">{label}</div>
-      <div className={"admin-row-value" + (mono ? " mono" : "")}>{value || <span className="admin-row-empty">— vazio —</span>}</div>
+      <div className={"admin-row-value" + (mono ? " mono" : "")}>
+        {value || <span className="admin-row-empty">— vazio —</span>}
+      </div>
       <button className="admin-row-edit">editar</button>
     </div>
   );
 }
 
-function AzureProjectSelect({ connectionStatus, adoProjects, adoProjectsError, adoBinding, adoBindingId, projectId, onNavigate, onChange, onRemove, onConfigureMapping }) {
+function AzureProjectSelect({
+  connectionStatus,
+  adoProjects,
+  adoProjectsError,
+  adoBinding,
+  adoBindingId,
+  projectId,
+  onNavigate,
+  onChange,
+  onRemove,
+  onConfigureMapping,
+}) {
   const icon = <Icon name="azure" size={20} color="var(--fg)" />;
 
   if (connectionStatus !== "CONNECTED") {
@@ -1911,7 +2464,11 @@ function AzureProjectSelect({ connectionStatus, adoProjects, adoProjectsError, a
           <div className="project-link-label">Projeto Azure DevOps</div>
           <div className="project-link-value mono">
             Conecte o Azure DevOps em{" "}
-            <button type="button" className="inline-link" onClick={() => onNavigate("integrations")}>
+            <button
+              type="button"
+              className="inline-link"
+              onClick={() => onNavigate("integrations")}
+            >
               Integrações
             </button>{" "}
             para vincular este projeto.
@@ -1952,7 +2509,8 @@ function AzureProjectSelect({ connectionStatus, adoProjects, adoProjectsError, a
               <button
                 type="button"
                 className="btn btn-ghost btn-xs"
-                onClick={() => onConfigureMapping(adoBindingId)}>
+                onClick={() => onConfigureMapping(adoBindingId)}
+              >
                 configurar mapeamento
               </button>
             )}

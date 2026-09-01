@@ -18,7 +18,16 @@ import React from "react";
  * @param {React.ReactNode} [toolbar] faixa fixa entre o cabeçalho e o corpo rolável
  * @param {string} [className] modificador da feature (ex.: "pr-drawer")
  */
-export default function Drawer({ open, onClose, title, subtitle, actions, toolbar, className = "", children }) {
+export default function Drawer({
+  open,
+  onClose,
+  title,
+  subtitle,
+  actions,
+  toolbar,
+  className = "",
+  children,
+}) {
   React.useEffect(() => {
     if (!open) return;
     const onKey = (e) => {

@@ -10,16 +10,18 @@ import React from "react";
  */
 export function AllocationSlider({ item, onChange, onRemove, disabled }) {
   return (
-    <div style={{
-      background: "var(--bg-elev)",
-      border: "1px solid var(--line)",
-      borderRadius: "var(--radius-sm)",
-      padding: "10px 12px",
-      marginBottom: 8,
-      display: "flex",
-      alignItems: "center",
-      gap: 10,
-    }}>
+    <div
+      style={{
+        background: "var(--bg-elev)",
+        border: "1px solid var(--line)",
+        borderRadius: "var(--radius-sm)",
+        padding: "10px 12px",
+        marginBottom: 8,
+        display: "flex",
+        alignItems: "center",
+        gap: 10,
+      }}
+    >
       {/* Label */}
       <div style={{ flex: 1, minWidth: 0 }}>
         <span style={{ fontSize: "0.82rem", fontWeight: 600, color: "var(--fg)" }}>
@@ -40,7 +42,16 @@ export function AllocationSlider({ item, onChange, onRemove, disabled }) {
       />
 
       {/* Percentage display */}
-      <span className="mono" style={{ fontSize: "0.85rem", fontWeight: 700, minWidth: 38, textAlign: "right", color: "var(--accent)" }}>
+      <span
+        className="mono"
+        style={{
+          fontSize: "0.85rem",
+          fontWeight: 700,
+          minWidth: 38,
+          textAlign: "right",
+          color: "var(--accent)",
+        }}
+      >
         {item.pct}%
       </span>
 
@@ -59,7 +70,8 @@ export function AllocationSlider({ item, onChange, onRemove, disabled }) {
           lineHeight: 1,
           color: "var(--fg-dim)",
           flexShrink: 0,
-        }}>
+        }}
+      >
         ×
       </button>
     </div>

@@ -66,7 +66,8 @@ export function BurndownChart({ data }) {
           margin: "16px 0",
         }}
       >
-        Nenhum story point definido — adicione pontos aos work items no Azure DevOps para habilitar o burndown
+        Nenhum story point definido — adicione pontos aos work items no Azure DevOps para habilitar
+        o burndown
       </p>
     );
   }

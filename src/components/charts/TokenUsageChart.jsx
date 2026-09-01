@@ -9,15 +9,7 @@
  */
 
 import React from "react";
-import {
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  CartesianGrid,
-} from "recharts";
+import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
 
 /**
  * Normalize raw API entries so they always have a `date` key, split token fields,
@@ -63,8 +55,12 @@ function CustomTooltip({ active, payload, label }) {
     >
       <div style={{ color: "var(--fg-muted)", marginBottom: 4 }}>{fmtDate(label)}</div>
       <div>Total: {(entry.total ?? 0).toLocaleString()}</div>
-      <div style={{ color: "var(--accent)" }}>Input: {(entry.inputTokens ?? 0).toLocaleString()}</div>
-      <div style={{ color: "var(--good)" }}>Output: {(entry.outputTokens ?? 0).toLocaleString()}</div>
+      <div style={{ color: "var(--accent)" }}>
+        Input: {(entry.inputTokens ?? 0).toLocaleString()}
+      </div>
+      <div style={{ color: "var(--good)" }}>
+        Output: {(entry.outputTokens ?? 0).toLocaleString()}
+      </div>
     </div>
   );
 }

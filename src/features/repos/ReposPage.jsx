@@ -103,7 +103,9 @@ function PullRequestDrawer({ repoId, repoName, pr, onClose }) {
     >
       <dl className="drawer-defs">
         <dt>Status</dt>
-        <dd><StatusPill status={pr.status} /></dd>
+        <dd>
+          <StatusPill status={pr.status} />
+        </dd>
         <dt>Autor</dt>
         <dd className="mono">{pr.authorGithubLogin || "—"}</dd>
         <dt>Aberto em</dt>
@@ -324,7 +326,10 @@ export function ReposPage() {
               value={selectedRepo.stalePrCount}
               hint="abertos há mais de 24h sem review"
             />
-            <MetricCard label="Cycle time médio" value={formatHours(selectedRepo.avgCycleTimeHours)} />
+            <MetricCard
+              label="Cycle time médio"
+              value={formatHours(selectedRepo.avgCycleTimeHours)}
+            />
             <MetricCard
               label="1ª review média"
               value={formatHours(selectedRepo.avgTimeToFirstReviewHours)}

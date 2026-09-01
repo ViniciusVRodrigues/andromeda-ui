@@ -55,7 +55,7 @@ async function request(path, { method = "GET", body, headers, ...rest } = {}) {
     method,
     headers: {
       "Content-Type": "application/json",
-      ...(token ? { "Authorization": `Bearer ${token}` } : {}),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
       ...headers,
     },
     body: body != null ? JSON.stringify(body) : undefined,
@@ -310,7 +310,9 @@ export function getAzureWorkItemTypes(bindingId) {
  * @returns {Promise<Array<{ referenceName: string, name: string, type: string, required: boolean }>>}
  */
 export function getAzureWorkItemTypeFields(bindingId, typeName) {
-  return api.get(`/v1/integrations/azure/bindings/${bindingId}/process/work-item-types/${encodeURIComponent(typeName)}/fields`);
+  return api.get(
+    `/v1/integrations/azure/bindings/${bindingId}/process/work-item-types/${encodeURIComponent(typeName)}/fields`,
+  );
 }
 
 /**
@@ -321,7 +323,9 @@ export function getAzureWorkItemTypeFields(bindingId, typeName) {
  * @returns {Promise<Array<{ name: string, color: string, category: string }>>}
  */
 export function getAzureWorkItemTypeStates(bindingId, typeName) {
-  return api.get(`/v1/integrations/azure/bindings/${bindingId}/process/work-item-types/${encodeURIComponent(typeName)}/states`);
+  return api.get(
+    `/v1/integrations/azure/bindings/${bindingId}/process/work-item-types/${encodeURIComponent(typeName)}/states`,
+  );
 }
 
 /**
@@ -433,7 +437,10 @@ export function getGithubProjectBindings(projectId) {
  * @param {boolean} syncEnabled
  */
 export function bindGithubRepo(projectId, repoId, syncEnabled) {
-  return api.post(`/v1/integrations/github/projects/${projectId}/bindings`, { repoId, syncEnabled });
+  return api.post(`/v1/integrations/github/projects/${projectId}/bindings`, {
+    repoId,
+    syncEnabled,
+  });
 }
 
 /**

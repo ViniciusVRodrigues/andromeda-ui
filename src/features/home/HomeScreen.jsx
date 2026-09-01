@@ -37,8 +37,12 @@ function HomeHeader({ onLogin, onSignup }) {
           <a href="#equipe">Equipe</a>
         </nav>
         <div className="home-nav-actions">
-          <button className="btn-ghost btn" onClick={onLogin}>Entrar</button>
-          <button className="btn" onClick={onSignup}>Criar conta</button>
+          <button className="btn-ghost btn" onClick={onLogin}>
+            Entrar
+          </button>
+          <button className="btn" onClick={onSignup}>
+            Criar conta
+          </button>
         </div>
       </div>
     </header>
@@ -89,9 +93,10 @@ function TeamLinks({ links }) {
   const present = Object.entries(links || {}).filter(([, v]) => v && String(v).trim());
   if (present.length === 0) return null;
   const ordered = [
-    ...LINK_ORDER.filter((k) => present.some(([key]) => key === k)).map(
-      (k) => [k, present.find(([key]) => key === k)[1]],
-    ),
+    ...LINK_ORDER.filter((k) => present.some(([key]) => key === k)).map((k) => [
+      k,
+      present.find(([key]) => key === k)[1],
+    ]),
     ...present.filter(([k]) => !LINK_ORDER.includes(k)),
   ];
   return (
@@ -101,7 +106,8 @@ function TeamLinks({ links }) {
           key={key}
           href={hrefFor(key, value)}
           {...(key === "email" ? {} : { target: "_blank", rel: "noreferrer" })}
-          className="team-link">
+          className="team-link"
+        >
           {LINK_LABELS[key] || key}
         </a>
       ))}
@@ -122,10 +128,13 @@ function HomeScreen({ onLogin, onSignup }) {
         </div>
         <div className="home-hero-inner">
           <h1 className="serif home-h1">
-            Quanto sua IA <span className="ital accent">custou</span> por entrega<span className="accent">.</span>
+            Quanto sua IA <span className="ital accent">custou</span> por entrega
+            <span className="accent">.</span>
           </h1>
           <p className="home-lede">
-            <strong>Andrômeda</strong> conecta GitHub, Azure DevOps e seus provedores de IA para correlacionar, entrega por entrega, o esforço computacional em tokens com as métricas de engenharia que sua liderança já acompanha — DORA, cycle time, lead time, velocity.
+            <strong>Andrômeda</strong> conecta GitHub, Azure DevOps e seus provedores de IA para
+            correlacionar, entrega por entrega, o esforço computacional em tokens com as métricas de
+            engenharia que sua liderança já acompanha — DORA, cycle time, lead time, velocity.
           </p>
           <div className="home-hero-cta">
             <button className="btn btn-lg" onClick={onSignup}>
@@ -142,10 +151,14 @@ function HomeScreen({ onLogin, onSignup }) {
       <section className="home-section home-section-narrow" id="problema">
         <div className="problem-block">
           <p className="problem-lede">
-            <span className="serif ital">A velocity subiu.</span> Ninguém sabe dizer o quanto disso veio de Copilot, Claude ou ChatGPT — nem quanto custou.
+            <span className="serif ital">A velocity subiu.</span> Ninguém sabe dizer o quanto disso
+            veio de Copilot, Claude ou ChatGPT — nem quanto custou.
           </p>
           <p className="problem-sub">
-            Times de engenharia adotaram IA generativa mais rápido do que conseguiram instrumentá-la. O board de sprint mostra mais pontos entregues; a fatura da API mostra mais gasto. As duas informações vivem em sistemas diferentes, e raramente alguém as junta por feature, por dev ou por sprint.
+            Times de engenharia adotaram IA generativa mais rápido do que conseguiram
+            instrumentá-la. O board de sprint mostra mais pontos entregues; a fatura da API mostra
+            mais gasto. As duas informações vivem em sistemas diferentes, e raramente alguém as
+            junta por feature, por dev ou por sprint.
           </p>
         </div>
       </section>
@@ -231,8 +244,8 @@ function HomeScreen({ onLogin, onSignup }) {
             O painel, de verdade<span className="accent">.</span>
           </h2>
           <p className="section-lede">
-            Sem maquete. É o backlog de um projeto real, sincronizado do Azure DevOps e
-            montado em árvore pela hierarquia de work items da própria organização.
+            Sem maquete. É o backlog de um projeto real, sincronizado do Azure DevOps e montado em
+            árvore pela hierarquia de work items da própria organização.
           </p>
         </div>
 
@@ -244,7 +257,10 @@ function HomeScreen({ onLogin, onSignup }) {
             <span className="product-frame-url mono">app.andromeda.dev/backlog</span>
           </div>
           <div className="product-frame-body">
-            <img src={backlogPreview} alt="Backlog da Andrômeda em árvore: um Epic com Features, User Stories e Tasks aninhados, cada item com tipo, status e campos de complexidade e esforço" />
+            <img
+              src={backlogPreview}
+              alt="Backlog da Andrômeda em árvore: um Epic com Features, User Stories e Tasks aninhados, cada item com tipo, status e campos de complexidade e esforço"
+            />
           </div>
         </div>
       </section>
@@ -255,9 +271,7 @@ function HomeScreen({ onLogin, onSignup }) {
           <h2 className="serif section-title">
             Quem faz<span className="accent">.</span>
           </h2>
-          <p className="section-lede">
-            Os três autores do TCC que constrói a Andrômeda.
-          </p>
+          <p className="section-lede">Os três autores do TCC que constrói a Andrômeda.</p>
         </div>
 
         <div className="team-grid">
@@ -276,7 +290,9 @@ function HomeScreen({ onLogin, onSignup }) {
       <section className="home-section" id="tcc">
         <div className="tcc-band">
           <p className="tcc-band-text">
-            Andrômeda nasce como Trabalho de Conclusão de Curso em Engenharia de Software — mas construída para uso real, com dados reais, não como maquete acadêmica. Código aberto para banca e parceiros.
+            Andrômeda nasce como Trabalho de Conclusão de Curso em Engenharia de Software — mas
+            construída para uso real, com dados reais, não como maquete acadêmica. Código aberto
+            para banca e parceiros.
           </p>
         </div>
       </section>
@@ -285,7 +301,9 @@ function HomeScreen({ onLogin, onSignup }) {
         <div className="cta-band">
           <div>
             <div className="serif cta-band-title">Pronto para medir o custo real da sua IA?</div>
-            <div className="cta-band-sub">Crie sua conta de administrador e configure sua organização em três passos.</div>
+            <div className="cta-band-sub">
+              Crie sua conta de administrador e configure sua organização em três passos.
+            </div>
           </div>
           <button className="btn btn-lg" onClick={onSignup}>
             Criar conta →
@@ -294,7 +312,9 @@ function HomeScreen({ onLogin, onSignup }) {
       </section>
 
       <footer className="home-foot">
-        <div><Wordmark size="sm" /></div>
+        <div>
+          <Wordmark size="sm" />
+        </div>
         <div className="home-foot-meta mono">
           <span>v0.1 · build 2026.05.15</span>
           <span>TCC · BES</span>
