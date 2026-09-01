@@ -1,7 +1,7 @@
 # features/dashboard
 
-`DashboardView.jsx` = dashboard selecionado + a **pílula flutuante** (menuzinho inferior). Reutilizado pela casca (admin/membro, dentro da `AdminSettings`) e pelo modo **só-dashboard** (sem sidebar, via `App.jsx`).
-Dashboards: individual (`../developer-dashboard/DeveloperDashboard.jsx`) · equipe (`TeamDashboard`) · organização (`ManagerDashboard`). Os três consomem a API real (`/v1/dashboard/*` via `services/api.js`); os antigos protótipos mock (`DevDashboard`, `src/data/mockData.js`) foram removidos.
+`DashboardPage.jsx` = dashboard com barra de filtros recolhível + abas de tipo (Individual/Equipe/Estratégico). Reutilizado pela rota `dashboard` (admin) e pelo modo **só-dashboard** (sem sidebar, via `ShellGate` em `App.jsx`).
+Dashboards: individual (`DeveloperDashboard.jsx`) · equipe (`TeamDashboard`) · organização (`ManagerDashboard`). Os três consomem a API real (`/v1/dashboard/*` via `features/dashboard/api.js`); os antigos protótipos mock (`DevDashboard`, `src/data/mockData.js`) foram removidos. O `developer-dashboard/` foi unificado nesta pasta (`frontend-feature-slices`).
 
 ## Regras (pílula, via prop `dash`)
 A prop `dash` vem de `dashAccess(identity)` em `App.jsx`, derivada dos códigos reais: `dash.individual` ← `DASHBOARD_INDIVIDUAL`, `dash.team` ← `DASHBOARD_TEAM`, `dash.strategic` ← `DASHBOARD_STRATEGIC`.
