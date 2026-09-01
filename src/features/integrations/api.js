@@ -4,6 +4,11 @@ import { api, toQuery } from "../../core/api/client.js";
 
 /* ── Azure DevOps ── */
 
+/** Status da conexão Azure da organização: { status: "CONNECTED" | "DISCONNECTED" | ... }. */
+export function getAzureConnection() {
+  return api.get("/v1/integrations/azure/connection");
+}
+
 /**
  * List Azure DevOps work item types discovered on the bound project, for the
  * onboarding field-mapping wizard.

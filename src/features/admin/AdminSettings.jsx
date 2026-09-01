@@ -1,11 +1,9 @@
 /* Admin Settings — tela de configuração pós-signup */
 
 import React from "react";
-import { Wordmark } from "../../components/Wordmark.jsx";
 import { Icon } from "../../components/charts/Charts.jsx";
 import { DashboardPage } from "../dashboard/DashboardPage.jsx";
 import { IntegrationTab } from "./IntegrationTab.jsx";
-import { ConnectedAccounts } from "./ConnectedAccounts.jsx";
 import { AzureFieldMappingWizard } from "./AzureFieldMappingWizard.jsx";
 import { BacklogPage } from "../backlog/BacklogPage.jsx";
 import { ReposPage } from "../repos/ReposPage.jsx";
@@ -32,6 +30,7 @@ import api, {
   toggleGithubRepoSync,
   unbindGithubRepo,
 } from "../../services/api.js";
+import { useAzureConnectionStatus } from "../integrations/hooks.js";
 
 /* ──────────────────────────────────────────── */
 /*  Helpers                                     */
@@ -41,114 +40,6 @@ import api, {
 const ALL_PERMISSION_CODES = Object.keys(PERMISSION_LABELS).filter(
   (c) => !ALWAYS_ON_PERMISSIONS.includes(c),
 );
-
-/* Ícones de linha (stroke) para o menu lateral. */
-const svgIcon = (children) => (
-  <svg
-    viewBox="0 0 24 24"
-    width="20"
-    height="20"
-    fill="none"
-    stroke="currentColor"
-    strokeWidth="1.6"
-    strokeLinecap="round"
-    strokeLinejoin="round"
-  >
-    {children}
-  </svg>
-);
-const TAB_ICONS = {
-  projects: svgIcon(
-    <path d="M3 7a2 2 0 0 1 2-2h3.6l2 2H19a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z" />,
-  ),
-  team: svgIcon(
-    <>
-      <circle cx="9" cy="8" r="3" />
-      <path d="M2.5 20a6.5 6.5 0 0 1 13 0" />
-      <path d="M16 5.4a3 3 0 0 1 0 5.6" />
-      <path d="M17.5 14.2A6.5 6.5 0 0 1 21.5 20" />
-    </>,
-  ),
-  roles: svgIcon(
-    <>
-      <path d="M12 3l7 3v5c0 4.6-3 7.7-7 9-4-1.3-7-4.4-7-9V6l7-3z" />
-      <path d="M9 12l2 2 4-4.5" />
-    </>,
-  ),
-  seniority: svgIcon(
-    <>
-      <rect x="4" y="13" width="4" height="7" rx="1" />
-      <rect x="10" y="9" width="4" height="11" rx="1" />
-      <rect x="16" y="4" width="4" height="16" rx="1" />
-    </>,
-  ),
-  org: svgIcon(
-    <>
-      <path d="M4 21V4h9v17" />
-      <path d="M13 9.5h7V21" />
-      <path d="M7 8h3M7 12h3M7 16h3M16 13h1.5M16 17h1.5" />
-    </>,
-  ),
-  integrations: svgIcon(
-    <>
-      <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
-      <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
-    </>,
-  ),
-  "uso-ia": svgIcon(
-    <>
-      <path d="M12 2a7 7 0 0 1 7 7c0 2.4-1.2 4.5-3 5.7V17a1 1 0 0 1-1 1H9a1 1 0 0 1-1-1v-2.3C6.2 13.5 5 11.4 5 9a7 7 0 0 1 7-7z" />
-      <path d="M9 21h6M12 17v4" />
-    </>,
-  ),
-  repos: svgIcon(
-    <>
-      <circle cx="6" cy="6" r="2" />
-      <circle cx="6" cy="18" r="2" />
-      <circle cx="18" cy="12" r="2" />
-      <path d="M6 8v8M8 6h5a3 3 0 0 1 3 3v1" />
-    </>,
-  ),
-  backlog: svgIcon(
-    <>
-      <path d="M4 5h16M4 5v14a1 1 0 0 0 1 1h6M4 5l2-2h12l2 2" />
-      <path d="M14 13l3 3 5-5" />
-    </>,
-  ),
-};
-const ICON_DASH = svgIcon(
-  <>
-    <rect x="3" y="3" width="7" height="9" rx="1" />
-    <rect x="14" y="3" width="7" height="5" rx="1" />
-    <rect x="14" y="12" width="7" height="9" rx="1" />
-    <rect x="3" y="16" width="7" height="5" rx="1" />
-  </>,
-);
-const ICON_LOGOUT = svgIcon(
-  <>
-    <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4" />
-    <path d="M16 17l5-5-5-5" />
-    <path d="M21 12H9" />
-  </>,
-);
-const ICON_CHEVRON = svgIcon(<path d="M15 6l-6 6 6 6" />);
-const ICON_USER = svgIcon(
-  <>
-    <circle cx="12" cy="8" r="4" />
-    <path d="M4 20a8 8 0 0 1 16 0" />
-  </>,
-);
-
-const TABS = [
-  { id: "dashboard", label: "Dashboard", icon: ICON_DASH },
-  { id: "backlog", label: "Backlog", icon: TAB_ICONS.backlog },
-  { id: "repos", label: "Repositórios", icon: TAB_ICONS.repos },
-  { id: "projects", label: "Projetos", icon: TAB_ICONS.projects },
-  { id: "team", label: "Pessoas", icon: TAB_ICONS.team },
-  { id: "org", label: "Organização", icon: TAB_ICONS.org },
-  { id: "integrations", label: "Integrações", icon: TAB_ICONS.integrations },
-  { id: "uso-ia", label: "Uso IA", icon: TAB_ICONS["uso-ia"] },
-];
 
 /* Sub-abas da página Organização (Geral é a padrão). */
 const ORG_SUB_TABS = [
@@ -163,12 +54,6 @@ const USO_IA_SUB_TABS = [
   { id: "precificacao", label: "Precificação" },
 ];
 
-const THEME_OPTS = [
-  { id: "default", label: "Cósmica", swatch: "#C68B66" },
-  { id: "mono", label: "Mono", swatch: "#E9E9E9" },
-  { id: "light", label: "Pergaminho", swatch: "#E8D5A8" },
-];
-
 /* ──────────────────────────────────────────── */
 /*  AdminSettings                               */
 /* ──────────────────────────────────────────── */
@@ -179,48 +64,12 @@ function AdminSettings({
   can,
   dash,
   profile,
-  palette,
-  setPalette,
   onNavigate,
   onNavigateSubtab,
-  onLogout,
+  onAzureStatusChange,
 }) {
-  const [collapsed, setCollapsed] = React.useState(false);
-  const [connectionStatus, setConnectionStatus] = React.useState(null);
-  const [bannerDismissed, setBannerDismissed] = React.useState(
-    () => localStorage.getItem("azure_banner_dismissed") === "true",
-  );
-
   /* The logged-in user's id, decoded from the JWT once. */
   const loggedUserId = React.useMemo(() => decodeJwt()?.sub || null, []);
-
-  /* Aplica um status de conexão Azure vindo de qualquer origem (fetch inicial ou
-   * aviso da aba Integrações). Conectar limpa o "dispensado" do banner para que
-   * ele volte a aparecer se a conexão cair depois. */
-  const applyAzureStatus = React.useCallback((status) => {
-    const next = status || "DISCONNECTED";
-    setConnectionStatus(next);
-    if (next === "CONNECTED") {
-      localStorage.removeItem("azure_banner_dismissed");
-      setBannerDismissed(false);
-    }
-  }, []);
-
-  React.useEffect(() => {
-    api
-      .get("/v1/integrations/azure/connection")
-      .then((data) => applyAzureStatus(data?.status))
-      .catch(() => applyAzureStatus("DISCONNECTED"));
-  }, [applyAzureStatus]);
-
-  const dismissBanner = () => {
-    setBannerDismissed(true);
-    localStorage.setItem("azure_banner_dismissed", "true");
-  };
-
-  React.useEffect(() => {
-    setCollapsed(section === "dashboard");
-  }, [section]);
 
   /* ── Cargos ── */
   const [roles, setRoles] = React.useState([]);
@@ -322,6 +171,10 @@ function AdminSettings({
   const [projectSaving, setProjectSaving] = React.useState(false);
   const [fieldMappingWizardBindingId, setFieldMappingWizardBindingId] = React.useState(null);
   const [fieldMappingWizardStep, setFieldMappingWizardStep] = React.useState(null);
+
+  /* Status Azure lido do cache compartilhado (mesma chave do banner do chrome);
+   * o modal de projeto usa para decidir se oferece o seletor de binding Azure. */
+  const { data: connectionStatus = "DISCONNECTED" } = useAzureConnectionStatus();
 
   const fetchProjects = React.useCallback(async () => {
     setProjectsLoading(true);
@@ -791,934 +644,797 @@ function AdminSettings({
   const orgData = org || profile?.org || {};
 
   return (
-    <div className="admin-stage">
-      <div className={"admin-frame" + (collapsed ? " is-collapsed" : "")}>
-        <aside className="admin-side">
-          <div className="admin-side-top">
-            <div className="admin-side-brand">
-              <Wordmark size="md" />
-            </div>
-            <button
-              className="admin-side-collapse"
-              onClick={() => setCollapsed((c) => !c)}
-              aria-label={collapsed ? "Expandir menu" : "Recolher menu"}
-              title={collapsed ? "Expandir menu" : "Recolher menu"}
-            >
-              {ICON_CHEVRON}
-            </button>
-          </div>
+    <>
+      {/* O chrome (sidebar + banner Azure) vive em app/ShellLayout.jsx; aqui só
+          o conteúdo da seção ativa e os modais/overlays que ainda pertencem a ela. */}
+      {section === "integrations" && (
+        <IntegrationTab
+          onNavigate={onNavigate}
+          orgSlug={profile?.org?.slug}
+          can={can}
+          onAzureStatusChange={onAzureStatusChange}
+          onGithubStatusChange={setGithubConnectionStatus}
+        />
+      )}
 
-          <nav className="admin-side-nav">
-            {TABS.filter((t) => can(t.id)).map((t) => (
-              <button
-                key={t.id}
-                className={"admin-side-item" + (section === t.id ? " is-active" : "")}
-                onClick={() => onNavigate(t.id)}
-                title={t.label}
-              >
-                <span className="admin-side-icon">{t.icon}</span>
-                <span className="admin-side-label">{t.label}</span>
-              </button>
-            ))}
-          </nav>
-
-          <div className="admin-side-foot">
-            <button className="admin-side-item" onClick={() => onNavigate("perfil")} title="Perfil">
-              <span className="admin-side-icon">{ICON_USER}</span>
-              <span className="admin-side-label">{profile?.personal?.fullName || "Perfil"}</span>
-            </button>
-            <button
-              className="admin-side-item admin-side-item--action"
-              onClick={onLogout}
-              title="Sair"
-            >
-              <span className="admin-side-icon">{ICON_LOGOUT}</span>
-              <span className="admin-side-label">Sair</span>
-            </button>
-            <div className="admin-side-theme" role="group" aria-label="Trocar tema">
-              <span className="admin-side-theme-label">tema</span>
-              <div className="admin-side-theme-dots">
-                {THEME_OPTS.map((o) => (
-                  <button
-                    key={o.id}
-                    type="button"
-                    className={"admin-theme-dot" + (palette === o.id ? " is-active" : "")}
-                    style={{ "--sw": o.swatch }}
-                    onClick={() => setPalette(o.id)}
-                    title={o.label}
-                    aria-label={o.label}
-                    aria-pressed={palette === o.id}
-                  />
-                ))}
-              </div>
-            </div>
-          </div>
-        </aside>
-
-        <main className="admin-main">
-          {can("integrations") && connectionStatus !== "CONNECTED" && !bannerDismissed && (
-            <div className="integration-banner">
-              <span className="integration-banner-text">
-                Configure o Azure DevOps para ativar a coleta automática de métricas de sprint e
-                work items.
-              </span>
-              <button
-                className="btn integration-banner-cta"
-                onClick={() => {
-                  dismissBanner();
-                  onNavigate("integrations");
-                }}
-              >
-                Configurar →
-              </button>
-              <button
-                className="integration-banner-dismiss"
-                onClick={dismissBanner}
-                aria-label="Dispensar"
-              >
-                ×
-              </button>
-            </div>
-          )}
-
-          {section === "perfil" && (
-            <section>
-              <div className="admin-section-head">
-                <h2 className="serif admin-section-title">Perfil</h2>
-                <p className="admin-section-sub">Suas informações de conta.</p>
-              </div>
-              <div className="admin-fields">
-                {[
-                  { label: "Nome", value: profile?.personal?.fullName },
-                  { label: "E-mail", value: profile?.personal?.email },
-                  { label: "Organização", value: profile?.org?.name },
-                ].map(({ label, value }) => (
-                  <div key={label} className="admin-row">
-                    <div className="admin-row-label">{label}</div>
-                    <div className="admin-row-value">
-                      {value || <span className="admin-row-empty">— vazio —</span>}
-                    </div>
-                  </div>
-                ))}
-              </div>
-
-              <ConnectedAccounts />
-            </section>
-          )}
-
-          {section === "integrations" && (
-            <IntegrationTab
-              onNavigate={onNavigate}
-              orgSlug={profile?.org?.slug}
-              can={can}
-              onAzureStatusChange={applyAzureStatus}
-              onGithubStatusChange={setGithubConnectionStatus}
+      {section === "uso-ia" && (
+        <section>
+          {can("uso-ia-pricing") && (
+            <SubTabs
+              tabs={USO_IA_SUB_TABS}
+              activeId={subtab || "consumo"}
+              onSelect={(id) => onNavigateSubtab && onNavigateSubtab(id)}
             />
           )}
 
-          {section === "uso-ia" && (
-            <section>
-              {can("uso-ia-pricing") && (
-                <SubTabs
-                  tabs={USO_IA_SUB_TABS}
-                  activeId={subtab || "consumo"}
-                  onSelect={(id) => onNavigateSubtab && onNavigateSubtab(id)}
-                />
-              )}
-
-              {subtab === "precificacao" && can("uso-ia-pricing") ? (
-                <AiPricingTab
-                  initialEntries={Array.isArray(orgData.aiPrices) ? orgData.aiPrices : []}
-                  initialSubscriptionCost={orgData.subscriptionCostPerUserUsd ?? null}
-                />
-              ) : (
-                <UsoIaPage can={can} />
-              )}
-            </section>
+          {subtab === "precificacao" && can("uso-ia-pricing") ? (
+            <AiPricingTab
+              initialEntries={Array.isArray(orgData.aiPrices) ? orgData.aiPrices : []}
+              initialSubscriptionCost={orgData.subscriptionCostPerUserUsd ?? null}
+            />
+          ) : (
+            <UsoIaPage can={can} />
           )}
+        </section>
+      )}
 
-          {section === "org" && (
-            <section>
-              <div className="admin-section-head">
-                <h2 className="serif admin-section-title">Organização</h2>
-                <p className="admin-section-sub">
-                  Identidade visível para todos os membros, cargos e níveis de senioridade.
-                </p>
-              </div>
+      {section === "org" && (
+        <section>
+          <div className="admin-section-head">
+            <h2 className="serif admin-section-title">Organização</h2>
+            <p className="admin-section-sub">
+              Identidade visível para todos os membros, cargos e níveis de senioridade.
+            </p>
+          </div>
 
-              <SubTabs
-                tabs={ORG_SUB_TABS}
-                activeId={subtab || "geral"}
-                onSelect={(id) => onNavigateSubtab && onNavigateSubtab(id)}
-              />
+          <SubTabs
+            tabs={ORG_SUB_TABS}
+            activeId={subtab || "geral"}
+            onSelect={(id) => onNavigateSubtab && onNavigateSubtab(id)}
+          />
 
-              {subtab === "cargos" ? (
-                <>
-                  <div className="admin-section-head admin-section-head--row">
-                    <div>
-                      <h3 className="serif admin-section-title">Cargos e Permissões</h3>
-                      <p className="admin-section-sub">
-                        Marque o que cada cargo enxerga na Andrômeda. Clique no nome do cargo para
-                        editar permissões.
-                      </p>
-                    </div>
-                    <button className="btn" onClick={openCreate}>
-                      + Novo cargo
-                    </button>
-                  </div>
-
-                  {rolesError && (
-                    <div
-                      className="admin-placeholder mono"
-                      style={{ color: "var(--danger, #c0392b)" }}
-                    >
-                      {rolesError}{" "}
-                      <button
-                        className="btn"
-                        style={{ marginLeft: "var(--spacing-sm)" }}
-                        onClick={fetchRoles}
-                      >
-                        Tentar novamente
-                      </button>
-                    </div>
-                  )}
-
-                  {!rolesError && (
-                    <div className="signup-perms">
-                      <div className="signup-perms-scroll">
-                        <div
-                          className="signup-perms-grid"
-                          style={{ gridTemplateColumns: permsGridCols }}
-                        >
-                          <div className="signup-perms-head is-corner mono">Cargos</div>
-                          {ALL_PERMISSION_CODES.map((code) => (
-                            <div key={code} className="signup-perms-head mono">
-                              {PERMISSION_LABELS[code]}
-                            </div>
-                          ))}
-                          {rolesLoading ? (
-                            <div
-                              className="member-empty mono"
-                              style={{ gridColumn: `1 / span ${ALL_PERMISSION_CODES.length + 1}` }}
-                            >
-                              Carregando…
-                            </div>
-                          ) : (
-                            roles.map((r, rowIdx) => (
-                              <React.Fragment key={r.id}>
-                                <button
-                                  type="button"
-                                  className={
-                                    "signup-perms-cargo" +
-                                    (rowIdx === 0 ? " is-first" : "") +
-                                    (r.isDefault ? " is-default" : "")
-                                  }
-                                  onClick={() => !r.isDefault && openEdit(r)}
-                                  title={
-                                    r.isDefault ? "Cargo padrão — não editável" : "Editar cargo"
-                                  }
-                                >
-                                  <span className="signup-perms-cargo-name">
-                                    {r.label || r.name}
-                                  </span>
-                                  <span className="signup-perms-cargo-meta">
-                                    <span
-                                      className="signup-perms-cargo-count mono"
-                                      title={`${roleCount(r.id)} ${roleCount(r.id) === 1 ? "pessoa" : "pessoas"}`}
-                                    >
-                                      {roleCount(r.id)}
-                                    </span>
-                                    {!r.isDefault && (
-                                      <span className="signup-perms-cargo-edit mono">editar</span>
-                                    )}
-                                  </span>
-                                </button>
-                                {ALL_PERMISSION_CODES.map((code) => {
-                                  const on = !!rolePerms[r.id]?.has(code);
-                                  return (
-                                    <label
-                                      key={code}
-                                      className={
-                                        "signup-perms-cell" +
-                                        (on ? " is-on" : "") +
-                                        (rowIdx === 0 ? " is-first" : "") +
-                                        (r.isDefault ? " is-locked" : "")
-                                      }
-                                      aria-label={`${r.name} · ${PERMISSION_LABELS[code]}`}
-                                    >
-                                      <input
-                                        type="checkbox"
-                                        checked={on}
-                                        disabled={r.isDefault}
-                                        onChange={() => {
-                                          if (r.isDefault) return;
-                                          setRolePerms((prev) => {
-                                            const next = new Set(prev[r.id] || []);
-                                            if (next.has(code)) next.delete(code);
-                                            else next.add(code);
-                                            return { ...prev, [r.id]: next };
-                                          });
-                                        }}
-                                      />
-                                      <span className="signup-perms-check" aria-hidden="true">
-                                        {on ? "✓" : ""}
-                                      </span>
-                                    </label>
-                                  );
-                                })}
-                              </React.Fragment>
-                            ))
-                          )}
-                        </div>
-                      </div>
-                      <p className="signup-step-footer mono">
-                        Cargos padrão não podem ser editados ou excluídos. As alterações na matriz
-                        são salvas ao clicar em "Salvar alterações" no modal do cargo.
-                      </p>
-                    </div>
-                  )}
-                </>
-              ) : subtab === "senioridade" ? (
-                <>
-                  <div className="admin-section-head admin-section-head--row">
-                    <div>
-                      <h3 className="serif admin-section-title">Senioridade</h3>
-                      <p className="admin-section-sub">
-                        Defina os níveis de senioridade da organização.
-                      </p>
-                    </div>
-                    <button className="btn" onClick={openCreateSeniority}>
-                      + Novo nível
-                    </button>
-                  </div>
-
-                  {senioritiesError && (
-                    <div
-                      className="admin-placeholder mono"
-                      style={{ color: "var(--danger, #c0392b)" }}
-                    >
-                      {senioritiesError}{" "}
-                      <button
-                        className="btn"
-                        style={{ marginLeft: "var(--spacing-sm)" }}
-                        onClick={fetchSeniorities}
-                      >
-                        Tentar novamente
-                      </button>
-                    </div>
-                  )}
-
-                  {!senioritiesError &&
-                    (senioritiesLoading ? (
-                      <div className="admin-placeholder mono">Carregando…</div>
-                    ) : (
-                      <div className="role-list role-list--cols">
-                        {seniorities.map((s) => (
-                          <button
-                            key={s.id}
-                            type="button"
-                            className="role-card role-card--clickable"
-                            onClick={() => openEditSeniority(s)}
-                          >
-                            <div className="role-card-main">
-                              <div className="role-card-head">
-                                <div className="serif role-card-name">{s.name}</div>
-                              </div>
-                            </div>
-                            <span className="edit-hint role-card-manage">editar</span>
-                          </button>
-                        ))}
-                      </div>
-                    ))}
-                </>
-              ) : (
-                <div className="admin-fields">
-                  <AdminRow label="Nome da organização" value={orgData.name} />
-                  <AdminRow label="Identificador" value={orgData.slug} mono />
-                  <AdminRow
-                    label="URL"
-                    value={orgData.slug ? orgUrlLabel(orgData.slug) : null}
-                    mono
-                  />
-                  <AdminRow label="Setor" value={orgData.sector} />
-                  <AdminRow label="País" value={orgData.country} />
-                </div>
-              )}
-            </section>
-          )}
-
-          {section === "team" && (
-            <section>
+          {subtab === "cargos" ? (
+            <>
               <div className="admin-section-head admin-section-head--row">
                 <div>
-                  <h2 className="serif admin-section-title">Pessoas</h2>
+                  <h3 className="serif admin-section-title">Cargos e Permissões</h3>
                   <p className="admin-section-sub">
-                    {membersLoading
-                      ? "Carregando…"
-                      : `${members.length} ${members.length === 1 ? "pessoa na organização" : "pessoas na organização"}.`}
+                    Marque o que cada cargo enxerga na Andrômeda. Clique no nome do cargo para
+                    editar permissões.
                   </p>
                 </div>
-                <button className="btn" onClick={openInvite}>
-                  + Convidar pessoas
+                <button className="btn" onClick={openCreate}>
+                  + Novo cargo
                 </button>
               </div>
 
-              {membersError && (
+              {rolesError && (
                 <div className="admin-placeholder mono" style={{ color: "var(--danger, #c0392b)" }}>
-                  {membersError}{" "}
+                  {rolesError}{" "}
                   <button
                     className="btn"
                     style={{ marginLeft: "var(--spacing-sm)" }}
-                    onClick={fetchMembers}
+                    onClick={fetchRoles}
                   >
                     Tentar novamente
                   </button>
                 </div>
               )}
 
-              {!membersError && (
-                <>
-                  <div className="admin-search">
-                    <span className="admin-search-icon" aria-hidden="true">
-                      ⌕
-                    </span>
+              {!rolesError && (
+                <div className="signup-perms">
+                  <div className="signup-perms-scroll">
+                    <div
+                      className="signup-perms-grid"
+                      style={{ gridTemplateColumns: permsGridCols }}
+                    >
+                      <div className="signup-perms-head is-corner mono">Cargos</div>
+                      {ALL_PERMISSION_CODES.map((code) => (
+                        <div key={code} className="signup-perms-head mono">
+                          {PERMISSION_LABELS[code]}
+                        </div>
+                      ))}
+                      {rolesLoading ? (
+                        <div
+                          className="member-empty mono"
+                          style={{ gridColumn: `1 / span ${ALL_PERMISSION_CODES.length + 1}` }}
+                        >
+                          Carregando…
+                        </div>
+                      ) : (
+                        roles.map((r, rowIdx) => (
+                          <React.Fragment key={r.id}>
+                            <button
+                              type="button"
+                              className={
+                                "signup-perms-cargo" +
+                                (rowIdx === 0 ? " is-first" : "") +
+                                (r.isDefault ? " is-default" : "")
+                              }
+                              onClick={() => !r.isDefault && openEdit(r)}
+                              title={r.isDefault ? "Cargo padrão — não editável" : "Editar cargo"}
+                            >
+                              <span className="signup-perms-cargo-name">{r.label || r.name}</span>
+                              <span className="signup-perms-cargo-meta">
+                                <span
+                                  className="signup-perms-cargo-count mono"
+                                  title={`${roleCount(r.id)} ${roleCount(r.id) === 1 ? "pessoa" : "pessoas"}`}
+                                >
+                                  {roleCount(r.id)}
+                                </span>
+                                {!r.isDefault && (
+                                  <span className="signup-perms-cargo-edit mono">editar</span>
+                                )}
+                              </span>
+                            </button>
+                            {ALL_PERMISSION_CODES.map((code) => {
+                              const on = !!rolePerms[r.id]?.has(code);
+                              return (
+                                <label
+                                  key={code}
+                                  className={
+                                    "signup-perms-cell" +
+                                    (on ? " is-on" : "") +
+                                    (rowIdx === 0 ? " is-first" : "") +
+                                    (r.isDefault ? " is-locked" : "")
+                                  }
+                                  aria-label={`${r.name} · ${PERMISSION_LABELS[code]}`}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={on}
+                                    disabled={r.isDefault}
+                                    onChange={() => {
+                                      if (r.isDefault) return;
+                                      setRolePerms((prev) => {
+                                        const next = new Set(prev[r.id] || []);
+                                        if (next.has(code)) next.delete(code);
+                                        else next.add(code);
+                                        return { ...prev, [r.id]: next };
+                                      });
+                                    }}
+                                  />
+                                  <span className="signup-perms-check" aria-hidden="true">
+                                    {on ? "✓" : ""}
+                                  </span>
+                                </label>
+                              );
+                            })}
+                          </React.Fragment>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                  <p className="signup-step-footer mono">
+                    Cargos padrão não podem ser editados ou excluídos. As alterações na matriz são
+                    salvas ao clicar em "Salvar alterações" no modal do cargo.
+                  </p>
+                </div>
+              )}
+            </>
+          ) : subtab === "senioridade" ? (
+            <>
+              <div className="admin-section-head admin-section-head--row">
+                <div>
+                  <h3 className="serif admin-section-title">Senioridade</h3>
+                  <p className="admin-section-sub">
+                    Defina os níveis de senioridade da organização.
+                  </p>
+                </div>
+                <button className="btn" onClick={openCreateSeniority}>
+                  + Novo nível
+                </button>
+              </div>
+
+              {senioritiesError && (
+                <div className="admin-placeholder mono" style={{ color: "var(--danger, #c0392b)" }}>
+                  {senioritiesError}{" "}
+                  <button
+                    className="btn"
+                    style={{ marginLeft: "var(--spacing-sm)" }}
+                    onClick={fetchSeniorities}
+                  >
+                    Tentar novamente
+                  </button>
+                </div>
+              )}
+
+              {!senioritiesError &&
+                (senioritiesLoading ? (
+                  <div className="admin-placeholder mono">Carregando…</div>
+                ) : (
+                  <div className="role-list role-list--cols">
+                    {seniorities.map((s) => (
+                      <button
+                        key={s.id}
+                        type="button"
+                        className="role-card role-card--clickable"
+                        onClick={() => openEditSeniority(s)}
+                      >
+                        <div className="role-card-main">
+                          <div className="role-card-head">
+                            <div className="serif role-card-name">{s.name}</div>
+                          </div>
+                        </div>
+                        <span className="edit-hint role-card-manage">editar</span>
+                      </button>
+                    ))}
+                  </div>
+                ))}
+            </>
+          ) : (
+            <div className="admin-fields">
+              <AdminRow label="Nome da organização" value={orgData.name} />
+              <AdminRow label="Identificador" value={orgData.slug} mono />
+              <AdminRow label="URL" value={orgData.slug ? orgUrlLabel(orgData.slug) : null} mono />
+              <AdminRow label="Setor" value={orgData.sector} />
+              <AdminRow label="País" value={orgData.country} />
+            </div>
+          )}
+        </section>
+      )}
+
+      {section === "team" && (
+        <section>
+          <div className="admin-section-head admin-section-head--row">
+            <div>
+              <h2 className="serif admin-section-title">Pessoas</h2>
+              <p className="admin-section-sub">
+                {membersLoading
+                  ? "Carregando…"
+                  : `${members.length} ${members.length === 1 ? "pessoa na organização" : "pessoas na organização"}.`}
+              </p>
+            </div>
+            <button className="btn" onClick={openInvite}>
+              + Convidar pessoas
+            </button>
+          </div>
+
+          {membersError && (
+            <div className="admin-placeholder mono" style={{ color: "var(--danger, #c0392b)" }}>
+              {membersError}{" "}
+              <button
+                className="btn"
+                style={{ marginLeft: "var(--spacing-sm)" }}
+                onClick={fetchMembers}
+              >
+                Tentar novamente
+              </button>
+            </div>
+          )}
+
+          {!membersError && (
+            <>
+              <div className="admin-search">
+                <span className="admin-search-icon" aria-hidden="true">
+                  ⌕
+                </span>
+                <input
+                  className="admin-search-input"
+                  type="text"
+                  value={memberSearch}
+                  placeholder="Buscar por nome, email, cargo ou status…"
+                  onChange={(e) => setMemberSearch(e.target.value)}
+                />
+              </div>
+
+              <div className="member-table">
+                <div className="member-row member-row--head mono">
+                  <div>Nome</div>
+                  <div>Email</div>
+                  <div>Cargo</div>
+                  <div>Status</div>
+                  <div></div>
+                </div>
+                {membersLoading ? (
+                  <div className="member-empty mono">Carregando…</div>
+                ) : visibleMembers.length === 0 ? (
+                  <div className="member-empty mono">nenhuma pessoa encontrada</div>
+                ) : (
+                  visibleMembers.map((m) => (
+                    <button
+                      key={m.id}
+                      type="button"
+                      className="member-row member-row--clickable"
+                      onClick={() => openMemberEdit(m)}
+                    >
+                      <div className={"member-cell-name" + (m.name ? "" : " is-empty")}>
+                        {m.name ? m.name : <span className="mono">— convite pendente —</span>}
+                      </div>
+                      <div className="member-cell-email mono">{m.email}</div>
+                      <div className="member-cell-role">{roleName(m.roleId)}</div>
+                      <div>
+                        {m.name == null ? (
+                          <span className="member-status member-status--pendente">
+                            <span className="member-status-dot"></span>
+                            Convite pendente
+                          </span>
+                        ) : (
+                          <span
+                            className={
+                              "member-status member-status--" +
+                              (m.active === false ? "desativado" : "ativo")
+                            }
+                          >
+                            <span className="member-status-dot"></span>
+                            {m.active === false ? "desativado" : "ativo"}
+                          </span>
+                        )}
+                      </div>
+                      <div className="member-cell-edit">
+                        <span className="edit-hint">editar</span>
+                      </div>
+                    </button>
+                  ))
+                )}
+              </div>
+            </>
+          )}
+        </section>
+      )}
+
+      {section === "projects" && (
+        <section className="projects-section">
+          <div className="admin-section-head admin-section-head--row">
+            <div>
+              <h2 className="serif admin-section-title">Projetos</h2>
+              <p className="admin-section-sub">
+                Gerencie as pessoas, descrição e integrações de cada projeto da organização.
+              </p>
+            </div>
+            <div className="admin-head-actions">
+              <div className="signup-select admin-filter-select">
+                <select
+                  value={projectFilter}
+                  onChange={(e) => setProjectFilter(e.target.value)}
+                  aria-label="Filtrar projetos por status"
+                >
+                  <option value="ativo">Ativos</option>
+                  <option value="finalizado">Finalizados</option>
+                  <option value="todos">Todos</option>
+                </select>
+                <span className="signup-select-caret">▾</span>
+              </div>
+              <button className="btn" onClick={openCreateProject}>
+                + Novo projeto
+              </button>
+            </div>
+          </div>
+
+          {projectsError && (
+            <div className="admin-placeholder mono projects-error">
+              {projectsError}{" "}
+              <button
+                className="btn"
+                style={{ marginLeft: "var(--spacing-sm)" }}
+                onClick={fetchProjects}
+              >
+                Tentar novamente
+              </button>
+            </div>
+          )}
+
+          {!projectsError && projectsLoading && (
+            <div className="projects-grid" aria-hidden="true">
+              {[0, 1, 2].map((i) => (
+                <div key={i} className="project-card project-card--skeleton">
+                  <div className="skel skel-title" />
+                  <div className="skel skel-line" />
+                  <div className="skel skel-line" style={{ width: "60%" }} />
+                  <div className="project-card-foot">
+                    <div className="skel skel-avatar" />
+                    <div className="skel skel-pill" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {!projectsError &&
+            !projectsLoading &&
+            visibleProjects.length === 0 &&
+            (projects.length === 0 ? (
+              <div className="projects-empty-state">
+                <div className="projects-empty-icon" aria-hidden="true">
+                  <Icon name="azure" size={28} color="var(--fg-dim)" />
+                </div>
+                <h3 className="serif projects-empty-title">Nenhum projeto ainda</h3>
+                <p className="projects-empty-sub mono">
+                  Crie o primeiro projeto da organização para começar a vincular pessoas,
+                  repositórios e boards.
+                </p>
+                <button className="btn" onClick={openCreateProject}>
+                  + Novo projeto
+                </button>
+              </div>
+            ) : (
+              <div className="projects-empty-state">
+                <h3 className="serif projects-empty-title">
+                  Nenhum projeto {projectFilter === "ativo" ? "ativo" : "finalizado"}
+                </h3>
+                <p className="projects-empty-sub mono">
+                  {projectFilter === "ativo"
+                    ? "Todos os projetos desta organização estão finalizados."
+                    : "Nenhum projeto foi finalizado até agora."}
+                </p>
+                <button className="btn-ghost btn" onClick={() => setProjectFilter("todos")}>
+                  Ver todos os projetos
+                </button>
+              </div>
+            ))}
+
+          {!projectsError && !projectsLoading && visibleProjects.length > 0 && (
+            <div className="projects-grid">
+              {visibleProjects.map((p) => {
+                const isActive = p.active !== false && (p.status || "ativo") !== "finalizado";
+                const memberIds = Array.isArray(p.memberIds) ? p.memberIds : [];
+                const memberCount = memberIds.length;
+                const cardMembers = members.filter((m) => memberIds.includes(m.id)).slice(0, 4);
+                const azureBound = azureBindings.some((b) => b.projectId === p.id);
+                const githubBound = githubBindings.some((b) => b.projectId === p.id);
+                const isSelected = editingProject?.id === p.id;
+                return (
+                  <button
+                    key={p.id}
+                    type="button"
+                    className={"project-card" + (isSelected ? " is-selected" : "")}
+                    onClick={() => openProject(p)}
+                  >
+                    <div className="project-card-top">
+                      <span
+                        className={
+                          "project-status-tag project-status-tag--" +
+                          (isActive ? "ativo" : "finalizado")
+                        }
+                      >
+                        <span className="project-status-tag-dot" />
+                        {isActive ? "ativo" : "finalizado"}
+                      </span>
+                    </div>
+
+                    <div className="project-card-name serif">{p.name}</div>
+                    {p.description ? (
+                      <p className="project-card-desc mono">{p.description}</p>
+                    ) : (
+                      <p className="project-card-desc project-card-desc--empty mono">
+                        sem descrição
+                      </p>
+                    )}
+
+                    <div className="project-card-integrations">
+                      <span className={"project-card-chip" + (githubBound ? " is-linked" : "")}>
+                        <Icon name="github" size={13} color="currentColor" />
+                        GitHub
+                      </span>
+                      <span className={"project-card-chip" + (azureBound ? " is-linked" : "")}>
+                        <Icon name="azure" size={13} color="currentColor" />
+                        Azure DevOps
+                      </span>
+                    </div>
+
+                    <div className="project-card-foot">
+                      {memberCount > 0 ? (
+                        <div className="project-card-avatars">
+                          {cardMembers.map((m) => (
+                            <span
+                              key={m.id}
+                              className="dev-avatar project-card-avatar"
+                              title={m.name || m.email}
+                            >
+                              {(m.name || m.email || "?").trim().charAt(0).toUpperCase()}
+                            </span>
+                          ))}
+                          {memberCount > cardMembers.length && (
+                            <span className="dev-avatar project-card-avatar project-card-avatar--more">
+                              +{memberCount - cardMembers.length}
+                            </span>
+                          )}
+                        </div>
+                      ) : (
+                        <span className="project-card-no-members mono">sem pessoas vinculadas</span>
+                      )}
+                      <span className="project-card-open mono">editar →</span>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
+
+          {/* ── Painel de detalhe ── */}
+          {editingProject && (
+            <div className="project-detail-overlay" onClick={closeProject}>
+              <div
+                className="project-detail-panel project-detail-panel--modal"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <button
+                  type="button"
+                  className="project-detail-close"
+                  onClick={closeProject}
+                  aria-label="Fechar"
+                >
+                  ×
+                </button>
+                <div className="project-detail-content">
+                  <div className="project-detail-head">
+                    <div className="project-head-top">
+                      <div className="admin-eyebrow mono">
+                        {editingProject.id ? "gerenciar projeto" : "novo projeto"}
+                      </div>
+                      {editingProject.id && (
+                        <div
+                          className={
+                            "signup-select project-status-select is-" +
+                            (editingProject.active === false ||
+                            editingProject.status === "finalizado"
+                              ? "finalizado"
+                              : "ativo")
+                          }
+                        >
+                          <select
+                            value={
+                              editingProject.active === false ||
+                              editingProject.status === "finalizado"
+                                ? "finalizado"
+                                : "ativo"
+                            }
+                            onChange={(e) => onProjectStatusAction(e.target.value)}
+                            aria-label="Status do projeto"
+                          >
+                            {editingProject.active !== false &&
+                            editingProject.status !== "finalizado" ? (
+                              <>
+                                <option value="ativo">Status: Ativo</option>
+                                <option value="__finalize">Finalizar projeto</option>
+                              </>
+                            ) : (
+                              <>
+                                <option value="finalizado">Status: Finalizado</option>
+                                <option value="__reactivate">Reativar projeto</option>
+                              </>
+                            )}
+                            <option value="__delete">Excluir projeto</option>
+                          </select>
+                          <span className="signup-select-caret">▾</span>
+                        </div>
+                      )}
+                    </div>
                     <input
-                      className="admin-search-input"
+                      className="project-name-input serif"
                       type="text"
-                      value={memberSearch}
-                      placeholder="Buscar por nome, email, cargo ou status…"
-                      onChange={(e) => setMemberSearch(e.target.value)}
+                      autoFocus={!editingProject.id}
+                      value={editingProject.name}
+                      placeholder="Nome do novo projeto"
+                      onChange={(e) =>
+                        setEditingProject({ ...editingProject, name: e.target.value })
+                      }
                     />
                   </div>
 
-                  <div className="member-table">
-                    <div className="member-row member-row--head mono">
-                      <div>Nome</div>
-                      <div>Email</div>
-                      <div>Cargo</div>
-                      <div>Status</div>
-                      <div></div>
-                    </div>
-                    {membersLoading ? (
-                      <div className="member-empty mono">Carregando…</div>
-                    ) : visibleMembers.length === 0 ? (
-                      <div className="member-empty mono">nenhuma pessoa encontrada</div>
-                    ) : (
-                      visibleMembers.map((m) => (
-                        <button
-                          key={m.id}
-                          type="button"
-                          className="member-row member-row--clickable"
-                          onClick={() => openMemberEdit(m)}
-                        >
-                          <div className={"member-cell-name" + (m.name ? "" : " is-empty")}>
-                            {m.name ? m.name : <span className="mono">— convite pendente —</span>}
-                          </div>
-                          <div className="member-cell-email mono">{m.email}</div>
-                          <div className="member-cell-role">{roleName(m.roleId)}</div>
-                          <div>
-                            {m.name == null ? (
-                              <span className="member-status member-status--pendente">
-                                <span className="member-status-dot"></span>
-                                Convite pendente
-                              </span>
-                            ) : (
-                              <span
-                                className={
-                                  "member-status member-status--" +
-                                  (m.active === false ? "desativado" : "ativo")
-                                }
-                              >
-                                <span className="member-status-dot"></span>
-                                {m.active === false ? "desativado" : "ativo"}
-                              </span>
-                            )}
-                          </div>
-                          <div className="member-cell-edit">
-                            <span className="edit-hint">editar</span>
-                          </div>
-                        </button>
-                      ))
-                    )}
-                  </div>
-                </>
-              )}
-            </section>
-          )}
+                  <div className="project-detail-body">
+                    <label className="ui-field">
+                      <span className="ui-field-label">Descrição</span>
+                      <textarea
+                        className="ui-field-input"
+                        rows={2}
+                        value={editingProject.description || ""}
+                        placeholder="Para que serve este projeto?"
+                        onChange={(e) =>
+                          setEditingProject({ ...editingProject, description: e.target.value })
+                        }
+                      />
+                    </label>
 
-          {section === "projects" && (
-            <section className="projects-section">
-              <div className="admin-section-head admin-section-head--row">
-                <div>
-                  <h2 className="serif admin-section-title">Projetos</h2>
-                  <p className="admin-section-sub">
-                    Gerencie as pessoas, descrição e integrações de cada projeto da organização.
-                  </p>
-                </div>
-                <div className="admin-head-actions">
-                  <div className="signup-select admin-filter-select">
-                    <select
-                      value={projectFilter}
-                      onChange={(e) => setProjectFilter(e.target.value)}
-                      aria-label="Filtrar projetos por status"
-                    >
-                      <option value="ativo">Ativos</option>
-                      <option value="finalizado">Finalizados</option>
-                      <option value="todos">Todos</option>
-                    </select>
-                    <span className="signup-select-caret">▾</span>
-                  </div>
-                  <button className="btn" onClick={openCreateProject}>
-                    + Novo projeto
-                  </button>
-                </div>
-              </div>
-
-              {projectsError && (
-                <div className="admin-placeholder mono projects-error">
-                  {projectsError}{" "}
-                  <button
-                    className="btn"
-                    style={{ marginLeft: "var(--spacing-sm)" }}
-                    onClick={fetchProjects}
-                  >
-                    Tentar novamente
-                  </button>
-                </div>
-              )}
-
-              {!projectsError && projectsLoading && (
-                <div className="projects-grid" aria-hidden="true">
-                  {[0, 1, 2].map((i) => (
-                    <div key={i} className="project-card project-card--skeleton">
-                      <div className="skel skel-title" />
-                      <div className="skel skel-line" />
-                      <div className="skel skel-line" style={{ width: "60%" }} />
-                      <div className="project-card-foot">
-                        <div className="skel skel-avatar" />
-                        <div className="skel skel-pill" />
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              {!projectsError &&
-                !projectsLoading &&
-                visibleProjects.length === 0 &&
-                (projects.length === 0 ? (
-                  <div className="projects-empty-state">
-                    <div className="projects-empty-icon" aria-hidden="true">
-                      <Icon name="azure" size={28} color="var(--fg-dim)" />
-                    </div>
-                    <h3 className="serif projects-empty-title">Nenhum projeto ainda</h3>
-                    <p className="projects-empty-sub mono">
-                      Crie o primeiro projeto da organização para começar a vincular pessoas,
-                      repositórios e boards.
-                    </p>
-                    <button className="btn" onClick={openCreateProject}>
-                      + Novo projeto
-                    </button>
-                  </div>
-                ) : (
-                  <div className="projects-empty-state">
-                    <h3 className="serif projects-empty-title">
-                      Nenhum projeto {projectFilter === "ativo" ? "ativo" : "finalizado"}
-                    </h3>
-                    <p className="projects-empty-sub mono">
-                      {projectFilter === "ativo"
-                        ? "Todos os projetos desta organização estão finalizados."
-                        : "Nenhum projeto foi finalizado até agora."}
-                    </p>
-                    <button className="btn-ghost btn" onClick={() => setProjectFilter("todos")}>
-                      Ver todos os projetos
-                    </button>
-                  </div>
-                ))}
-
-              {!projectsError && !projectsLoading && visibleProjects.length > 0 && (
-                <div className="projects-grid">
-                  {visibleProjects.map((p) => {
-                    const isActive = p.active !== false && (p.status || "ativo") !== "finalizado";
-                    const memberIds = Array.isArray(p.memberIds) ? p.memberIds : [];
-                    const memberCount = memberIds.length;
-                    const cardMembers = members.filter((m) => memberIds.includes(m.id)).slice(0, 4);
-                    const azureBound = azureBindings.some((b) => b.projectId === p.id);
-                    const githubBound = githubBindings.some((b) => b.projectId === p.id);
-                    const isSelected = editingProject?.id === p.id;
-                    return (
-                      <button
-                        key={p.id}
-                        type="button"
-                        className={"project-card" + (isSelected ? " is-selected" : "")}
-                        onClick={() => openProject(p)}
-                      >
-                        <div className="project-card-top">
-                          <span
-                            className={
-                              "project-status-tag project-status-tag--" +
-                              (isActive ? "ativo" : "finalizado")
+                    <div className="project-links">
+                      <GithubBindingsSection
+                        connectionStatus={githubConnectionStatus}
+                        projectId={editingProject.id}
+                        onNavigate={onNavigate}
+                        onOrgBindingsChanged={refreshGithubBindings}
+                      />
+                      <AzureProjectSelect
+                        connectionStatus={connectionStatus}
+                        adoProjects={adoProjects}
+                        adoProjectsError={adoProjectsError}
+                        adoBinding={adoBinding}
+                        adoBindingId={
+                          azureBindings.find((b) => b.projectId === editingProject.id)?.id || null
+                        }
+                        projectId={editingProject.id}
+                        onNavigate={onNavigate}
+                        onChange={async (azureProjectId, azureProjectName) => {
+                          setAdoBinding(azureProjectId);
+                          if (editingProject.id) {
+                            try {
+                              const binding = await api.post(
+                                `/v1/integrations/azure/projects/${editingProject.id}/binding`,
+                                { azureProjectId, azureProjectName },
+                              );
+                              setAzureBindings((prev) => {
+                                const without = prev.filter(
+                                  (b) => b.projectId !== editingProject.id,
+                                );
+                                return [
+                                  ...without,
+                                  {
+                                    projectId: editingProject.id,
+                                    azureProjectId,
+                                    azureProjectName,
+                                    id: binding?.id,
+                                  },
+                                ];
+                              });
+                              // Onboarding: show the field-mapping wizard once per new binding,
+                              // before the first sync would otherwise pick up defaults silently.
+                              if (binding?.id) setFieldMappingWizardBindingId(binding.id);
+                            } catch (_) {
+                              /* ignore */
                             }
-                          >
-                            <span className="project-status-tag-dot" />
-                            {isActive ? "ativo" : "finalizado"}
-                          </span>
-                        </div>
+                          }
+                        }}
+                        onRemove={async () => {
+                          if (editingProject.id) {
+                            try {
+                              await api.delete(
+                                `/v1/integrations/azure/projects/${editingProject.id}/binding`,
+                              );
+                              setAdoBinding("");
+                              setAzureBindings((prev) =>
+                                prev.filter((b) => b.projectId !== editingProject.id),
+                              );
+                            } catch (_) {
+                              /* ignore */
+                            }
+                          }
+                        }}
+                        onConfigureMapping={(bindingId) => {
+                          setFieldMappingWizardBindingId(bindingId);
+                          setFieldMappingWizardStep(null);
+                        }}
+                      />
+                    </div>
 
-                        <div className="project-card-name serif">{p.name}</div>
-                        {p.description ? (
-                          <p className="project-card-desc mono">{p.description}</p>
+                    <div className="ui-field">
+                      <span className="ui-field-label">
+                        Pessoas no projeto · {(editingProject.memberIds || []).length}
+                      </span>
+
+                      {/* ── Current members table ── */}
+                      <div className="project-members-table">
+                        {(editingProject.memberIds || []).length === 0 ? (
+                          <div className="project-people-empty mono">nenhum membro adicionado</div>
                         ) : (
-                          <p className="project-card-desc project-card-desc--empty mono">
-                            sem descrição
-                          </p>
-                        )}
-
-                        <div className="project-card-integrations">
-                          <span className={"project-card-chip" + (githubBound ? " is-linked" : "")}>
-                            <Icon name="github" size={13} color="currentColor" />
-                            GitHub
-                          </span>
-                          <span className={"project-card-chip" + (azureBound ? " is-linked" : "")}>
-                            <Icon name="azure" size={13} color="currentColor" />
-                            Azure DevOps
-                          </span>
-                        </div>
-
-                        <div className="project-card-foot">
-                          {memberCount > 0 ? (
-                            <div className="project-card-avatars">
-                              {cardMembers.map((m) => (
-                                <span
-                                  key={m.id}
-                                  className="dev-avatar project-card-avatar"
-                                  title={m.name || m.email}
-                                >
-                                  {(m.name || m.email || "?").trim().charAt(0).toUpperCase()}
-                                </span>
-                              ))}
-                              {memberCount > cardMembers.length && (
-                                <span className="dev-avatar project-card-avatar project-card-avatar--more">
-                                  +{memberCount - cardMembers.length}
-                                </span>
-                              )}
+                          <>
+                            <div className="project-members-head mono">
+                              <div>Nome</div>
+                              <div>Vínculo Azure</div>
+                              <div></div>
                             </div>
-                          ) : (
-                            <span className="project-card-no-members mono">
-                              sem pessoas vinculadas
-                            </span>
-                          )}
-                          <span className="project-card-open mono">editar →</span>
-                        </div>
-                      </button>
-                    );
-                  })}
-                </div>
-              )}
+                            {projectPeople
+                              .filter((u) => (editingProject.memberIds || []).includes(u.id))
+                              .map((u) => (
+                                <div key={u.id} className="project-members-row">
+                                  <div className="project-members-identity">
+                                    <span className="project-members-name">{u.name}</span>
+                                    <span className="project-members-email mono">{u.email}</span>
+                                  </div>
+                                  <div className="project-members-azure">
+                                    {u.azureEmail ? (
+                                      <span className="project-person-azure-bound mono">
+                                        {u.azureEmail}
+                                      </span>
+                                    ) : (
+                                      <span className="project-members-unbound">
+                                        <span className="project-members-unbound-text mono">
+                                          Não vinculado
+                                        </span>
+                                        <button
+                                          type="button"
+                                          className="project-person-azure-link mono"
+                                          onClick={() => onNavigate("team")}
+                                          title="Ir para Pessoas para configurar a vinculação Azure"
+                                        >
+                                          Vincular no Pessoas →
+                                        </button>
+                                      </span>
+                                    )}
+                                  </div>
+                                  <div className="project-members-actions">
+                                    <button
+                                      type="button"
+                                      className="project-members-remove btn-ghost btn"
+                                      onClick={() => toggleProjectMember(u.id)}
+                                      aria-label={`Remover ${u.name} do projeto`}
+                                      title="Remover do projeto"
+                                    >
+                                      ×
+                                    </button>
+                                  </div>
+                                </div>
+                              ))}
+                          </>
+                        )}
+                      </div>
 
-              {/* ── Painel de detalhe ── */}
-              {editingProject && (
-                <div className="project-detail-overlay" onClick={closeProject}>
-                  <div
-                    className="project-detail-panel project-detail-panel--modal"
-                    onClick={(e) => e.stopPropagation()}
-                  >
-                    <button
-                      type="button"
-                      className="project-detail-close"
-                      onClick={closeProject}
-                      aria-label="Fechar"
-                    >
-                      ×
-                    </button>
-                    <div className="project-detail-content">
-                      <div className="project-detail-head">
-                        <div className="project-head-top">
-                          <div className="admin-eyebrow mono">
-                            {editingProject.id ? "gerenciar projeto" : "novo projeto"}
-                          </div>
-                          {editingProject.id && (
-                            <div
-                              className={
-                                "signup-select project-status-select is-" +
-                                (editingProject.active === false ||
-                                editingProject.status === "finalizado"
-                                  ? "finalizado"
-                                  : "ativo")
-                              }
-                            >
+                      {/* ── Add member row ── */}
+                      {(() => {
+                        const currentIds = editingProject.memberIds || [];
+                        const available = projectPeople.filter((u) => !currentIds.includes(u.id));
+                        if (available.length === 0) return null;
+                        return (
+                          <div className="project-members-add">
+                            <div className="signup-select project-members-add-select">
                               <select
-                                value={
-                                  editingProject.active === false ||
-                                  editingProject.status === "finalizado"
-                                    ? "finalizado"
-                                    : "ativo"
-                                }
-                                onChange={(e) => onProjectStatusAction(e.target.value)}
-                                aria-label="Status do projeto"
+                                value={addMemberSelectId}
+                                onChange={(e) => setAddMemberSelectId(e.target.value)}
+                                aria-label="Selecionar pessoa para adicionar"
                               >
-                                {editingProject.active !== false &&
-                                editingProject.status !== "finalizado" ? (
-                                  <>
-                                    <option value="ativo">Status: Ativo</option>
-                                    <option value="__finalize">Finalizar projeto</option>
-                                  </>
-                                ) : (
-                                  <>
-                                    <option value="finalizado">Status: Finalizado</option>
-                                    <option value="__reactivate">Reativar projeto</option>
-                                  </>
-                                )}
-                                <option value="__delete">Excluir projeto</option>
+                                <option value="">Selecionar pessoa…</option>
+                                {available.map((u) => (
+                                  <option key={u.id} value={u.id}>
+                                    {u.name} ({u.email})
+                                  </option>
+                                ))}
                               </select>
                               <span className="signup-select-caret">▾</span>
                             </div>
-                          )}
-                        </div>
-                        <input
-                          className="project-name-input serif"
-                          type="text"
-                          autoFocus={!editingProject.id}
-                          value={editingProject.name}
-                          placeholder="Nome do novo projeto"
-                          onChange={(e) =>
-                            setEditingProject({ ...editingProject, name: e.target.value })
-                          }
-                        />
-                      </div>
-
-                      <div className="project-detail-body">
-                        <label className="ui-field">
-                          <span className="ui-field-label">Descrição</span>
-                          <textarea
-                            className="ui-field-input"
-                            rows={2}
-                            value={editingProject.description || ""}
-                            placeholder="Para que serve este projeto?"
-                            onChange={(e) =>
-                              setEditingProject({ ...editingProject, description: e.target.value })
-                            }
-                          />
-                        </label>
-
-                        <div className="project-links">
-                          <GithubBindingsSection
-                            connectionStatus={githubConnectionStatus}
-                            projectId={editingProject.id}
-                            onNavigate={onNavigate}
-                            onOrgBindingsChanged={refreshGithubBindings}
-                          />
-                          <AzureProjectSelect
-                            connectionStatus={connectionStatus}
-                            adoProjects={adoProjects}
-                            adoProjectsError={adoProjectsError}
-                            adoBinding={adoBinding}
-                            adoBindingId={
-                              azureBindings.find((b) => b.projectId === editingProject.id)?.id ||
-                              null
-                            }
-                            projectId={editingProject.id}
-                            onNavigate={onNavigate}
-                            onChange={async (azureProjectId, azureProjectName) => {
-                              setAdoBinding(azureProjectId);
-                              if (editingProject.id) {
-                                try {
-                                  const binding = await api.post(
-                                    `/v1/integrations/azure/projects/${editingProject.id}/binding`,
-                                    { azureProjectId, azureProjectName },
-                                  );
-                                  setAzureBindings((prev) => {
-                                    const without = prev.filter(
-                                      (b) => b.projectId !== editingProject.id,
-                                    );
-                                    return [
-                                      ...without,
-                                      {
-                                        projectId: editingProject.id,
-                                        azureProjectId,
-                                        azureProjectName,
-                                        id: binding?.id,
-                                      },
-                                    ];
-                                  });
-                                  // Onboarding: show the field-mapping wizard once per new binding,
-                                  // before the first sync would otherwise pick up defaults silently.
-                                  if (binding?.id) setFieldMappingWizardBindingId(binding.id);
-                                } catch (_) {
-                                  /* ignore */
+                            <button
+                              type="button"
+                              className="btn"
+                              disabled={!addMemberSelectId}
+                              onClick={() => {
+                                if (addMemberSelectId) {
+                                  toggleProjectMember(addMemberSelectId);
+                                  setAddMemberSelectId("");
                                 }
-                              }
-                            }}
-                            onRemove={async () => {
-                              if (editingProject.id) {
-                                try {
-                                  await api.delete(
-                                    `/v1/integrations/azure/projects/${editingProject.id}/binding`,
-                                  );
-                                  setAdoBinding("");
-                                  setAzureBindings((prev) =>
-                                    prev.filter((b) => b.projectId !== editingProject.id),
-                                  );
-                                } catch (_) {
-                                  /* ignore */
-                                }
-                              }
-                            }}
-                            onConfigureMapping={(bindingId) => {
-                              setFieldMappingWizardBindingId(bindingId);
-                              setFieldMappingWizardStep(null);
-                            }}
-                          />
-                        </div>
-
-                        <div className="ui-field">
-                          <span className="ui-field-label">
-                            Pessoas no projeto · {(editingProject.memberIds || []).length}
-                          </span>
-
-                          {/* ── Current members table ── */}
-                          <div className="project-members-table">
-                            {(editingProject.memberIds || []).length === 0 ? (
-                              <div className="project-people-empty mono">
-                                nenhum membro adicionado
-                              </div>
-                            ) : (
-                              <>
-                                <div className="project-members-head mono">
-                                  <div>Nome</div>
-                                  <div>Vínculo Azure</div>
-                                  <div></div>
-                                </div>
-                                {projectPeople
-                                  .filter((u) => (editingProject.memberIds || []).includes(u.id))
-                                  .map((u) => (
-                                    <div key={u.id} className="project-members-row">
-                                      <div className="project-members-identity">
-                                        <span className="project-members-name">{u.name}</span>
-                                        <span className="project-members-email mono">
-                                          {u.email}
-                                        </span>
-                                      </div>
-                                      <div className="project-members-azure">
-                                        {u.azureEmail ? (
-                                          <span className="project-person-azure-bound mono">
-                                            {u.azureEmail}
-                                          </span>
-                                        ) : (
-                                          <span className="project-members-unbound">
-                                            <span className="project-members-unbound-text mono">
-                                              Não vinculado
-                                            </span>
-                                            <button
-                                              type="button"
-                                              className="project-person-azure-link mono"
-                                              onClick={() => onNavigate("team")}
-                                              title="Ir para Pessoas para configurar a vinculação Azure"
-                                            >
-                                              Vincular no Pessoas →
-                                            </button>
-                                          </span>
-                                        )}
-                                      </div>
-                                      <div className="project-members-actions">
-                                        <button
-                                          type="button"
-                                          className="project-members-remove btn-ghost btn"
-                                          onClick={() => toggleProjectMember(u.id)}
-                                          aria-label={`Remover ${u.name} do projeto`}
-                                          title="Remover do projeto"
-                                        >
-                                          ×
-                                        </button>
-                                      </div>
-                                    </div>
-                                  ))}
-                              </>
-                            )}
+                              }}
+                            >
+                              Adicionar
+                            </button>
                           </div>
-
-                          {/* ── Add member row ── */}
-                          {(() => {
-                            const currentIds = editingProject.memberIds || [];
-                            const available = projectPeople.filter(
-                              (u) => !currentIds.includes(u.id),
-                            );
-                            if (available.length === 0) return null;
-                            return (
-                              <div className="project-members-add">
-                                <div className="signup-select project-members-add-select">
-                                  <select
-                                    value={addMemberSelectId}
-                                    onChange={(e) => setAddMemberSelectId(e.target.value)}
-                                    aria-label="Selecionar pessoa para adicionar"
-                                  >
-                                    <option value="">Selecionar pessoa…</option>
-                                    {available.map((u) => (
-                                      <option key={u.id} value={u.id}>
-                                        {u.name} ({u.email})
-                                      </option>
-                                    ))}
-                                  </select>
-                                  <span className="signup-select-caret">▾</span>
-                                </div>
-                                <button
-                                  type="button"
-                                  className="btn"
-                                  disabled={!addMemberSelectId}
-                                  onClick={() => {
-                                    if (addMemberSelectId) {
-                                      toggleProjectMember(addMemberSelectId);
-                                      setAddMemberSelectId("");
-                                    }
-                                  }}
-                                >
-                                  Adicionar
-                                </button>
-                              </div>
-                            );
-                          })()}
-                        </div>
-                      </div>
-
-                      <div className="project-detail-foot">
-                        <button className="btn-ghost btn" onClick={closeProject}>
-                          Cancelar
-                        </button>
-                        <button
-                          className="btn"
-                          onClick={saveProject}
-                          disabled={projectSaving || !editingProject.name.trim()}
-                        >
-                          {projectSaving
-                            ? "Salvando…"
-                            : (editingProject.id ? "Salvar alterações" : "Criar projeto") + " →"}
-                        </button>
-                      </div>
+                        );
+                      })()}
                     </div>
                   </div>
+
+                  <div className="project-detail-foot">
+                    <button className="btn-ghost btn" onClick={closeProject}>
+                      Cancelar
+                    </button>
+                    <button
+                      className="btn"
+                      onClick={saveProject}
+                      disabled={projectSaving || !editingProject.name.trim()}
+                    >
+                      {projectSaving
+                        ? "Salvando…"
+                        : (editingProject.id ? "Salvar alterações" : "Criar projeto") + " →"}
+                    </button>
+                  </div>
                 </div>
-              )}
-            </section>
+              </div>
+            </div>
           )}
+        </section>
+      )}
 
-          {section === "dashboard" && (
-            <section className="admin-dash">
-              <DashboardPage dash={dash} onNavigate={onNavigate} />
-            </section>
-          )}
+      {section === "dashboard" && (
+        <section className="admin-dash">
+          <DashboardPage dash={dash} onNavigate={onNavigate} />
+        </section>
+      )}
 
-          {section === "backlog" && (
-            <BacklogPage
-              onOpenHierarchyWizard={(bindingId) => {
-                setFieldMappingWizardStep("hierarchy");
-                setFieldMappingWizardBindingId(bindingId);
-              }}
-            />
-          )}
+      {section === "backlog" && (
+        <BacklogPage
+          onOpenHierarchyWizard={(bindingId) => {
+            setFieldMappingWizardStep("hierarchy");
+            setFieldMappingWizardBindingId(bindingId);
+          }}
+        />
+      )}
 
-          {section === "repos" && <ReposPage />}
-        </main>
-      </div>
+      {section === "repos" && <ReposPage />}
 
       {/* ── Modal: Editar / Criar cargo ── */}
       {editingRole && (
@@ -2205,7 +1921,7 @@ function AdminSettings({
           }}
         />
       )}
-    </div>
+    </>
   );
 }
 
