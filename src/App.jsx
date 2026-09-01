@@ -29,6 +29,7 @@ import { AdminSettings } from "./features/admin/AdminSettings.jsx";
 import { DashboardPage } from "./features/dashboard/DashboardPage.jsx";
 import { ProfilePage } from "./features/profile/ProfilePage.jsx";
 import { OrganizationLayout } from "./features/organization/OrganizationLayout.jsx";
+import { TeamPage } from "./features/team/TeamPage.jsx";
 import { NotFoundScreen } from "./features/not-found/NotFoundScreen.jsx";
 import { ThemePickerModal } from "./components/ThemePickerModal.jsx";
 import api, { setToken, clearToken, onAuthExpired, getToken } from "./services/api.js";
@@ -345,11 +346,18 @@ function SectionContent() {
       </RequireTab>
     );
   }
+  if (tab === "team") {
+    return (
+      <RequireTab tab="team">
+        <TeamPage />
+      </RequireTab>
+    );
+  }
   return <LegacySection tab={tab} subtab={subtab} />;
 }
 
-/* Conteúdo ainda monolítico (projects/team/org/integrations/uso-ia/dashboard/
- * backlog/repos) — desaparece conforme as fatias B–G promovem cada seção. */
+/* Conteúdo ainda monolítico (projects/integrations/uso-ia/dashboard/backlog/
+ * repos) — desaparece conforme as fatias D–G promovem cada seção. */
 function LegacySection({ tab, subtab }) {
   const navigate = useNavigate();
   const { identity, profile, can, dash, orgSlug } = useIdentity();

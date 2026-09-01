@@ -7,7 +7,7 @@ import React from "react";
 import { Modal } from "../../core/ui/Modal.jsx";
 import { useUsers } from "../users/hooks.js";
 import { useRoles, useUpdateRolePermissions, useCloneRole, useDeleteRole } from "./hooks.js";
-import { PERMISSION_LABELS, ALWAYS_ON_PERMISSIONS } from "./permissionLabels.js";
+import { PERMISSION_LABELS, ALWAYS_ON_PERMISSIONS } from "../../core/auth/permissionLabels.js";
 
 const ALL_PERMISSION_CODES = Object.keys(PERMISSION_LABELS).filter(
   (c) => !ALWAYS_ON_PERMISSIONS.includes(c),
