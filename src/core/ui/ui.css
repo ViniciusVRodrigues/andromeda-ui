@@ -1,7 +1,7 @@
 /* core/ui — folha de estilo dos primitivos (frontend-ui-primitives).
  * É o único CSS "novo" permitido fora do sistema de utilities: os primitivos
  * carregam aqui sua pele com tokens da casa; telas compõem com utilities.
- * Nasce como a tradução fiel do antigo `role-modal-*` legado (47 regras),
+ * Nasce como a tradução fiel do antigo sistema de modal legado (47 regras),
  * que será apagado quando o último call site migrar. */
 
 @keyframes ui-modal-fade {
@@ -131,7 +131,7 @@
   cursor: not-allowed;
 }
 
-/* Campo com rótulo + controle (+ erro) — o padrão `role-modal-field` da casa. */
+/* Campo com rótulo + controle (+ erro) — o padrão de campo de modal da casa. */
 .ui-field {
   display: flex;
   flex-direction: column;
