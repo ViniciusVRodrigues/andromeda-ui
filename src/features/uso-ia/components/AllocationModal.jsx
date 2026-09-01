@@ -1,6 +1,7 @@
 import React from "react";
 import { AllocationSlider } from "./AllocationSlider.jsx";
 import { getAllocationCandidates } from "../../../services/api.js";
+import { Modal } from "../../../core/ui/Modal.jsx";
 
 /**
  * Redistribute the change in one slider's value proportionally across the others.
@@ -209,135 +210,18 @@ export function AllocationModal({ batch, sprintItems, onClose, onConfirm, loadin
   }
 
   return (
-    <div
-      className="role-modal-backdrop"
-      onClick={onClose}
-      role="dialog"
-      aria-modal="true"
-      aria-label="Alocar uso de IA"
-    >
-      <div
-        className="role-modal"
-        style={{ maxWidth: 560, width: "100%" }}
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="role-modal-head">
-          <div className="admin-eyebrow mono">alocar uso de IA</div>
-          <h3 className="serif role-modal-title">
-            Alocação · <span className="ital accent">{batch.day}</span>
-          </h3>
-          <p
-            className="mono"
-            style={{
-              fontSize: "0.78rem",
-              color: "var(--fg-muted)",
-              margin: "4px 0 0",
-              fontWeight: 400,
-            }}
-          >
-            Distribua os tokens deste dia entre os work items do sprint
-          </p>
-        </div>
-
-        <div className="role-modal-body">
-          {/* Sliders */}
-          {items.length === 0 ? (
-            <div
-              style={{
-                padding: "14px 16px",
-                border: "1px dashed var(--line-strong)",
-                borderRadius: "var(--radius-sm)",
-                marginBottom: 12,
-                textAlign: "center",
-              }}
-            >
-              <p
-                className="mono"
-                style={{ fontSize: "0.82rem", color: "var(--fg-muted)", margin: 0 }}
-              >
-                Nenhum item adicionado. Busque abaixo para alocar o uso.
-              </p>
-            </div>
-          ) : (
-            <div style={{ marginBottom: 12 }}>
-              {items.map((item, i) => (
-                <AllocationSlider
-                  key={item.workItemId}
-                  item={item}
-                  onChange={(val) => handleChange(i, val)}
-                  onRemove={() => handleRemove(i)}
-                  disabled={loading}
-                />
-              ))}
-            </div>
-          )}
-
-          {/* Sum indicator */}
-          <div
-            style={{
-              display: "flex",
-              alignItems: "center",
-              gap: 8,
-              padding: "6px 10px",
-              borderRadius: "var(--radius-sm)",
-              background: sumOk
-                ? "color-mix(in srgb, var(--good) 12%, transparent)"
-                : "color-mix(in srgb, var(--bad) 12%, transparent)",
-              marginBottom: 12,
-            }}
-          >
-            <span
-              className="mono"
-              style={{ fontSize: "0.8rem", color: sumOk ? "var(--good)" : "var(--bad)" }}
-            >
-              {sumOk ? `Σ = 100% ✓` : `Σ = ${sum}%`}
-            </span>
-            {!sumOk && (
-              <span style={{ fontSize: "0.75rem", color: "var(--fg-muted)" }}>
-                O total deve ser exatamente 100%
-              </span>
-            )}
-          </div>
-
-          {/* Add item search */}
-          <div style={{ borderTop: "1px solid var(--line)", paddingTop: 12 }}>
-            <span
-              className="label"
-              style={{ fontSize: "0.75rem", display: "block", marginBottom: 6 }}
-            >
-              Adicionar work item
-            </span>
-            <input
-              className="role-modal-input"
-              type="text"
-              value={search}
-              placeholder="Buscar por ID ou título…"
-              onChange={(e) => setSearch(e.target.value)}
-              disabled={loading}
-              style={{ marginBottom: 6 }}
-            />
-            {filteredSprint.length > 0 ? (
-              <div
-                style={{
-                  border: "1px solid var(--line)",
-                  borderRadius: "var(--radius-sm)",
-                  maxHeight: 160,
-                  overflowY: "auto",
-                }}
-              >
-                {filteredSprint.slice(0, 20).map((si) => (
-                  <CandidateRow key={si.workItemId} si={si} onAdd={handleAddItem} />
-                ))}
-              </div>
-            ) : (
-              <p className="mono" style={{ fontSize: "0.75rem", color: "var(--fg-muted)" }}>
-                {candidates === null ? "Carregando itens do sprint…" : "Nenhum item encontrado."}
-              </p>
-            )}
-          </div>
-        </div>
-
-        <div className="role-modal-foot">
+    <Modal
+      open
+      onOpenChange={(o) => !o && onClose()}
+      eyebrow="alocar uso de IA"
+      title={
+        <>
+          Alocação · <span className="ital accent">{batch.day}</span>
+        </>
+      }
+      subtitle="Distribua os tokens deste dia entre os work items do sprint"
+      footer={
+        <>
           <button className="btn btn-ghost" onClick={onClose} disabled={loading}>
             Cancelar
           </button>
@@ -348,8 +232,98 @@ export function AllocationModal({ batch, sprintItems, onClose, onConfirm, loadin
           >
             {loading ? "Salvando…" : "Confirmar alocação →"}
           </button>
+        </>
+      }
+    >
+      {/* Sliders */}
+      {items.length === 0 ? (
+        <div
+          style={{
+            padding: "14px 16px",
+            border: "1px dashed var(--line-strong)",
+            borderRadius: "var(--radius-sm)",
+            marginBottom: 12,
+            textAlign: "center",
+          }}
+        >
+          <p className="mono" style={{ fontSize: "0.82rem", color: "var(--fg-muted)", margin: 0 }}>
+            Nenhum item adicionado. Busque abaixo para alocar o uso.
+          </p>
         </div>
+      ) : (
+        <div style={{ marginBottom: 12 }}>
+          {items.map((item, i) => (
+            <AllocationSlider
+              key={item.workItemId}
+              item={item}
+              onChange={(val) => handleChange(i, val)}
+              onRemove={() => handleRemove(i)}
+              disabled={loading}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Sum indicator */}
+      <div
+        style={{
+          display: "flex",
+          alignItems: "center",
+          gap: 8,
+          padding: "6px 10px",
+          borderRadius: "var(--radius-sm)",
+          background: sumOk
+            ? "color-mix(in srgb, var(--good) 12%, transparent)"
+            : "color-mix(in srgb, var(--bad) 12%, transparent)",
+          marginBottom: 12,
+        }}
+      >
+        <span
+          className="mono"
+          style={{ fontSize: "0.8rem", color: sumOk ? "var(--good)" : "var(--bad)" }}
+        >
+          {sumOk ? `Σ = 100% ✓` : `Σ = ${sum}%`}
+        </span>
+        {!sumOk && (
+          <span style={{ fontSize: "0.75rem", color: "var(--fg-muted)" }}>
+            O total deve ser exatamente 100%
+          </span>
+        )}
       </div>
-    </div>
+
+      {/* Add item search */}
+      <div style={{ borderTop: "1px solid var(--line)", paddingTop: 12 }}>
+        <span className="label" style={{ fontSize: "0.75rem", display: "block", marginBottom: 6 }}>
+          Adicionar work item
+        </span>
+        <input
+          className="ui-field-input"
+          type="text"
+          value={search}
+          placeholder="Buscar por ID ou título…"
+          onChange={(e) => setSearch(e.target.value)}
+          disabled={loading}
+          style={{ marginBottom: 6 }}
+        />
+        {filteredSprint.length > 0 ? (
+          <div
+            style={{
+              border: "1px solid var(--line)",
+              borderRadius: "var(--radius-sm)",
+              maxHeight: 160,
+              overflowY: "auto",
+            }}
+          >
+            {filteredSprint.slice(0, 20).map((si) => (
+              <CandidateRow key={si.workItemId} si={si} onAdd={handleAddItem} />
+            ))}
+          </div>
+        ) : (
+          <p className="mono" style={{ fontSize: "0.75rem", color: "var(--fg-muted)" }}>
+            {candidates === null ? "Carregando itens do sprint…" : "Nenhum item encontrado."}
+          </p>
+        )}
+      </div>
+    </Modal>
   );
 }

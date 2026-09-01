@@ -147,7 +147,7 @@ function IndividualFilters({ filters, onChange, onAutoApply, projects }) {
           Data início
         </span>
         <input
-          className="role-modal-input"
+          className="ui-field-input"
           style={filterInputStyle}
           type="date"
           value={filters.startDate}
@@ -160,7 +160,7 @@ function IndividualFilters({ filters, onChange, onAutoApply, projects }) {
           Data fim
         </span>
         <input
-          className="role-modal-input"
+          className="ui-field-input"
           style={filterInputStyle}
           type="date"
           value={filters.endDate}
@@ -173,7 +173,7 @@ function IndividualFilters({ filters, onChange, onAutoApply, projects }) {
           Modelo
         </span>
         <input
-          className="role-modal-input"
+          className="ui-field-input"
           style={filterInputStyle}
           type="text"
           value={filters.model}
@@ -225,7 +225,7 @@ function EquipeFilters({ filters, onChange, onAutoApply, projects }) {
           Data início
         </span>
         <input
-          className="role-modal-input"
+          className="ui-field-input"
           style={filterInputStyle}
           type="date"
           value={filters.startDate}
@@ -238,7 +238,7 @@ function EquipeFilters({ filters, onChange, onAutoApply, projects }) {
           Data fim
         </span>
         <input
-          className="role-modal-input"
+          className="ui-field-input"
           style={filterInputStyle}
           type="date"
           value={filters.endDate}
@@ -284,7 +284,7 @@ function EstrategicoFilters({ filters, onChange, projects }) {
             Membro
           </span>
           <input
-            className="role-modal-input"
+            className="ui-field-input"
             style={filterInputStyle}
             type="text"
             value={filters.memberId}
@@ -299,7 +299,7 @@ function EstrategicoFilters({ filters, onChange, projects }) {
           Data início
         </span>
         <input
-          className="role-modal-input"
+          className="ui-field-input"
           style={filterInputStyle}
           type="date"
           value={filters.startDate}
@@ -312,7 +312,7 @@ function EstrategicoFilters({ filters, onChange, projects }) {
           Data fim
         </span>
         <input
-          className="role-modal-input"
+          className="ui-field-input"
           style={filterInputStyle}
           type="date"
           value={filters.endDate}

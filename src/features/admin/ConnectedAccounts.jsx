@@ -1,6 +1,7 @@
 import React from "react";
 import { getMyProviderAccounts, unlinkProviderAccount } from "../../services/api.js";
 import { useOAuth } from "../../hooks/useOAuth.js";
+import { ConfirmDialog } from "../../core/ui/Modal.jsx";
 
 /**
  * "Contas conectadas" block for the Perfil page.
@@ -126,31 +127,22 @@ export function ConnectedAccounts() {
       )}
 
       {confirmingUnlink && (
-        <div className="role-modal-backdrop" onClick={() => setConfirmingUnlink(false)}>
-          <div className="role-modal role-modal--confirm" onClick={(e) => e.stopPropagation()}>
-            <div className="role-modal-head">
-              <div className="admin-eyebrow mono">desconectar github</div>
-              <h3 className="serif role-modal-title">
-                Desconectar <span className="ital accent">GitHub</span>?
-              </h3>
-            </div>
-            <p className="confirm-text">
-              Sua conta do GitHub será desvinculada. Você pode reconectar a qualquer momento.
-            </p>
-            <div className="role-modal-foot">
-              <button
-                className="btn-ghost btn"
-                onClick={() => setConfirmingUnlink(false)}
-                disabled={unlinking}
-              >
-                Cancelar
-              </button>
-              <button className="btn btn-danger" onClick={handleUnlink} disabled={unlinking}>
-                {unlinking ? "Desconectando…" : "Desconectar →"}
-              </button>
-            </div>
-          </div>
-        </div>
+        <ConfirmDialog
+          open
+          onOpenChange={setConfirmingUnlink}
+          eyebrow="desconectar github"
+          title={
+            <>
+              Desconectar <span className="ital accent">GitHub</span>?
+            </>
+          }
+          message="Sua conta do GitHub será desvinculada. Você pode reconectar a qualquer momento."
+          confirmLabel={unlinking ? "Desconectando…" : "Desconectar →"}
+          cancelLabel="Cancelar"
+          busy={unlinking}
+          danger
+          onConfirm={handleUnlink}
+        />
       )}
     </section>
   );

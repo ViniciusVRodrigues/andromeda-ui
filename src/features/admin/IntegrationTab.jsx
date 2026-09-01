@@ -9,6 +9,7 @@ import { useOAuth } from "../../hooks/useOAuth.js";
 import { AiConnectorCard } from "./AiConnectorCard.jsx";
 import { Icon } from "../../components/charts/Charts.jsx";
 import Drawer from "../../core/ui/Drawer.jsx";
+import { ConfirmDialog } from "../../core/ui/Modal.jsx";
 
 function statusDot(status) {
   if (status === "CONNECTED") return "●";
@@ -345,10 +346,10 @@ function AzurePatSetupForm({ onSuccess, onCancel }) {
 
   return (
     <form className="integration-pat-form" onSubmit={handleSubmit}>
-      <label className="role-modal-field">
-        <span className="role-modal-label">URL da organização Azure DevOps</span>
+      <label className="ui-field">
+        <span className="ui-field-label">URL da organização Azure DevOps</span>
         <input
-          className="role-modal-input"
+          className="ui-field-input"
           type="text"
           placeholder="https://dev.azure.com/minha-org"
           value={orgUrl}
@@ -375,10 +376,10 @@ function AzurePatSetupForm({ onSuccess, onCancel }) {
         </a>
       </div>
 
-      <label className="role-modal-field">
-        <span className="role-modal-label">Personal Access Token</span>
+      <label className="ui-field">
+        <span className="ui-field-label">Personal Access Token</span>
         <input
-          className="role-modal-input"
+          className="ui-field-input"
           type="password"
           placeholder="Cole o PAT aqui"
           value={pat}
@@ -389,7 +390,7 @@ function AzurePatSetupForm({ onSuccess, onCancel }) {
 
       {error && <p className="mono integration-error">{error}</p>}
 
-      <div className="role-modal-foot">
+      <div className="ui-modal-foot">
         <button type="button" className="btn-ghost btn" onClick={onCancel}>
           Cancelar
         </button>
@@ -692,28 +693,25 @@ function AzureIntegrationCard({ onStatusChange }) {
       </div>
 
       {disconnectConfirm && (
-        <div className="role-modal-backdrop" onClick={() => setDisconnectConfirm(false)}>
-          <div className="role-modal role-modal--confirm" onClick={(e) => e.stopPropagation()}>
-            <div className="role-modal-head">
-              <div className="admin-eyebrow mono">desconectar integração</div>
-              <h3 className="serif role-modal-title">
-                Desconectar <span className="ital accent">Azure DevOps</span>?
-              </h3>
-            </div>
-            <p className="confirm-text">
+        <ConfirmDialog
+          open
+          onOpenChange={setDisconnectConfirm}
+          eyebrow="desconectar integração"
+          title={
+            <>
+              Desconectar <span className="ital accent">Azure DevOps</span>?
+            </>
+          }
+          message={
+            <>
               A sincronização automática será <strong>interrompida</strong> em todos os projetos
               vinculados. Você poderá reconectar a qualquer momento.
-            </p>
-            <div className="role-modal-foot">
-              <button className="btn-ghost btn" onClick={() => setDisconnectConfirm(false)}>
-                Cancelar
-              </button>
-              <button className="btn btn-danger" onClick={handleDisconnect}>
-                Desconectar →
-              </button>
-            </div>
-          </div>
-        </div>
+            </>
+          }
+          confirmLabel="Desconectar →"
+          danger
+          onConfirm={handleDisconnect}
+        />
       )}
 
       <SyncLogDrawer
@@ -769,10 +767,10 @@ function GithubPatSetupForm({ onSuccess, onCancel }) {
         </a>
       </div>
 
-      <label className="role-modal-field">
-        <span className="role-modal-label">Personal Access Token</span>
+      <label className="ui-field">
+        <span className="ui-field-label">Personal Access Token</span>
         <input
-          className="role-modal-input"
+          className="ui-field-input"
           type="password"
           placeholder="Cole o PAT aqui"
           value={pat}
@@ -783,7 +781,7 @@ function GithubPatSetupForm({ onSuccess, onCancel }) {
 
       {error && <p className="mono integration-error">{error}</p>}
 
-      <div className="role-modal-foot">
+      <div className="ui-modal-foot">
         {onCancel && (
           <button type="button" className="btn-ghost btn" onClick={onCancel}>
             Cancelar
@@ -1022,28 +1020,25 @@ function GithubIntegrationCard({ onStatusChange }) {
       </div>
 
       {disconnectConfirm && (
-        <div className="role-modal-backdrop" onClick={() => setDisconnectConfirm(false)}>
-          <div className="role-modal role-modal--confirm" onClick={(e) => e.stopPropagation()}>
-            <div className="role-modal-head">
-              <div className="admin-eyebrow mono">desconectar integração</div>
-              <h3 className="serif role-modal-title">
-                Desconectar <span className="ital accent">GitHub</span>?
-              </h3>
-            </div>
-            <p className="confirm-text">
+        <ConfirmDialog
+          open
+          onOpenChange={setDisconnectConfirm}
+          eyebrow="desconectar integração"
+          title={
+            <>
+              Desconectar <span className="ital accent">GitHub</span>?
+            </>
+          }
+          message={
+            <>
               A sincronização automática será <strong>interrompida</strong> em todos os repositórios
               vinculados. Você poderá reconectar a qualquer momento.
-            </p>
-            <div className="role-modal-foot">
-              <button className="btn-ghost btn" onClick={() => setDisconnectConfirm(false)}>
-                Cancelar
-              </button>
-              <button className="btn btn-danger" onClick={handleDisconnect}>
-                Desconectar →
-              </button>
-            </div>
-          </div>
-        </div>
+            </>
+          }
+          confirmLabel="Desconectar →"
+          danger
+          onConfirm={handleDisconnect}
+        />
       )}
 
       <SyncLogDrawer integration="GITHUB" open={logsOpen} onClose={() => setLogsOpen(false)} />

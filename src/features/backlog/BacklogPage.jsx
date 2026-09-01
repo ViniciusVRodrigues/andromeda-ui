@@ -711,8 +711,8 @@ export function BacklogPage({ onOpenHierarchyWizard }) {
         </p>
       </div>
 
-      <label className="role-modal-field backlog-project-picker">
-        <span className="role-modal-label">Projeto</span>
+      <label className="ui-field backlog-project-picker">
+        <span className="ui-field-label">Projeto</span>
         <div className="signup-select">
           <select
             value={projectId}
@@ -741,7 +741,7 @@ export function BacklogPage({ onOpenHierarchyWizard }) {
         <div className="backlog-filters">
           <div className="backlog-filter backlog-filter--search">
             <input
-              className="role-modal-input"
+              className="ui-field-input"
               type="search"
               value={search}
               onChange={(e) => setSearch(e.target.value)}

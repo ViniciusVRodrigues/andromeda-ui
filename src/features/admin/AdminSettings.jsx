@@ -15,6 +15,7 @@ import { UsoIaPage } from "../uso-ia/UsoIaPage.jsx";
 import { SubTabs } from "../../components/SubTabs.jsx";
 import Combobox from "../../core/ui/Combobox.jsx";
 import Checkbox from "../../core/ui/Checkbox.jsx";
+import { Modal } from "../../core/ui/Modal.jsx";
 import { orgUrlLabel } from "../../lib/appUrl.js";
 import api, {
   getToken,
@@ -1487,10 +1488,10 @@ function AdminSettings({
                       </div>
 
                       <div className="project-detail-body">
-                        <label className="role-modal-field">
-                          <span className="role-modal-label">Descrição</span>
+                        <label className="ui-field">
+                          <span className="ui-field-label">Descrição</span>
                           <textarea
-                            className="role-modal-input role-modal-textarea"
+                            className="ui-field-input"
                             rows={2}
                             value={editingProject.description || ""}
                             placeholder="Para que serve este projeto?"
@@ -1570,8 +1571,8 @@ function AdminSettings({
                           />
                         </div>
 
-                        <div className="role-modal-field">
-                          <span className="role-modal-label">
+                        <div className="ui-field">
+                          <span className="ui-field-label">
                             Pessoas no projeto · {(editingProject.memberIds || []).length}
                           </span>
 
@@ -1721,119 +1722,23 @@ function AdminSettings({
 
       {/* ── Modal: Editar / Criar cargo ── */}
       {editingRole && (
-        <div className="role-modal-backdrop" onClick={closeModal}>
-          <div className="role-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="role-modal-head">
-              <div className="admin-eyebrow mono">
-                {editingRole.id ? "editar cargo" : "novo cargo"}
-              </div>
-              <h3 className="serif role-modal-title">
-                {editingRole.id ? (
-                  <>
-                    Editar <span className="ital accent">{editingRole.name || "cargo"}</span>
-                  </>
-                ) : (
-                  <>
-                    Criar <span className="ital accent">novo cargo</span>
-                  </>
-                )}
-              </h3>
-            </div>
-
-            <div className="role-modal-body">
-              {editingRole.id ? (
-                /* Editing existing: show permission checkboxes */
-                <>
-                  <p className="role-modal-label" style={{ marginBottom: "var(--spacing-sm)" }}>
-                    Permissões
-                  </p>
-                  <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                    {ALL_PERMISSION_CODES.map((code) => (
-                      <label
-                        key={code}
-                        style={{
-                          display: "flex",
-                          alignItems: "center",
-                          gap: "var(--spacing-sm)",
-                          cursor: "pointer",
-                        }}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={!!editPerms[code]}
-                          onChange={() => setEditPerms((p) => ({ ...p, [code]: !p[code] }))}
-                        />
-                        <span className="mono" style={{ fontSize: "0.85rem" }}>
-                          {PERMISSION_LABELS[code]}
-                        </span>
-                      </label>
-                    ))}
-                  </div>
-
-                  {roleCount(editingRole.id) > 0 ? (
-                    <p
-                      className="role-perm-hint role-perm-hint--block mono"
-                      style={{ marginTop: "var(--spacing-md)" }}
-                    >
-                      <span className="role-perm-hint-label">não é possível remover</span>
-                      {roleCount(editingRole.id)}{" "}
-                      {roleCount(editingRole.id) === 1
-                        ? "pessoa está vinculada"
-                        : "pessoas estão vinculadas"}{" "}
-                      a este cargo.
-                    </p>
-                  ) : (
-                    <div
-                      className="member-modal-actions member-modal-actions--single"
-                      style={{ marginTop: "var(--spacing-md)" }}
-                    >
-                      <button
-                        className="member-modal-danger member-modal-danger--strong"
-                        onClick={deleteRole}
-                      >
-                        Remover cargo
-                      </button>
-                    </div>
-                  )}
-                </>
-              ) : (
-                /* Creating: pick source role and new name */
-                <>
-                  <label className="role-modal-field">
-                    <span className="role-modal-label">Copiar permissões de</span>
-                    <div className="signup-select">
-                      <select
-                        value={cloneSourceId}
-                        onChange={(e) => setCloneSourceId(e.target.value)}
-                      >
-                        {roles.map((r) => (
-                          <option key={r.id} value={r.id}>
-                            {r.name}
-                          </option>
-                        ))}
-                      </select>
-                      <span className="signup-select-caret">▾</span>
-                    </div>
-                  </label>
-                  <label className="role-modal-field" style={{ marginTop: "var(--spacing-sm)" }}>
-                    <span className="role-modal-label">Nome do novo cargo</span>
-                    <input
-                      className="role-modal-input"
-                      type="text"
-                      autoFocus
-                      value={editingRole.name}
-                      placeholder="ex: Product Owner"
-                      onChange={(e) => setEditingRole({ ...editingRole, name: e.target.value })}
-                      onKeyDown={(e) => {
-                        if (e.key === "Enter") saveRole();
-                      }}
-                    />
-                  </label>
-                </>
-              )}
-            </div>
-
-            <div className="role-modal-foot">
+        <Modal
+          open
+          onOpenChange={(o) => !o && closeModal()}
+          eyebrow={editingRole.id ? "editar cargo" : "novo cargo"}
+          title={
+            editingRole.id ? (
+              <>
+                Editar <span className="ital accent">{editingRole.name || "cargo"}</span>
+              </>
+            ) : (
+              <>
+                Criar <span className="ital accent">novo cargo</span>
+              </>
+            )
+          }
+          footer={
+            <>
               <button className="btn-ghost btn" onClick={closeModal}>
                 Cancelar
               </button>
@@ -1844,66 +1749,118 @@ function AdminSettings({
               >
                 {editingRole.id ? "Salvar alterações" : "Criar cargo"} →
               </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ── Modal: Editar / Criar nível de senioridade ── */}
-      {editingSeniority && (
-        <div className="role-modal-backdrop" onClick={closeSeniority}>
-          <div className="role-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="role-modal-head">
-              <div className="admin-eyebrow mono">
-                {editingSeniority.id ? "editar nível" : "novo nível"}
+            </>
+          }
+        >
+          {editingRole.id ? (
+            /* Editing existing: show permission checkboxes */
+            <>
+              <p className="ui-field-label" style={{ marginBottom: "var(--spacing-sm)" }}>
+                Permissões
+              </p>
+              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                {ALL_PERMISSION_CODES.map((code) => (
+                  <label
+                    key={code}
+                    style={{
+                      display: "flex",
+                      alignItems: "center",
+                      gap: "var(--spacing-sm)",
+                      cursor: "pointer",
+                    }}
+                  >
+                    <input
+                      type="checkbox"
+                      checked={!!editPerms[code]}
+                      onChange={() => setEditPerms((p) => ({ ...p, [code]: !p[code] }))}
+                    />
+                    <span className="mono" style={{ fontSize: "0.85rem" }}>
+                      {PERMISSION_LABELS[code]}
+                    </span>
+                  </label>
+                ))}
               </div>
-              <h3 className="serif role-modal-title">
-                {editingSeniority.id ? (
-                  <>
-                    Editar <span className="ital accent">{editingSeniority.name || "nível"}</span>
-                  </>
-                ) : (
-                  <>
-                    Criar <span className="ital accent">novo nível</span>
-                  </>
-                )}
-              </h3>
-            </div>
 
-            <div className="role-modal-body">
-              <label className="role-modal-field">
-                <span className="role-modal-label">Nome do nível</span>
-                <input
-                  className="role-modal-input"
-                  type="text"
-                  autoFocus
-                  value={editingSeniority.name}
-                  placeholder="ex: Especialista"
-                  onChange={(e) =>
-                    setEditingSeniority({ ...editingSeniority, name: e.target.value })
-                  }
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") saveSeniority();
-                  }}
-                />
-              </label>
-
-              {editingSeniority.id && (
+              {roleCount(editingRole.id) > 0 ? (
+                <p
+                  className="role-perm-hint role-perm-hint--block mono"
+                  style={{ marginTop: "var(--spacing-md)" }}
+                >
+                  <span className="role-perm-hint-label">não é possível remover</span>
+                  {roleCount(editingRole.id)}{" "}
+                  {roleCount(editingRole.id) === 1
+                    ? "pessoa está vinculada"
+                    : "pessoas estão vinculadas"}{" "}
+                  a este cargo.
+                </p>
+              ) : (
                 <div
                   className="member-modal-actions member-modal-actions--single"
                   style={{ marginTop: "var(--spacing-md)" }}
                 >
                   <button
                     className="member-modal-danger member-modal-danger--strong"
-                    onClick={deleteSeniority}
+                    onClick={deleteRole}
                   >
-                    Remover nível
+                    Remover cargo
                   </button>
                 </div>
               )}
-            </div>
+            </>
+          ) : (
+            /* Creating: pick source role and new name */
+            <>
+              <label className="ui-field">
+                <span className="ui-field-label">Copiar permissões de</span>
+                <div className="signup-select">
+                  <select value={cloneSourceId} onChange={(e) => setCloneSourceId(e.target.value)}>
+                    {roles.map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {r.name}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="signup-select-caret">▾</span>
+                </div>
+              </label>
+              <label className="ui-field" style={{ marginTop: "var(--spacing-sm)" }}>
+                <span className="ui-field-label">Nome do novo cargo</span>
+                <input
+                  className="ui-field-input"
+                  type="text"
+                  autoFocus
+                  value={editingRole.name}
+                  placeholder="ex: Product Owner"
+                  onChange={(e) => setEditingRole({ ...editingRole, name: e.target.value })}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") saveRole();
+                  }}
+                />
+              </label>
+            </>
+          )}
+        </Modal>
+      )}
 
-            <div className="role-modal-foot">
+      {/* ── Modal: Editar / Criar nível de senioridade ── */}
+      {editingSeniority && (
+        <Modal
+          open
+          onOpenChange={(o) => !o && closeSeniority()}
+          eyebrow={editingSeniority.id ? "editar nível" : "novo nível"}
+          title={
+            editingSeniority.id ? (
+              <>
+                Editar <span className="ital accent">{editingSeniority.name || "nível"}</span>
+              </>
+            ) : (
+              <>
+                Criar <span className="ital accent">novo nível</span>
+              </>
+            )
+          }
+          footer={
+            <>
               <button className="btn-ghost btn" onClick={closeSeniority}>
                 Cancelar
               </button>
@@ -1914,81 +1871,53 @@ function AdminSettings({
               >
                 {editingSeniority.id ? "Salvar alterações" : "Criar nível"} →
               </button>
+            </>
+          }
+        >
+          <label className="ui-field">
+            <span className="ui-field-label">Nome do nível</span>
+            <input
+              className="ui-field-input"
+              type="text"
+              autoFocus
+              value={editingSeniority.name}
+              placeholder="ex: Especialista"
+              onChange={(e) => setEditingSeniority({ ...editingSeniority, name: e.target.value })}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") saveSeniority();
+              }}
+            />
+          </label>
+
+          {editingSeniority.id && (
+            <div
+              className="member-modal-actions member-modal-actions--single"
+              style={{ marginTop: "var(--spacing-md)" }}
+            >
+              <button
+                className="member-modal-danger member-modal-danger--strong"
+                onClick={deleteSeniority}
+              >
+                Remover nível
+              </button>
             </div>
-          </div>
-        </div>
+          )}
+        </Modal>
       )}
 
       {/* ── Modal: Convidar pessoa ── */}
       {invitingMember && (
-        <div className="role-modal-backdrop" onClick={closeInvite}>
-          <div className="role-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="role-modal-head">
-              <div className="admin-eyebrow mono">novo convite</div>
-              <h3 className="serif role-modal-title">
-                Convidar <span className="ital accent">pessoa</span>
-              </h3>
-            </div>
-
-            <div className="role-modal-body">
-              <label className="role-modal-field">
-                <span className="role-modal-label">Email do funcionário</span>
-                <input
-                  className="role-modal-input"
-                  type="email"
-                  autoFocus
-                  value={inviteDraft.email}
-                  placeholder="nome@empresa.com"
-                  onChange={(e) => setInviteDraft({ ...inviteDraft, email: e.target.value })}
-                />
-              </label>
-
-              <label className="role-modal-field" style={{ marginTop: "var(--spacing-sm)" }}>
-                <span className="role-modal-label">Cargo</span>
-                <div className="signup-select">
-                  <select
-                    value={inviteDraft.roleId}
-                    onChange={(e) => setInviteDraft({ ...inviteDraft, roleId: e.target.value })}
-                  >
-                    {roles.map((r) => (
-                      <option key={r.id} value={r.id}>
-                        {r.name}
-                      </option>
-                    ))}
-                  </select>
-                  <span className="signup-select-caret">▾</span>
-                </div>
-              </label>
-
-              <label className="role-modal-field" style={{ marginTop: "var(--spacing-sm)" }}>
-                <span className="role-modal-label">Senioridade</span>
-                <div className="signup-select">
-                  <select
-                    value={inviteDraft.seniority || ""}
-                    onChange={(e) =>
-                      setInviteDraft({ ...inviteDraft, seniority: e.target.value || null })
-                    }
-                  >
-                    <option value="">— Sem senioridade —</option>
-                    {seniorities.map((s) => (
-                      <option key={s.id} value={s.name}>
-                        {s.name}
-                      </option>
-                    ))}
-                  </select>
-                  <span className="signup-select-caret">▾</span>
-                </div>
-              </label>
-
-              {inviteDraft.roleId && (
-                <p className="role-perm-hint mono" style={{ marginTop: "var(--spacing-sm)" }}>
-                  <span className="role-perm-hint-label">permissões deste cargo</span>
-                  {permissionSummary(inviteDraft.roleId)}
-                </p>
-              )}
-            </div>
-
-            <div className="role-modal-foot">
+        <Modal
+          open
+          onOpenChange={(o) => !o && closeInvite()}
+          eyebrow="novo convite"
+          title={
+            <>
+              Convidar <span className="ital accent">pessoa</span>
+            </>
+          }
+          footer={
+            <>
               <button className="btn-ghost btn" onClick={closeInvite}>
                 Cancelar
               </button>
@@ -1999,209 +1928,267 @@ function AdminSettings({
               >
                 {memberSaving ? "Enviando…" : "Enviar convite por email →"}
               </button>
+            </>
+          }
+        >
+          <label className="ui-field">
+            <span className="ui-field-label">Email do funcionário</span>
+            <input
+              className="ui-field-input"
+              type="email"
+              autoFocus
+              value={inviteDraft.email}
+              placeholder="nome@empresa.com"
+              onChange={(e) => setInviteDraft({ ...inviteDraft, email: e.target.value })}
+            />
+          </label>
+
+          <label className="ui-field" style={{ marginTop: "var(--spacing-sm)" }}>
+            <span className="ui-field-label">Cargo</span>
+            <div className="signup-select">
+              <select
+                value={inviteDraft.roleId}
+                onChange={(e) => setInviteDraft({ ...inviteDraft, roleId: e.target.value })}
+              >
+                {roles.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.name}
+                  </option>
+                ))}
+              </select>
+              <span className="signup-select-caret">▾</span>
             </div>
-          </div>
-        </div>
+          </label>
+
+          <label className="ui-field" style={{ marginTop: "var(--spacing-sm)" }}>
+            <span className="ui-field-label">Senioridade</span>
+            <div className="signup-select">
+              <select
+                value={inviteDraft.seniority || ""}
+                onChange={(e) =>
+                  setInviteDraft({ ...inviteDraft, seniority: e.target.value || null })
+                }
+              >
+                <option value="">— Sem senioridade —</option>
+                {seniorities.map((s) => (
+                  <option key={s.id} value={s.name}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+              <span className="signup-select-caret">▾</span>
+            </div>
+          </label>
+
+          {inviteDraft.roleId && (
+            <p className="role-perm-hint mono" style={{ marginTop: "var(--spacing-sm)" }}>
+              <span className="role-perm-hint-label">permissões deste cargo</span>
+              {permissionSummary(inviteDraft.roleId)}
+            </p>
+          )}
+        </Modal>
       )}
 
       {/* ── Modal: Editar membro ── */}
       {editingMember && (
-        <div className="role-modal-backdrop" onClick={closeMemberEdit}>
-          <div className="role-modal" onClick={(e) => e.stopPropagation()}>
-            <div className="role-modal-head">
-              <div className="admin-eyebrow mono">
-                editar membro ·{" "}
-                {editingMember.name == null
-                  ? "convite pendente"
-                  : editingMember.active === false
-                    ? "desativado"
-                    : "ativo"}
-              </div>
-              <h3 className="serif role-modal-title">
-                {editingMember.name ? (
-                  <>
-                    Editar <span className="ital accent">{editingMember.name}</span>
-                  </>
-                ) : (
-                  <>
-                    Editar <span className="ital accent">membro</span>
-                  </>
-                )}
-              </h3>
-              <div className="role-modal-subtitle mono">{editingMember.email}</div>
-            </div>
-
-            <div className="role-modal-body">
-              <label className="role-modal-field">
-                <span className="role-modal-label">Cargo</span>
-                <div className="signup-select">
-                  <select
-                    value={editingMember.roleId}
-                    onChange={(e) => setEditingMember({ ...editingMember, roleId: e.target.value })}
-                  >
-                    {roles.map((r) => (
-                      <option key={r.id} value={r.id}>
-                        {r.name}
-                      </option>
-                    ))}
-                  </select>
-                  <span className="signup-select-caret">▾</span>
-                </div>
-              </label>
-
-              {editingMember.roleId && (
-                <p className="role-perm-hint mono" style={{ marginTop: "var(--spacing-sm)" }}>
-                  <span className="role-perm-hint-label">permissões deste cargo</span>
-                  {permissionSummary(editingMember.roleId)}
-                </p>
-              )}
-
-              <label className="role-modal-field" style={{ marginTop: "var(--spacing-sm)" }}>
-                <span className="role-modal-label">Senioridade</span>
-                <div className="signup-select">
-                  <select
-                    value={editingMember.seniority || ""}
-                    onChange={(e) =>
-                      setEditingMember({ ...editingMember, seniority: e.target.value || null })
-                    }
-                  >
-                    <option value="">— Sem senioridade —</option>
-                    {seniorities.map((s) => (
-                      <option key={s.id} value={s.name}>
-                        {s.name}
-                      </option>
-                    ))}
-                  </select>
-                  <span className="signup-select-caret">▾</span>
-                </div>
-              </label>
-
-              <div className="role-modal-field" style={{ marginTop: "var(--spacing-md)" }}>
-                <span className="role-modal-label">Identidade Azure</span>
-                {azureUsersLoading && <div className="skeleton" style={{ height: "2.4rem" }} />}
-                {azureUsersError && (
-                  <div style={{ fontSize: "0.8rem", color: "var(--bad)" }}>{azureUsersError}</div>
-                )}
-                {!azureUsersLoading && !azureUsersError && (
-                  <select
-                    className="role-modal-input"
-                    value={selectedAzureUser?.azureId || ""}
-                    disabled={azureUserOptions.length === 0}
-                    onChange={(e) => {
-                      const user =
-                        azureUserOptions.find((u) => u.azureId === e.target.value) || null;
-                      setSelectedAzureUser(user);
-                    }}
-                  >
-                    <option value="">— sem vinculação Azure —</option>
-                    {azureUserOptions.map((u) => (
-                      <option key={u.azureId} value={u.azureId}>
-                        {u.displayName} ({u.azureEmail})
-                      </option>
-                    ))}
-                  </select>
-                )}
-              </div>
-
-              {memberSaveMsg && (
-                <p
-                  className="mono"
-                  style={{
-                    marginTop: "var(--spacing-sm)",
-                    fontSize: "0.8rem",
-                    color: memberSaveMsg.ok ? "var(--good)" : "var(--bad)",
-                  }}
-                >
-                  {memberSaveMsg.text}
-                </p>
-              )}
-
-              <div className="member-modal-actions" style={{ marginTop: "var(--spacing-md)" }}>
-                <button
-                  className="member-modal-danger"
-                  onClick={deactivateMember}
-                  disabled={
-                    memberSaving ||
-                    editingMember.active === false ||
-                    String(editingMember.id) === String(loggedUserId)
-                  }
-                >
-                  {String(editingMember.id) === String(loggedUserId)
-                    ? "Não é possível desativar a si mesmo"
-                    : "Desativar usuário"}
-                </button>
-              </div>
-            </div>
-
-            <div className="role-modal-foot">
+        <Modal
+          open
+          onOpenChange={(o) => !o && closeMemberEdit()}
+          eyebrow={
+            <>
+              editar membro ·{" "}
+              {editingMember.name == null
+                ? "convite pendente"
+                : editingMember.active === false
+                  ? "desativado"
+                  : "ativo"}
+            </>
+          }
+          title={
+            editingMember.name ? (
+              <>
+                Editar <span className="ital accent">{editingMember.name}</span>
+              </>
+            ) : (
+              <>
+                Editar <span className="ital accent">membro</span>
+              </>
+            )
+          }
+          subtitle={editingMember.email}
+          footer={
+            <>
               <button className="btn-ghost btn" onClick={closeMemberEdit}>
                 Fechar
               </button>
               <button className="btn" onClick={saveMember} disabled={memberSaving}>
                 {memberSaving ? "Salvando…" : "Salvar alterações →"}
               </button>
+            </>
+          }
+        >
+          <label className="ui-field">
+            <span className="ui-field-label">Cargo</span>
+            <div className="signup-select">
+              <select
+                value={editingMember.roleId}
+                onChange={(e) => setEditingMember({ ...editingMember, roleId: e.target.value })}
+              >
+                {roles.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.name}
+                  </option>
+                ))}
+              </select>
+              <span className="signup-select-caret">▾</span>
             </div>
+          </label>
+
+          {editingMember.roleId && (
+            <p className="role-perm-hint mono" style={{ marginTop: "var(--spacing-sm)" }}>
+              <span className="role-perm-hint-label">permissões deste cargo</span>
+              {permissionSummary(editingMember.roleId)}
+            </p>
+          )}
+
+          <label className="ui-field" style={{ marginTop: "var(--spacing-sm)" }}>
+            <span className="ui-field-label">Senioridade</span>
+            <div className="signup-select">
+              <select
+                value={editingMember.seniority || ""}
+                onChange={(e) =>
+                  setEditingMember({ ...editingMember, seniority: e.target.value || null })
+                }
+              >
+                <option value="">— Sem senioridade —</option>
+                {seniorities.map((s) => (
+                  <option key={s.id} value={s.name}>
+                    {s.name}
+                  </option>
+                ))}
+              </select>
+              <span className="signup-select-caret">▾</span>
+            </div>
+          </label>
+
+          <div className="ui-field" style={{ marginTop: "var(--spacing-md)" }}>
+            <span className="ui-field-label">Identidade Azure</span>
+            {azureUsersLoading && <div className="skeleton" style={{ height: "2.4rem" }} />}
+            {azureUsersError && (
+              <div style={{ fontSize: "0.8rem", color: "var(--bad)" }}>{azureUsersError}</div>
+            )}
+            {!azureUsersLoading && !azureUsersError && (
+              <select
+                className="ui-field-input"
+                value={selectedAzureUser?.azureId || ""}
+                disabled={azureUserOptions.length === 0}
+                onChange={(e) => {
+                  const user = azureUserOptions.find((u) => u.azureId === e.target.value) || null;
+                  setSelectedAzureUser(user);
+                }}
+              >
+                <option value="">— sem vinculação Azure —</option>
+                {azureUserOptions.map((u) => (
+                  <option key={u.azureId} value={u.azureId}>
+                    {u.displayName} ({u.azureEmail})
+                  </option>
+                ))}
+              </select>
+            )}
           </div>
-        </div>
+
+          {memberSaveMsg && (
+            <p
+              className="mono"
+              style={{
+                marginTop: "var(--spacing-sm)",
+                fontSize: "0.8rem",
+                color: memberSaveMsg.ok ? "var(--good)" : "var(--bad)",
+              }}
+            >
+              {memberSaveMsg.text}
+            </p>
+          )}
+
+          <div className="member-modal-actions" style={{ marginTop: "var(--spacing-md)" }}>
+            <button
+              className="member-modal-danger"
+              onClick={deactivateMember}
+              disabled={
+                memberSaving ||
+                editingMember.active === false ||
+                String(editingMember.id) === String(loggedUserId)
+              }
+            >
+              {String(editingMember.id) === String(loggedUserId)
+                ? "Não é possível desativar a si mesmo"
+                : "Desativar usuário"}
+            </button>
+          </div>
+        </Modal>
       )}
 
       {/* ── Confirm: Finalizar projeto ── */}
       {editingProject && projectAction === "finalize" && (
-        <div
-          className="role-modal-backdrop role-modal-backdrop--stacked"
-          onClick={() => setProjectAction(null)}
-        >
-          <div className="role-modal role-modal--confirm" onClick={(e) => e.stopPropagation()}>
-            <div className="role-modal-head">
-              <div className="admin-eyebrow mono">finalizar projeto</div>
-              <h3 className="serif role-modal-title">
-                Finalizar <span className="ital accent">{editingProject.name || "projeto"}</span>?
-              </h3>
-            </div>
-            <p className="confirm-text">
-              Os dados já coletados deste projeto <strong>não serão excluídos</strong>, mas ele
-              <strong> deixará de ser atualizado</strong> com os dados coletados externamente. Você
-              poderá <strong>reativá-lo</strong> a qualquer momento.
-            </p>
-            <div className="role-modal-foot">
+        <Modal
+          open
+          stacked
+          size="confirm"
+          onOpenChange={(o) => !o && setProjectAction(null)}
+          eyebrow="finalizar projeto"
+          title={
+            <>
+              Finalizar <span className="ital accent">{editingProject.name || "projeto"}</span>?
+            </>
+          }
+          footer={
+            <>
               <button className="btn-ghost btn" onClick={() => setProjectAction(null)}>
                 Cancelar
               </button>
               <button className="btn" onClick={confirmFinalizeProject}>
                 Finalizar projeto →
               </button>
-            </div>
-          </div>
-        </div>
+            </>
+          }
+        >
+          <p className="confirm-text">
+            Os dados já coletados deste projeto <strong>não serão excluídos</strong>, mas ele
+            <strong> deixará de ser atualizado</strong> com os dados coletados externamente. Você
+            poderá <strong>reativá-lo</strong> a qualquer momento.
+          </p>
+        </Modal>
       )}
 
       {/* ── Confirm: Excluir projeto ── */}
       {editingProject && projectAction === "delete" && (
-        <div
-          className="role-modal-backdrop role-modal-backdrop--stacked"
-          onClick={() => setProjectAction(null)}
-        >
-          <div className="role-modal role-modal--confirm" onClick={(e) => e.stopPropagation()}>
-            <div className="role-modal-head">
-              <div className="admin-eyebrow mono">excluir projeto</div>
-              <h3 className="serif role-modal-title">
-                Excluir <span className="ital accent">{editingProject.name || "projeto"}</span>?
-              </h3>
-            </div>
-            <p className="confirm-text">
-              Todos os dados salvos deste projeto serão <strong>excluídos permanentemente</strong> e
-              o<strong> dashboard será atualizado</strong>. Esta ação não pode ser desfeita.
-            </p>
-            <div className="role-modal-foot">
+        <Modal
+          open
+          stacked
+          size="confirm"
+          onOpenChange={(o) => !o && setProjectAction(null)}
+          eyebrow="excluir projeto"
+          title={
+            <>
+              Excluir <span className="ital accent">{editingProject.name || "projeto"}</span>?
+            </>
+          }
+          footer={
+            <>
               <button className="btn-ghost btn" onClick={() => setProjectAction(null)}>
                 Cancelar
               </button>
               <button className="btn btn-danger" onClick={confirmDeleteProject}>
                 Excluir permanentemente →
               </button>
-            </div>
-          </div>
-        </div>
+            </>
+          }
+        >
+          <p className="confirm-text">
+            Todos os dados salvos deste projeto serão <strong>excluídos permanentemente</strong> e o
+            <strong> dashboard será atualizado</strong>. Esta ação não pode ser desfeita.
+          </p>
+        </Modal>
       )}
 
       {fieldMappingWizardBindingId && (

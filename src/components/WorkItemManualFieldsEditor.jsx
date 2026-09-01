@@ -137,7 +137,7 @@ export function WorkItemManualFieldsEditor({
         {editing && (
           <>
             <input
-              className="role-modal-input wi-fields-input"
+              className="ui-field-input wi-fields-input"
               type="number"
               value={draft}
               onChange={(e) => setDraft(e.target.value)}

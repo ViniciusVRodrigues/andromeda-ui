@@ -3628,202 +3628,6 @@
   color: var(--accent);
 }
 
-/* ─── Role edit / create modal ────────────────────────────── */
-.role-modal-backdrop {
-  position: fixed;
-  inset: 0;
-  background: rgba(8, 6, 4, 0.62);
-  backdrop-filter: blur(6px);
-  -webkit-backdrop-filter: blur(6px);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 100;
-  padding: 24px;
-  animation: rm-fade 0.18s ease-out;
-}
-:root[data-palette="light"] .role-modal-backdrop {
-  background: rgba(34, 26, 16, 0.42);
-}
-@keyframes rm-fade {
-  from {
-    opacity: 0;
-  }
-  to {
-    opacity: 1;
-  }
-}
-
-.role-modal {
-  width: 100%;
-  max-width: 560px;
-  background: var(--bg-elev, #1d2330);
-  border: 1px solid var(--line);
-  border-radius: 18px;
-  padding: 28px 28px 24px;
-  display: flex;
-  flex-direction: column;
-  gap: 22px;
-  font-family: "JetBrains Mono", "IBM Plex Mono", ui-monospace, monospace;
-  animation: rm-rise 0.22s ease-out;
-}
-.role-modal--wide {
-  max-width: 720px;
-}
-:root[data-palette="light"] .role-modal {
-  background: #faf6ec;
-  border-color: rgba(34, 26, 16, 0.14);
-}
-@keyframes rm-rise {
-  from {
-    transform: translateY(8px);
-    opacity: 0;
-  }
-  to {
-    transform: translateY(0);
-    opacity: 1;
-  }
-}
-.role-modal-head {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-}
-.role-modal-close {
-  flex-shrink: 0;
-  font-size: 11px;
-  letter-spacing: 0.06em;
-}
-.role-modal-title {
-  font-size: 30px;
-  line-height: 1.05;
-}
-.role-modal-subtitle {
-  margin-top: 6px;
-  font-size: 11px;
-  color: var(--fg-muted);
-  word-break: break-all;
-}
-.role-modal-body {
-  display: flex;
-  flex-direction: column;
-  gap: 18px;
-}
-.role-modal-field {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.role-modal-label {
-  font-size: 10px;
-  letter-spacing: 0.24em;
-  text-transform: uppercase;
-  color: var(--fg-dim);
-  font-family: "JetBrains Mono", monospace;
-}
-.role-modal-input {
-  background: var(--bg-elev);
-  border: 1px solid var(--line);
-  border-radius: 10px;
-  padding: 12px 14px;
-  font-size: var(--mono-md);
-  color: var(--fg);
-  font-family: inherit;
-}
-.role-modal-input:focus {
-  outline: none;
-  border-color: var(--accent);
-}
-.role-modal-input option {
-  background: var(--bg-elev);
-  color: var(--fg);
-}
-
-.role-modal-options {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-}
-.role-modal-options--grid {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 8px;
-}
-.role-modal-option {
-  display: flex;
-  align-items: flex-start;
-  gap: 14px;
-  padding: 14px 16px;
-  border: 1px solid var(--line);
-  border-radius: 12px;
-  background: rgba(0, 0, 0, 0.1);
-  text-align: left;
-  cursor: pointer;
-  transition:
-    border-color 0.18s,
-    background 0.18s;
-  color: var(--fg);
-  font-family: inherit;
-  font-size: 13px;
-}
-:root[data-palette="light"] .role-modal-option {
-  background: #fffbf1;
-}
-.role-modal-option:hover {
-  border-color: var(--fg-muted);
-}
-.role-modal-option.is-active {
-  border-color: var(--accent);
-  background: linear-gradient(135deg, rgba(198, 139, 102, 0.14), rgba(198, 139, 102, 0.02));
-}
-:root[data-palette="light"] .role-modal-option.is-active {
-  background: linear-gradient(135deg, rgba(166, 102, 71, 0.16), rgba(166, 102, 71, 0.04));
-}
-.role-modal-option-mark {
-  flex-shrink: 0;
-  width: 14px;
-  height: 14px;
-  border-radius: 50%;
-  border: 1px solid var(--fg-dim);
-  margin-top: 4px;
-  position: relative;
-  transition: border-color 0.18s;
-}
-.role-modal-option.is-active .role-modal-option-mark {
-  border-color: var(--accent);
-}
-.role-modal-option.is-active .role-modal-option-mark::after {
-  content: "";
-  position: absolute;
-  inset: 3px;
-  border-radius: 50%;
-  background: var(--accent);
-}
-.role-modal-option-label {
-  font-size: var(--mono-md);
-  color: var(--fg);
-  margin-bottom: 4px;
-}
-.role-modal-option-sub {
-  font-size: 11px;
-  color: var(--fg-muted);
-  line-height: 1.5;
-}
-
-.role-modal-foot {
-  display: flex;
-  justify-content: flex-end;
-  gap: 10px;
-  padding-top: 4px;
-  border-top: 1px solid var(--line);
-  padding-top: 18px;
-}
-.role-modal-foot .btn[disabled] {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
 /* ─── Projects: card grid ─── */
 .projects-section {
   display: flex;
@@ -4131,7 +3935,7 @@
   padding-top: 16px;
   border-top: 1px solid var(--line);
 }
-.project-detail-body .role-modal-textarea {
+.project-detail-body textarea.ui-field-input {
   min-height: 58px;
 }
 
@@ -4141,43 +3945,11 @@
   max-width: 880px;
   max-height: calc(100vh - 120px);
 }
-.project-modal .role-modal-body {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  gap: 14px;
-  padding-right: 4px;
-}
-.project-modal .role-modal-body::-webkit-scrollbar {
-  width: 8px;
-}
-.project-modal .role-modal-body::-webkit-scrollbar-thumb {
-  background: var(--line-strong);
-  border-radius: 4px;
-}
-.project-modal .role-modal-body::-webkit-scrollbar-track {
-  background: transparent;
-}
 
 /* ─── Field mapping wizard modal (onboarding + copy-once template step) ─── */
 /* pode crescer bastante na etapa de hierarquia (muitos tipos de work item) */
 .field-mapping-modal {
   max-height: calc(100vh - 120px);
-}
-.field-mapping-modal .role-modal-body {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-}
-.field-mapping-modal .role-modal-body::-webkit-scrollbar {
-  width: 8px;
-}
-.field-mapping-modal .role-modal-body::-webkit-scrollbar-thumb {
-  background: var(--line-strong);
-  border-radius: 4px;
-}
-.field-mapping-modal .role-modal-body::-webkit-scrollbar-track {
-  background: transparent;
 }
 
 /* o nome do projeto é um campo de texto no lugar do título */
@@ -4202,9 +3974,6 @@
 .project-name-input:focus {
   outline: none;
   border-bottom-color: var(--accent);
-}
-.project-modal .role-modal-textarea {
-  min-height: 58px;
 }
 
 /* topo do modal de projeto: eyebrow à esquerda, select de status à direita */
@@ -4267,14 +4036,6 @@
   color: var(--fg-dim);
 }
 
-/* modal de confirmação (finalizar / excluir) — empilha sobre o de projeto */
-.role-modal-backdrop--stacked {
-  z-index: 110;
-}
-.role-modal--confirm {
-  max-width: 460px;
-  gap: 20px;
-}
 .confirm-text {
   margin: 0;
   font-size: 12px;
@@ -4288,13 +4049,6 @@
 /* aviso de bloqueio (cargo/nível com pessoas) ocupa a linha inteira */
 .role-perm-hint--block {
   border-style: dashed;
-}
-
-/* dois selects lado a lado (cargo · senioridade) */
-.role-modal-duo {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
 }
 
 /* texto com as permissões do cargo selecionado */
@@ -4315,13 +4069,6 @@
   text-transform: uppercase;
   color: var(--accent);
   margin-bottom: 4px;
-}
-
-.role-modal-textarea {
-  resize: vertical;
-  min-height: 72px;
-  line-height: 1.55;
-  font-family: inherit;
 }
 
 /* integrações uma ao lado da outra (duas colunas) */
@@ -4487,7 +4234,7 @@
 }
 
 .cmb-content {
-  z-index: 1200; /* acima dos modais (.role-modal) */
+  z-index: 1200; /* acima dos modais (.ui-modal) */
   min-width: var(--radix-select-trigger-width);
   max-height: 320px;
   background: var(--bg-elev);
@@ -4700,7 +4447,7 @@
   color: var(--fg-dim);
   pointer-events: none;
 }
-.project-people-search .role-modal-input {
+.project-people-search .ui-field-input {
   padding-left: 34px;
 }
 .project-people-list {
@@ -5151,12 +4898,6 @@
   }
   .member-cell-edit {
     display: none;
-  }
-  .role-modal-options--grid {
-    grid-template-columns: 1fr;
-  }
-  .role-modal-duo {
-    grid-template-columns: 1fr;
   }
   .member-modal-actions {
     grid-template-columns: 1fr;

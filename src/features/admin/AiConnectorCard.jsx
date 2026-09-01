@@ -1,5 +1,6 @@
 import React from "react";
 import api, { BACKEND_URL } from "../../services/api.js";
+import { ConfirmDialog } from "../../core/ui/Modal.jsx";
 
 /**
  * @param {{ orgSlug: string, can: (perm: string) => boolean }} props
@@ -194,28 +195,25 @@ export function AiConnectorCard({ orgSlug, can }) {
       <AiConnectorTutorial />
 
       {confirmRegen && (
-        <div className="role-modal-backdrop" onClick={() => setConfirmRegen(false)}>
-          <div className="role-modal role-modal--confirm" onClick={(e) => e.stopPropagation()}>
-            <div className="role-modal-head">
-              <div className="admin-eyebrow mono">regenerar token</div>
-              <h3 className="serif role-modal-title">
-                Gerar um <span className="ital accent">novo token</span>?
-              </h3>
-            </div>
-            <p className="confirm-text">
+        <ConfirmDialog
+          open
+          onOpenChange={setConfirmRegen}
+          eyebrow="regenerar token"
+          title={
+            <>
+              Gerar um <span className="ital accent">novo token</span>?
+            </>
+          }
+          message={
+            <>
               Sua configuração atual do VS Code vai <strong>parar de funcionar</strong> até você
               atualizar o endereço.
-            </p>
-            <div className="role-modal-foot">
-              <button className="btn-ghost btn" onClick={() => setConfirmRegen(false)}>
-                Cancelar
-              </button>
-              <button className="btn btn-danger" onClick={handleRegen}>
-                Confirmar →
-              </button>
-            </div>
-          </div>
-        </div>
+            </>
+          }
+          confirmLabel="Confirmar →"
+          danger
+          onConfirm={handleRegen}
+        />
       )}
     </div>
   );

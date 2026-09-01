@@ -7,6 +7,7 @@ import {
   getSiblingAzureBindings,
   getAzureProjectBinding,
 } from "../../services/api.js";
+import { Modal } from "../../core/ui/Modal.jsx";
 
 const RESOLVED_TYPES = ["STORY", "BUG", "TASK", "EPIC", "FEATURE", "SUB_TASK"];
 const RESOLVED_STATUSES = ["TODO", "IN_PROGRESS", "DONE"];
@@ -706,570 +707,560 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
     onDone();
   };
 
+  /* 8.1 — "Voltar" on every step except the first ("start"); goBack
+   * only changes `step`, never touches any other draft state. */
+  const wizardFoot = (
+    <>
+      {stepHistory.length > 0 && (
+        <button type="button" className="btn-ghost btn" onClick={goBack} disabled={saving}>
+          ← Voltar
+        </button>
+      )}
+      <button type="button" className="btn-ghost btn" onClick={handleSkip} disabled={saving}>
+        {saving ? "Salvando…" : "Pular e usar padrões"}
+      </button>
+      {step === "start" && !showCopyPicker && (
+        <button type="button" className="btn" onClick={() => goToStep("types")}>
+          Continuar →
+        </button>
+      )}
+      {step === "start" && showCopyPicker && (
+        <button
+          type="button"
+          className="btn"
+          onClick={handleCopyFromSibling}
+          disabled={!selectedSiblingId || copyLoading}
+        >
+          {copyLoading ? "Copiando…" : "Copiar e continuar →"}
+        </button>
+      )}
+      {step === "types" && (
+        <button
+          type="button"
+          className="btn"
+          onClick={() => goToStep("status")}
+          disabled={typesLoading}
+        >
+          Continuar →
+        </button>
+      )}
+      {step === "status" && (
+        <button type="button" className="btn" onClick={() => goToStep("mapping")}>
+          Continuar →
+        </button>
+      )}
+      {step === "mapping" && (
+        <button type="button" className="btn" onClick={() => goToStep("filter")}>
+          Continuar →
+        </button>
+      )}
+      {step === "filter" && (
+        <button type="button" className="btn" onClick={() => goToStep("hierarchy")}>
+          Continuar →
+        </button>
+      )}
+      {step === "hierarchy" && (
+        <button type="button" className="btn" onClick={handleSave} disabled={saving}>
+          {saving ? "Salvando…" : "Concluir →"}
+        </button>
+      )}
+    </>
+  );
+
   return (
-    <div className="role-modal-backdrop">
-      <div className="role-modal field-mapping-modal" onClick={(e) => e.stopPropagation()}>
-        <div className="role-modal-head">
-          <div className="admin-eyebrow mono">onboarding azure devops</div>
-          <h3 className="serif role-modal-title">
-            Personalize a <span className="ital accent">integração</span>
-          </h3>
-          <button
-            type="button"
-            className="btn-ghost btn role-modal-close"
-            onClick={handleClose}
-            disabled={saving}
-            aria-label="Fechar sem salvar"
-            title="Fechar sem salvar"
-          >
-            Fechar ✕
-          </button>
-        </div>
+    <Modal
+      open
+      onOpenChange={(o) => !o && handleClose()}
+      eyebrow="onboarding azure devops"
+      title={
+        <>
+          Personalize a <span className="ital accent">integração</span>
+        </>
+      }
+      showClose
+      closeLabel="Fechar ✕"
+      closeDisabled={saving}
+      closeOnBackdrop={false}
+      className="field-mapping-modal"
+      footer={wizardFoot}
+    >
+      {step === "start" && (
+        <div className="ui-modal-body">
+          <p className="confirm-text">
+            {hasOwnConfig
+              ? "Este projeto já tem um mapeamento salvo. Revise a configuração atual ou use outro projeto vinculado como base."
+              : "Como você quer configurar o mapeamento deste projeto?"}
+          </p>
 
-        {step === "start" && (
-          <div className="role-modal-body">
-            <p className="confirm-text">
-              {hasOwnConfig
-                ? "Este projeto já tem um mapeamento salvo. Revise a configuração atual ou use outro projeto vinculado como base."
-                : "Como você quer configurar o mapeamento deste projeto?"}
-            </p>
+          <div className="ui-modal-options">
+            <button
+              type="button"
+              className={"ui-modal-option" + (!showCopyPicker ? " is-active" : "")}
+              onClick={() => {
+                setShowCopyPicker(false);
+                setStep("types");
+              }}
+            >
+              <span className="ui-modal-option-mark" />
+              <span>
+                <div className="ui-modal-option-label">
+                  {hasOwnConfig ? "Editar configuração atual" : "Começar do zero"}
+                </div>
+                <div className="ui-modal-option-sub">
+                  {hasOwnConfig
+                    ? "Passe por cada etapa revisando os mapeamentos já salvos deste projeto."
+                    : "Passe por cada etapa do zero: tipos, mapeamento de campos, filtro e hierarquia."}
+                </div>
+              </span>
+            </button>
 
-            <div className="role-modal-options">
+            {!siblingsLoading && siblings.length > 0 && (
               <button
                 type="button"
-                className={"role-modal-option" + (!showCopyPicker ? " is-active" : "")}
-                onClick={() => {
-                  setShowCopyPicker(false);
-                  setStep("types");
-                }}
+                className={"ui-modal-option" + (showCopyPicker ? " is-active" : "")}
+                onClick={() => setShowCopyPicker(true)}
               >
-                <span className="role-modal-option-mark" />
+                <span className="ui-modal-option-mark" />
                 <span>
-                  <div className="role-modal-option-label">
-                    {hasOwnConfig ? "Editar configuração atual" : "Começar do zero"}
-                  </div>
-                  <div className="role-modal-option-sub">
-                    {hasOwnConfig
-                      ? "Passe por cada etapa revisando os mapeamentos já salvos deste projeto."
-                      : "Passe por cada etapa do zero: tipos, mapeamento de campos, filtro e hierarquia."}
+                  <div className="ui-modal-option-label">Copiar de outro projeto vinculado</div>
+                  <div className="ui-modal-option-sub">
+                    Use a configuração de um projeto já mapeado como ponto de partida — você poderá
+                    editar tudo antes de salvar.
                   </div>
                 </span>
               </button>
-
-              {!siblingsLoading && siblings.length > 0 && (
-                <button
-                  type="button"
-                  className={"role-modal-option" + (showCopyPicker ? " is-active" : "")}
-                  onClick={() => setShowCopyPicker(true)}
-                >
-                  <span className="role-modal-option-mark" />
-                  <span>
-                    <div className="role-modal-option-label">Copiar de outro projeto vinculado</div>
-                    <div className="role-modal-option-sub">
-                      Use a configuração de um projeto já mapeado como ponto de partida — você
-                      poderá editar tudo antes de salvar.
-                    </div>
-                  </span>
-                </button>
-              )}
-            </div>
-
-            {siblingsLoading && (
-              <p className="mono integration-loading">Carregando projetos vinculados…</p>
-            )}
-
-            {showCopyPicker && !siblingsLoading && (
-              <label className="role-modal-field">
-                <span className="role-modal-label">Projeto de origem</span>
-                <div className="signup-select">
-                  <select
-                    value={selectedSiblingId}
-                    onChange={(e) => setSelectedSiblingId(e.target.value)}
-                  >
-                    <option value="">Selecione um projeto</option>
-                    {siblings.map((s) => (
-                      <option key={s.id} value={s.id}>
-                        {s.azureProjectName}
-                      </option>
-                    ))}
-                  </select>
-                  <span className="signup-select-caret">▾</span>
-                </div>
-              </label>
-            )}
-
-            {copyError && <p className="mono integration-error">{copyError}</p>}
-          </div>
-        )}
-
-        {step === "types" && (
-          <div className="role-modal-body">
-            <p className="confirm-text">
-              Encontramos os seguintes tipos de work item no seu processo Azure DevOps. No próximo
-              passo você poderá mapear complexidade e esforço para os campos certos.
-            </p>
-            {typesLoading && <p className="mono integration-loading">Carregando tipos…</p>}
-            {typesError && <p className="mono integration-error">{typesError}</p>}
-            {!typesLoading && !typesError && (
-              <ul
-                className="mono integration-pat-scopes-list"
-                style={{ display: "flex", flexDirection: "column", gap: 8 }}
-              >
-                {types.map((t) => {
-                  const current = typeMappings.find((m) => m.rawType === t.name);
-                  return (
-                    <li
-                      key={t.referenceName}
-                      style={{ display: "flex", alignItems: "center", gap: 8 }}
-                    >
-                      <span style={{ flex: 1 }}>{t.name}</span>
-                      <div className="signup-select">
-                        <select
-                          value={current?.resolvedType || guessResolvedType(t.name)}
-                          onChange={(e) => updateTypeMapping(t.name, e.target.value)}
-                        >
-                          {RESOLVED_TYPES.map((rt) => (
-                            <option key={rt} value={rt}>
-                              {rt}
-                            </option>
-                          ))}
-                        </select>
-                        <span className="signup-select-caret">▾</span>
-                      </div>
-                    </li>
-                  );
-                })}
-                {types.length === 0 && <li>Nenhum tipo encontrado.</li>}
-              </ul>
             )}
           </div>
-        )}
 
-        {step === "status" && (
-          <div className="role-modal-body">
-            <p className="confirm-text">
-              Para cada tipo de work item, mapeie os status reais do Azure DevOps para o status
-              interno correspondente.
-            </p>
+          {siblingsLoading && (
+            <p className="mono integration-loading">Carregando projetos vinculados…</p>
+          )}
 
-            {/* 5.1 — display-only rename of the three fixed resolved-status
-                buckets. The underlying TODO/IN_PROGRESS/DONE values submitted
-                on the wire never change; only the label shown here does.
-                5.2 — no removal action exists for these buckets: they're a
-                fixed constant array (RESOLVED_STATUSES), rendered as labeled
-                text inputs, not a removable list. */}
-            <div className="role-modal-field">
-              <span className="role-modal-label">Nomes exibidos para os status internos</span>
-              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                {RESOLVED_STATUSES.map((rs) => (
-                  <div key={rs} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    <span className="mono" style={{ opacity: 0.7, width: 110 }}>
-                      {rs}
-                    </span>
-                    <input
-                      className="role-modal-input"
-                      type="text"
-                      value={statusBucketLabels[rs]}
-                      onChange={(e) =>
-                        setStatusBucketLabels((prev) => ({ ...prev, [rs]: e.target.value }))
-                      }
-                    />
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {types.length === 0 && (
-              <p className="mono integration-loading">Nenhum tipo disponível.</p>
-            )}
-            {types.map((t) => {
-              const states = statesByType[t.name] || [];
-              const loading = !!statesLoading[t.name];
-              const error = statesError[t.name];
-              return (
-                <div
-                  key={t.referenceName}
-                  style={{
-                    border: "1px solid var(--line)",
-                    borderRadius: 6,
-                    padding: 8,
-                    marginBottom: 8,
-                  }}
-                >
-                  <div className="mono" style={{ opacity: 0.7, marginBottom: 6 }}>
-                    {t.name}
-                  </div>
-                  {loading && <p className="mono integration-loading">Carregando status…</p>}
-                  {error && <p className="mono integration-error">{error}</p>}
-                  {!loading && !error && (
-                    <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                      {states.map((s) => {
-                        const current = statusMappings.find(
-                          (m) => m.workItemType === t.name && m.rawStatus === s.name,
-                        );
-                        return (
-                          <div
-                            key={s.name}
-                            style={{ display: "flex", alignItems: "center", gap: 8 }}
-                          >
-                            <span style={{ flex: 1 }}>{s.name}</span>
-                            <div className="signup-select">
-                              <select
-                                value={current?.resolvedStatus || guessResolvedStatus(s.name)}
-                                onChange={(e) =>
-                                  updateStatusMapping(t.name, s.name, e.target.value)
-                                }
-                              >
-                                {RESOLVED_STATUSES.map((rs) => (
-                                  <option key={rs} value={rs}>
-                                    {statusBucketLabels[rs] || rs}
-                                  </option>
-                                ))}
-                              </select>
-                              <span className="signup-select-caret">▾</span>
-                            </div>
-                          </div>
-                        );
-                      })}
-                      {states.length === 0 && <p className="mono">Nenhum status encontrado.</p>}
-                    </div>
-                  )}
-                </div>
-              );
-            })}
-            {saveError && <p className="mono integration-error">{saveError}</p>}
-          </div>
-        )}
-
-        {step === "mapping" && (
-          <div className="role-modal-body">
-            <p className="confirm-text">
-              Para cada tipo de work item, escolha qual campo do Azure DevOps representa
-              complexidade e esforço — eles podem ficar em tipos diferentes (ex.: Story Points no
-              User Story e Completed Work na Task). Deixe em branco para preencher manualmente
-              depois.
-            </p>
-
-            <label className="role-modal-field">
-              <span className="role-modal-label">Tipo de work item</span>
+          {showCopyPicker && !siblingsLoading && (
+            <label className="ui-field">
+              <span className="ui-field-label">Projeto de origem</span>
               <div className="signup-select">
                 <select
-                  value={selectedTypeForFields || ""}
-                  onChange={(e) => setSelectedTypeForFields(e.target.value)}
+                  value={selectedSiblingId}
+                  onChange={(e) => setSelectedSiblingId(e.target.value)}
                 >
-                  {types.map((t) => (
-                    <option key={t.referenceName} value={t.name}>
-                      {t.name}
+                  <option value="">Selecione um projeto</option>
+                  {siblings.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.azureProjectName}
                     </option>
                   ))}
                 </select>
                 <span className="signup-select-caret">▾</span>
               </div>
             </label>
+          )}
 
-            {fieldsLoading && <p className="mono integration-loading">Carregando campos…</p>}
-            {fieldsError && <p className="mono integration-error">{fieldsError}</p>}
+          {copyError && <p className="mono integration-error">{copyError}</p>}
+        </div>
+      )}
 
-            {!fieldsLoading && !fieldsError && (
-              <>
-                <label className="role-modal-field">
-                  <span className="role-modal-label">
-                    Campo de Complexidade · {selectedTypeForFields}
+      {step === "types" && (
+        <div className="ui-modal-body">
+          <p className="confirm-text">
+            Encontramos os seguintes tipos de work item no seu processo Azure DevOps. No próximo
+            passo você poderá mapear complexidade e esforço para os campos certos.
+          </p>
+          {typesLoading && <p className="mono integration-loading">Carregando tipos…</p>}
+          {typesError && <p className="mono integration-error">{typesError}</p>}
+          {!typesLoading && !typesError && (
+            <ul
+              className="mono integration-pat-scopes-list"
+              style={{ display: "flex", flexDirection: "column", gap: 8 }}
+            >
+              {types.map((t) => {
+                const current = typeMappings.find((m) => m.rawType === t.name);
+                return (
+                  <li
+                    key={t.referenceName}
+                    style={{ display: "flex", alignItems: "center", gap: 8 }}
+                  >
+                    <span style={{ flex: 1 }}>{t.name}</span>
+                    <div className="signup-select">
+                      <select
+                        value={current?.resolvedType || guessResolvedType(t.name)}
+                        onChange={(e) => updateTypeMapping(t.name, e.target.value)}
+                      >
+                        {RESOLVED_TYPES.map((rt) => (
+                          <option key={rt} value={rt}>
+                            {rt}
+                          </option>
+                        ))}
+                      </select>
+                      <span className="signup-select-caret">▾</span>
+                    </div>
+                  </li>
+                );
+              })}
+              {types.length === 0 && <li>Nenhum tipo encontrado.</li>}
+            </ul>
+          )}
+        </div>
+      )}
+
+      {step === "status" && (
+        <div className="ui-modal-body">
+          <p className="confirm-text">
+            Para cada tipo de work item, mapeie os status reais do Azure DevOps para o status
+            interno correspondente.
+          </p>
+
+          {/* 5.1 — display-only rename of the three fixed resolved-status
+                buckets. The underlying TODO/IN_PROGRESS/DONE values submitted
+                on the wire never change; only the label shown here does.
+                5.2 — no removal action exists for these buckets: they're a
+                fixed constant array (RESOLVED_STATUSES), rendered as labeled
+                text inputs, not a removable list. */}
+          <div className="ui-field">
+            <span className="ui-field-label">Nomes exibidos para os status internos</span>
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              {RESOLVED_STATUSES.map((rs) => (
+                <div key={rs} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                  <span className="mono" style={{ opacity: 0.7, width: 110 }}>
+                    {rs}
                   </span>
-                  <div className="signup-select">
-                    <select
-                      value={currentSelection.complexityField || ""}
-                      onChange={(e) =>
-                        updateFieldSelection(
-                          selectedTypeForFields,
-                          "COMPLEXITY",
-                          currentFields.find((f) => f.referenceName === e.target.value) || null,
-                        )
-                      }
-                    >
-                      <option value="">Nenhum (preencher manualmente)</option>
-                      {currentFields.map((f) => (
-                        <option key={f.referenceName} value={f.referenceName}>
-                          {f.name}
-                        </option>
-                      ))}
-                    </select>
-                    <span className="signup-select-caret">▾</span>
-                  </div>
-                </label>
+                  <input
+                    className="ui-field-input"
+                    type="text"
+                    value={statusBucketLabels[rs]}
+                    onChange={(e) =>
+                      setStatusBucketLabels((prev) => ({ ...prev, [rs]: e.target.value }))
+                    }
+                  />
+                </div>
+              ))}
+            </div>
+          </div>
 
-                <label className="role-modal-field">
-                  <span className="role-modal-label">
-                    Campo de Esforço · {selectedTypeForFields}
-                  </span>
-                  <div className="signup-select">
-                    <select
-                      value={currentSelection.effortField || ""}
-                      onChange={(e) =>
-                        updateFieldSelection(
-                          selectedTypeForFields,
-                          "EFFORT",
-                          currentFields.find((f) => f.referenceName === e.target.value) || null,
-                        )
-                      }
-                    >
-                      <option value="">Nenhum (preencher manualmente)</option>
-                      {currentFields.map((f) => (
-                        <option key={f.referenceName} value={f.referenceName}>
-                          {f.name}
-                        </option>
-                      ))}
-                    </select>
-                    <span className="signup-select-caret">▾</span>
+          {types.length === 0 && (
+            <p className="mono integration-loading">Nenhum tipo disponível.</p>
+          )}
+          {types.map((t) => {
+            const states = statesByType[t.name] || [];
+            const loading = !!statesLoading[t.name];
+            const error = statesError[t.name];
+            return (
+              <div
+                key={t.referenceName}
+                style={{
+                  border: "1px solid var(--line)",
+                  borderRadius: 6,
+                  padding: 8,
+                  marginBottom: 8,
+                }}
+              >
+                <div className="mono" style={{ opacity: 0.7, marginBottom: 6 }}>
+                  {t.name}
+                </div>
+                {loading && <p className="mono integration-loading">Carregando status…</p>}
+                {error && <p className="mono integration-error">{error}</p>}
+                {!loading && !error && (
+                  <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                    {states.map((s) => {
+                      const current = statusMappings.find(
+                        (m) => m.workItemType === t.name && m.rawStatus === s.name,
+                      );
+                      return (
+                        <div key={s.name} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                          <span style={{ flex: 1 }}>{s.name}</span>
+                          <div className="signup-select">
+                            <select
+                              value={current?.resolvedStatus || guessResolvedStatus(s.name)}
+                              onChange={(e) => updateStatusMapping(t.name, s.name, e.target.value)}
+                            >
+                              {RESOLVED_STATUSES.map((rs) => (
+                                <option key={rs} value={rs}>
+                                  {statusBucketLabels[rs] || rs}
+                                </option>
+                              ))}
+                            </select>
+                            <span className="signup-select-caret">▾</span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    {states.length === 0 && <p className="mono">Nenhum status encontrado.</p>}
                   </div>
-                </label>
-              </>
-            )}
-
-            {fieldMappingSummary.length > 0 && (
-              <div className="role-modal-field">
-                <span className="role-modal-label">Mapeamentos definidos</span>
-                <ul
-                  className="mono"
-                  style={{ display: "flex", flexDirection: "column", gap: 4, opacity: 0.85 }}
-                >
-                  {fieldMappingSummary.map((row) => (
-                    <li key={row.typeName}>
-                      {row.typeName}
-                      {row.complexity && <> · Complexidade: {row.complexity}</>}
-                      {row.effort && <> · Esforço: {row.effort}</>}
-                    </li>
-                  ))}
-                </ul>
+                )}
               </div>
-            )}
+            );
+          })}
+          {saveError && <p className="mono integration-error">{saveError}</p>}
+        </div>
+      )}
 
-            {wildcardFieldMappings.length > 0 && (
-              <div className="role-modal-field">
-                <span className="role-modal-label">Mapeamentos globais (fallback)</span>
-                <p className="mono" style={{ opacity: 0.7, marginBottom: 6 }}>
-                  Herdados da configuração de origem — valem para qualquer tipo sem um campo próprio
-                  definido acima.
-                </p>
-                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                  {wildcardFieldMappings.map((w, idx) => (
-                    <div
-                      key={w.internalField + "-" + w.azureFieldReferenceName}
-                      style={{ display: "flex", alignItems: "center", gap: 8 }}
+      {step === "mapping" && (
+        <div className="ui-modal-body">
+          <p className="confirm-text">
+            Para cada tipo de work item, escolha qual campo do Azure DevOps representa complexidade
+            e esforço — eles podem ficar em tipos diferentes (ex.: Story Points no User Story e
+            Completed Work na Task). Deixe em branco para preencher manualmente depois.
+          </p>
+
+          <label className="ui-field">
+            <span className="ui-field-label">Tipo de work item</span>
+            <div className="signup-select">
+              <select
+                value={selectedTypeForFields || ""}
+                onChange={(e) => setSelectedTypeForFields(e.target.value)}
+              >
+                {types.map((t) => (
+                  <option key={t.referenceName} value={t.name}>
+                    {t.name}
+                  </option>
+                ))}
+              </select>
+              <span className="signup-select-caret">▾</span>
+            </div>
+          </label>
+
+          {fieldsLoading && <p className="mono integration-loading">Carregando campos…</p>}
+          {fieldsError && <p className="mono integration-error">{fieldsError}</p>}
+
+          {!fieldsLoading && !fieldsError && (
+            <>
+              <label className="ui-field">
+                <span className="ui-field-label">
+                  Campo de Complexidade · {selectedTypeForFields}
+                </span>
+                <div className="signup-select">
+                  <select
+                    value={currentSelection.complexityField || ""}
+                    onChange={(e) =>
+                      updateFieldSelection(
+                        selectedTypeForFields,
+                        "COMPLEXITY",
+                        currentFields.find((f) => f.referenceName === e.target.value) || null,
+                      )
+                    }
+                  >
+                    <option value="">Nenhum (preencher manualmente)</option>
+                    {currentFields.map((f) => (
+                      <option key={f.referenceName} value={f.referenceName}>
+                        {f.name}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="signup-select-caret">▾</span>
+                </div>
+              </label>
+
+              <label className="ui-field">
+                <span className="ui-field-label">Campo de Esforço · {selectedTypeForFields}</span>
+                <div className="signup-select">
+                  <select
+                    value={currentSelection.effortField || ""}
+                    onChange={(e) =>
+                      updateFieldSelection(
+                        selectedTypeForFields,
+                        "EFFORT",
+                        currentFields.find((f) => f.referenceName === e.target.value) || null,
+                      )
+                    }
+                  >
+                    <option value="">Nenhum (preencher manualmente)</option>
+                    {currentFields.map((f) => (
+                      <option key={f.referenceName} value={f.referenceName}>
+                        {f.name}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="signup-select-caret">▾</span>
+                </div>
+              </label>
+            </>
+          )}
+
+          {fieldMappingSummary.length > 0 && (
+            <div className="ui-field">
+              <span className="ui-field-label">Mapeamentos definidos</span>
+              <ul
+                className="mono"
+                style={{ display: "flex", flexDirection: "column", gap: 4, opacity: 0.85 }}
+              >
+                {fieldMappingSummary.map((row) => (
+                  <li key={row.typeName}>
+                    {row.typeName}
+                    {row.complexity && <> · Complexidade: {row.complexity}</>}
+                    {row.effort && <> · Esforço: {row.effort}</>}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {wildcardFieldMappings.length > 0 && (
+            <div className="ui-field">
+              <span className="ui-field-label">Mapeamentos globais (fallback)</span>
+              <p className="mono" style={{ opacity: 0.7, marginBottom: 6 }}>
+                Herdados da configuração de origem — valem para qualquer tipo sem um campo próprio
+                definido acima.
+              </p>
+              <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                {wildcardFieldMappings.map((w, idx) => (
+                  <div
+                    key={w.internalField + "-" + w.azureFieldReferenceName}
+                    style={{ display: "flex", alignItems: "center", gap: 8 }}
+                  >
+                    <span className="mono" style={{ flex: 1 }}>
+                      {w.internalField === "COMPLEXITY" ? "Complexidade" : "Esforço"}:{" "}
+                      {w.azureFieldReferenceName}
+                    </span>
+                    <button
+                      type="button"
+                      className="btn-ghost btn"
+                      onClick={() =>
+                        setWildcardFieldMappings((prev) => prev.filter((_, i) => i !== idx))
+                      }
+                      aria-label={`Remover mapeamento global de ${w.internalField === "COMPLEXITY" ? "complexidade" : "esforço"}`}
+                      title="Remover mapeamento global"
                     >
-                      <span className="mono" style={{ flex: 1 }}>
-                        {w.internalField === "COMPLEXITY" ? "Complexidade" : "Esforço"}:{" "}
-                        {w.azureFieldReferenceName}
-                      </span>
+                      ×
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+      {step === "filter" && (
+        <div className="ui-modal-body">
+          <p className="confirm-text">
+            Opcionalmente, restrinja quais work items serão sincronizados. Deixe em branco para
+            sincronizar tudo.
+          </p>
+
+          <label className="ui-field">
+            <span className="ui-field-label">Tipos de work item a sincronizar</span>
+            <div className="integration-pat-scopes">
+              {types.map((t) => (
+                <label
+                  key={t.referenceName}
+                  className="mono"
+                  style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 4 }}
+                >
+                  <input
+                    type="checkbox"
+                    checked={filterTypes.includes(t.name)}
+                    onChange={() => toggleFilterType(t.name)}
+                  />
+                  {t.name}
+                </label>
+              ))}
+            </div>
+          </label>
+
+          <label className="ui-field">
+            <span className="ui-field-label">Area Path (opcional)</span>
+            <input
+              className="ui-field-input"
+              type="text"
+              placeholder="MeuProjeto\\Equipe"
+              value={areaPath}
+              onChange={(e) => setAreaPath(e.target.value)}
+            />
+          </label>
+
+          <label className="ui-field">
+            <span className="ui-field-label">Iteration Path (opcional)</span>
+            <input
+              className="ui-field-input"
+              type="text"
+              placeholder="MeuProjeto\\Sprint 1"
+              value={iterationPath}
+              onChange={(e) => setIterationPath(e.target.value)}
+            />
+          </label>
+
+          {saveError && <p className="mono integration-error">{saveError}</p>}
+        </div>
+      )}
+
+      {step === "hierarchy" && (
+        <div className="ui-modal-body">
+          <p className="confirm-text">
+            Ordene os tipos de work item do mais "raiz" (topo, ex: Épico) para o mais "folha" (base,
+            ex: Task/Bug). Tipos no mesmo nível são irmãos — use as setas laterais para agrupar um
+            tipo com o nível acima ou abaixo.
+          </p>
+
+          {rankGroups.length === 0 && (
+            <p className="mono integration-loading">Nenhum tipo disponível para ordenar.</p>
+          )}
+
+          <ol
+            className="mono integration-pat-scopes-list"
+            style={{ display: "flex", flexDirection: "column", gap: 8 }}
+          >
+            {rankGroups.map((group, groupIndex) => (
+              <li
+                key={group.rank}
+                style={{ border: "1px solid var(--line)", borderRadius: 6, padding: 8 }}
+              >
+                <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                  <span style={{ opacity: 0.7 }}>Nível {groupIndex}</span>
+                  <div style={{ marginLeft: "auto", display: "flex", gap: 4 }}>
+                    <button
+                      type="button"
+                      className="btn-ghost btn"
+                      onClick={() => moveGroup(groupIndex, -1)}
+                      disabled={groupIndex === 0}
+                      aria-label="Mover nível para cima"
+                      title="Mover nível para cima"
+                    >
+                      ↑
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-ghost btn"
+                      onClick={() => moveGroup(groupIndex, 1)}
+                      disabled={groupIndex === rankGroups.length - 1}
+                      aria-label="Mover nível para baixo"
+                      title="Mover nível para baixo"
+                    >
+                      ↓
+                    </button>
+                  </div>
+                </div>
+                <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+                  {group.typeNames.map((typeName) => (
+                    <div key={typeName} style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                      <span style={{ flex: 1 }}>{typeName}</span>
                       <button
                         type="button"
                         className="btn-ghost btn"
-                        onClick={() =>
-                          setWildcardFieldMappings((prev) => prev.filter((_, i) => i !== idx))
-                        }
-                        aria-label={`Remover mapeamento global de ${w.internalField === "COMPLEXITY" ? "complexidade" : "esforço"}`}
-                        title="Remover mapeamento global"
+                        onClick={() => moveTypeToAdjacentGroup(typeName, -1)}
+                        aria-label={`Mover ${typeName} para o nível acima`}
+                        title="Mover para o nível acima"
                       >
-                        ×
+                        ▲
+                      </button>
+                      <button
+                        type="button"
+                        className="btn-ghost btn"
+                        onClick={() => moveTypeToAdjacentGroup(typeName, 1)}
+                        aria-label={`Mover ${typeName} para o nível abaixo`}
+                        title="Mover para o nível abaixo"
+                      >
+                        ▼
                       </button>
                     </div>
                   ))}
                 </div>
-              </div>
-            )}
-          </div>
-        )}
+              </li>
+            ))}
+          </ol>
 
-        {step === "filter" && (
-          <div className="role-modal-body">
-            <p className="confirm-text">
-              Opcionalmente, restrinja quais work items serão sincronizados. Deixe em branco para
-              sincronizar tudo.
-            </p>
-
-            <label className="role-modal-field">
-              <span className="role-modal-label">Tipos de work item a sincronizar</span>
-              <div className="integration-pat-scopes">
-                {types.map((t) => (
-                  <label
-                    key={t.referenceName}
-                    className="mono"
-                    style={{ display: "flex", gap: 8, alignItems: "center", marginBottom: 4 }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={filterTypes.includes(t.name)}
-                      onChange={() => toggleFilterType(t.name)}
-                    />
-                    {t.name}
-                  </label>
-                ))}
-              </div>
-            </label>
-
-            <label className="role-modal-field">
-              <span className="role-modal-label">Area Path (opcional)</span>
-              <input
-                className="role-modal-input"
-                type="text"
-                placeholder="MeuProjeto\\Equipe"
-                value={areaPath}
-                onChange={(e) => setAreaPath(e.target.value)}
-              />
-            </label>
-
-            <label className="role-modal-field">
-              <span className="role-modal-label">Iteration Path (opcional)</span>
-              <input
-                className="role-modal-input"
-                type="text"
-                placeholder="MeuProjeto\\Sprint 1"
-                value={iterationPath}
-                onChange={(e) => setIterationPath(e.target.value)}
-              />
-            </label>
-
-            {saveError && <p className="mono integration-error">{saveError}</p>}
-          </div>
-        )}
-
-        {step === "hierarchy" && (
-          <div className="role-modal-body">
-            <p className="confirm-text">
-              Ordene os tipos de work item do mais "raiz" (topo, ex: Épico) para o mais "folha"
-              (base, ex: Task/Bug). Tipos no mesmo nível são irmãos — use as setas laterais para
-              agrupar um tipo com o nível acima ou abaixo.
-            </p>
-
-            {rankGroups.length === 0 && (
-              <p className="mono integration-loading">Nenhum tipo disponível para ordenar.</p>
-            )}
-
-            <ol
-              className="mono integration-pat-scopes-list"
-              style={{ display: "flex", flexDirection: "column", gap: 8 }}
-            >
-              {rankGroups.map((group, groupIndex) => (
-                <li
-                  key={group.rank}
-                  style={{ border: "1px solid var(--line)", borderRadius: 6, padding: 8 }}
-                >
-                  <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-                    <span style={{ opacity: 0.7 }}>Nível {groupIndex}</span>
-                    <div style={{ marginLeft: "auto", display: "flex", gap: 4 }}>
-                      <button
-                        type="button"
-                        className="btn-ghost btn"
-                        onClick={() => moveGroup(groupIndex, -1)}
-                        disabled={groupIndex === 0}
-                        aria-label="Mover nível para cima"
-                        title="Mover nível para cima"
-                      >
-                        ↑
-                      </button>
-                      <button
-                        type="button"
-                        className="btn-ghost btn"
-                        onClick={() => moveGroup(groupIndex, 1)}
-                        disabled={groupIndex === rankGroups.length - 1}
-                        aria-label="Mover nível para baixo"
-                        title="Mover nível para baixo"
-                      >
-                        ↓
-                      </button>
-                    </div>
-                  </div>
-                  <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                    {group.typeNames.map((typeName) => (
-                      <div key={typeName} style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <span style={{ flex: 1 }}>{typeName}</span>
-                        <button
-                          type="button"
-                          className="btn-ghost btn"
-                          onClick={() => moveTypeToAdjacentGroup(typeName, -1)}
-                          aria-label={`Mover ${typeName} para o nível acima`}
-                          title="Mover para o nível acima"
-                        >
-                          ▲
-                        </button>
-                        <button
-                          type="button"
-                          className="btn-ghost btn"
-                          onClick={() => moveTypeToAdjacentGroup(typeName, 1)}
-                          aria-label={`Mover ${typeName} para o nível abaixo`}
-                          title="Mover para o nível abaixo"
-                        >
-                          ▼
-                        </button>
-                      </div>
-                    ))}
-                  </div>
-                </li>
-              ))}
-            </ol>
-
-            {saveError && <p className="mono integration-error">{saveError}</p>}
-          </div>
-        )}
-
-        <div className="role-modal-foot">
-          {/* 8.1 — "Voltar" on every step except the first ("start"); goBack
-              only changes `step`, never touches any other draft state. */}
-          {stepHistory.length > 0 && (
-            <button type="button" className="btn-ghost btn" onClick={goBack} disabled={saving}>
-              ← Voltar
-            </button>
-          )}
-          <button type="button" className="btn-ghost btn" onClick={handleSkip} disabled={saving}>
-            {saving ? "Salvando…" : "Pular e usar padrões"}
-          </button>
-          {step === "start" && !showCopyPicker && (
-            <button type="button" className="btn" onClick={() => goToStep("types")}>
-              Continuar →
-            </button>
-          )}
-          {step === "start" && showCopyPicker && (
-            <button
-              type="button"
-              className="btn"
-              onClick={handleCopyFromSibling}
-              disabled={!selectedSiblingId || copyLoading}
-            >
-              {copyLoading ? "Copiando…" : "Copiar e continuar →"}
-            </button>
-          )}
-          {step === "types" && (
-            <button
-              type="button"
-              className="btn"
-              onClick={() => goToStep("status")}
-              disabled={typesLoading}
-            >
-              Continuar →
-            </button>
-          )}
-          {step === "status" && (
-            <button type="button" className="btn" onClick={() => goToStep("mapping")}>
-              Continuar →
-            </button>
-          )}
-          {step === "mapping" && (
-            <button type="button" className="btn" onClick={() => goToStep("filter")}>
-              Continuar →
-            </button>
-          )}
-          {step === "filter" && (
-            <button type="button" className="btn" onClick={() => goToStep("hierarchy")}>
-              Continuar →
-            </button>
-          )}
-          {step === "hierarchy" && (
-            <button type="button" className="btn" onClick={handleSave} disabled={saving}>
-              {saving ? "Salvando…" : "Concluir →"}
-            </button>
-          )}
+          {saveError && <p className="mono integration-error">{saveError}</p>}
         </div>
-      </div>
-    </div>
+      )}
+    </Modal>
   );
 }

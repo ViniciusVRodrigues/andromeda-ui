@@ -29,6 +29,8 @@ export function Modal({
   size = "default",
   stacked = false,
   showClose = false,
+  closeLabel,
+  closeDisabled = false,
   closeOnBackdrop = true,
   className = "",
   children,
@@ -64,7 +66,13 @@ export function Modal({
               ) : null}
             </div>
             {showClose ? (
-              <Dialog.Close className="btn-ghost btn ui-modal-close mono">fechar</Dialog.Close>
+              <Dialog.Close
+                className="btn-ghost btn ui-modal-close mono"
+                disabled={closeDisabled}
+                aria-label={closeLabel ? "Fechar sem salvar" : "Fechar"}
+              >
+                {closeLabel || "fechar"}
+              </Dialog.Close>
             ) : null}
           </div>
 
@@ -91,6 +99,7 @@ export function ConfirmDialog({
   cancelLabel = "Cancelar",
   onConfirm,
   busy = false,
+  danger = false,
 }) {
   return (
     <Modal
@@ -101,12 +110,17 @@ export function ConfirmDialog({
       size="confirm"
       footer={
         <>
-          <button type="button" className="btn-ghost btn" onClick={() => onOpenChange(false)}>
+          <button
+            type="button"
+            className="btn-ghost btn"
+            disabled={busy}
+            onClick={() => onOpenChange(false)}
+          >
             {cancelLabel}
           </button>
           <button
             type="button"
-            className="btn"
+            className={danger ? "btn btn-danger" : "btn"}
             disabled={busy}
             onClick={() => {
               onConfirm();
@@ -117,7 +131,7 @@ export function ConfirmDialog({
         </>
       }
     >
-      {message ? <p className="mono">{message}</p> : null}
+      {message ? <p className="confirm-text">{message}</p> : null}
     </Modal>
   );
 }
