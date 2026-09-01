@@ -2,6 +2,7 @@
  * foco, scroll-lock, aria), pele em core/ui/ui.css com os tokens da casa.
  * Único modal autorizado para código novo (frontend-ui-primitives). */
 
+import React from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import "./ui.css";
 
@@ -39,6 +40,18 @@ export function Modal({
   const sizeClass =
     size === "wide" ? " ui-modal--wide" : size === "confirm" ? " ui-modal--confirm" : "";
   const stackClass = stacked ? " ui-modal--stacked" : "";
+
+  // Os call sites montam o Modal condicionalmente ({open && <Modal/>}), o que
+  // desmonta o Root antes do Radix restaurar o foco. Captura o gatilho no mount
+  // e devolve no unmount — o contrato de retorno de foco vale para os dois padrões.
+  const opener = React.useRef(null);
+  React.useEffect(() => {
+    opener.current = document.activeElement;
+    return () => {
+      const el = opener.current;
+      if (el && typeof el.focus === "function" && document.contains(el)) el.focus();
+    };
+  }, []);
 
   return (
     <Dialog.Root open={open} onOpenChange={onOpenChange}>
