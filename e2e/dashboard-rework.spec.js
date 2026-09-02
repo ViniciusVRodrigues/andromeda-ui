@@ -119,8 +119,10 @@ test("rework: velocity, insights, deltas, type badges e outliers renderizam com 
   await expect(page.getByText("AZDO-102").first()).toBeVisible();
   await expect(page.getByText("BUG", { exact: true }).first()).toBeVisible();
 
-  // velocity (comparação entre sprints) — nome da sprint anterior aparece no eixo
-  await expect(page.getByText("Velocity").first()).toBeVisible();
+  // comparação entre sprints — o VelocityCard deu lugar ao gráfico composto
+  // "Entrega × Esforço × IA" (dashboard-effort-ai-comparison); nome da sprint
+  // anterior aparece no eixo
+  await expect(page.getByText("Entrega × Esforço × IA").first()).toBeVisible();
   await expect(page.getByText("Sprint 24").first()).toBeVisible();
 
   // insight determinístico: wi-2 cycle 21h = 2,1× a média de 10h → desvio

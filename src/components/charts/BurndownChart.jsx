@@ -55,7 +55,7 @@ function isEmpty(data) {
   return data.every((d) => d.remainingSp == null || d.remainingSp === 0);
 }
 
-export function BurndownChart({ data }) {
+export function BurndownChart({ data, fill }) {
   if (isEmpty(data)) {
     return (
       <p
@@ -73,41 +73,43 @@ export function BurndownChart({ data }) {
   }
 
   return (
-    <ResponsiveContainer width="100%" height={220}>
-      <LineChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
-        <CartesianGrid stroke="var(--line)" strokeDasharray="3 3" vertical={false} />
-        <XAxis
-          dataKey="date"
-          tickFormatter={fmtDate}
-          tick={{ fill: "var(--fg-muted)", fontSize: 11 }}
-          axisLine={{ stroke: "var(--line)" }}
-          tickLine={false}
-        />
-        <YAxis
-          tick={{ fill: "var(--fg-muted)", fontSize: 11 }}
-          axisLine={false}
-          tickLine={false}
-          width={36}
-        />
-        <Tooltip content={<BurndownTooltip />} />
-        <Line
-          type="monotone"
-          dataKey="idealSp"
-          stroke="var(--fg-muted)"
-          strokeWidth={2}
-          strokeDasharray="5 5"
-          dot={false}
-          activeDot={{ r: 4, fill: "var(--fg-muted)" }}
-        />
-        <Line
-          type="monotone"
-          dataKey="remainingSp"
-          stroke="var(--accent)"
-          strokeWidth={2}
-          dot={false}
-          activeDot={{ r: 4, fill: "var(--accent)" }}
-        />
-      </LineChart>
-    </ResponsiveContainer>
+    <div className={fill ? "h-full min-h-[220px]" : undefined}>
+      <ResponsiveContainer width="100%" height={fill ? "100%" : 220}>
+        <LineChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
+          <CartesianGrid stroke="var(--line)" strokeDasharray="3 3" vertical={false} />
+          <XAxis
+            dataKey="date"
+            tickFormatter={fmtDate}
+            tick={{ fill: "var(--fg-muted)", fontSize: 11 }}
+            axisLine={{ stroke: "var(--line)" }}
+            tickLine={false}
+          />
+          <YAxis
+            tick={{ fill: "var(--fg-muted)", fontSize: 11 }}
+            axisLine={false}
+            tickLine={false}
+            width={36}
+          />
+          <Tooltip content={<BurndownTooltip />} />
+          <Line
+            type="monotone"
+            dataKey="idealSp"
+            stroke="var(--fg-muted)"
+            strokeWidth={2}
+            strokeDasharray="5 5"
+            dot={false}
+            activeDot={{ r: 4, fill: "var(--fg-muted)" }}
+          />
+          <Line
+            type="monotone"
+            dataKey="remainingSp"
+            stroke="var(--accent)"
+            strokeWidth={2}
+            dot={false}
+            activeDot={{ r: 4, fill: "var(--accent)" }}
+          />
+        </LineChart>
+      </ResponsiveContainer>
+    </div>
   );
 }

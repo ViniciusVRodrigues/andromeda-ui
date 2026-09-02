@@ -6,7 +6,8 @@
  * {
  *   sprintId, sprintName, teamVelocity, avgCycleTimeHours, avgLeadTimeHours,
  *   teamAiCostUsd,
- *   velocityTrend: [{ sprintId, sprintName, storyPoints, aiCostUsd }],
+ *   velocityTrend: [{ sprintId, sprintName, spPlanned, storyPoints, aiCostUsd,
+ *                     totalTokens }],
  *   members: [{ userId, name, avatarInitials, storyPointsDelivered,
  *               cycleTimeHours, leadTimeHours, aiCostUsd, avgTokensPerSp, workItemCount }],
  *   stalePrs: [{ prId, title, authorName, createdAt, hoursOpen }] // always an array, sorted by hoursOpen desc; empty when no bound repo
@@ -17,7 +18,7 @@
 
 import React from "react";
 import { getTeamDashboard } from "./api.js";
-import { BarChart } from "../../components/charts/Charts.jsx";
+import { SprintEffortAiChart } from "../../components/charts/SprintEffortAiChart.jsx";
 
 /** Format a nullable number to 1 decimal place, or return "—". */
 function fmt1(v) {
@@ -66,9 +67,12 @@ function TeamDashboard({ projectId, sprintId, startDate, endDate }) {
   const velocityTrend = data?.velocityTrend || [];
   const stalePrs = data?.stalePrs || [];
 
-  const trendChartData = velocityTrend.map((s) => ({
+  const trendRows = velocityTrend.map((s) => ({
     label: s.sprintName || s.sprintId,
-    value: s.storyPoints || 0,
+    planned: s.spPlanned ?? null,
+    delivered: s.storyPoints ?? null,
+    costUsd: s.aiCostUsd ?? null,
+    tokens: s.totalTokens ?? null,
   }));
 
   return (
@@ -265,24 +269,18 @@ function TeamDashboard({ projectId, sprintId, startDate, endDate }) {
         )}
       </div>
 
-      {/* ── Velocity trend ── */}
-      {trendChartData.length > 0 && (
+      {/* ── Comparação entre sprints: planejado × entregue × IA ── */}
+      {trendRows.length > 1 && (
         <div style={styles.card}>
           <div style={styles.cardHead}>
             <span className="mono" style={styles.cardEyebrow}>
               histórico
             </span>
             <h3 className="serif" style={styles.cardTitle}>
-              Velocity por Sprint
+              Entrega × Esforço × IA
             </h3>
           </div>
-          <BarChart
-            data={trendChartData}
-            w={600}
-            h={160}
-            max={Math.max(...trendChartData.map((d) => d.value), 1)}
-            accentIdx={trendChartData.length - 1}
-          />
+          <SprintEffortAiChart rows={trendRows} />
         </div>
       )}
     </div>

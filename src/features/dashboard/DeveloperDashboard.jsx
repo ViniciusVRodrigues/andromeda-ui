@@ -35,7 +35,7 @@ import { getDeveloperDashboard } from "./api.js";
 import { deriveInsights } from "./insights.js";
 import { TokenUsageChart } from "../../components/charts/TokenUsageChart.jsx";
 import { BurndownChart } from "../../components/charts/BurndownChart.jsx";
-import { SprintVelocityChart } from "../../components/charts/SprintVelocityChart.jsx";
+import { SprintEffortAiChart } from "../../components/charts/SprintEffortAiChart.jsx";
 import { SprintProgressBar } from "../../components/SprintProgressBar.jsx";
 import { AllocationModal } from "../ai-usage/components/AllocationModal.jsx";
 import { WorkItemManualFieldsEditor } from "../../components/WorkItemManualFieldsEditor.jsx";
@@ -65,11 +65,17 @@ function fmtUsd(v) {
 /**
  * Card shell — consistent header + optional compact mode for empty content,
  * so an empty card degrades to a slim row instead of reserving a huge void.
- * @param {{ eyebrow: string, title: string, extra?: React.ReactNode, compact?: boolean, children: React.ReactNode }} props
+ * `fill` turns the card into a flex column whose body takes the remaining
+ * height (used by the burndown card, which stretches to the grid row height).
+ * @param {{ eyebrow: string, title: string, extra?: React.ReactNode, compact?: boolean, fill?: boolean, children: React.ReactNode }} props
  */
-function DevDashCard({ eyebrow, title, extra, compact, children }) {
+function DevDashCard({ eyebrow, title, extra, compact, fill, children }) {
   return (
-    <div className={"dev-dash-card" + (compact ? " is-compact" : "")}>
+    <div
+      className={
+        "dev-dash-card" + (compact ? " is-compact" : "") + (fill ? " mb-0 flex flex-col" : "")
+      }
+    >
       <div className="dev-dash-card-head">
         <div>
           <span className="mono dev-dash-card-eyebrow">{eyebrow}</span>
@@ -77,7 +83,7 @@ function DevDashCard({ eyebrow, title, extra, compact, children }) {
         </div>
         {extra}
       </div>
-      {children}
+      {fill ? <div className="min-h-0 flex-1">{children}</div> : children}
     </div>
   );
 }
@@ -843,7 +849,7 @@ function SprintProgressSection({ data, loading, startDate, endDate, onNavigate }
  * instead of reserving the full chart height.
  * @param {{ data: Array|undefined, loading: boolean, onNavigate?: (tab: string) => void }} props
  */
-function BurndownCard({ data, loading, onNavigate }) {
+function BurndownCard({ data, loading, onNavigate, fill }) {
   const empty =
     !loading &&
     (!Array.isArray(data) ||
@@ -851,7 +857,7 @@ function BurndownCard({ data, loading, onNavigate }) {
       data.every((d) => d.remainingSp == null || d.remainingSp === 0));
 
   return (
-    <DevDashCard eyebrow="sprint atual" title="Burndown" compact={empty}>
+    <DevDashCard eyebrow="sprint atual" title="Burndown" compact={empty} fill={fill && !empty}>
       {loading ? (
         <CardSkeleton lines={4} />
       ) : empty ? (
@@ -863,7 +869,7 @@ function BurndownCard({ data, loading, onNavigate }) {
           onAction={() => onNavigate?.("backlog")}
         />
       ) : (
-        <BurndownChart data={data} />
+        <BurndownChart data={data} fill={fill && !empty} />
       )}
     </DevDashCard>
   );
@@ -897,15 +903,22 @@ function InsightsStrip({ data }) {
 }
 
 /**
- * Velocity card — SP delivered across the last sprints (the "entre sprints"
- * axis). Hidden entirely when there is no comparable history (>=2 sprints).
+ * Comparison card — planned × delivered × AI usage across the last sprints
+ * (the "entre sprints" axis). Hidden entirely when there is no comparable
+ * history (>=2 sprints).
  */
-function VelocityCard({ history }) {
-  const chart = <SprintVelocityChart history={history} />;
-  if (!chart) return null;
+function EffortAiCard({ history }) {
+  const rows = (Array.isArray(history) ? history : []).map((h) => ({
+    label: h.name,
+    planned: h.spPlanned ?? null,
+    delivered: h.spDelivered ?? null,
+    costUsd: h.totalCostUsd ?? null,
+    tokens: h.totalTokens ?? null,
+  }));
+  if (rows.length < 2) return null;
   return (
-    <DevDashCard eyebrow="comparação" title="Velocity">
-      {chart}
+    <DevDashCard eyebrow="comparação" title="Entrega × Esforço × IA">
+      <SprintEffortAiChart rows={rows} />
     </DevDashCard>
   );
 }
@@ -1106,16 +1119,11 @@ export function DeveloperDashboard({ projectId, sprintId, startDate, endDate, mo
       {/* KPI strip com delta vs sprint anterior (sprintHistory) */}
       <MetricsRow data={data} loading={loading} />
 
-      {/* Row 3: burndown + velocity (comparação entre sprints) + em andamento */}
-      <div
-        className="dev-dash-burndown-row"
-        style={{ display: "flex", gap: 16, alignItems: "flex-start" }}
-      >
-        <div style={{ flex: "0 0 55%", minWidth: 0 }}>
-          <BurndownCard data={data?.burndownSeries} loading={loading} onNavigate={onNavigate} />
-        </div>
-        <div style={{ flex: "1 1 45%", minWidth: 0 }}>
-          <VelocityCard history={data?.sprintHistory} />
+      {/* Row 3: burndown (elástico, estica até a coluna direita) + comparação entre sprints + em andamento */}
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,55fr)_minmax(0,45fr)]">
+        <BurndownCard data={data?.burndownSeries} loading={loading} onNavigate={onNavigate} fill />
+        <div className="flex min-w-0 flex-col gap-4 [&>.dev-dash-card]:mb-0">
+          <EffortAiCard history={data?.sprintHistory} />
           <InProgressPanel items={data?.inProgressItems} loading={loading} />
         </div>
       </div>

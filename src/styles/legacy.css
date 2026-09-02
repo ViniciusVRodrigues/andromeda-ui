@@ -7812,13 +7812,6 @@ button.signup-perms-cargo:hover .signup-perms-cargo-edit {
   white-space: nowrap;
 }
 
-/* ---- responsive burndown row ---- */
-@media (max-width: 900px) {
-  .dev-dash-burndown-row {
-    flex-direction: column;
-  }
-}
-
 /* ---- work items table ---- */
 .dev-dash-th {
   text-align: left;
