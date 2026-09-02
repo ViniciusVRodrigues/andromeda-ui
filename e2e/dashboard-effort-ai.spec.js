@@ -226,14 +226,28 @@ test("individual: gráfico composto renderiza e burndown alinha sem vazio", asyn
       ]),
     }),
   );
-  // candidatos do modal de ajuste (endpoint específico por dia)
+  // candidatos do modal de ajuste (endpoint específico por dia, payload enriquecido)
   await page.route("**/candidates**", (route) =>
     route.fulfill({
       status: 200,
       contentType: "application/json",
       body: JSON.stringify([
-        { workItemId: "wi-1", title: "Relacionar PR ao work item", sprintName: "Sprint 25" },
-        { workItemId: "wi-3", title: "Calcular velocity por sprint", sprintName: "Sprint 25" },
+        {
+          workItemId: "wi-1",
+          title: "Relacionar PR ao work item",
+          sprintName: "Sprint 25",
+          type: "STORY",
+          externalId: "AZDO-101",
+          storyPoints: 5,
+        },
+        {
+          workItemId: "wi-3",
+          title: "Calcular velocity por sprint",
+          sprintName: "Sprint 25",
+          type: "TASK",
+          externalId: "AZDO-103",
+          storyPoints: 11,
+        },
       ]),
     }),
   );
@@ -308,6 +322,9 @@ test("individual: gráfico composto renderiza e burndown alinha sem vazio", asyn
   await expect(dialog.getByText("AZDO-101")).toBeVisible();
   // candidato da busca também joinado com o ID externo (wi-3 → AZDO-103)
   await expect(dialog.getByText("AZDO-103")).toBeVisible();
+  // payload enriquecido do candidates: tipo e SP direto na linha
+  await expect(dialog.getByText("TASK")).toBeVisible();
+  await expect(dialog.getByText("11 SP")).toBeVisible();
   await expect(page).toHaveScreenshot("allocation-modal.png", { maxDiffPixelRatio: 0.02 });
   await page.keyboard.press("Escape");
   await expect(dialog).toBeHidden();

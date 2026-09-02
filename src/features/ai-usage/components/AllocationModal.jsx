@@ -39,11 +39,16 @@ function redistributeProportional(items, changedIndex, newVal) {
 
 /**
  * A single row in the add-work-item candidate list.
- * Displays title prominently with sprint name as a muted tag.
+ * Type badge + external id + SP come from the candidates payload itself
+ * (enriched endpoint); older backends without the fields fall back to the
+ * `wi` join done by the caller. Title stays prominent, sprint as muted tag.
  * Has a left accent border on hover to signal interactivity.
  */
 function CandidateRow({ si, wi, onAdd }) {
   const [hovered, setHovered] = React.useState(false);
+  const type = si.type ?? wi?.type;
+  const externalId = si.externalId ?? wi?.externalId;
+  const storyPoints = si.storyPoints ?? wi?.storyPoints;
   return (
     <button
       type="button"
@@ -65,9 +70,25 @@ function CandidateRow({ si, wi, onAdd }) {
       }}
       onClick={() => onAdd(si)}
     >
-      {wi?.externalId ? (
+      {type ? (
+        <span
+          className="mono"
+          style={{
+            fontSize: 10,
+            color: "var(--accent)",
+            background: "color-mix(in srgb, var(--accent) 14%, transparent)",
+            border: "1px solid color-mix(in srgb, var(--accent) 28%, transparent)",
+            borderRadius: 4,
+            padding: "1px 6px",
+            flexShrink: 0,
+          }}
+        >
+          {type}
+        </span>
+      ) : null}
+      {externalId ? (
         <span className="mono" style={{ fontSize: 11, color: "var(--fg-dim)", flexShrink: 0 }}>
-          {wi.externalId}
+          {externalId}
         </span>
       ) : null}
       <span
@@ -84,6 +105,11 @@ function CandidateRow({ si, wi, onAdd }) {
       >
         {si.workItemTitle}
       </span>
+      {storyPoints != null ? (
+        <span className="mono" style={{ fontSize: 11, color: "var(--fg-muted)", flexShrink: 0 }}>
+          {storyPoints} SP
+        </span>
+      ) : null}
       {si.sprintName && (
         <span
           className="mono"
@@ -108,7 +134,7 @@ function CandidateRow({ si, wi, onAdd }) {
 /**
  * @param {{
  *   batch: object,
- *   sprintItems: Array<{ workItemId: string, workItemTitle: string }>,
+ *   sprintItems: Array<{ workItemId: string, workItemTitle?: string, title?: string, sprintName?: string, type?: string, externalId?: string, storyPoints?: number }>,
  *   itemsById?: Map<string, { type?: string, externalId?: string }>,
  *   onClose: () => void,
  *   onConfirm: (splits: Array<{ workItemId: string, percentage: number }>) => void,
@@ -126,6 +152,9 @@ export function AllocationModal({ batch, sprintItems, itemsById, onClose, onConf
           workItemId: c.workItemId,
           workItemTitle: c.title || "",
           sprintName: c.sprintName || "",
+          type: c.type ?? null,
+          externalId: c.externalId ?? null,
+          storyPoints: c.storyPoints ?? null,
         }));
         setCandidates(mapped);
       })
@@ -135,7 +164,16 @@ export function AllocationModal({ batch, sprintItems, itemsById, onClose, onConf
       });
   }, [batch?.day]);
 
-  const resolvedSprintItems = candidates ?? sprintItems;
+  const resolvedSprintItems =
+    candidates ??
+    (sprintItems || []).map((si) => ({
+      workItemId: si.workItemId,
+      workItemTitle: si.workItemTitle || si.title || "",
+      sprintName: si.sprintName || "",
+      type: si.type ?? null,
+      externalId: si.externalId ?? null,
+      storyPoints: si.storyPoints ?? null,
+    }));
   const [items, setItems] = React.useState(() => {
     if (batch.suggestion && batch.suggestion.length > 0) {
       return batch.suggestion.map((s) => ({
@@ -205,7 +243,17 @@ export function AllocationModal({ batch, sprintItems, itemsById, onClose, onConf
   function handleAddItem(sprintItem) {
     setItems((prev) => [
       ...prev,
-      { workItemId: sprintItem.workItemId, workItemTitle: sprintItem.workItemTitle || "", pct: 0 },
+      {
+        workItemId: sprintItem.workItemId,
+        workItemTitle: sprintItem.workItemTitle || "",
+        pct: 0,
+        // metadata carried from the candidate so the slider row keeps type/ID/SP
+        wi: {
+          type: sprintItem.type ?? undefined,
+          externalId: sprintItem.externalId ?? undefined,
+          storyPoints: sprintItem.storyPoints ?? undefined,
+        },
+      },
     ]);
     setSearch("");
   }
@@ -276,7 +324,7 @@ export function AllocationModal({ batch, sprintItems, itemsById, onClose, onConf
               tokensLabel={
                 dayTokens > 0 ? `${fmtTokensM((item.pct / 100) * dayTokens)} tokens` : undefined
               }
-              wi={itemsById?.get(item.workItemId)}
+              wi={item.wi ?? itemsById?.get(item.workItemId)}
             />
           ))}
         </div>
