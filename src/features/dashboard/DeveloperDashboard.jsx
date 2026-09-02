@@ -556,6 +556,7 @@ function InProgressPanel({ items, loading }) {
  */
 function AiCard({
   data,
+  itemsById,
   loading,
   pending,
   pendingLoading,
@@ -700,6 +701,7 @@ function AiCard({
                       batch={batch}
                       onAccept={onAllocationAccepted}
                       onAdjust={onAllocationAdjust}
+                      itemsById={itemsById}
                     />
                   ))}
                 </div>
@@ -712,7 +714,7 @@ function AiCard({
   );
 }
 
-function PendingAllocationRow({ batch, onAccept, onAdjust }) {
+function PendingAllocationRow({ batch, onAccept, onAdjust, itemsById }) {
   const [y, m, d] = batch.day.split("-");
   const dateLabel = `${d}/${m}/${y}`;
   const totalTokens = (batch.totalInputTokens || 0) + (batch.totalOutputTokens || 0);
@@ -722,63 +724,75 @@ function PendingAllocationRow({ batch, onAccept, onAdjust }) {
     <div
       style={{
         display: "flex",
-        alignItems: "center",
-        gap: 12,
+        flexDirection: "column",
+        gap: 8,
         padding: "10px 12px",
         background: "var(--bg-deep)",
         borderRadius: "var(--radius-sm)",
         border: "1px solid var(--line)",
       }}
     >
-      <span className="serif" style={{ fontSize: 15, color: "var(--fg)", minWidth: 72 }}>
-        {dateLabel}
-      </span>
-      <span
-        className="mono"
-        style={{ fontSize: "var(--mono-sm)", color: "var(--fg-muted)", flex: 1 }}
-      >
-        <span style={{ color: "var(--fg)" }}>{fmtTokensM(totalTokens)}</span> tokens
-        {" · "}
-        <span style={{ color: "var(--fg)" }}>${(batch.estimatedCostUsd || 0).toFixed(2)}</span>
-      </span>
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <span className="serif" style={{ fontSize: 15, color: "var(--fg)", minWidth: 72 }}>
+          {dateLabel}
+        </span>
+        <span
+          className="mono"
+          style={{ fontSize: "var(--mono-sm)", color: "var(--fg-muted)", flex: 1 }}
+        >
+          <span style={{ color: "var(--fg)" }}>{fmtTokensM(totalTokens)}</span> tokens
+          {" · "}
+          <span style={{ color: "var(--fg)" }}>${(batch.estimatedCostUsd || 0).toFixed(2)}</span>
+        </span>
+        <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
+          {batch.suggestionAllocationId && (
+            <button
+              className="btn"
+              style={{ fontSize: "var(--mono-sm)", padding: "4px 12px" }}
+              onClick={() => onAccept(batch)}
+            >
+              Aceitar
+            </button>
+          )}
+          <button
+            className="btn-ghost btn"
+            style={{ fontSize: "var(--mono-sm)", padding: "4px 12px" }}
+            onClick={() => onAdjust(batch)}
+          >
+            {hasSuggestion ? "Ajustar" : "+ Alocar"}
+          </button>
+        </div>
+      </div>
       {hasSuggestion && (
         <div style={{ display: "flex", flexWrap: "wrap", gap: 4 }}>
-          {batch.suggestion.map((s) => (
-            <span
-              key={s.workItemId}
-              className="mono"
-              style={{
-                fontSize: "var(--mono-sm)",
-                color: "var(--accent)",
-                background: "color-mix(in srgb, var(--accent) 10%, transparent)",
-                border: "1px solid color-mix(in srgb, var(--accent) 25%, transparent)",
-                borderRadius: 4,
-                padding: "1px 7px",
-              }}
-            >
-              {s.workItemTitle} · {(parseFloat(s.percentage) * 100).toFixed(0)}%
-            </span>
-          ))}
+          {batch.suggestion.map((s) => {
+            const pct = Math.round(parseFloat(s.percentage) * 100);
+            const wi = itemsById?.get(s.workItemId);
+            return (
+              <span
+                key={s.workItemId}
+                className="mono"
+                style={{
+                  fontSize: "var(--mono-sm)",
+                  color: "var(--accent)",
+                  background: "color-mix(in srgb, var(--accent) 10%, transparent)",
+                  border: "1px solid color-mix(in srgb, var(--accent) 25%, transparent)",
+                  borderRadius: 4,
+                  padding: "1px 7px",
+                }}
+              >
+                {wi?.type ? (
+                  <span className="mono" style={{ ...typeBadgeStyle(wi.type), marginRight: 6 }}>
+                    {wi.type}
+                  </span>
+                ) : null}
+                {wi?.externalId ? `${wi.externalId} · ` : ""}
+                {s.workItemTitle} · {pct}% · ≈{fmtTokensM((pct / 100) * totalTokens)} tokens
+              </span>
+            );
+          })}
         </div>
       )}
-      <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
-        {batch.suggestionAllocationId && (
-          <button
-            className="btn"
-            style={{ fontSize: "var(--mono-sm)", padding: "4px 12px" }}
-            onClick={() => onAccept(batch)}
-          >
-            Aceitar
-          </button>
-        )}
-        <button
-          className="btn btn-ghost"
-          style={{ fontSize: "var(--mono-sm)", padding: "4px 12px" }}
-          onClick={() => onAdjust(batch)}
-        >
-          {hasSuggestion ? "Ajustar" : "+ Alocar"}
-        </button>
-      </div>
     </div>
   );
 }
@@ -1031,6 +1045,14 @@ export function DeveloperDashboard({ projectId, sprintId, startDate, endDate, mo
   const [modalLoading, setModalLoading] = React.useState(false);
   const [toast, setToast] = React.useState(null);
 
+  // Join único (id → work item) que enriquece as alocações — linha pendente e modal —
+  // com tipo/ID externo vindos do payload do dashboard.
+  const itemsById = React.useMemo(() => {
+    const map = new Map();
+    for (const wi of data?.currentSprintItems || []) map.set(wi.id, wi);
+    return map;
+  }, [data?.currentSprintItems]);
+
   const fetchData = React.useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -1202,6 +1224,7 @@ export function DeveloperDashboard({ projectId, sprintId, startDate, endDate, mo
       {/* Row 4: unified AI card */}
       <AiCard
         data={data}
+        itemsById={itemsById}
         loading={loading}
         pending={pending}
         pendingLoading={pendingLoading}
@@ -1225,6 +1248,7 @@ export function DeveloperDashboard({ projectId, sprintId, startDate, endDate, mo
         <AllocationModal
           batch={modalBatch}
           sprintItems={sprintItems}
+          itemsById={itemsById}
           onClose={() => !modalLoading && setModalBatch(null)}
           onConfirm={handleModalConfirm}
           loading={modalLoading}

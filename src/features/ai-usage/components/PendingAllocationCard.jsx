@@ -61,22 +61,25 @@ export function PendingAllocationCard({ batch, onAccept, onAdjust, readOnly }) {
 
           {hasSuggestion && (
             <div style={{ display: "flex", flexWrap: "wrap", gap: 4, marginTop: 10 }}>
-              {batch.suggestion.map((s) => (
-                <span
-                  key={s.workItemId}
-                  className="mono"
-                  style={{
-                    fontSize: "var(--mono-sm)",
-                    color: "var(--accent)",
-                    background: "color-mix(in srgb, var(--accent) 10%, transparent)",
-                    border: "1px solid color-mix(in srgb, var(--accent) 25%, transparent)",
-                    borderRadius: 4,
-                    padding: "2px 8px",
-                  }}
-                >
-                  {s.workItemTitle} · {(parseFloat(s.percentage) * 100).toFixed(0)}%
-                </span>
-              ))}
+              {batch.suggestion.map((s) => {
+                const pct = Math.round(parseFloat(s.percentage) * 100);
+                return (
+                  <span
+                    key={s.workItemId}
+                    className="mono"
+                    style={{
+                      fontSize: "var(--mono-sm)",
+                      color: "var(--accent)",
+                      background: "color-mix(in srgb, var(--accent) 10%, transparent)",
+                      border: "1px solid color-mix(in srgb, var(--accent) 25%, transparent)",
+                      borderRadius: 4,
+                      padding: "2px 8px",
+                    }}
+                  >
+                    {s.workItemTitle} · {pct}% · ≈{fmtTokensM((pct / 100) * totalTokens)} tokens
+                  </span>
+                );
+              })}
             </div>
           )}
         </div>

@@ -1,6 +1,7 @@
 import React from "react";
 import { AllocationSlider } from "./AllocationSlider.jsx";
 import { getAllocationCandidates } from "../api.js";
+import { fmtTokensM } from "../../../core/tokenMath.js";
 import { Modal } from "../../../core/ui/Modal.jsx";
 
 /**
@@ -41,7 +42,7 @@ function redistributeProportional(items, changedIndex, newVal) {
  * Displays title prominently with sprint name as a muted tag.
  * Has a left accent border on hover to signal interactivity.
  */
-function CandidateRow({ si, onAdd }) {
+function CandidateRow({ si, wi, onAdd }) {
   const [hovered, setHovered] = React.useState(false);
   return (
     <button
@@ -64,6 +65,11 @@ function CandidateRow({ si, onAdd }) {
       }}
       onClick={() => onAdd(si)}
     >
+      {wi?.externalId ? (
+        <span className="mono" style={{ fontSize: 11, color: "var(--fg-dim)", flexShrink: 0 }}>
+          {wi.externalId}
+        </span>
+      ) : null}
       <span
         style={{
           fontSize: "0.82rem",
@@ -103,12 +109,13 @@ function CandidateRow({ si, onAdd }) {
  * @param {{
  *   batch: object,
  *   sprintItems: Array<{ workItemId: string, workItemTitle: string }>,
+ *   itemsById?: Map<string, { type?: string, externalId?: string }>,
  *   onClose: () => void,
  *   onConfirm: (splits: Array<{ workItemId: string, percentage: number }>) => void,
  *   loading: boolean
  * }} props
  */
-export function AllocationModal({ batch, sprintItems, onClose, onConfirm, loading }) {
+export function AllocationModal({ batch, sprintItems, itemsById, onClose, onConfirm, loading }) {
   // Fetch day-specific candidates; fall back to static sprintItems if fetch fails or is loading
   const [candidates, setCandidates] = React.useState(null);
   React.useEffect(() => {
@@ -144,6 +151,9 @@ export function AllocationModal({ batch, sprintItems, onClose, onConfirm, loadin
 
   const sum = items.reduce((s, it) => s + it.pct, 0);
   const sumOk = sum === 100;
+
+  // Tokens do dia — a fração de cada item é pct% disto, exibida ao vivo no slider.
+  const dayTokens = (batch.totalInputTokens || 0) + (batch.totalOutputTokens || 0);
 
   const existingIds = new Set(items.map((it) => it.workItemId));
   const filteredSprint = resolvedSprintItems.filter((si) => {
@@ -219,7 +229,11 @@ export function AllocationModal({ batch, sprintItems, onClose, onConfirm, loadin
           Alocação · <span className="ital accent">{batch.day}</span>
         </>
       }
-      subtitle="Distribua os tokens deste dia entre os work items do sprint"
+      subtitle={
+        dayTokens > 0
+          ? `Distribua os ${fmtTokensM(dayTokens)} tokens deste dia entre os work items do sprint`
+          : "Distribua os tokens deste dia entre os work items do sprint"
+      }
       footer={
         <>
           <button className="btn btn-ghost" onClick={onClose} disabled={loading}>
@@ -259,6 +273,10 @@ export function AllocationModal({ batch, sprintItems, onClose, onConfirm, loadin
               onChange={(val) => handleChange(i, val)}
               onRemove={() => handleRemove(i)}
               disabled={loading}
+              tokensLabel={
+                dayTokens > 0 ? `${fmtTokensM((item.pct / 100) * dayTokens)} tokens` : undefined
+              }
+              wi={itemsById?.get(item.workItemId)}
             />
           ))}
         </div>
@@ -282,7 +300,9 @@ export function AllocationModal({ batch, sprintItems, onClose, onConfirm, loadin
           className="mono"
           style={{ fontSize: "0.8rem", color: sumOk ? "var(--good)" : "var(--bad)" }}
         >
-          {sumOk ? `Σ = 100% ✓` : `Σ = ${sum}%`}
+          {sumOk
+            ? `Σ = 100% ✓${dayTokens > 0 ? ` · ${fmtTokensM(dayTokens)} tokens alocados` : ""}`
+            : `Σ = ${sum}%${dayTokens > 0 ? ` · ${fmtTokensM((sum / 100) * dayTokens)} de ${fmtTokensM(dayTokens)}` : ""}`}
         </span>
         {!sumOk && (
           <span style={{ fontSize: "0.75rem", color: "var(--fg-muted)" }}>
@@ -315,7 +335,12 @@ export function AllocationModal({ batch, sprintItems, onClose, onConfirm, loadin
             }}
           >
             {filteredSprint.slice(0, 20).map((si) => (
-              <CandidateRow key={si.workItemId} si={si} onAdd={handleAddItem} />
+              <CandidateRow
+                key={si.workItemId}
+                si={si}
+                wi={itemsById?.get(si.workItemId)}
+                onAdd={handleAddItem}
+              />
             ))}
           </div>
         ) : (

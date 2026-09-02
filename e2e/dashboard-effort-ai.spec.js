@@ -35,6 +35,19 @@ const DEVELOPER_FIXTURE = {
       type: "BUG",
       externalId: "AZDO-102",
     },
+    {
+      id: "wi-3",
+      title: "Calcular velocity por sprint",
+      resolvedStatus: "TODO",
+      storyPoints: 11,
+      complexity: 3,
+      effort: 11,
+      cycleTimeHours: null,
+      leadTimeHours: null,
+      tokensPerSp: null,
+      type: "TASK",
+      externalId: "AZDO-103",
+    },
   ],
   avgCycleTimeHours: 10,
   avgLeadTimeHours: 25,
@@ -42,14 +55,14 @@ const DEVELOPER_FIXTURE = {
   totalSpInSprint: 13,
   tokensByDay: [
     {
-      day: "2026-08-29",
+      date: "2026-08-29",
       inputTokens: 5000,
       outputTokens: 2000,
       interactions: 10,
       costUsd: 0.42,
     },
     {
-      day: "2026-08-30",
+      date: "2026-08-30",
       inputTokens: 8000,
       outputTokens: 3000,
       interactions: 14,
@@ -69,7 +82,7 @@ const DEVELOPER_FIXTURE = {
       externalId: "AZDO-102",
     },
   ],
-  totalSprintItems: 2,
+  totalSprintItems: 3,
   burndownSeries: [
     { date: "2026-08-24", remainingSp: 13, idealSp: 13 },
     { date: "2026-08-25", remainingSp: 13, idealSp: 12 },
@@ -191,6 +204,39 @@ test("individual: gráfico composto renderiza e burndown alinha sem vazio", asyn
       body: JSON.stringify(DEVELOPER_FIXTURE),
     }),
   );
+  // um dia pendente com sugestão — a linha de alocação deve mostrar o total do dia
+  // e quanto de token "vai" para cada WI (com tipo/ID externo via join do payload)
+  await page.route("**/v1/ai/allocations/pending-batches**", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        {
+          day: "2026-08-29",
+          totalInputTokens: 12000,
+          totalOutputTokens: 6000,
+          totalInteractions: 8,
+          estimatedCostUsd: 0.66,
+          suggestionAllocationId: null,
+          suggestion: [
+            { workItemId: "wi-1", workItemTitle: "Relacionar PR ao work item", percentage: 0.6 },
+            { workItemId: "wi-2", workItemTitle: "Tratar rate limit da API", percentage: 0.4 },
+          ],
+        },
+      ]),
+    }),
+  );
+  // candidatos do modal de ajuste (endpoint específico por dia)
+  await page.route("**/candidates**", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify([
+        { workItemId: "wi-1", title: "Relacionar PR ao work item", sprintName: "Sprint 25" },
+        { workItemId: "wi-3", title: "Calcular velocity por sprint", sprintName: "Sprint 25" },
+      ]),
+    }),
+  );
 
   await page.goto(`/${orgSlug}/dashboard`);
   await page.waitForLoadState("networkidle");
@@ -239,12 +285,32 @@ test("individual: gráfico composto renderiza e burndown alinha sem vazio", asyn
   // card IA destacado da linha de cima + eyebrow próprio + tokens alocados em milhões
   const aiCard = page.locator(".dev-dash-card").filter({ hasText: "Tokens alocados" }).first();
   await expect(aiCard).toBeVisible();
-  await expect(aiCard.getByText("0,018M")).toBeVisible();
+  await expect(aiCard.getByText("0,018M").first()).toBeVisible();
   await aiCard.scrollIntoViewIfNeeded();
   await page.waitForTimeout(200);
   await expect(page).toHaveScreenshot("dashboard-ai-card-spacing.png", {
     maxDiffPixelRatio: 0.02,
   });
+
+  // alocação pendente: total do dia + quanto "vai" para cada WI (join tipo/ID externo)
+  await expect(page.getByText("Alocações pendentes")).toBeVisible();
+  await expect(
+    page.getByText(/AZDO-101 · Relacionar PR ao work item · 60% · ≈0,011M/),
+  ).toBeVisible();
+  await expect(page.getByText(/AZDO-102 · Tratar rate limit da API · 40% · ≈0,007M/)).toBeVisible();
+
+  // modal de ajuste: total no subtítulo, fração de tokens por slider, Σ com tokens
+  await page.getByRole("button", { name: "Ajustar" }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.getByText(/Distribua os 0,018M tokens deste dia/)).toBeVisible();
+  await expect(dialog.getByText("· 0,011M tokens")).toBeVisible();
+  await expect(dialog.getByText(/Σ = 100% ✓ · 0,018M tokens alocados/)).toBeVisible();
+  await expect(dialog.getByText("AZDO-101")).toBeVisible();
+  // candidato da busca também joinado com o ID externo (wi-3 → AZDO-103)
+  await expect(dialog.getByText("AZDO-103")).toBeVisible();
+  await expect(page).toHaveScreenshot("allocation-modal.png", { maxDiffPixelRatio: 0.02 });
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
 
   // work items em tabela: cabeçalho de colunas + separações por linha
   await expect(page.getByRole("columnheader", { name: "Custo IA" })).toBeVisible();
