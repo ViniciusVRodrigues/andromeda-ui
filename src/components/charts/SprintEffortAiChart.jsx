@@ -1,7 +1,8 @@
 /**
  * SprintEffortAiChart — comparação por sprint que junta effort e IA num só
  * gráfico: barras de planejado × entregue (eixo esquerdo, SP) + linha de custo
- * USD (eixo direito, $) + linha de tokens (segundo eixo direito, tracejada).
+ * USD (eixo direito, $) + linha de tokens em milhões (segundo eixo direito,
+ * tracejada — unidade de precificação dos provedores, ver core/tokenMath.js).
  * Compartilhado entre a dashboard individual (sprintHistory) e a de equipe
  * (velocityTrend) — as dashboards adaptam o payload para `rows` aqui.
  *
@@ -16,6 +17,7 @@
  */
 
 import React from "react";
+import { fmtTokensM } from "../../core/tokenMath.js";
 import {
   ResponsiveContainer,
   ComposedChart,
@@ -39,17 +41,6 @@ function fmtSp(v) {
 function fmtUsd(v) {
   if (v == null) return "—";
   return `$${Number(v).toFixed(2)}`;
-}
-
-/** Tokens compactos: 9000 → "9k", 12500 → "12.5k". */
-function fmtTokens(v) {
-  if (v == null) return "—";
-  const n = Number(v);
-  if (n >= 1000) {
-    const k = Math.round((n / 1000) * 10) / 10;
-    return `${k}k`;
-  }
-  return String(Math.round(n));
 }
 
 function EffortAiTooltip({ active, payload }) {
@@ -81,7 +72,7 @@ function EffortAiTooltip({ active, payload }) {
         {fmtSp(delivered)}/{fmtSp(planned)} SP{hit}
       </div>
       <div>Custo IA: {fmtUsd(p.costUsd)}</div>
-      <div>Tokens: {fmtTokens(p.tokens)}</div>
+      <div>Tokens: {fmtTokensM(p.tokens)}</div>
       <div style={{ color: "var(--fg-muted)" }}>Custo/SP: {costPerSp}</div>
     </div>
   );
@@ -164,11 +155,11 @@ export function SprintEffortAiChart({ rows: inputRows, height = 220 }) {
             <YAxis
               yAxisId="tokens"
               orientation="right"
-              tickFormatter={fmtTokens}
+              tickFormatter={fmtTokensM}
               tick={{ fill: "var(--fg-dim)", fontSize: 10 }}
               axisLine={false}
               tickLine={false}
-              width={34}
+              width={44}
             />
           )}
           <Tooltip content={<EffortAiTooltip />} cursor={{ fill: "var(--line)" }} />

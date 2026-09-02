@@ -1,4 +1,5 @@
 import React from "react";
+import { fmtTokensM } from "../../../core/tokenMath.js";
 
 function prevMonth(m) {
   const [y, mo] = m.split("-").map(Number);
@@ -96,11 +97,7 @@ export function MetricsHeader({ summary, loading, month, onMonthChange }) {
           ))
         ) : (
           <>
-            <StatCard
-              label="Total de Tokens"
-              value={totalTokens.toLocaleString("pt-BR")}
-              unit="tokens"
-            />
+            <StatCard label="Total de Tokens" value={fmtTokensM(totalTokens)} unit="tokens" />
             <StatCard label="Custo estimado" value={`$${Number(totalCost).toFixed(2)}`} />
             <StatCard
               label="Interações"

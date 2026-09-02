@@ -7812,62 +7812,6 @@ button.signup-perms-cargo:hover .signup-perms-cargo-edit {
   white-space: nowrap;
 }
 
-/* ---- work items table ---- */
-.dev-dash-th {
-  text-align: left;
-  padding: 6px 10px;
-  font-size: var(--mono-sm);
-  color: var(--fg-muted);
-  border-bottom: 1px solid var(--line-strong);
-  white-space: nowrap;
-}
-.dev-dash-td {
-  padding: 7px 10px;
-  border-bottom: 1px solid var(--line);
-  font-size: var(--mono-base);
-  vertical-align: middle;
-}
-
-/* ---- work items list (sprint items card, row-per-item) ---- */
-.dev-dash-items-list {
-  display: flex;
-  flex-direction: column;
-}
-.dev-dash-item-row {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  padding: 12px 4px;
-  border-bottom: 1px solid var(--line);
-}
-.dev-dash-item-row:last-child {
-  border-bottom: none;
-}
-.dev-dash-item-row-main {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-}
-.dev-dash-item-title {
-  font-size: var(--mono-base);
-  color: var(--fg);
-  flex: 1 1 auto;
-  min-width: 0;
-}
-.dev-dash-item-row-metrics {
-  display: flex;
-  gap: 16px;
-  flex-wrap: wrap;
-  font-size: var(--mono-sm);
-  color: var(--fg-muted);
-}
-.dev-dash-item-row-fields {
-  display: flex;
-  gap: 20px;
-  flex-wrap: wrap;
-}
-
 /* ── Componentes compartilhados ────────────────────────────────────────────
    Extraídos de padrões que já existiam presos a uma feature, para que telas
    novas herdem o design system em vez de recriá-lo. */

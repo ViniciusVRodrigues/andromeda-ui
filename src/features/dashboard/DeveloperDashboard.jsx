@@ -36,6 +36,7 @@ import { deriveInsights } from "./insights.js";
 import { TokenUsageChart } from "../../components/charts/TokenUsageChart.jsx";
 import { BurndownChart } from "../../components/charts/BurndownChart.jsx";
 import { SprintEffortAiChart } from "../../components/charts/SprintEffortAiChart.jsx";
+import { fmtTokensM } from "../../core/tokenMath.js";
 import { SprintProgressBar } from "../../components/SprintProgressBar.jsx";
 import { AllocationModal } from "../ai-usage/components/AllocationModal.jsx";
 import { WorkItemManualFieldsEditor } from "../../components/WorkItemManualFieldsEditor.jsx";
@@ -271,7 +272,7 @@ function SprintItemsCard({
 
   return (
     <DevDashCard
-      eyebrow="sprint atual"
+      eyebrow="composição"
       title="Work Items"
       extra={
         !empty ? (
@@ -321,71 +322,129 @@ function SprintItemsCard({
           onAction={() => onNavigate?.("backlog")}
         />
       ) : (
-        <div className="dev-dash-items-list">
-          {sorted.map((item) => {
-            const cost = costOf(item.id);
-            const costDominant = totalCost > 0 && cost / totalCost >= 0.4;
-            const cycleOutlier =
-              avgCycle != null && avgCycle > 0 && item.cycleTimeHours != null
-                ? item.cycleTimeHours / avgCycle
-                : null;
-            const tpsOutlier =
-              avgTokensPerSp != null && avgTokensPerSp > 0 && item.tokensPerSp != null
-                ? item.tokensPerSp / avgTokensPerSp
-                : null;
-            return (
-              <div key={item.id} className="dev-dash-item-row">
-                <div className="dev-dash-item-row-main">
-                  <span className="mono" style={typeBadgeStyle(item.type)}>
-                    {item.type || "Item"}
-                  </span>
-                  {item.externalId ? (
-                    <span className="mono text-fg-dim text-[11px]">{item.externalId}</span>
-                  ) : null}
-                  <span className="dev-dash-item-title">{item.title || "—"}</span>
-                  <span className="mono" style={statusBadgeStyle(item.resolvedStatus)}>
-                    {item.resolvedStatus || "—"}
-                  </span>
-                </div>
-                <div className="dev-dash-item-row-metrics mono">
-                  <span title="Custo de IA alocado a este item">
-                    {cost > 0 ? `$${cost.toFixed(2)}` : "—"}
-                    {costDominant ? " ⚠" : ""}
-                  </span>
-                  <span title="Tokens por story point">
-                    T/SP {fmt1(item.tokensPerSp)}
-                    {tpsOutlier && tpsOutlier >= 2
-                      ? ` (${tpsOutlier.toFixed(1).replace(".", ",")}×)`
-                      : ""}
-                  </span>
-                  <span title="Cycle time">
-                    Ciclo {fmt1(item.cycleTimeHours)}h
-                    {cycleOutlier && cycleOutlier >= 2
-                      ? ` (${cycleOutlier.toFixed(1).replace(".", ",")}× média)`
-                      : ""}
-                  </span>
-                </div>
-                <div className="dev-dash-item-row-fields">
-                  <WorkItemManualFieldsEditor
-                    workItemId={item.id}
-                    field="complexity"
-                    value={item.complexity ?? null}
-                    source={item.complexitySource ?? null}
-                    label="Complexidade"
-                    onChanged={(updated) => onItemChanged(item.id, updated)}
-                  />
-                  <WorkItemManualFieldsEditor
-                    workItemId={item.id}
-                    field="effort"
-                    value={item.effort ?? item.storyPoints ?? null}
-                    source={item.effortSource ?? null}
-                    label="Esforço"
-                    onChanged={(updated) => onItemChanged(item.id, updated)}
-                  />
-                </div>
-              </div>
-            );
-          })}
+        <div className="-mx-2 overflow-x-auto">
+          <table className="w-full border-collapse text-left" aria-label="Work items da sprint">
+            <thead>
+              <tr className="border-line-strong border-b">
+                <th className="mono text-fg-dim px-2 py-2 text-[10px] font-normal tracking-wider uppercase">
+                  Tipo
+                </th>
+                <th className="mono text-fg-dim px-2 py-2 text-[10px] font-normal tracking-wider uppercase">
+                  ID
+                </th>
+                <th className="mono text-fg-dim px-2 py-2 text-[10px] font-normal tracking-wider uppercase">
+                  Título
+                </th>
+                <th className="mono text-fg-dim px-2 py-2 text-[10px] font-normal tracking-wider uppercase">
+                  Status
+                </th>
+                <th className="mono text-fg-dim px-2 py-2 text-right text-[10px] font-normal tracking-wider uppercase">
+                  SP
+                </th>
+                <th
+                  className="mono text-fg-dim px-2 py-2 text-right text-[10px] font-normal tracking-wider uppercase"
+                  title="Custo de IA alocado a este item"
+                >
+                  Custo IA
+                </th>
+                <th
+                  className="mono text-fg-dim px-2 py-2 text-right text-[10px] font-normal tracking-wider uppercase"
+                  title="Tokens por story point"
+                >
+                  T/SP
+                </th>
+                <th
+                  className="mono text-fg-dim px-2 py-2 text-right text-[10px] font-normal tracking-wider uppercase"
+                  title="Cycle time"
+                >
+                  Ciclo
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {sorted.map((item) => {
+                const cost = costOf(item.id);
+                const costDominant = totalCost > 0 && cost / totalCost >= 0.4;
+                const cycleOutlier =
+                  avgCycle != null && avgCycle > 0 && item.cycleTimeHours != null
+                    ? item.cycleTimeHours / avgCycle
+                    : null;
+                const tpsOutlier =
+                  avgTokensPerSp != null && avgTokensPerSp > 0 && item.tokensPerSp != null
+                    ? item.tokensPerSp / avgTokensPerSp
+                    : null;
+                return (
+                  <React.Fragment key={item.id}>
+                    <tr className="border-line border-b">
+                      <td className="px-2 py-2.5 align-middle">
+                        <span className="mono" style={typeBadgeStyle(item.type)}>
+                          {item.type || "Item"}
+                        </span>
+                      </td>
+                      <td className="mono text-fg-dim px-2 py-2.5 align-middle text-[11px] whitespace-nowrap">
+                        {item.externalId || "—"}
+                      </td>
+                      <td
+                        className="text-fg px-2 py-2.5 align-middle"
+                        style={{ fontSize: "var(--mono-base)" }}
+                      >
+                        {item.title || "—"}
+                      </td>
+                      <td className="px-2 py-2.5 align-middle">
+                        <span className="mono" style={statusBadgeStyle(item.resolvedStatus)}>
+                          {item.resolvedStatus || "—"}
+                        </span>
+                      </td>
+                      <td className="mono text-fg px-2 py-2.5 text-right align-middle">
+                        {item.storyPoints != null ? fmt1(item.storyPoints) : "—"}
+                      </td>
+                      <td
+                        className="mono px-2 py-2.5 text-right align-middle whitespace-nowrap"
+                        style={{ color: costDominant ? "var(--bad)" : "var(--fg)" }}
+                      >
+                        {cost > 0 ? `$${cost.toFixed(2)}` : "—"}
+                        {costDominant ? " ⚠" : ""}
+                      </td>
+                      <td className="mono text-fg-muted px-2 py-2.5 text-right align-middle whitespace-nowrap">
+                        {fmt1(item.tokensPerSp)}
+                        {tpsOutlier && tpsOutlier >= 2
+                          ? ` (${tpsOutlier.toFixed(1).replace(".", ",")}×)`
+                          : ""}
+                      </td>
+                      <td className="mono text-fg-muted px-2 py-2.5 text-right align-middle whitespace-nowrap">
+                        {item.cycleTimeHours != null ? `${fmt1(item.cycleTimeHours)}h` : "—"}
+                        {cycleOutlier && cycleOutlier >= 2
+                          ? ` (${cycleOutlier.toFixed(1).replace(".", ",")}× média)`
+                          : ""}
+                      </td>
+                    </tr>
+                    <tr>
+                      <td className="px-2 pb-3" colSpan={8}>
+                        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
+                          <WorkItemManualFieldsEditor
+                            workItemId={item.id}
+                            field="complexity"
+                            value={item.complexity ?? null}
+                            source={item.complexitySource ?? null}
+                            label="Complexidade"
+                            onChanged={(updated) => onItemChanged(item.id, updated)}
+                          />
+                          <WorkItemManualFieldsEditor
+                            workItemId={item.id}
+                            field="effort"
+                            value={item.effort ?? item.storyPoints ?? null}
+                            source={item.effortSource ?? null}
+                            label="Esforço"
+                            onChanged={(updated) => onItemChanged(item.id, updated)}
+                          />
+                        </div>
+                      </td>
+                    </tr>
+                  </React.Fragment>
+                );
+              })}
+            </tbody>
+          </table>
         </div>
       )}
     </DevDashCard>
@@ -412,7 +471,7 @@ function InProgressPanel({ items, loading }) {
   const empty = !items || items.length === 0;
 
   return (
-    <DevDashCard eyebrow="sprint atual" title="Em Andamento" compact={!loading && empty}>
+    <DevDashCard eyebrow="agora" title="Em Andamento" compact={!loading && empty}>
       {loading ? (
         <CardSkeleton lines={3} />
       ) : empty ? (
@@ -513,7 +572,7 @@ function AiCard({
   const empty = !loading && !hasTokens;
 
   return (
-    <DevDashCard eyebrow="sprint atual" title="IA" compact={empty}>
+    <DevDashCard eyebrow="ia na sprint" title="IA" compact={empty}>
       {loading ? (
         <CardSkeleton lines={2} />
       ) : empty ? (
@@ -530,7 +589,7 @@ function AiCard({
           <div style={{ display: "flex", gap: 32, flexWrap: "wrap", marginBottom: 20 }}>
             <AiStat
               label="Tokens alocados"
-              value={(summary?.totalTokens ?? 0).toLocaleString()}
+              value={fmtTokensM(summary?.totalTokens ?? 0)}
               unit="tokens"
             />
             <AiStat label="Custo" value={fmtUsd(data?.sprintCostUsd)} />
@@ -668,7 +727,7 @@ function PendingAllocationRow({ batch, onAccept, onAdjust }) {
         className="mono"
         style={{ fontSize: "var(--mono-sm)", color: "var(--fg-muted)", flex: 1 }}
       >
-        <span style={{ color: "var(--fg)" }}>{totalTokens.toLocaleString()}</span> tokens
+        <span style={{ color: "var(--fg)" }}>{fmtTokensM(totalTokens)}</span> tokens
         {" · "}
         <span style={{ color: "var(--fg)" }}>${(batch.estimatedCostUsd || 0).toFixed(2)}</span>
       </span>
@@ -857,7 +916,7 @@ function BurndownCard({ data, loading, onNavigate, fill }) {
       data.every((d) => d.remainingSp == null || d.remainingSp === 0));
 
   return (
-    <DevDashCard eyebrow="sprint atual" title="Burndown" compact={empty} fill={fill && !empty}>
+    <DevDashCard eyebrow="execução" title="Burndown" compact={empty} fill={fill && !empty}>
       {loading ? (
         <CardSkeleton lines={4} />
       ) : empty ? (
@@ -1120,7 +1179,7 @@ export function DeveloperDashboard({ projectId, sprintId, startDate, endDate, mo
       <MetricsRow data={data} loading={loading} />
 
       {/* Row 3: burndown (elástico, estica até a coluna direita) + comparação entre sprints + em andamento */}
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,55fr)_minmax(0,45fr)]">
+      <div className="mb-4 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,55fr)_minmax(0,45fr)]">
         <BurndownCard data={data?.burndownSeries} loading={loading} onNavigate={onNavigate} fill />
         <div className="flex min-w-0 flex-col gap-4 [&>.dev-dash-card]:mb-0">
           <EffortAiCard history={data?.sprintHistory} />

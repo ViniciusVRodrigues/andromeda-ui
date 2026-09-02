@@ -235,6 +235,29 @@ test("individual: gráfico composto renderiza e burndown alinha sem vazio", asyn
   await expect(page).toHaveScreenshot("dashboard-individual-effort-ai.png", {
     maxDiffPixelRatio: 0.02,
   });
+
+  // card IA destacado da linha de cima + eyebrow próprio + tokens alocados em milhões
+  const aiCard = page.locator(".dev-dash-card").filter({ hasText: "Tokens alocados" }).first();
+  await expect(aiCard).toBeVisible();
+  await expect(aiCard.getByText("0,018M")).toBeVisible();
+  await aiCard.scrollIntoViewIfNeeded();
+  await page.waitForTimeout(200);
+  await expect(page).toHaveScreenshot("dashboard-ai-card-spacing.png", {
+    maxDiffPixelRatio: 0.02,
+  });
+
+  // work items em tabela: cabeçalho de colunas + separações por linha
+  await expect(page.getByRole("columnheader", { name: "Custo IA" })).toBeVisible();
+  await expect(page.getByRole("columnheader", { name: "T/SP" })).toBeVisible();
+  await page
+    .locator(".dev-dash-card")
+    .filter({ hasText: "Work Items" })
+    .first()
+    .scrollIntoViewIfNeeded();
+  await page.waitForTimeout(200);
+  await expect(page).toHaveScreenshot("dashboard-sprint-items-table.png", {
+    maxDiffPixelRatio: 0.02,
+  });
 });
 
 test("equipe: velocity trend vira o mesmo gráfico composto", async ({ page }) => {

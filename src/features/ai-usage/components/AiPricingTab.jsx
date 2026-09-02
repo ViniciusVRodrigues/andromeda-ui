@@ -12,49 +12,67 @@ import React from "react";
 import { updateAiPrices } from "../api.js";
 import api from "../../../core/api/client.js";
 
-/* Presets = tabela oficial vigente por 1K tokens, IDs validados contra o que a
- * ingestão realmente reporta (distinct de ai_usages.model). Fonte e critérios de
- * exclusão em docs/ai-price-sources.md (workspace). Re-verificar trimestralmente
- * ou quando o conector reportar ID novo — atualizar PRESETS_VERIFIED_AT junto. */
+/* Presets = tabela oficial vigente por MILHÃO de tokens (unidade que os
+ * provedores publicam), IDs validados contra o que a ingestão realmente
+ * reporta (distinct de ai_usages.model). Fonte e critérios de exclusão em
+ * docs/ai-price-sources.md (workspace). Re-verificar trimestralmente ou
+ * quando o conector reportar ID novo — atualizar PRESETS_VERIFIED_AT junto. */
 export const PRESETS_VERIFIED_AT = "2026-09-01";
 
 export const PRESET_MODELS = [
   // Anthropic — forma observada na ingestão usa PONTO (claude-opus-4.8), não hífen
-  { model: "claude-fable-5.1", pricePerKInput: 0.01, pricePerKOutput: 0.05 },
-  { model: "claude-fable-5", pricePerKInput: 0.01, pricePerKOutput: 0.05 },
-  { model: "claude-opus-5", pricePerKInput: 0.005, pricePerKOutput: 0.025 },
-  { model: "claude-opus-4.8", pricePerKInput: 0.005, pricePerKOutput: 0.025 },
-  { model: "claude-sonnet-5", pricePerKInput: 0.002, pricePerKOutput: 0.01 },
-  { model: "claude-sonnet-4.6", pricePerKInput: 0.003, pricePerKOutput: 0.015 },
-  { model: "claude-haiku-4.5", pricePerKInput: 0.001, pricePerKOutput: 0.005 },
+  { model: "claude-fable-5.1", priceMInput: 10, priceMOutput: 50 },
+  { model: "claude-fable-5", priceMInput: 10, priceMOutput: 50 },
+  { model: "claude-opus-5", priceMInput: 5, priceMOutput: 25 },
+  { model: "claude-opus-4.8", priceMInput: 5, priceMOutput: 25 },
+  { model: "claude-sonnet-5", priceMInput: 2, priceMOutput: 10 },
+  { model: "claude-sonnet-4.6", priceMInput: 3, priceMOutput: 15 },
+  { model: "claude-haiku-4.5", priceMInput: 1, priceMOutput: 5 },
   // OpenAI — série 5.x corrente + 4o ainda na tabela padrão (gpt-4-turbo/3.5/o1 excluídos)
-  { model: "gpt-5.6-sol", pricePerKInput: 0.004, pricePerKOutput: 0.02 },
-  { model: "gpt-5.6-terra", pricePerKInput: 0.002, pricePerKOutput: 0.012 },
-  { model: "gpt-5.6-luna", pricePerKInput: 0.0002, pricePerKOutput: 0.0012 },
-  { model: "gpt-5.5", pricePerKInput: 0.005, pricePerKOutput: 0.03 },
-  { model: "gpt-5.4", pricePerKInput: 0.0025, pricePerKOutput: 0.015 },
-  { model: "gpt-5.4-mini", pricePerKInput: 0.00075, pricePerKOutput: 0.0045 },
-  { model: "gpt-5.4-nano", pricePerKInput: 0.0002, pricePerKOutput: 0.00125 },
-  { model: "gpt-5.2", pricePerKInput: 0.00175, pricePerKOutput: 0.014 },
-  { model: "gpt-5.1", pricePerKInput: 0.00125, pricePerKOutput: 0.01 },
-  { model: "gpt-5-mini", pricePerKInput: 0.00025, pricePerKOutput: 0.002 },
-  { model: "gpt-4o", pricePerKInput: 0.0025, pricePerKOutput: 0.01 },
-  { model: "gpt-4o-mini", pricePerKInput: 0.00015, pricePerKOutput: 0.0006 },
+  { model: "gpt-5.6-sol", priceMInput: 4, priceMOutput: 20 },
+  { model: "gpt-5.6-terra", priceMInput: 2, priceMOutput: 12 },
+  { model: "gpt-5.6-luna", priceMInput: 0.2, priceMOutput: 1.2 },
+  { model: "gpt-5.5", priceMInput: 5, priceMOutput: 30 },
+  { model: "gpt-5.4", priceMInput: 2.5, priceMOutput: 15 },
+  { model: "gpt-5.4-mini", priceMInput: 0.75, priceMOutput: 4.5 },
+  { model: "gpt-5.4-nano", priceMInput: 0.2, priceMOutput: 1.25 },
+  { model: "gpt-5.2", priceMInput: 1.75, priceMOutput: 14 },
+  { model: "gpt-5.1", priceMInput: 1.25, priceMOutput: 10 },
+  { model: "gpt-5-mini", priceMInput: 0.25, priceMOutput: 2 },
+  { model: "gpt-4o", priceMInput: 2.5, priceMOutput: 10 },
+  { model: "gpt-4o-mini", priceMInput: 0.15, priceMOutput: 0.6 },
   // Google — geração 3.x corrente + 2.5 ainda listado
-  { model: "gemini-3.7-flash", pricePerKInput: 0.00075, pricePerKOutput: 0.00375 },
-  { model: "gemini-3.5-flash", pricePerKInput: 0.0015, pricePerKOutput: 0.009 },
-  { model: "gemini-3.5-flash-lite", pricePerKInput: 0.0003, pricePerKOutput: 0.0025 },
-  { model: "gemini-3.1-pro-preview", pricePerKInput: 0.002, pricePerKOutput: 0.012 },
-  { model: "gemini-2.5-pro", pricePerKInput: 0.00125, pricePerKOutput: 0.01 },
-  { model: "gemini-2.5-flash", pricePerKInput: 0.0003, pricePerKOutput: 0.0025 },
+  { model: "gemini-3.7-flash", priceMInput: 0.75, priceMOutput: 3.75 },
+  { model: "gemini-3.5-flash", priceMInput: 1.5, priceMOutput: 9 },
+  { model: "gemini-3.5-flash-lite", priceMInput: 0.3, priceMOutput: 2.5 },
+  { model: "gemini-3.1-pro-preview", priceMInput: 2, priceMOutput: 12 },
+  { model: "gemini-2.5-pro", priceMInput: 1.25, priceMOutput: 10 },
+  { model: "gemini-2.5-flash", priceMInput: 0.3, priceMOutput: 2.5 },
 ];
+
+/* O backend armazena e calcula custo por 1K (pricePerKInput/pricePerKOutput em
+ * AiPriceEntry); a UI fala a língua dos provedores — USD por MILHÃO — e converte
+ * só nestas duas bordas (load ×1000, save ÷1000). Nada mais deve assumir as
+ * unidades cruzadas. */
+
+/** Valor armazenado por 1K → string exibida por milhão (3 casas máx.). */
+function kToMStr(perK) {
+  if (perK == null || perK === "") return "";
+  return String(Math.round(Number(perK) * 1e6) / 1e3);
+}
+
+/** Valor digitado por milhão → valor armazenado por 1K. */
+function mToK(perM) {
+  const n = parseFloat(perM);
+  return Number.isNaN(n) ? 0 : n / 1000;
+}
 
 function emptyRow() {
   return {
     _key: Math.random().toString(36).slice(2),
     model: "",
-    pricePerKInput: "",
-    pricePerKOutput: "",
+    priceMInput: "",
+    priceMOutput: "",
   };
 }
 
@@ -62,8 +80,18 @@ function rowFromPreset(p) {
   return {
     _key: Math.random().toString(36).slice(2),
     model: p.model,
-    pricePerKInput: String(p.pricePerKInput),
-    pricePerKOutput: String(p.pricePerKOutput),
+    priceMInput: String(p.priceMInput),
+    priceMOutput: String(p.priceMOutput),
+  };
+}
+
+/** Entrada vinda da API (por 1K) → linha editável (por milhão). */
+function rowFromEntry(e) {
+  return {
+    _key: Math.random().toString(36).slice(2),
+    model: e.model ?? "",
+    priceMInput: kToMStr(e.pricePerKInput),
+    priceMOutput: kToMStr(e.pricePerKOutput),
   };
 }
 
@@ -75,9 +103,7 @@ function rowFromPreset(p) {
  */
 export function AiPricingTab({ initialEntries = [], initialSubscriptionCost = null }) {
   const [rows, setRows] = React.useState(() =>
-    initialEntries.length > 0
-      ? initialEntries.map((e) => ({ ...e, _key: Math.random().toString(36).slice(2) }))
-      : [emptyRow()],
+    initialEntries.length > 0 ? initialEntries.map(rowFromEntry) : [emptyRow()],
   );
   const [saving, setSaving] = React.useState(false);
   const [feedback, setFeedback] = React.useState(null); // { type: "success"|"error", text: string }
@@ -96,7 +122,7 @@ export function AiPricingTab({ initialEntries = [], initialSubscriptionCost = nu
   // Keep rows in sync when parent re-fetches org data
   React.useEffect(() => {
     if (initialEntries.length === 0) return;
-    setRows(initialEntries.map((e) => ({ ...e, _key: Math.random().toString(36).slice(2) })));
+    setRows(initialEntries.map(rowFromEntry));
   }, [JSON.stringify(initialEntries)]); // eslint-disable-line react-hooks/exhaustive-deps
 
   React.useEffect(() => {
@@ -143,8 +169,8 @@ export function AiPricingTab({ initialEntries = [], initialSubscriptionCost = nu
       .filter((r) => r.model.trim() !== "")
       .map((r) => ({
         model: r.model.trim(),
-        pricePerKInput: parseFloat(r.pricePerKInput) || 0,
-        pricePerKOutput: parseFloat(r.pricePerKOutput) || 0,
+        pricePerKInput: mToK(r.priceMInput),
+        pricePerKOutput: mToK(r.priceMOutput),
       }));
 
     setSaving(true);
@@ -287,8 +313,8 @@ export function AiPricingTab({ initialEntries = [], initialSubscriptionCost = nu
               Precificação de IA
             </h2>
             <p className="mono ai-pricing-card-sub">
-              Defina o custo por 1 000 tokens de input e output para cada modelo. Usado no cálculo
-              de custo do dashboard.
+              Defina o custo por milhão de tokens de input e output para cada modelo (a unidade em
+              que os provedores cobram). Usado no cálculo de custo do dashboard.
             </p>
           </div>
           <button
@@ -387,8 +413,8 @@ export function AiPricingTab({ initialEntries = [], initialSubscriptionCost = nu
             <thead>
               <tr>
                 <th>Modelo</th>
-                <th>Preço / 1K Input (USD)</th>
-                <th>Preço / 1K Output (USD)</th>
+                <th>Preço / M Input (USD)</th>
+                <th>Preço / M Output (USD)</th>
                 <th style={{ width: 40 }}></th>
               </tr>
             </thead>
@@ -410,11 +436,11 @@ export function AiPricingTab({ initialEntries = [], initialSubscriptionCost = nu
                       className="ai-pricing-cell-input"
                       type="number"
                       min="0"
-                      step="0.0001"
-                      value={row.pricePerKInput}
-                      placeholder="0.0000"
-                      aria-label="Preço por 1K tokens de input"
-                      onChange={(e) => updateRow(row._key, "pricePerKInput", e.target.value)}
+                      step="0.01"
+                      value={row.priceMInput}
+                      placeholder="0.00"
+                      aria-label="Preço por milhão de tokens de input"
+                      onChange={(e) => updateRow(row._key, "priceMInput", e.target.value)}
                     />
                   </td>
                   <td>
@@ -422,11 +448,11 @@ export function AiPricingTab({ initialEntries = [], initialSubscriptionCost = nu
                       className="ai-pricing-cell-input"
                       type="number"
                       min="0"
-                      step="0.0001"
-                      value={row.pricePerKOutput}
-                      placeholder="0.0000"
-                      aria-label="Preço por 1K tokens de output"
-                      onChange={(e) => updateRow(row._key, "pricePerKOutput", e.target.value)}
+                      step="0.01"
+                      value={row.priceMOutput}
+                      placeholder="0.00"
+                      aria-label="Preço por milhão de tokens de output"
+                      onChange={(e) => updateRow(row._key, "priceMOutput", e.target.value)}
                     />
                   </td>
                   <td style={{ textAlign: "center" }}>

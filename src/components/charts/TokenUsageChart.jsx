@@ -2,14 +2,16 @@
  * TokenUsageChart — Recharts composed chart for sprint token usage.
  *
  * X-axis = each day of the sprint (zero-filled by the backend). Input and output
- * tokens are stacked bars (left axis); daily cost rides as a line on the right
- * axis so a cheap-but-voluminous day and an expensive one stay distinguishable.
+ * tokens are stacked bars (left axis, em MILHÕES de tokens — core/tokenMath.js);
+ * daily cost rides as a line on the right axis so a cheap-but-voluminous day and
+ * an expensive one stay distinguishable.
  *
  * @param {{ data: Array<{ date?: string, day?: string, inputTokens: number, outputTokens: number, costUsd?: number }> }} props
  *   `date` or `day` field accepted (tokensByDay from API uses `day`).
  */
 
 import React from "react";
+import { fmtTokensM } from "../../core/tokenMath.js";
 import {
   ResponsiveContainer,
   ComposedChart,
@@ -43,12 +45,6 @@ function fmtDate(value) {
   return `${value.slice(5, 7)}/${value.slice(8, 10)}`;
 }
 
-/** Abbreviate large numbers to "k" notation. */
-function fmtK(value) {
-  if (value >= 1000) return `${Math.round(value / 1000)}k`;
-  return String(value);
-}
-
 /** Custom tooltip content. */
 function CustomTooltip({ active, payload, label }) {
   if (!active || !payload || payload.length === 0) return null;
@@ -65,13 +61,9 @@ function CustomTooltip({ active, payload, label }) {
       }}
     >
       <div style={{ color: "var(--fg-muted)", marginBottom: 4 }}>{fmtDate(label)}</div>
-      <div>Total: {(entry.total ?? 0).toLocaleString()}</div>
-      <div style={{ color: "var(--accent)" }}>
-        Input: {(entry.inputTokens ?? 0).toLocaleString()}
-      </div>
-      <div style={{ color: "var(--good)" }}>
-        Output: {(entry.outputTokens ?? 0).toLocaleString()}
-      </div>
+      <div>Total: {fmtTokensM(entry.total ?? 0)}</div>
+      <div style={{ color: "var(--accent)" }}>Input: {fmtTokensM(entry.inputTokens ?? 0)}</div>
+      <div style={{ color: "var(--good)" }}>Output: {fmtTokensM(entry.outputTokens ?? 0)}</div>
       <div style={{ color: "var(--fg-muted)" }}>Custo: ${(entry.costUsd ?? 0).toFixed(2)}</div>
     </div>
   );
@@ -108,11 +100,11 @@ export function TokenUsageChart({ data }) {
         />
         <YAxis
           yAxisId="tokens"
-          tickFormatter={fmtK}
+          tickFormatter={fmtTokensM}
           tick={{ fill: "var(--fg-muted)", fontSize: 11 }}
           axisLine={false}
           tickLine={false}
-          width={36}
+          width={54}
         />
         <YAxis
           yAxisId="cost"
