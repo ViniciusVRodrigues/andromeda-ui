@@ -14,6 +14,7 @@ import { updateWorkItemManualFields } from "../features/projects/api.js";
  *   value: number | null,
  *   source: "AZURE_SYNC" | "MANUAL_OVERRIDE" | null,
  *   label: string,
+ *   hideLabel?: boolean,  // table columns already carry the label in the header
  *   onChanged: (updated: { complexity: number|null, complexitySource: string|null, effort: number|null, effortSource: string|null }) => void,
  * }} props
  */
@@ -23,6 +24,7 @@ export function WorkItemManualFieldsEditor({
   value,
   source,
   label,
+  hideLabel = false,
   onChanged,
   // Hierarchy rollup (optional): the sum of this field across all descendants, shown only when the
   // item has no value of its own. `undefined` on older backends -- the row simply reads "não
@@ -83,7 +85,7 @@ export function WorkItemManualFieldsEditor({
   return (
     <div className="mono wi-fields-editor">
       <div className="wi-fields-row">
-        <span className="wi-fields-label">{label}</span>
+        {!hideLabel && <span className="wi-fields-label">{label}</span>}
         {!editing && (
           <>
             {isUnset ? (

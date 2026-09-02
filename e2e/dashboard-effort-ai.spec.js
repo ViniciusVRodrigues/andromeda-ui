@@ -249,6 +249,8 @@ test("individual: gráfico composto renderiza e burndown alinha sem vazio", asyn
   // work items em tabela: cabeçalho de colunas + separações por linha
   await expect(page.getByRole("columnheader", { name: "Custo IA" })).toBeVisible();
   await expect(page.getByRole("columnheader", { name: "T/SP" })).toBeVisible();
+  await expect(page.getByRole("columnheader", { name: "Complexidade" })).toBeVisible();
+  await expect(page.getByRole("columnheader", { name: "Esforço" })).toBeVisible();
   await page
     .locator(".dev-dash-card")
     .filter({ hasText: "Work Items" })

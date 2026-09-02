@@ -343,6 +343,18 @@ function SprintItemsCard({
                 </th>
                 <th
                   className="mono text-fg-dim px-2 py-2 text-right text-[10px] font-normal tracking-wider uppercase"
+                  title="Complexidade — valor do Azure ou manual (editável na célula)"
+                >
+                  Complexidade
+                </th>
+                <th
+                  className="mono text-fg-dim px-2 py-2 text-right text-[10px] font-normal tracking-wider uppercase"
+                  title="Esforço — valor do Azure ou manual (editável na célula)"
+                >
+                  Esforço
+                </th>
+                <th
+                  className="mono text-fg-dim px-2 py-2 text-right text-[10px] font-normal tracking-wider uppercase"
                   title="Custo de IA alocado a este item"
                 >
                   Custo IA
@@ -374,73 +386,71 @@ function SprintItemsCard({
                     ? item.tokensPerSp / avgTokensPerSp
                     : null;
                 return (
-                  <React.Fragment key={item.id}>
-                    <tr className="border-line border-b">
-                      <td className="px-2 py-2.5 align-middle">
-                        <span className="mono" style={typeBadgeStyle(item.type)}>
-                          {item.type || "Item"}
-                        </span>
-                      </td>
-                      <td className="mono text-fg-dim px-2 py-2.5 align-middle text-[11px] whitespace-nowrap">
-                        {item.externalId || "—"}
-                      </td>
-                      <td
-                        className="text-fg px-2 py-2.5 align-middle"
-                        style={{ fontSize: "var(--mono-base)" }}
-                      >
-                        {item.title || "—"}
-                      </td>
-                      <td className="px-2 py-2.5 align-middle">
-                        <span className="mono" style={statusBadgeStyle(item.resolvedStatus)}>
-                          {item.resolvedStatus || "—"}
-                        </span>
-                      </td>
-                      <td className="mono text-fg px-2 py-2.5 text-right align-middle">
-                        {item.storyPoints != null ? fmt1(item.storyPoints) : "—"}
-                      </td>
-                      <td
-                        className="mono px-2 py-2.5 text-right align-middle whitespace-nowrap"
-                        style={{ color: costDominant ? "var(--bad)" : "var(--fg)" }}
-                      >
-                        {cost > 0 ? `$${cost.toFixed(2)}` : "—"}
-                        {costDominant ? " ⚠" : ""}
-                      </td>
-                      <td className="mono text-fg-muted px-2 py-2.5 text-right align-middle whitespace-nowrap">
-                        {fmt1(item.tokensPerSp)}
-                        {tpsOutlier && tpsOutlier >= 2
-                          ? ` (${tpsOutlier.toFixed(1).replace(".", ",")}×)`
-                          : ""}
-                      </td>
-                      <td className="mono text-fg-muted px-2 py-2.5 text-right align-middle whitespace-nowrap">
-                        {item.cycleTimeHours != null ? `${fmt1(item.cycleTimeHours)}h` : "—"}
-                        {cycleOutlier && cycleOutlier >= 2
-                          ? ` (${cycleOutlier.toFixed(1).replace(".", ",")}× média)`
-                          : ""}
-                      </td>
-                    </tr>
-                    <tr>
-                      <td className="px-2 pb-3" colSpan={8}>
-                        <div style={{ display: "flex", gap: 12, flexWrap: "wrap" }}>
-                          <WorkItemManualFieldsEditor
-                            workItemId={item.id}
-                            field="complexity"
-                            value={item.complexity ?? null}
-                            source={item.complexitySource ?? null}
-                            label="Complexidade"
-                            onChanged={(updated) => onItemChanged(item.id, updated)}
-                          />
-                          <WorkItemManualFieldsEditor
-                            workItemId={item.id}
-                            field="effort"
-                            value={item.effort ?? item.storyPoints ?? null}
-                            source={item.effortSource ?? null}
-                            label="Esforço"
-                            onChanged={(updated) => onItemChanged(item.id, updated)}
-                          />
-                        </div>
-                      </td>
-                    </tr>
-                  </React.Fragment>
+                  <tr key={item.id} className="border-line border-b">
+                    <td className="px-2 py-2.5 align-middle">
+                      <span className="mono" style={typeBadgeStyle(item.type)}>
+                        {item.type || "Item"}
+                      </span>
+                    </td>
+                    <td className="mono text-fg-dim px-2 py-2.5 align-middle text-[11px] whitespace-nowrap">
+                      {item.externalId || "—"}
+                    </td>
+                    <td
+                      className="text-fg px-2 py-2.5 align-middle"
+                      style={{ fontSize: "var(--mono-base)" }}
+                    >
+                      {item.title || "—"}
+                    </td>
+                    <td className="px-2 py-2.5 align-middle">
+                      <span className="mono" style={statusBadgeStyle(item.resolvedStatus)}>
+                        {item.resolvedStatus || "—"}
+                      </span>
+                    </td>
+                    <td className="mono text-fg px-2 py-2.5 text-right align-middle">
+                      {item.storyPoints != null ? fmt1(item.storyPoints) : "—"}
+                    </td>
+                    <td className="px-2 py-2.5 align-middle [&_.wi-fields-editor]:items-end [&_.wi-fields-row]:justify-end">
+                      <WorkItemManualFieldsEditor
+                        workItemId={item.id}
+                        field="complexity"
+                        value={item.complexity ?? null}
+                        source={item.complexitySource ?? null}
+                        label="Complexidade"
+                        hideLabel
+                        onChanged={(updated) => onItemChanged(item.id, updated)}
+                      />
+                    </td>
+                    <td className="px-2 py-2.5 align-middle [&_.wi-fields-editor]:items-end [&_.wi-fields-row]:justify-end">
+                      <WorkItemManualFieldsEditor
+                        workItemId={item.id}
+                        field="effort"
+                        value={item.effort ?? item.storyPoints ?? null}
+                        source={item.effortSource ?? null}
+                        label="Esforço"
+                        hideLabel
+                        onChanged={(updated) => onItemChanged(item.id, updated)}
+                      />
+                    </td>
+                    <td
+                      className="mono px-2 py-2.5 text-right align-middle whitespace-nowrap"
+                      style={{ color: costDominant ? "var(--bad)" : "var(--fg)" }}
+                    >
+                      {cost > 0 ? `$${cost.toFixed(2)}` : "—"}
+                      {costDominant ? " ⚠" : ""}
+                    </td>
+                    <td className="mono text-fg-muted px-2 py-2.5 text-right align-middle whitespace-nowrap">
+                      {fmt1(item.tokensPerSp)}
+                      {tpsOutlier && tpsOutlier >= 2
+                        ? ` (${tpsOutlier.toFixed(1).replace(".", ",")}×)`
+                        : ""}
+                    </td>
+                    <td className="mono text-fg-muted px-2 py-2.5 text-right align-middle whitespace-nowrap">
+                      {item.cycleTimeHours != null ? `${fmt1(item.cycleTimeHours)}h` : "—"}
+                      {cycleOutlier && cycleOutlier >= 2
+                        ? ` (${cycleOutlier.toFixed(1).replace(".", ",")}× média)`
+                        : ""}
+                    </td>
+                  </tr>
                 );
               })}
             </tbody>
@@ -944,7 +954,9 @@ function InsightsStrip({ data }) {
   if (!insights.length) return null;
   const tone = {
     info: "border-line text-fg-muted",
-    warn: "border-bad text-bad",
+    // leituras, não alarmes — dourado do tema (border-accent + texto accent-soft,
+    // legível nos três paletas) em vez do vermelho de erro
+    warn: "border-accent text-accent-soft",
     good: "border-good text-good",
   };
   return (
