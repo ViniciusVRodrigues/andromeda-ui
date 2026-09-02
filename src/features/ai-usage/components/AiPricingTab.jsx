@@ -12,13 +12,39 @@ import React from "react";
 import { updateAiPrices } from "../api.js";
 import api from "../../../core/api/client.js";
 
-const PRESET_MODELS = [
-  { model: "claude-opus-4-8", pricePerKInput: 0.015, pricePerKOutput: 0.075 },
-  { model: "claude-sonnet-4-6", pricePerKInput: 0.003, pricePerKOutput: 0.015 },
-  { model: "claude-haiku-4-5-20251001", pricePerKInput: 0.00025, pricePerKOutput: 0.00125 },
+/* Presets = tabela oficial vigente por 1K tokens, IDs validados contra o que a
+ * ingestão realmente reporta (distinct de ai_usages.model). Fonte e critérios de
+ * exclusão em docs/ai-price-sources.md (workspace). Re-verificar trimestralmente
+ * ou quando o conector reportar ID novo — atualizar PRESETS_VERIFIED_AT junto. */
+export const PRESETS_VERIFIED_AT = "2026-09-01";
+
+export const PRESET_MODELS = [
+  // Anthropic — forma observada na ingestão usa PONTO (claude-opus-4.8), não hífen
+  { model: "claude-fable-5.1", pricePerKInput: 0.01, pricePerKOutput: 0.05 },
+  { model: "claude-fable-5", pricePerKInput: 0.01, pricePerKOutput: 0.05 },
+  { model: "claude-opus-5", pricePerKInput: 0.005, pricePerKOutput: 0.025 },
+  { model: "claude-opus-4.8", pricePerKInput: 0.005, pricePerKOutput: 0.025 },
+  { model: "claude-sonnet-5", pricePerKInput: 0.002, pricePerKOutput: 0.01 },
+  { model: "claude-sonnet-4.6", pricePerKInput: 0.003, pricePerKOutput: 0.015 },
+  { model: "claude-haiku-4.5", pricePerKInput: 0.001, pricePerKOutput: 0.005 },
+  // OpenAI — série 5.x corrente + 4o ainda na tabela padrão (gpt-4-turbo/3.5/o1 excluídos)
+  { model: "gpt-5.6-sol", pricePerKInput: 0.004, pricePerKOutput: 0.02 },
+  { model: "gpt-5.6-terra", pricePerKInput: 0.002, pricePerKOutput: 0.012 },
+  { model: "gpt-5.6-luna", pricePerKInput: 0.0002, pricePerKOutput: 0.0012 },
+  { model: "gpt-5.5", pricePerKInput: 0.005, pricePerKOutput: 0.03 },
+  { model: "gpt-5.4", pricePerKInput: 0.0025, pricePerKOutput: 0.015 },
+  { model: "gpt-5.4-mini", pricePerKInput: 0.00075, pricePerKOutput: 0.0045 },
+  { model: "gpt-5.4-nano", pricePerKInput: 0.0002, pricePerKOutput: 0.00125 },
+  { model: "gpt-5.2", pricePerKInput: 0.00175, pricePerKOutput: 0.014 },
+  { model: "gpt-5.1", pricePerKInput: 0.00125, pricePerKOutput: 0.01 },
+  { model: "gpt-5-mini", pricePerKInput: 0.00025, pricePerKOutput: 0.002 },
   { model: "gpt-4o", pricePerKInput: 0.0025, pricePerKOutput: 0.01 },
   { model: "gpt-4o-mini", pricePerKInput: 0.00015, pricePerKOutput: 0.0006 },
-  { model: "gpt-4-turbo", pricePerKInput: 0.01, pricePerKOutput: 0.03 },
+  // Google — geração 3.x corrente + 2.5 ainda listado
+  { model: "gemini-3.7-flash", pricePerKInput: 0.00075, pricePerKOutput: 0.00375 },
+  { model: "gemini-3.5-flash", pricePerKInput: 0.0015, pricePerKOutput: 0.009 },
+  { model: "gemini-3.5-flash-lite", pricePerKInput: 0.0003, pricePerKOutput: 0.0025 },
+  { model: "gemini-3.1-pro-preview", pricePerKInput: 0.002, pricePerKOutput: 0.012 },
   { model: "gemini-2.5-pro", pricePerKInput: 0.00125, pricePerKOutput: 0.01 },
   { model: "gemini-2.5-flash", pricePerKInput: 0.0003, pricePerKOutput: 0.0025 },
 ];
@@ -314,6 +340,9 @@ export function AiPricingTab({ initialEntries = [], initialSubscriptionCost = nu
           <div className="ai-pricing-import-confirm">
             <span className="mono" style={{ fontSize: 12 }}>
               Já existem modelos na tabela. O que deseja fazer?
+            </span>
+            <span className="mono" style={{ fontSize: 11, color: "var(--fg-muted)" }}>
+              tabela oficial verificada em {PRESETS_VERIFIED_AT}
             </span>
             <button
               type="button"

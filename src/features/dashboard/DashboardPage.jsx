@@ -106,7 +106,14 @@ function SprintSelect({ projectId, value, onChange, onAutoApply }) {
 }
 
 /* ── Filter inputs per tab ── */
-function IndividualFilters({ filters, onChange, onAutoApply, projects }) {
+function IndividualFilters({
+  filters,
+  onChange,
+  onTextChange,
+  onTextCommit,
+  onAutoApply,
+  projects,
+}) {
   return (
     <>
       <label style={filterFieldStyle}>
@@ -181,7 +188,11 @@ function IndividualFilters({ filters, onChange, onAutoApply, projects }) {
           value={filters.model}
           placeholder="ex: gpt-4o"
           aria-label="Modelo de IA"
-          onChange={(e) => onChange("model", e.target.value)}
+          onChange={(e) => onTextChange("model", e.target.value)}
+          onBlur={(e) => onTextCommit("model", e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === "Enter") onTextCommit("model", e.target.value);
+          }}
         />
       </label>
     </>
@@ -252,7 +263,7 @@ function EquipeFilters({ filters, onChange, onAutoApply, projects }) {
   );
 }
 
-function EstrategicoFilters({ filters, onChange, projects }) {
+function EstrategicoFilters({ filters, onChange, onTextChange, onTextCommit, projects }) {
   const isProject = filters.scope !== "org" && filters.scope;
 
   return (
@@ -292,7 +303,11 @@ function EstrategicoFilters({ filters, onChange, projects }) {
             value={filters.memberId}
             placeholder="ID do membro"
             aria-label="Membro"
-            onChange={(e) => onChange("memberId", e.target.value)}
+            onChange={(e) => onTextChange("memberId", e.target.value)}
+            onBlur={(e) => onTextCommit("memberId", e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") onTextCommit("memberId", e.target.value);
+            }}
           />
         </label>
       )}
@@ -388,12 +403,21 @@ function DashboardPage({ dash, onLogout, onNavigate }) {
     setAppliedFilters(defaults);
   };
 
+  /* Filtros aplicam ao mudar (sem botão Aplicar): selects e datas comitam na hora;
+   * campos de texto livre (model, memberId) só comitam em blur/Enter para não
+   * disparar fetch a cada tecla. handleFilterChange é o caminho "commit agora"
+   * usado por selects/datas; handleTextChange é rascunho + handleTextCommit. */
   const handleFilterChange = (key, value) => {
+    setFilters((prev) => ({ ...prev, [key]: value }));
+    setAppliedFilters((prev) => ({ ...prev, [key]: value }));
+  };
+
+  const handleTextChange = (key, value) => {
     setFilters((prev) => ({ ...prev, [key]: value }));
   };
 
-  const handleApply = () => {
-    setAppliedFilters({ ...filters });
+  const handleTextCommit = (key, value) => {
+    setAppliedFilters((prev) => ({ ...prev, [key]: value }));
   };
 
   const handleAutoApply = (partial) => {
@@ -515,6 +539,8 @@ function DashboardPage({ dash, onLogout, onNavigate }) {
             <IndividualFilters
               filters={filters}
               onChange={handleFilterChange}
+              onTextChange={handleTextChange}
+              onTextCommit={handleTextCommit}
               onAutoApply={handleAutoApply}
               projects={projects}
             />
@@ -531,12 +557,11 @@ function DashboardPage({ dash, onLogout, onNavigate }) {
             <EstrategicoFilters
               filters={filters}
               onChange={handleFilterChange}
+              onTextChange={handleTextChange}
+              onTextCommit={handleTextCommit}
               projects={projects}
             />
           )}
-          <button className="btn" style={{ alignSelf: "flex-end" }} onClick={handleApply}>
-            Aplicar
-          </button>
         </div>
 
         <div className="dash-content" role="tabpanel">

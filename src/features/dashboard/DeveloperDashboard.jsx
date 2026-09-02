@@ -23,6 +23,7 @@
  */
 
 import React from "react";
+import { useSearchParams } from "react-router-dom";
 import {
   acceptAllocation,
   getPendingAllocations,
@@ -31,8 +32,10 @@ import {
   manualAllocateNoSuggestion,
 } from "../ai-usage/api.js";
 import { getDeveloperDashboard } from "./api.js";
+import { deriveInsights } from "./insights.js";
 import { TokenUsageChart } from "../../components/charts/TokenUsageChart.jsx";
 import { BurndownChart } from "../../components/charts/BurndownChart.jsx";
+import { SprintVelocityChart } from "../../components/charts/SprintVelocityChart.jsx";
 import { SprintProgressBar } from "../../components/SprintProgressBar.jsx";
 import { AllocationModal } from "../ai-usage/components/AllocationModal.jsx";
 import { WorkItemManualFieldsEditor } from "../../components/WorkItemManualFieldsEditor.jsx";
@@ -126,12 +129,31 @@ function CardSkeleton({ lines = 2 }) {
  * @param {{ data: object|null, loading: boolean }} props
  */
 function MetricsRow({ data, loading }) {
+  const history = Array.isArray(data?.sprintHistory) ? data.sprintHistory : [];
+  const prev = history.length >= 2 ? history[history.length - 2] : null;
   const tiles = [
-    { label: "Ciclo Médio", value: fmt1(data?.avgCycleTimeHours), unit: "h" },
-    { label: "Lead Time Médio", value: fmt1(data?.avgLeadTimeHours), unit: "h" },
-    { label: "Story Points", value: fmtInt(data?.storyPointsDelivered), unit: "sp" },
-    { label: "PRs Abertas", value: fmtInt(data?.openPrs), unit: "prs" },
-    { label: "PRs Mescladas", value: fmtInt(data?.mergedPrs), unit: "prs" },
+    {
+      label: "Ciclo Médio",
+      value: fmt1(data?.avgCycleTimeHours),
+      unit: "h",
+      delta: (
+        <KpiDelta
+          current={data?.avgCycleTimeHours}
+          previous={prev?.avgCycleTimeHours}
+          invert
+          unit="h"
+        />
+      ),
+    },
+    { label: "Lead Time Médio", value: fmt1(data?.avgLeadTimeHours), unit: "h", delta: null },
+    {
+      label: "Story Points",
+      value: fmtInt(data?.storyPointsDelivered),
+      unit: "sp",
+      delta: <KpiDelta current={data?.storyPointsDelivered} previous={prev?.spDelivered} />,
+    },
+    { label: "PRs Abertas", value: fmtInt(data?.openPrs), unit: "prs", delta: null },
+    { label: "PRs Mescladas", value: fmtInt(data?.mergedPrs), unit: "prs", delta: null },
   ];
 
   if (loading) {
@@ -158,6 +180,7 @@ function MetricsRow({ data, loading }) {
           <div className="dev-dash-metric-value-row">
             <span className="serif dev-dash-metric-num">{t.value}</span>
             {t.value !== "—" && <span className="mono dev-dash-metric-unit">{t.unit}</span>}
+            {t.delta}
           </div>
         </div>
       ))}
@@ -165,15 +188,122 @@ function MetricsRow({ data, loading }) {
   );
 }
 
+/** Label + tone for a work item type badge (Bug/Task/Story/…). */
+function typeBadgeStyle(type) {
+  const base = {
+    display: "inline-block",
+    fontSize: "var(--mono-sm)",
+    borderRadius: 4,
+    padding: "1px 7px",
+    letterSpacing: "0.04em",
+  };
+  switch ((type || "").toUpperCase()) {
+    case "BUG":
+      return { ...base, background: "var(--bad)", color: "var(--bg)" };
+    case "STORY":
+      return { ...base, background: "var(--accent)", color: "var(--bg)" };
+    case "TASK":
+      return { ...base, background: "var(--line-strong)", color: "var(--fg)" };
+    default:
+      return {
+        ...base,
+        background: "transparent",
+        border: "1px solid var(--line)",
+        color: "var(--fg-muted)",
+      };
+  }
+}
+
+const ORDER_OPTIONS = [
+  { value: "cost", label: "Custo de IA" },
+  { value: "tokensPerSp", label: "Tokens/SP" },
+  { value: "cycle", label: "Cycle time" },
+];
+
 /**
- * Sprint work items card.
- * @param {{ items: Array|undefined, loading: boolean, onNavigate?: (tab: string) => void }} props
+ * Sprint work items card — comparable, not a flat list. Each item shows type +
+ * externalId (identification) and its cost / tokens-per-SP / cycle against the
+ * sprint reference; ordering lives in the URL (`?ord=`) so it survives refresh.
+ * @param {{ items: Array, loading: boolean, costByItem: object, avgCycle: number|null,
+ *           avgTokensPerSp: number|null, onNavigate: Function, onItemChanged: Function }} props
  */
-function SprintItemsCard({ items, loading, onNavigate, onItemChanged }) {
+function SprintItemsCard({
+  items,
+  loading,
+  costByItem,
+  avgCycle,
+  avgTokensPerSp,
+  onNavigate,
+  onItemChanged,
+}) {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const hasCost = Object.values(costByItem || {}).some((c) => Number(c) > 0);
+  const defaultOrder = hasCost ? "cost" : "cycle";
+  const order = searchParams.get("ord") || defaultOrder;
+
+  const setOrder = (v) => {
+    const next = new URLSearchParams(searchParams);
+    next.set("ord", v);
+    setSearchParams(next, { replace: true });
+  };
+
   const empty = !items || items.length === 0;
+  const costOf = (id) => Number(costByItem?.[id] ?? 0);
+
+  const sorted = React.useMemo(() => {
+    const arr = [...(items || [])];
+    const key = (it) => {
+      if (order === "cost") return costOf(it.id);
+      if (order === "tokensPerSp") return it.tokensPerSp ?? 0;
+      return it.cycleTimeHours ?? 0; // cycle
+    };
+    return arr.sort((a, b) => key(b) - key(a));
+  }, [items, order, costByItem]);
+
+  // Outlier de custo: item que sozinho passa de 40% do custo alocado da sprint.
+  const totalCost = (items || []).reduce((s, it) => s + costOf(it.id), 0);
 
   return (
-    <DevDashCard eyebrow="sprint atual" title="Work Items" compact={!loading && empty}>
+    <DevDashCard
+      eyebrow="sprint atual"
+      title="Work Items"
+      extra={
+        !empty ? (
+          <label
+            className="mono"
+            style={{
+              display: "flex",
+              alignItems: "center",
+              gap: 6,
+              fontSize: "var(--mono-sm)",
+              color: "var(--fg-muted)",
+            }}
+          >
+            ordenar por
+            <select
+              value={order}
+              onChange={(e) => setOrder(e.target.value)}
+              className="mono"
+              style={{
+                background: "var(--bg-elev)",
+                border: "1px solid var(--line)",
+                borderRadius: 6,
+                color: "var(--fg)",
+                fontSize: "var(--mono-sm)",
+                padding: "2px 6px",
+              }}
+            >
+              {ORDER_OPTIONS.map((o) => (
+                <option key={o.value} value={o.value}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </label>
+        ) : null
+      }
+      compact={!loading && empty}
+    >
       {loading ? (
         <CardSkeleton lines={3} />
       ) : empty ? (
@@ -186,38 +316,70 @@ function SprintItemsCard({ items, loading, onNavigate, onItemChanged }) {
         />
       ) : (
         <div className="dev-dash-items-list">
-          {items.map((item) => (
-            <div key={item.id} className="dev-dash-item-row">
-              <div className="dev-dash-item-row-main">
-                <span className="dev-dash-item-title">{item.title || "—"}</span>
-                <span className="mono" style={statusBadgeStyle(item.resolvedStatus)}>
-                  {item.resolvedStatus || "—"}
-                </span>
+          {sorted.map((item) => {
+            const cost = costOf(item.id);
+            const costDominant = totalCost > 0 && cost / totalCost >= 0.4;
+            const cycleOutlier =
+              avgCycle != null && avgCycle > 0 && item.cycleTimeHours != null
+                ? item.cycleTimeHours / avgCycle
+                : null;
+            const tpsOutlier =
+              avgTokensPerSp != null && avgTokensPerSp > 0 && item.tokensPerSp != null
+                ? item.tokensPerSp / avgTokensPerSp
+                : null;
+            return (
+              <div key={item.id} className="dev-dash-item-row">
+                <div className="dev-dash-item-row-main">
+                  <span className="mono" style={typeBadgeStyle(item.type)}>
+                    {item.type || "Item"}
+                  </span>
+                  {item.externalId ? (
+                    <span className="mono text-fg-dim text-[11px]">{item.externalId}</span>
+                  ) : null}
+                  <span className="dev-dash-item-title">{item.title || "—"}</span>
+                  <span className="mono" style={statusBadgeStyle(item.resolvedStatus)}>
+                    {item.resolvedStatus || "—"}
+                  </span>
+                </div>
+                <div className="dev-dash-item-row-metrics mono">
+                  <span title="Custo de IA alocado a este item">
+                    {cost > 0 ? `$${cost.toFixed(2)}` : "—"}
+                    {costDominant ? " ⚠" : ""}
+                  </span>
+                  <span title="Tokens por story point">
+                    T/SP {fmt1(item.tokensPerSp)}
+                    {tpsOutlier && tpsOutlier >= 2
+                      ? ` (${tpsOutlier.toFixed(1).replace(".", ",")}×)`
+                      : ""}
+                  </span>
+                  <span title="Cycle time">
+                    Ciclo {fmt1(item.cycleTimeHours)}h
+                    {cycleOutlier && cycleOutlier >= 2
+                      ? ` (${cycleOutlier.toFixed(1).replace(".", ",")}× média)`
+                      : ""}
+                  </span>
+                </div>
+                <div className="dev-dash-item-row-fields">
+                  <WorkItemManualFieldsEditor
+                    workItemId={item.id}
+                    field="complexity"
+                    value={item.complexity ?? null}
+                    source={item.complexitySource ?? null}
+                    label="Complexidade"
+                    onChanged={(updated) => onItemChanged(item.id, updated)}
+                  />
+                  <WorkItemManualFieldsEditor
+                    workItemId={item.id}
+                    field="effort"
+                    value={item.effort ?? item.storyPoints ?? null}
+                    source={item.effortSource ?? null}
+                    label="Esforço"
+                    onChanged={(updated) => onItemChanged(item.id, updated)}
+                  />
+                </div>
               </div>
-              <div className="dev-dash-item-row-metrics mono">
-                <span>Ciclo: {fmt1(item.cycleTimeHours)}h</span>
-                <span>Tokens/SP: {fmt1(item.tokensPerSp)}</span>
-              </div>
-              <div className="dev-dash-item-row-fields">
-                <WorkItemManualFieldsEditor
-                  workItemId={item.id}
-                  field="complexity"
-                  value={item.complexity ?? null}
-                  source={item.complexitySource ?? null}
-                  label="Complexidade"
-                  onChanged={(updated) => onItemChanged(item.id, updated)}
-                />
-                <WorkItemManualFieldsEditor
-                  workItemId={item.id}
-                  field="effort"
-                  value={item.effort ?? item.storyPoints ?? null}
-                  source={item.effortSource ?? null}
-                  label="Esforço"
-                  onChanged={(updated) => onItemChanged(item.id, updated)}
-                />
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </DevDashCard>
@@ -362,7 +524,7 @@ function AiCard({
           <div style={{ display: "flex", gap: 32, flexWrap: "wrap", marginBottom: 20 }}>
             <AiStat
               label="Tokens alocados"
-              value={summary.totalTokens.toLocaleString()}
+              value={(summary?.totalTokens ?? 0).toLocaleString()}
               unit="tokens"
             />
             <AiStat label="Custo" value={fmtUsd(data?.sprintCostUsd)} />
@@ -707,6 +869,65 @@ function BurndownCard({ data, loading, onNavigate }) {
   );
 }
 
+/**
+ * Insight strip — deterministic readings derived from the payload (insights.js).
+ * Renders nothing when no rule fires (absence over noise).
+ * @param {{ data: object|null }} props
+ */
+function InsightsStrip({ data }) {
+  const insights = React.useMemo(() => deriveInsights(data), [data]);
+  if (!insights.length) return null;
+  const tone = {
+    info: "border-line text-fg-muted",
+    warn: "border-bad text-bad",
+    good: "border-good text-good",
+  };
+  return (
+    <div className="mb-6 flex flex-wrap gap-2" role="note" aria-label="Leituras da sprint">
+      {insights.map((i) => (
+        <span
+          key={i.id}
+          className={`mono rounded-btn bg-bg-elev border px-3 py-1 text-[11px] ${tone[i.tone] || tone.info}`}
+        >
+          {i.text}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+/**
+ * Velocity card — SP delivered across the last sprints (the "entre sprints"
+ * axis). Hidden entirely when there is no comparable history (>=2 sprints).
+ */
+function VelocityCard({ history }) {
+  const chart = <SprintVelocityChart history={history} />;
+  if (!chart) return null;
+  return (
+    <DevDashCard eyebrow="comparação" title="Velocity">
+      {chart}
+    </DevDashCard>
+  );
+}
+
+/** Delta badge for a KPI vs the previous sprint. Returns null when not comparable. */
+function KpiDelta({ current, previous, invert = false, unit = "" }) {
+  if (current == null || previous == null || Number(previous) === 0) return null;
+  const pct = ((Number(current) - Number(previous)) / Math.abs(Number(previous))) * 100;
+  if (!isFinite(pct) || Math.abs(pct) < 5) return null;
+  const up = pct > 0;
+  const good = invert ? !up : up;
+  return (
+    <span
+      className="mono ml-2 text-[10px]"
+      style={{ color: good ? "var(--good)" : "var(--bad)" }}
+      title={`vs sprint anterior: ${Number(previous).toFixed(1)}${unit}`}
+    >
+      {up ? "▲" : "▼"} {Math.abs(pct).toFixed(0)}%
+    </span>
+  );
+}
+
 /* ── Main component ──────────────────────────────── */
 
 /**
@@ -870,6 +1091,9 @@ export function DeveloperDashboard({ projectId, sprintId, startDate, endDate, mo
         </div>
       )}
 
+      {/* Leituras determinísticas da sprint (insights.js) — some sem sinal */}
+      <InsightsStrip data={data} />
+
       {/* Row 1 & 2: sprint header + progress bars */}
       <SprintProgressSection
         data={data}
@@ -879,15 +1103,19 @@ export function DeveloperDashboard({ projectId, sprintId, startDate, endDate, mo
         onNavigate={onNavigate}
       />
 
-      {/* Row 3: burndown (60%) + in-progress (40%) side by side */}
+      {/* KPI strip com delta vs sprint anterior (sprintHistory) */}
+      <MetricsRow data={data} loading={loading} />
+
+      {/* Row 3: burndown + velocity (comparação entre sprints) + em andamento */}
       <div
         className="dev-dash-burndown-row"
         style={{ display: "flex", gap: 16, alignItems: "flex-start" }}
       >
-        <div style={{ flex: "0 0 60%", minWidth: 0 }}>
+        <div style={{ flex: "0 0 55%", minWidth: 0 }}>
           <BurndownCard data={data?.burndownSeries} loading={loading} onNavigate={onNavigate} />
         </div>
-        <div style={{ flex: "1 1 40%", minWidth: 0 }}>
+        <div style={{ flex: "1 1 45%", minWidth: 0 }}>
+          <VelocityCard history={data?.sprintHistory} />
           <InProgressPanel items={data?.inProgressItems} loading={loading} />
         </div>
       </div>
@@ -903,12 +1131,12 @@ export function DeveloperDashboard({ projectId, sprintId, startDate, endDate, mo
         onNavigate={onNavigate}
       />
 
-      {/* Bottom: personal metrics + done items table */}
-      <MetricsRow data={data} loading={loading} />
-
       <SprintItemsCard
         items={data?.currentSprintItems}
         loading={loading}
+        costByItem={data?.aiCostByWorkItemId}
+        avgCycle={data?.avgCycleTimeHours}
+        avgTokensPerSp={data?.avgTokensPerSp}
         onNavigate={onNavigate}
         onItemChanged={handleSprintItemChanged}
       />

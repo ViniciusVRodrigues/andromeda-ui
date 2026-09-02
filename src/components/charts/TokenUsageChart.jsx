@@ -1,19 +1,29 @@
 /**
- * TokenUsageChart — Recharts stacked BarChart for sprint token usage.
+ * TokenUsageChart — Recharts composed chart for sprint token usage.
  *
- * X-axis = each day of the sprint (zero-filled by the backend), Y-axis = tokens.
- * Input and output tokens are shown as separate stacked series.
+ * X-axis = each day of the sprint (zero-filled by the backend). Input and output
+ * tokens are stacked bars (left axis); daily cost rides as a line on the right
+ * axis so a cheap-but-voluminous day and an expensive one stay distinguishable.
  *
- * @param {{ data: Array<{ date?: string, day?: string, inputTokens: number, outputTokens: number }> }} props
+ * @param {{ data: Array<{ date?: string, day?: string, inputTokens: number, outputTokens: number, costUsd?: number }> }} props
  *   `date` or `day` field accepted (tokensByDay from API uses `day`).
  */
 
 import React from "react";
-import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
+import {
+  ResponsiveContainer,
+  ComposedChart,
+  Bar,
+  Line,
+  XAxis,
+  YAxis,
+  Tooltip,
+  CartesianGrid,
+} from "recharts";
 
 /**
  * Normalize raw API entries so they always have a `date` key, split token fields,
- * and a `total`.
+ * a `total` and a numeric `costUsd`.
  * @param {Array|undefined} data
  */
 function normalize(data) {
@@ -23,6 +33,7 @@ function normalize(data) {
     inputTokens: d.inputTokens ?? 0,
     outputTokens: d.outputTokens ?? 0,
     total: (d.inputTokens ?? 0) + (d.outputTokens ?? 0),
+    costUsd: Number(d.costUsd ?? 0),
   }));
 }
 
@@ -61,6 +72,7 @@ function CustomTooltip({ active, payload, label }) {
       <div style={{ color: "var(--good)" }}>
         Output: {(entry.outputTokens ?? 0).toLocaleString()}
       </div>
+      <div style={{ color: "var(--fg-muted)" }}>Custo: ${(entry.costUsd ?? 0).toFixed(2)}</div>
     </div>
   );
 }
@@ -85,7 +97,7 @@ export function TokenUsageChart({ data }) {
 
   return (
     <ResponsiveContainer width="100%" height={200}>
-      <BarChart data={rows} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
+      <ComposedChart data={rows} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
         <CartesianGrid stroke="var(--line)" strokeDasharray="3 3" vertical={false} />
         <XAxis
           dataKey="date"
@@ -95,16 +107,40 @@ export function TokenUsageChart({ data }) {
           tickLine={false}
         />
         <YAxis
+          yAxisId="tokens"
           tickFormatter={fmtK}
           tick={{ fill: "var(--fg-muted)", fontSize: 11 }}
           axisLine={false}
           tickLine={false}
           width={36}
         />
+        <YAxis
+          yAxisId="cost"
+          orientation="right"
+          tickFormatter={(v) => `$${v}`}
+          tick={{ fill: "var(--fg-dim)", fontSize: 10 }}
+          axisLine={false}
+          tickLine={false}
+          width={40}
+        />
         <Tooltip content={<CustomTooltip />} cursor={{ fill: "var(--line)" }} />
-        <Bar dataKey="inputTokens" stackId="tokens" fill="var(--accent)" />
-        <Bar dataKey="outputTokens" stackId="tokens" fill="var(--good)" radius={[2, 2, 0, 0]} />
-      </BarChart>
+        <Bar yAxisId="tokens" dataKey="inputTokens" stackId="tokens" fill="var(--accent)" />
+        <Bar
+          yAxisId="tokens"
+          dataKey="outputTokens"
+          stackId="tokens"
+          fill="var(--good)"
+          radius={[2, 2, 0, 0]}
+        />
+        <Line
+          yAxisId="cost"
+          type="monotone"
+          dataKey="costUsd"
+          stroke="var(--line-strong)"
+          strokeWidth={1.5}
+          dot={false}
+        />
+      </ComposedChart>
     </ResponsiveContainer>
   );
 }
