@@ -40,7 +40,7 @@ export function orbitFillPathTo(y) {
   const lerp = (a, b) => [a[0] + (b[0] - a[0]) * t, a[1] + (b[1] - a[1]) * t];
   const a = lerp(FILL_P0, FILL_P1);
   const b = lerp(FILL_P1, FILL_P2);
-  const end = lerp(a, b);                       // = B(t) = ponto da órbita em y
+  const end = lerp(a, b); // = B(t) = ponto da órbita em y
   return `M ${FILL_P0[0]} ${FILL_P0[1]} Q ${a[0]} ${a[1]} ${end[0]} ${end[1]}`;
 }
 

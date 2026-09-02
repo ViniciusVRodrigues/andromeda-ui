@@ -20,7 +20,8 @@ function SubTabs({ tabs, activeId, onSelect }) {
           role="tab"
           aria-selected={activeId === t.id}
           className={"sub-tabs-item" + (activeId === t.id ? " is-active" : "")}
-          onClick={() => onSelect(t.id)}>
+          onClick={() => onSelect(t.id)}
+        >
           {t.label}
         </button>
       ))}

@@ -26,7 +26,7 @@
  */
 
 import React from "react";
-import { getStrategicDashboard } from "../../services/api.js";
+import { getStrategicDashboard } from "./api.js";
 
 /** Format a nullable number to 1 decimal place, or return "—". */
 function fmt1(v) {
@@ -47,10 +47,10 @@ function fmtInt(v) {
 }
 
 const GRADE_COLOR = {
-  Elite:  "var(--accent)",
-  High:   "var(--good)",
+  Elite: "var(--accent)",
+  High: "var(--good)",
   Medium: "var(--warn)",
-  Low:    "var(--bad)",
+  Low: "var(--bad)",
 };
 
 /**
@@ -105,10 +105,20 @@ function DoraCard({ dora, loading }) {
   return (
     <div style={styles.card}>
       <div style={styles.cardHead}>
-        <span className="mono" style={styles.cardEyebrow}>DORA</span>
-        <h3 className="serif" style={styles.cardTitle}>Métricas de Entrega</h3>
+        <span className="mono" style={styles.cardEyebrow}>
+          DORA
+        </span>
+        <h3 className="serif" style={styles.cardTitle}>
+          Métricas de Entrega
+        </h3>
       </div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 16 }}>
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
+          gap: 16,
+        }}
+      >
         {metrics.map((m) => (
           <div key={m.key} style={styles.doraMetric}>
             <div className="mono" style={styles.doraLabel}>
@@ -119,26 +129,42 @@ function DoraCard({ dora, loading }) {
                   style={styles.estBadge}
                   aria-label={`Estimado: ${m.tooltip}`}
                 >
-                  {" "}(est.)
+                  {" "}
+                  (est.)
                 </span>
               )}
             </div>
             <div style={{ display: "flex", alignItems: "baseline", gap: 4, marginTop: 6 }}>
-              <span className="serif" style={{ fontSize: 28, color: m.classification ? (GRADE_COLOR[m.classification] || "var(--fg)") : "var(--fg)" }}>
+              <span
+                className="serif"
+                style={{
+                  fontSize: 28,
+                  color: m.classification
+                    ? GRADE_COLOR[m.classification] || "var(--fg)"
+                    : "var(--fg)",
+                }}
+              >
                 {m.value}
               </span>
               {m.unit && m.value !== "—" && m.value !== "…" && (
-                <span className="mono" style={{ fontSize: "var(--mono-sm)", color: "var(--fg-muted)" }}>{m.unit}</span>
+                <span
+                  className="mono"
+                  style={{ fontSize: "var(--mono-sm)", color: "var(--fg-muted)" }}
+                >
+                  {m.unit}
+                </span>
               )}
             </div>
             {m.classification && (
-              <div style={{
-                marginTop: 4,
-                fontSize: 9,
-                letterSpacing: "0.18em",
-                textTransform: "uppercase",
-                color: GRADE_COLOR[m.classification] || "var(--fg-muted)",
-              }}>
+              <div
+                style={{
+                  marginTop: 4,
+                  fontSize: 9,
+                  letterSpacing: "0.18em",
+                  textTransform: "uppercase",
+                  color: GRADE_COLOR[m.classification] || "var(--fg-muted)",
+                }}
+              >
                 {m.classification}
               </div>
             )}
@@ -181,7 +207,9 @@ function ManagerDashboard({ projectId, memberId, startDate, endDate }) {
     <div className="dash-wrap">
       <div style={styles.header}>
         <div>
-          <div className="mono" style={styles.eyebrow}>painel estratégico</div>
+          <div className="mono" style={styles.eyebrow}>
+            painel estratégico
+          </div>
           <h1 className="serif" style={styles.title}>
             {scopeLevel === 3 ? "Individual" : scopeLevel === 2 ? "Projeto" : "Organização"}{" "}
             <span style={{ fontStyle: "italic", color: "var(--accent)" }}>Dashboard</span>
@@ -201,17 +229,35 @@ function ManagerDashboard({ projectId, memberId, startDate, endDate }) {
       {/* ── Summary chips ── */}
       <div style={styles.metricsRow} role="list" aria-label="Métricas estratégicas">
         {[
-          { label: "Story Points",  value: loading ? "…" : fmtInt(data?.totalStoryPointsDelivered), unit: "SP" },
-          { label: "Avg Cycle Time", value: loading ? "…" : fmt1(data?.avgCycleTimeHours), unit: "h" },
-          { label: "Avg Lead Time",  value: loading ? "…" : fmt1(data?.avgLeadTimeHours),  unit: "h" },
-          { label: "AI Cost",        value: loading ? "…" : fmtUsd(data?.aiCostUsd),        unit: "" },
+          {
+            label: "Story Points",
+            value: loading ? "…" : fmtInt(data?.totalStoryPointsDelivered),
+            unit: "SP",
+          },
+          {
+            label: "Avg Cycle Time",
+            value: loading ? "…" : fmt1(data?.avgCycleTimeHours),
+            unit: "h",
+          },
+          {
+            label: "Avg Lead Time",
+            value: loading ? "…" : fmt1(data?.avgLeadTimeHours),
+            unit: "h",
+          },
+          { label: "AI Cost", value: loading ? "…" : fmtUsd(data?.aiCostUsd), unit: "" },
         ].map((c) => (
           <div key={c.label} style={styles.chip} role="listitem">
-            <div className="mono" style={styles.chipLabel}>{c.label}</div>
+            <div className="mono" style={styles.chipLabel}>
+              {c.label}
+            </div>
             <div style={styles.chipValue}>
-              <span className="serif" style={styles.chipNum}>{c.value}</span>
+              <span className="serif" style={styles.chipNum}>
+                {c.value}
+              </span>
               {c.unit && c.value !== "—" && c.value !== "…" && (
-                <span className="mono" style={styles.chipUnit}>{c.unit}</span>
+                <span className="mono" style={styles.chipUnit}>
+                  {c.unit}
+                </span>
               )}
             </div>
           </div>
@@ -226,27 +272,47 @@ function ManagerDashboard({ projectId, memberId, startDate, endDate }) {
           {(loading || (data?.projects && data.projects.length > 0)) && (
             <div style={styles.card}>
               <div style={styles.cardHead}>
-                <span className="mono" style={styles.cardEyebrow}>projetos</span>
-                <h3 className="serif" style={styles.cardTitle}>Resumo por Projeto</h3>
+                <span className="mono" style={styles.cardEyebrow}>
+                  projetos
+                </span>
+                <h3 className="serif" style={styles.cardTitle}>
+                  Resumo por Projeto
+                </h3>
               </div>
               {loading ? (
-                <div className="mono" style={styles.emptyState}>Carregando…</div>
+                <div className="mono" style={styles.emptyState}>
+                  Carregando…
+                </div>
               ) : (
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 12 }}>
+                <div
+                  style={{
+                    display: "grid",
+                    gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
+                    gap: 12,
+                  }}
+                >
                   {(data?.projects || []).map((p) => (
                     <div key={p.projectId} style={styles.projectCard}>
-                      <div className="serif" style={{ fontSize: 16, marginBottom: 8 }}>{p.projectName || p.projectId}</div>
+                      <div className="serif" style={{ fontSize: 16, marginBottom: 8 }}>
+                        {p.projectName || p.projectId}
+                      </div>
                       <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
                         <div style={styles.projectStat}>
-                          <span className="mono" style={styles.statLabel}>SP</span>
+                          <span className="mono" style={styles.statLabel}>
+                            SP
+                          </span>
                           <span className="mono">{fmtInt(p.storyPoints)}</span>
                         </div>
                         <div style={styles.projectStat}>
-                          <span className="mono" style={styles.statLabel}>AI Cost</span>
+                          <span className="mono" style={styles.statLabel}>
+                            AI Cost
+                          </span>
                           <span className="mono">{fmtUsd(p.aiCostUsd)}</span>
                         </div>
                         <div style={styles.projectStat}>
-                          <span className="mono" style={styles.statLabel}>Membros</span>
+                          <span className="mono" style={styles.statLabel}>
+                            Membros
+                          </span>
                           <span className="mono">{fmtInt(p.memberCount)}</span>
                         </div>
                       </div>
@@ -266,20 +332,30 @@ function ManagerDashboard({ projectId, memberId, startDate, endDate }) {
 
           <div style={styles.card}>
             <div style={styles.cardHead}>
-              <span className="mono" style={styles.cardEyebrow}>membros</span>
-              <h3 className="serif" style={styles.cardTitle}>Métricas por Membro</h3>
+              <span className="mono" style={styles.cardEyebrow}>
+                membros
+              </span>
+              <h3 className="serif" style={styles.cardTitle}>
+                Métricas por Membro
+              </h3>
             </div>
             {loading ? (
-              <div className="mono" style={styles.emptyState}>Carregando…</div>
+              <div className="mono" style={styles.emptyState}>
+                Carregando…
+              </div>
             ) : !data?.members || data.members.length === 0 ? (
-              <div className="mono" style={styles.emptyState}>Nenhum dado disponível</div>
+              <div className="mono" style={styles.emptyState}>
+                Nenhum dado disponível
+              </div>
             ) : (
               <div style={{ overflowX: "auto" }}>
                 <table style={{ width: "100%", borderCollapse: "collapse" }}>
                   <thead>
                     <tr>
                       {["Membro", "SP", "Cycle (h)", "Lead (h)", "AI Cost"].map((h) => (
-                        <th key={h} style={styles.th}>{h}</th>
+                        <th key={h} style={styles.th}>
+                          {h}
+                        </th>
                       ))}
                     </tr>
                   </thead>
@@ -292,9 +368,15 @@ function ManagerDashboard({ projectId, memberId, startDate, endDate }) {
                             <span>{m.name || m.userId}</span>
                           </div>
                         </td>
-                        <td style={{ ...styles.td, textAlign: "right" }}>{fmtInt(m.storyPointsDelivered)}</td>
-                        <td style={{ ...styles.td, textAlign: "right" }}>{fmt1(m.cycleTimeHours)}</td>
-                        <td style={{ ...styles.td, textAlign: "right" }}>{fmt1(m.leadTimeHours)}</td>
+                        <td style={{ ...styles.td, textAlign: "right" }}>
+                          {fmtInt(m.storyPointsDelivered)}
+                        </td>
+                        <td style={{ ...styles.td, textAlign: "right" }}>
+                          {fmt1(m.cycleTimeHours)}
+                        </td>
+                        <td style={{ ...styles.td, textAlign: "right" }}>
+                          {fmt1(m.leadTimeHours)}
+                        </td>
                         <td style={{ ...styles.td, textAlign: "right" }}>{fmtUsd(m.aiCostUsd)}</td>
                       </tr>
                     ))}
@@ -310,19 +392,31 @@ function ManagerDashboard({ projectId, memberId, startDate, endDate }) {
       {scopeLevel === 3 && (
         <div style={styles.card}>
           <div style={styles.cardHead}>
-            <span className="mono" style={styles.cardEyebrow}>métricas individuais</span>
-            <h3 className="serif" style={styles.cardTitle}>Desempenho Individual</h3>
+            <span className="mono" style={styles.cardEyebrow}>
+              métricas individuais
+            </span>
+            <h3 className="serif" style={styles.cardTitle}>
+              Desempenho Individual
+            </h3>
           </div>
           {loading ? (
-            <div className="mono" style={styles.emptyState}>Carregando…</div>
+            <div className="mono" style={styles.emptyState}>
+              Carregando…
+            </div>
           ) : !data?.individualMetrics ? (
-            <div className="mono" style={styles.emptyState}>Nenhum dado disponível</div>
+            <div className="mono" style={styles.emptyState}>
+              Nenhum dado disponível
+            </div>
           ) : (
             <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
               {Object.entries(data.individualMetrics).map(([key, value]) => (
                 <div key={key}>
-                  <div className="mono" style={styles.chipLabel}>{key}</div>
-                  <div className="serif" style={{ fontSize: 24 }}>{String(value)}</div>
+                  <div className="mono" style={styles.chipLabel}>
+                    {key}
+                  </div>
+                  <div className="serif" style={{ fontSize: 24 }}>
+                    {String(value)}
+                  </div>
                 </div>
               ))}
             </div>

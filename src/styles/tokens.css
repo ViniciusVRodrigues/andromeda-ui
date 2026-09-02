@@ -1,0 +1,170 @@
+/* Andrômeda — design tokens & global */
+
+:root {
+  /* ─── mono type tokens (used across all screens) ──────────── */
+  /* every screen MUST consume these, never hard-code mono px values */
+  --mono-weight: 800; /* max weight loaded for JetBrains Mono */
+  --mono-sm: 14px; /* small ui text (was 12px) */
+  --mono-md: 16px; /* mid ui text (was 14px) */
+  --mono-base: 13px; /* body default */
+
+  /* default palette: cosmic blue + copper */
+  --bg: #151b26;
+  --bg-elev: #1a2230;
+  --bg-deep: #0e131c;
+  --line: rgba(244, 227, 201, 0.1);
+  --line-strong: rgba(244, 227, 201, 0.18);
+  --fg: #f4e3c9;
+  --fg-muted: rgba(244, 227, 201, 0.62);
+  --fg-dim: rgba(244, 227, 201, 0.36);
+  --accent: #c68b66;
+  --accent-deep: #a66647;
+  --accent-soft: #f4e3c9;
+  --warn: #e2a87a;
+  --good: #8fb39a;
+  --bad: #c97a6d;
+  --shadow-soft: 0 30px 80px -40px rgba(0, 0, 0, 0.6);
+  --radius: 14px;
+  --radius-sm: 8px;
+}
+
+:root[data-palette="mono"] {
+  --bg: #151515;
+  --bg-elev: #1c1c1c;
+  --bg-deep: #0a0a0a;
+  --line: rgba(255, 255, 255, 0.08);
+  --line-strong: rgba(255, 255, 255, 0.16);
+  --fg: #ffffff;
+  --fg-muted: rgba(255, 255, 255, 0.62);
+  --fg-dim: rgba(255, 255, 255, 0.32);
+  --accent: #ffffff;
+  --accent-deep: #d4d4d4;
+  --accent-soft: #ffffff;
+  --warn: #e0e0e0;
+  --good: #c8c8c8;
+  --bad: #a8a8a8;
+}
+
+/* light "Pergaminho" — near-white page with cream/copper highlighted sections */
+:root[data-palette="light"] {
+  --bg: #faf6ec;
+  --bg-elev: #f0e2c2;
+  --bg-deep: #e8d5a8;
+  --line: rgba(34, 26, 16, 0.08);
+  --line-strong: rgba(34, 26, 16, 0.18);
+  --fg: #221a10;
+  --fg-muted: rgba(34, 26, 16, 0.66);
+  --fg-dim: rgba(34, 26, 16, 0.4);
+  --accent: #a66647;
+  --accent-deep: #7e4628;
+  --accent-soft: #2b2418;
+  --warn: #b8723e;
+  --good: #5a7c5e;
+  --bad: #b85a4e;
+  --shadow-soft: 0 30px 80px -40px rgba(80, 50, 20, 0.25);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body,
+#root {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: "JetBrains Mono", "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  font-size: var(--mono-base);
+  font-weight: var(--mono-weight);
+  letter-spacing: 0.01em;
+  overflow: hidden;
+}
+
+/* serif always stays at its display weight regardless of body weight */
+h1,
+h2,
+h3,
+.serif,
+.brand-name,
+.login-title,
+.kv-num,
+.integration-name,
+.hero-card .big,
+.card-title,
+.stat-cell .v,
+.dev-avatar,
+.num-display,
+.orbit-core-num,
+.signup-step-num,
+.signup-title,
+.signup-plan-name,
+.signup-plan-price,
+.signup-size-num,
+.signup-summary strong,
+.home-lede strong,
+.home-h1,
+.section-title,
+.section-lede em,
+.admin-title,
+.admin-section-title,
+.admin-plan-name,
+.admin-team-empty-title,
+.admin-sub strong,
+.cta-band-title,
+.ui-modal-title,
+.onboard-step .num {
+  font-weight: 400;
+}
+
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+h1,
+h2,
+h3,
+.serif {
+  font-family: "DM Serif Display", "Times New Roman", serif;
+  font-weight: 400;
+  letter-spacing: -0.01em;
+  margin: 0;
+}
+
+.mono {
+  font-family: "JetBrains Mono", "IBM Plex Mono", ui-monospace, monospace;
+}
+
+.uppercase {
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+}
+
+/* ---- native <select> theming (element normalizer — auditado em frontend-foundation 4.2) ---- */
+/* O menu aberto de um <select> é desenhado pelo SO, não pelo nosso CSS: sem as
+ * regras abaixo ele cai no branco/cinza nativo do sistema e destoa do tema.
+ * Pintar <option> é o único gancho que os navegadores expõem — daí os tokens
+ * ficarem repetidos aqui em vez de herdarem do .signup-select select.
+ * `color-scheme` é o que faz Chrome/Edge desenharem a moldura e a barra de
+ * rolagem do menu em tom escuro; sem ele o miolo fica certo e a borda branca. */
+select {
+  color-scheme: dark;
+}
+:root[data-palette="light"] select {
+  color-scheme: light;
+}
+select option {
+  background: var(--bg-elev);
+  color: var(--fg);
+}
+/* Firefox aplica a cor de seleção do SO; alinhar com o accent do tema. */
+select option:checked {
+  background: var(--accent);
+  color: var(--bg-deep);
+}
+:root[data-palette="light"] select option:checked {
+  color: #fffbf1;
+}

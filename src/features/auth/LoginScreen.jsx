@@ -14,16 +14,33 @@ function LoginScreen({ onLogin, onHome, error }) {
 
   return (
     <div className="login-stage">
-      <div style={{
-        position: "absolute", top: 24, left: 32, right: 32,
-        display: "flex", alignItems: "center", justifyContent: "space-between"
-      }}>
-        <button onClick={onHome} style={{
-          background: "transparent", border: 0, cursor: "pointer",
-          color: "var(--fg-muted)", fontFamily: "inherit", fontSize: 11,
-          letterSpacing: "0.20em", textTransform: "uppercase",
-          display: "inline-flex", alignItems: "center", gap: 10,
-        }}>
+      <div
+        style={{
+          position: "absolute",
+          top: 24,
+          left: 32,
+          right: 32,
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "space-between",
+        }}
+      >
+        <button
+          onClick={onHome}
+          style={{
+            background: "transparent",
+            border: 0,
+            cursor: "pointer",
+            color: "var(--fg-muted)",
+            fontFamily: "inherit",
+            fontSize: 11,
+            letterSpacing: "0.20em",
+            textTransform: "uppercase",
+            display: "inline-flex",
+            alignItems: "center",
+            gap: 10,
+          }}
+        >
           ← <Wordmark size="sm" />
         </button>
       </div>
@@ -32,7 +49,9 @@ function LoginScreen({ onLogin, onHome, error }) {
         <div className="login-logo">
           <Wordmark size="xl" />
         </div>
-        <div className="login-sub uppercase" style={{ marginTop: 2 }}>Software Engineering Intelligence</div>
+        <div className="login-sub uppercase" style={{ marginTop: 2 }}>
+          Software Engineering Intelligence
+        </div>
 
         <form onSubmit={submit}>
           <div className="field">
@@ -42,8 +61,8 @@ function LoginScreen({ onLogin, onHome, error }) {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="voce@empresa.com"
-              autoFocus />
-            
+              autoFocus
+            />
           </div>
           <div className="field">
             <label>senha</label>
@@ -51,12 +70,19 @@ function LoginScreen({ onLogin, onHome, error }) {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="••••••••" />
-            
+              placeholder="••••••••"
+            />
           </div>
 
           {error && (
-            <p style={{ margin: "8px 0 0", fontSize: 13, color: "var(--color-error, #f87171)", textAlign: "center" }}>
+            <p
+              style={{
+                margin: "8px 0 0",
+                fontSize: 13,
+                color: "var(--color-error, #f87171)",
+                textAlign: "center",
+              }}
+            >
               {error}
             </p>
           )}
@@ -66,22 +92,34 @@ function LoginScreen({ onLogin, onHome, error }) {
         </form>
       </div>
 
-      <div style={{
-        position: "absolute", bottom: 28, left: 32,
-        fontSize: 10, color: "var(--fg-dim)",
-        letterSpacing: "0.22em", textTransform: "uppercase"
-      }}>
+      <div
+        style={{
+          position: "absolute",
+          bottom: 28,
+          left: 32,
+          fontSize: 10,
+          color: "var(--fg-dim)",
+          letterSpacing: "0.22em",
+          textTransform: "uppercase",
+        }}
+      >
         v0.1 · build 2026.05.15
       </div>
-      <div style={{
-        position: "absolute", bottom: 28, right: 32,
-        fontSize: 10, color: "var(--fg-dim)",
-        letterSpacing: "0.22em", textTransform: "uppercase"
-      }}>
+      <div
+        style={{
+          position: "absolute",
+          bottom: 28,
+          right: 32,
+          fontSize: 10,
+          color: "var(--fg-dim)",
+          letterSpacing: "0.22em",
+          textTransform: "uppercase",
+        }}
+      >
         TCC · BES
       </div>
-    </div>);
-
+    </div>
+  );
 }
 
 export { LoginScreen };

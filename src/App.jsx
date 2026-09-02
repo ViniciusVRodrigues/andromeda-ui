@@ -1,29 +1,44 @@
 /* Main app — roteamento (react-router-dom) + tweaks.
  *
  * Telas públicas/lineares: home, login, signup, onboarding.
- * App autenticado: a MESMA casca (AdminSettings) servida em rotas por função
- * (/projetos, /pessoas, /organizacao, /dashboard). O menu é filtrado pela
- * identidade (admin x membro) e o dashboard mora dentro da casca — ao abri-lo,
- * o menu colapsa e ele ocupa a área de conteúdo. Organização tem sub-abas
- * URL-addressable (/organizacao, /organizacao/cargos, /organizacao/senioridade);
- * as antigas rotas /cargos e /senioridade redirecionam para as novas.
+ * App autenticado (frontend-route-layout): /:orgSlug/:section/* é um LAYOUT
+ * route — <ShellGate> valida seção/sessão/slug/modo-dash-only e renderiza o
+ * chrome (app/ShellLayout.jsx: sidebar + banner) com <Outlet/>; o conteúdo é
+ * decidido por rota: já-fatizadas montam sua página (perfil), o resto cai no
+ * conteúdo legacy seccionado enquanto as fatias são extraídas (slices B–G).
  *
- * Identidade no protótipo (sem backend): signup ⇒ admin; login ⇒ membro. Em
- * produção viria do /api/me da sessão (e sobreviveria a um refresh). */
+ * Identidade vem da sessão real: POST /v1/auth/login → JWT → GET /v1/auth/me
+ * (permissões no token). Tabelas de rota e predicados de permissão vivem em
+ * core/auth/shell.js; o contexto de sessão em core/auth/IdentityContext.jsx. */
 
 import React from "react";
 import {
-  BrowserRouter, Routes, Route, Navigate, useNavigate, useLocation, useParams,
+  BrowserRouter,
+  Routes,
+  Route,
+  Navigate,
+  useNavigate,
+  useLocation,
+  useParams,
+  useSearchParams,
 } from "react-router-dom";
 import { HomeScreen } from "./features/home/HomeScreen.jsx";
 import { SignupScreen } from "./features/auth/SignupScreen.jsx";
 import { LoginScreen } from "./features/auth/LoginScreen.jsx";
 import { OnboardingScreen } from "./features/onboarding/OnboardingScreen.jsx";
-import { AdminSettings } from "./features/admin/AdminSettings.jsx";
 import { DashboardPage } from "./features/dashboard/DashboardPage.jsx";
+import { BacklogPage } from "./features/backlog/BacklogPage.jsx";
+import { ReposPage } from "./features/repos/ReposPage.jsx";
+import { ProfilePage } from "./features/profile/ProfilePage.jsx";
+import { OrganizationLayout } from "./features/organization/OrganizationLayout.jsx";
+import { TeamPage } from "./features/team/TeamPage.jsx";
+import { ProjectsPage } from "./features/projects/ProjectsPage.jsx";
+import { AzureFieldMappingWizard } from "./features/integrations/AzureFieldMappingWizard.jsx";
+import { IntegrationsPage } from "./features/integrations/IntegrationsPage.jsx";
+import { UsoIaLayout } from "./features/ai-usage/UsoIaLayout.jsx";
 import { NotFoundScreen } from "./features/not-found/NotFoundScreen.jsx";
 import { ThemePickerModal } from "./components/ThemePickerModal.jsx";
-import api, { setToken, clearToken, onAuthExpired, getToken } from "./services/api.js";
+import api, { clearToken, getToken, onAuthExpired, setToken } from "./core/api/client.js";
 import { orgRoute, splitOrgPath } from "./lib/orgRoutes.js";
 import {
   useTweaks,
@@ -31,97 +46,19 @@ import {
   TweakSection,
   TweakButton,
 } from "./components/tweaks/TweaksPanel.jsx";
-
-/* ── Funções da casca: rota (URL) ↔ aba interna da AdminSettings ──
- * Organização agora tem sub-abas URL-addressable (Geral/Cargos/Senioridade),
- * então suas entradas carregam também `subtab`. Rotas de mais de um segmento
- * (ex.: "organizacao/cargos") são casadas via SHELL_ROUTES/inShell abaixo. */
-const SHELL_SECTIONS = [
-  { route: "projetos",              tab: "projects" },
-  { route: "pessoas",               tab: "team" },
-  { route: "organizacao",           tab: "org", subtab: "geral" },
-  { route: "organizacao/cargos",    tab: "org", subtab: "cargos" },
-  { route: "organizacao/senioridade", tab: "org", subtab: "senioridade" },
-  { route: "dashboard",             tab: "dashboard" },
-  { route: "backlog",               tab: "backlog" },
-  { route: "repositorios",          tab: "repos" },
-  { route: "integracoes",           tab: "integrations" },
-  { route: "uso-ia",                tab: "uso-ia", subtab: "consumo" },
-  { route: "uso-ia/precificacao",   tab: "uso-ia", subtab: "precificacao" },
-  { route: "perfil",                tab: "perfil" },
-];
-const ROUTE_TO_TAB = Object.fromEntries(SHELL_SECTIONS.map((s) => [s.route, s.tab]));
-const ROUTE_TO_SUBTAB = Object.fromEntries(SHELL_SECTIONS.map((s) => [s.route, s.subtab || null]));
-/* TAB_TO_ROUTE maps a tab id back to its default/base route (used by sidebar nav).
- * A tab can have more than one SHELL_SECTIONS entry (sub-tabs each get their own
- * addressable route) — only the FIRST entry per tab is the "default" landing route. */
-const TAB_TO_ROUTE = SHELL_SECTIONS.reduce((acc, s) => {
-  if (!(s.tab in acc)) acc[s.tab] = s.route;
-  return acc;
-}, {});
-const SHELL_ROUTES = SHELL_SECTIONS.map((s) => s.route);
-
-/* Builds an identity object from real backend permissions array. */
-function buildIdentity(permissions) {
-  return {
-    isAdmin: permissions.includes("USER_MANAGE") && permissions.includes("ROLE_MANAGE"),
-    permissions,
-    projects: [], // populated from /api/me or project endpoints
-  };
-}
-
-/* Quais abas/áreas cada identidade enxerga. Projetos/Pessoas/Dashboard por
- * feature; Cargos/Plano/Organização só admin. */
-function canSee(identity, tab) {
-  if (!identity) return false;
-  const p = identity.permissions;
-  if (tab === "projects")     return p.includes("gerProjeto") || identity.isAdmin;
-  if (tab === "team")         return p.includes("gerEquipe") || p.includes("USER_MANAGE") || identity.isAdmin;
-  if (tab === "dashboard")    return p.includes("DASHBOARD_INDIVIDUAL") || p.includes("DASHBOARD_TEAM") || p.includes("DASHBOARD_STRATEGIC");
-  if (tab === "backlog")      return p.includes("DASHBOARD_TEAM") || identity.isAdmin;
-  if (tab === "repos")        return p.includes("GITHUB_READ") || p.includes("GITHUB_CONFIGURE") || identity.isAdmin;
-  if (tab === "integrations") return p.includes("AZURE_CONFIGURE") || p.includes("AZURE_READ") || p.includes("GITHUB_CONFIGURE") || p.includes("GITHUB_READ") || identity.isAdmin;
-  if (tab === "uso-ia")       return p.includes("AI_READ_OWN") || p.includes("AI_READ_ALL");
-  if (tab === "uso-ia-team")  return p.includes("DASHBOARD_TEAM") || p.includes("AI_READ_ALL");
-  if (tab === "uso-ia-pricing") return p.includes("PRICE_TABLE_MANAGE") || identity.isAdmin;
-  return identity.isAdmin; // roles, seniority, org
-}
-function firstAllowedRoute(identity, orgSlug) {
-  // Dashboard takes priority when the user has any dashboard permission
-  const p = identity.permissions;
-  if (p.includes("DASHBOARD_INDIVIDUAL") || p.includes("DASHBOARD_TEAM") || p.includes("DASHBOARD_STRATEGIC")) {
-    return orgRoute(orgSlug, "dashboard");
-  }
-  const first = SHELL_SECTIONS.find((s) => canSee(identity, s.tab));
-  return orgRoute(orgSlug, first ? first.route : "");
-}
-
-function hasManage(identity) {
-  const p = identity.permissions;
-  return identity.isAdmin
-    || p.includes("gerProjeto")
-    || p.includes("gerEquipe")
-    || p.includes("USER_MANAGE");
-}
-
-function dashAccess(identity) {
-  const p = identity.permissions;
-  return {
-    projects:   identity.projects || [],
-    individual: p.includes("DASHBOARD_INDIVIDUAL"),
-    equipe:     p.includes("DASHBOARD_TEAM"),
-    org:        p.includes("DASHBOARD_STRATEGIC"),
-  };
-}
-
-/* Builds the profile shape expected by AdminSettings from /me response data. */
-function buildProfile(meData) {
-  return {
-    personal: { fullName: meData.name, email: meData.email, role: "" },
-    org: { name: meData.orgName, slug: meData.orgSlug ?? "", sector: "", country: "", size: "—" },
-    plan: "galaxia",
-  };
-}
+import { IdentityProvider, useIdentity } from "./core/auth/IdentityContext.jsx";
+import { RequireTab } from "./core/auth/RequireTab.jsx";
+import { ShellLayout } from "./app/ShellLayout.jsx";
+import {
+  buildIdentity,
+  buildProfile,
+  firstAllowedRoute,
+  hasManage,
+  resolveRoute,
+  ROUTE_TO_TAB,
+  TAB_TO_ROUTE,
+  SHELL_ROUTES,
+} from "./core/auth/shell.js";
 
 function App() {
   return (
@@ -136,14 +73,16 @@ function AppShell() {
   const location = useLocation();
 
   // "pending" while verifying existing token; "authenticated" | "unauthenticated" after
-  const [authStatus, setAuthStatus] = React.useState(() => getToken() ? "pending" : "unauthenticated");
+  const [authStatus, setAuthStatus] = React.useState(() =>
+    getToken() ? "pending" : "unauthenticated",
+  );
   const [identity, setIdentity] = React.useState(null);
   const [profile, setProfile] = React.useState(null);
   const [themePickerOpen, setThemePickerOpen] = React.useState(false);
 
-  const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/{
-    "palette": "default"
-  }/*EDITMODE-END*/;
+  const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/ {
+    palette: "default",
+  }; /*EDITMODE-END*/
 
   const [tweaks, setTweak] = useTweaks(TWEAK_DEFAULTS);
   const palette = tweaks.palette || "default";
@@ -157,7 +96,8 @@ function AppShell() {
   // bootstrap: restore session from existing token
   React.useEffect(() => {
     if (authStatus !== "pending") return;
-    api.get("/v1/auth/me")
+    api
+      .get("/v1/auth/me")
       .then((meData) => {
         setIdentity(buildIdentity(meData.permissions));
         setProfile(buildProfile(meData));
@@ -204,11 +144,9 @@ function AppShell() {
     enterApp(meData, orgRoute(meData.orgSlug, "projetos"));
   };
 
-  // segmento de topo: estável dentro da casca (todas as áreas compartilham a
-  // key "shell"), então a AdminSettings NÃO remonta ao trocar de área — só ao
-  // sair da casca. Isso preserva o estado interno (projetos, pessoas, etc.).
-  // Sub-rotas (ex.: "organizacao/cargos") ainda contam como a mesma área —
-  // comparamos pelo primeiro segmento de cada entrada em SHELL_ROUTES.
+  // key da camada de página: estável dentro da casca (chrome não remonta ao
+  // trocar de seção); as PÁGINAS dentro do Outlet remontam por design (o cache
+  // React Query é quem preserva os dados entre remontagens).
   /* Com o prefixo de organização (/:orgSlug/:section) a seção é o SEGUNDO segmento;
    * as telas públicas continuam no primeiro. Testar os dois cobre ambos os formatos
    * — inclusive uma URL antiga sem prefixo, que o ShellRoute redireciona. */
@@ -222,75 +160,105 @@ function AppShell() {
   const keyBase = inShell ? "shell" : seg;
 
   if (authStatus === "pending") {
-    return <div className="app-shell" style={{ display: "flex", alignItems: "center", justifyContent: "center", height: "100vh" }} />;
+    return (
+      <div
+        className="app-shell"
+        style={{
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          height: "100vh",
+        }}
+      />
+    );
   }
 
   return (
-    <>
+    <IdentityProvider
+      identity={identity}
+      profile={profile}
+      palette={palette}
+      setPalette={setPalette}
+      onLogout={exitApp}
+    >
       <div className="app-shell">
         <div className="page-layer" data-screen-label={`page-${keyBase}`} key={keyBase}>
           <Routes>
-            <Route path="/" element={
-              <HomeScreen
-                onLogin={() => navigate("/login")}
-                onSignup={() => navigate("/signup")}
-              />
-            } />
-            <Route path="/signup" element={
-              <SignupScreen
-                onCancel={() => navigate("/")}
-                onDone={handleSignupDone}
-              />
-            } />
-            <Route path="/login" element={
-              <LoginScreenWrapper
-                enterApp={enterApp}
-                onHome={() => navigate("/")}
-              />
-            } />
-            <Route path="/onboard" element={
-              <OnboardingScreen onDone={async () => {
-                try {
-                  const meData = await api.get("/v1/auth/me");
-                  /* sem rota explícita: enterApp resolve a primeira permitida já com
-                   * o prefixo da organização */
-                  enterApp(meData);
-                } catch {
-                  navigate("/");
-                }
-              }} />
-            } />
+            <Route
+              path="/"
+              element={
+                <HomeScreen
+                  onLogin={() => navigate("/login")}
+                  onSignup={() => navigate("/signup")}
+                />
+              }
+            />
+            <Route
+              path="/signup"
+              element={<SignupScreen onCancel={() => navigate("/")} onDone={handleSignupDone} />}
+            />
+            <Route
+              path="/login"
+              element={<LoginScreenWrapper enterApp={enterApp} onHome={() => navigate("/")} />}
+            />
+            <Route
+              path="/onboard"
+              element={
+                <OnboardingScreen
+                  onDone={async () => {
+                    try {
+                      const meData = await api.get("/v1/auth/me");
+                      /* sem rota explícita: enterApp resolve a primeira permitida já com
+                       * o prefixo da organização */
+                      enterApp(meData);
+                    } catch {
+                      navigate("/");
+                    }
+                  }}
+                />
+              }
+            />
 
             {/* legado: /cargos e /senioridade viraram sub-abas de /organizacao */}
-            <Route path="/cargos" element={<LegacyShellRedirect to="organizacao/cargos" profile={profile} />} />
-            <Route path="/senioridade" element={<LegacyShellRedirect to="organizacao/senioridade" profile={profile} />} />
+            <Route
+              path="/cargos"
+              element={<LegacyShellRedirect to="organizacao/cargos" profile={profile} />}
+            />
+            <Route
+              path="/senioridade"
+              element={<LegacyShellRedirect to="organizacao/senioridade" profile={profile} />}
+            />
 
-            {/* app autenticado: /:orgSlug/:section(/*) — o slug identifica a
-             * organização na URL; a autorização continua vindo do JWT. */}
-            <Route path="/:orgSlug/:section/*" element={
-              <ShellRoute
-                identity={identity}
-                profile={profile}
-                palette={palette}
-                setPalette={setPalette}
-                onLogout={exitApp}
-              />
-            } />
+            {/* app autenticado: layout route — ShellGate (guardas) > ShellLayout
+             * (chrome + Outlet) > SectionContent (página da seção). */}
+            <Route
+              path="/:orgSlug/:section/*"
+              element={<ShellGate identity={identity} profile={profile} />}
+            >
+              <Route index element={<SectionContent />} />
+              <Route path="*" element={<SectionContent />} />
+            </Route>
 
             {/* URLs antigas sem prefixo (/backlog): redireciona para a versão
              * prefixada preservando a sub-rota, para não quebrar links salvos. */}
-            <Route path="/:section/*" element={
-              <LegacyShellRoute identity={identity} profile={profile} />
-            } />
+            <Route
+              path="/:section/*"
+              element={<LegacyShellRoute identity={identity} profile={profile} />}
+            />
 
             {/* 404: rota desconhecida mostra a página em vez de redirecionar em
              * silêncio para a home — um endereço errado deve se anunciar. */}
-            <Route path="*" element={
-              <NotFoundScreen
-                onBack={() => navigate(identity ? firstAllowedRoute(identity, profile?.org?.slug) : "/")}
-                backLabel={identity ? "Voltar ao painel" : "Voltar ao início"}
-              />
-            } />
+            <Route
+              path="*"
+              element={
+                <NotFoundScreen
+                  onBack={() =>
+                    navigate(identity ? firstAllowedRoute(identity, profile?.org?.slug) : "/")
+                  }
+                  backLabel={identity ? "Voltar ao painel" : "Voltar ao início"}
+                />
+              }
+            />
           </Routes>
         </div>
       </div>
@@ -308,19 +276,16 @@ function AppShell() {
           <TweakButton label="Criar conta" onClick={() => navigate("/signup")} />
           <TweakButton label="Tela de login" onClick={() => navigate("/login")} />
           <TweakButton label="Onboarding" onClick={() => navigate("/onboard")} />
-          <TweakButton label="Entrar no app · admin" onClick={() => enterApp({ name: "Maria Andrade", email: "maria@andromeda.tcc", orgName: "Andrômeda Core", orgSlug: "andromeda-org", permissions: ["USER_MANAGE","ROLE_MANAGE","AZURE_CONFIGURE","AZURE_READ","GITHUB_CONFIGURE","GITHUB_READ","AI_READ_OWN","AI_READ_ALL","PRICE_TABLE_MANAGE","CONNECTOR_TOKEN_MANAGE_OWN","CONNECTOR_TOKEN_MANAGE_ALL","DASHBOARD_INDIVIDUAL","DASHBOARD_TEAM","DASHBOARD_STRATEGIC","gerProjeto","gerEquipe"] })} />
-          <TweakButton label="Entrar no app · membro" onClick={() => enterApp({ name: "João Pereira", email: "joao@andromeda.tcc", orgName: "Andrômeda Core", permissions: ["gerProjeto","gerEquipe","DASHBOARD_INDIVIDUAL","DASHBOARD_TEAM"] })} />
-          <TweakButton label="Entrar no app · só dashboard" onClick={() => enterApp({ name: "Ana Lima", email: "ana@andromeda.tcc", orgName: "Andrômeda Core", permissions: ["DASHBOARD_INDIVIDUAL"] }, "/dashboard")} />
         </TweakSection>
       </TweaksPanel>
-    </>
+    </IdentityProvider>
   );
 }
 
-/* Resolve a rota /:section(/*) na casca, com guarda por permissão. Como é UMA
- * só rota, a AdminSettings é a mesma instância ao trocar de área (estado
- * preservado). O `*` captura sub-rotas como "cargos" em /organizacao/cargos. */
-function ShellRoute({ identity, profile, palette, setPalette, onLogout }) {
+/* Guardas da casca (eram o corpo de ShellRoute): seção conhecida → sessão →
+ * slug canônico → modo dash-only → renderiza o chrome (ShellLayout) cujo
+ * <Outlet/> resolve a página em SectionContent. */
+function ShellGate({ identity, profile }) {
   const { orgSlug, section, "*": rest } = useParams();
   const navigate = useNavigate();
 
@@ -349,45 +314,154 @@ function ShellRoute({ identity, profile, palette, setPalette, onLogout }) {
     return <Navigate to={orgRoute(sessionSlug, target)} replace />;
   }
 
-  // sem permissão de gestão → sem barra lateral: só o dashboard com a pílula
-  // inferior (que aqui ganha o botão de Sair, separado por um divisor).
+  // sem permissão de gestão → sem chrome: só o dashboard com o botão de Sair.
   if (!hasManage(identity)) {
-    if (section !== "dashboard") return <Navigate to={orgRoute(sessionSlug, "dashboard")} replace />;
+    if (section !== "dashboard")
+      return <Navigate to={orgRoute(sessionSlug, "dashboard")} replace />;
     return (
       <div className="dash-only">
-        <DashboardPage dash={dashAccess(identity)} onLogout={onLogout} />
+        <DashboardPageWithLogout />
       </div>
     );
   }
 
   if (!profile) return <Navigate to="/" replace />;
-  const fullRoute = rest ? `${section}/${rest}` : section;
-  const tab = ROUTE_TO_TAB[fullRoute] ?? ROUTE_TO_TAB[section];
-  const subtab = ROUTE_TO_SUBTAB[fullRoute] ?? ROUTE_TO_SUBTAB[section] ?? null;
-  if (!tab || !canSee(identity, tab)) {
-    return <Navigate to={firstAllowedRoute(identity, sessionSlug)} replace />;
-  }
+
+  return <ShellLayout />;
+}
+
+/* Página da seção ativa: resolve rota → {tab, subtab} pelo mapa canônico, monta
+ * a página fatiada ou o conteúdo legacy, e renderiza por cima o wizard de
+ * mapeamento Azure quando a URL pede (`?wizard=&binding=`) — overlay que pode
+ * ser disparado de Projetos ou do Backlog (design D3b). */
+function SectionContent() {
+  const { section, "*": rest } = useParams();
+  const [searchParams, setSearchParams] = useSearchParams();
+  const fullRest = rest ? `${section}/${rest}` : section;
+  const { tab } = resolveRoute(fullRest);
+  if (!tab) return null; // ShellGate já garantiu knownSection
+
+  const wizardStep = searchParams.get("wizard");
+  const wizardBinding = searchParams.get("binding");
+  const closeWizard = () =>
+    setSearchParams(
+      (prev) => {
+        const n = new URLSearchParams(prev);
+        n.delete("wizard");
+        n.delete("binding");
+        return n;
+      },
+      { replace: true },
+    );
+
+  let page;
+  if (tab === "perfil")
+    page = (
+      <RequireTab tab="perfil">
+        <ProfilePage />
+      </RequireTab>
+    );
+  else if (tab === "org")
+    page = (
+      <RequireTab tab="org">
+        <OrganizationLayout />
+      </RequireTab>
+    );
+  else if (tab === "team")
+    page = (
+      <RequireTab tab="team">
+        <TeamPage />
+      </RequireTab>
+    );
+  else if (tab === "projects")
+    page = (
+      <RequireTab tab="projects">
+        <ProjectsPage />
+      </RequireTab>
+    );
+  else if (tab === "integrations")
+    page = (
+      <RequireTab tab="integrations">
+        <IntegrationsPage />
+      </RequireTab>
+    );
+  else if (tab === "uso-ia")
+    page = (
+      <RequireTab tab="uso-ia">
+        <UsoIaLayout />
+      </RequireTab>
+    );
+  else if (tab === "dashboard")
+    page = (
+      <RequireTab tab="dashboard">
+        <DashboardRoute />
+      </RequireTab>
+    );
+  else if (tab === "backlog")
+    page = (
+      <RequireTab tab="backlog">
+        <BacklogRoute />
+      </RequireTab>
+    );
+  else if (tab === "repos")
+    page = (
+      <RequireTab tab="repos">
+        <ReposPage />
+      </RequireTab>
+    );
+  else page = null;
 
   return (
-    <AdminSettings
-      section={tab}
-      subtab={subtab}
-      can={(t) => canSee(identity, t)}
-      dash={dashAccess(identity)}
-      profile={profile}
-      palette={palette}
-      setPalette={setPalette}
-      onNavigate={(t) => navigate(orgRoute(sessionSlug, TAB_TO_ROUTE[t]))}
-      onNavigateSubtab={(subtabId) => {
-        if (tab === "uso-ia") {
-          navigate(orgRoute(sessionSlug, `uso-ia${subtabId === "consumo" ? "" : "/" + subtabId}`));
-        } else {
-          navigate(orgRoute(sessionSlug, `organizacao${subtabId === "geral" ? "" : "/" + subtabId}`));
-        }
-      }}
-      onLogout={onLogout}
+    <>
+      {page}
+      {wizardStep && wizardBinding && (
+        <AzureFieldMappingWizard
+          bindingId={wizardBinding}
+          initialStep={wizardStep === "start" ? null : wizardStep}
+          onDone={closeWizard}
+          onSkip={closeWizard}
+        />
+      )}
+    </>
+  );
+}
+
+/* Rota do dashboard (admin): wrapper fino — dash/onNavigate do contexto+navegador,
+ * idêntico ao que o monólito passava. */
+function DashboardRoute() {
+  const navigate = useNavigate();
+  const { dash, orgSlug } = useIdentity();
+  return (
+    <section className="admin-dash">
+      <DashboardPage dash={dash} onNavigate={(t) => navigate(orgRoute(orgSlug, TAB_TO_ROUTE[t]))} />
+    </section>
+  );
+}
+
+/* Rota do backlog: dispara o wizard de hierarquia (overlay em SectionContent) por URL. */
+function BacklogRoute() {
+  const [, setSearchParams] = useSearchParams();
+  return (
+    <BacklogPage
+      onOpenHierarchyWizard={(bindingId) =>
+        setSearchParams(
+          (prev) => {
+            const n = new URLSearchParams(prev);
+            n.set("wizard", "hierarchy");
+            n.set("binding", bindingId);
+            return n;
+          },
+          { replace: true },
+        )
+      }
     />
   );
+}
+
+/* dash-only: DashboardPage precisa de `dash` e do logout — ambos do contexto. */
+function DashboardPageWithLogout() {
+  const { dash, onLogout } = useIdentity();
+  return <DashboardPage dash={dash} onLogout={onLogout} />;
 }
 
 /* URLs da casca sem prefixo de organização (/backlog, /uso-ia/precificacao) — o formato
@@ -437,7 +511,11 @@ function LoginScreenWrapper({ enterApp, onHome }) {
       const meData = await api.get("/v1/auth/me");
       enterApp(meData);
     } catch (err) {
-      setLoginError(err.message?.includes("401") ? "E-mail ou senha incorretos." : "Erro ao conectar. Tente novamente.");
+      setLoginError(
+        err.message?.includes("401")
+          ? "E-mail ou senha incorretos."
+          : "Erro ao conectar. Tente novamente.",
+      );
     }
   };
 

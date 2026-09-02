@@ -1,0 +1,6 @@
+{
+  "request": "GET /api/v1/ai/allocations/history?month=2026-09&page=0&size=20",
+  "status": 200,
+  "contentType": "application/json",
+  "body": "{\"content\":[],\"empty\":true,\"first\":true,\"last\":true,\"number\":0,\"numberOfElements\":0,\"pageable\":{\"offset\":0,\"pageNumber\":0,\"pageSize\":20,\"paged\":true,\"sort\":{\"empty\":true,\"sorted\":false,\"unsorted\":true},\"unpaged\":false},\"size\":20,\"sort\":{\"empty\":true,\"sorted\":false,\"unsorted\":true},\"totalElements\":0,\"totalPages\":0}"
+}

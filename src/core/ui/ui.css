@@ -1,0 +1,295 @@
+/* core/ui — folha de estilo dos primitivos (frontend-ui-primitives).
+ * É o único CSS "novo" permitido fora do sistema de utilities: os primitivos
+ * carregam aqui sua pele com tokens da casa; telas compõem com utilities.
+ * Nasce como a tradução fiel do antigo sistema de modal legado (47 regras),
+ * que será apagado quando o último call site migrar. */
+
+@keyframes ui-modal-fade {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes ui-modal-rise {
+  from {
+    opacity: 0;
+    transform: translate(-50%, calc(-50% + 10px));
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, -50%);
+  }
+}
+
+.ui-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(8, 6, 4, 0.62);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  z-index: 100;
+  animation: ui-modal-fade 0.18s ease-out;
+}
+:root[data-palette="light"] .ui-modal-backdrop {
+  background: rgba(34, 26, 16, 0.42);
+}
+/* Modal sobre modal (ex.: confirmação dentro de edição) sobe um degrau. */
+.ui-modal-backdrop--stacked {
+  z-index: 110;
+}
+
+.ui-modal {
+  position: fixed;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 100;
+  width: calc(100% - 48px);
+  max-width: 560px;
+  max-height: calc(100vh - 48px);
+  background: var(--bg-elev, #1d2330);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 28px 28px 24px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  font-family: "JetBrains Mono", "IBM Plex Mono", ui-monospace, monospace;
+  color: var(--fg);
+  animation: ui-modal-rise 0.22s ease-out;
+  outline: none;
+}
+:root[data-palette="light"] .ui-modal {
+  background: #faf6ec;
+  border-color: rgba(34, 26, 16, 0.14);
+}
+.ui-modal--wide {
+  max-width: 720px;
+}
+.ui-modal--confirm {
+  max-width: 460px;
+  gap: 20px;
+}
+.ui-modal--stacked {
+  z-index: 110;
+}
+
+.ui-modal-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.ui-modal-title {
+  font-size: 30px;
+  line-height: 1.05;
+}
+.ui-modal-subtitle {
+  margin-top: 6px;
+  font-size: 11px;
+  color: var(--fg-muted);
+  word-break: break-all;
+}
+.ui-modal-close {
+  flex-shrink: 0;
+  font-size: 11px;
+  letter-spacing: 0.06em;
+}
+
+.ui-modal-body {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding-right: 4px;
+}
+.ui-modal-body::-webkit-scrollbar {
+  width: 8px;
+}
+.ui-modal-body::-webkit-scrollbar-thumb {
+  background: var(--line-strong);
+  border-radius: 4px;
+}
+.ui-modal-body::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.ui-modal-foot {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  border-top: 1px solid var(--line);
+  padding-top: 18px;
+}
+.ui-modal-foot .btn[disabled] {
+  opacity: 0.4;
+  cursor: not-allowed;
+}
+
+/* Campo com rótulo + controle (+ erro) — o padrão de campo de modal da casa. */
+.ui-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ui-field-label {
+  font-size: 10px;
+  letter-spacing: 0.24em;
+  text-transform: uppercase;
+  color: var(--fg-dim);
+  font-family: "JetBrains Mono", monospace;
+}
+.ui-field-input {
+  background: var(--bg-elev);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px 14px;
+  font-size: var(--mono-md);
+  color: var(--fg);
+  font-family: inherit;
+}
+.ui-field-input:focus {
+  outline: none;
+  border-color: var(--accent);
+}
+.ui-field-input option {
+  background: var(--bg-elev);
+  color: var(--fg);
+}
+textarea.ui-field-input {
+  resize: vertical;
+  min-height: 72px;
+  line-height: 1.55;
+  font-family: inherit;
+}
+.ui-field-error {
+  font-size: 11px;
+  color: var(--bad);
+}
+
+/* Grade de opções radio (clone de cargo, escolha de provedor etc.). */
+.ui-modal-options {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.ui-modal-options--grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+}
+.ui-modal-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  padding: 14px 16px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: rgba(0, 0, 0, 0.1);
+  text-align: left;
+  cursor: pointer;
+  transition:
+    border-color 0.18s,
+    background 0.18s;
+  color: var(--fg);
+  font-family: inherit;
+  font-size: 13px;
+}
+:root[data-palette="light"] .ui-modal-option {
+  background: #fffbf1;
+}
+.ui-modal-option:hover {
+  border-color: var(--fg-muted);
+}
+.ui-modal-option.is-active {
+  border-color: var(--accent);
+  background: linear-gradient(135deg, rgba(198, 139, 102, 0.14), rgba(198, 139, 102, 0.02));
+}
+:root[data-palette="light"] .ui-modal-option.is-active {
+  background: linear-gradient(135deg, rgba(166, 102, 71, 0.16), rgba(166, 102, 71, 0.04));
+}
+.ui-modal-option-mark {
+  flex-shrink: 0;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  border: 1px solid var(--fg-dim);
+  margin-top: 4px;
+  position: relative;
+  transition: border-color 0.18s;
+}
+.ui-modal-option.is-active .ui-modal-option-mark {
+  border-color: var(--accent);
+}
+.ui-modal-option.is-active .ui-modal-option-mark::after {
+  content: "";
+  position: absolute;
+  inset: 3px;
+  border-radius: 50%;
+  background: var(--accent);
+}
+.ui-modal-option-label {
+  font-size: var(--mono-md);
+  color: var(--fg);
+  margin-bottom: 4px;
+}
+.ui-modal-option-sub {
+  font-size: 11px;
+  color: var(--fg-muted);
+  line-height: 1.5;
+}
+
+/* Par de campos lado a lado. */
+.ui-modal-duo {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+/* Slider de alocação (substitui o input range nativo do AllocationSlider). */
+.ui-slider {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  height: 20px;
+}
+.ui-slider-track {
+  background: var(--line-strong);
+  border-radius: 999px;
+  height: 4px;
+  flex: 1;
+}
+.ui-slider-range {
+  position: absolute;
+  background: var(--accent);
+  border-radius: 999px;
+  height: 4px;
+}
+.ui-slider-thumb {
+  display: block;
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  background: var(--accent);
+  border: 2px solid var(--bg-elev);
+  outline: none;
+  cursor: grab;
+}
+.ui-slider-thumb:focus-visible {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 35%, transparent);
+}
+
+@media (max-width: 720px) {
+  .ui-modal-options--grid {
+    grid-template-columns: 1fr;
+  }
+  .ui-modal-duo {
+    grid-template-columns: 1fr;
+  }
+}

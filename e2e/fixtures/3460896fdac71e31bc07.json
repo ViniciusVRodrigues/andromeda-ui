@@ -1,0 +1,6 @@
+{
+  "request": "GET /api/v1/ai/fluency-score",
+  "status": 200,
+  "contentType": "application/json",
+  "body": "{\"overallStage\":null,\"overallLabel\":null,\"computedAt\":null,\"categories\":[]}"
+}

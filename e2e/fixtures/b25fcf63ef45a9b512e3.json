@@ -1,0 +1,6 @@
+{
+  "request": "GET /api/v1/users",
+  "status": 200,
+  "contentType": "application/json",
+  "body": "[{\"id\":\"6a96b750c72203798d740147\",\"email\":\"baseline@andromeda.test\",\"name\":\"Baselina QA\",\"roleId\":\"6a45b225bdf2be1d8b5e2b37\",\"seniority\":null,\"active\":true,\"createdAt\":\"2026-09-01T11:30:24.611Z\",\"azureId\":null,\"azureEmail\":null}]"
+}

@@ -15,8 +15,8 @@ import React from "react";
 
 const THEMES = [
   { id: "default", label: "Andromeda", desc: "Quente · cósmica" },
-  { id: "mono",    label: "Dark",      desc: "Preto · branco"  },
-  { id: "light",   label: "Light",     desc: "Claro · suave"   },
+  { id: "mono", label: "Dark", desc: "Preto · branco" },
+  { id: "light", label: "Light", desc: "Claro · suave" },
 ];
 
 function ThemePickerModal({ open, palette, setPalette, onClose }) {
@@ -24,7 +24,9 @@ function ThemePickerModal({ open, palette, setPalette, onClose }) {
     if (!open) return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = prev; };
+    return () => {
+      document.body.style.overflow = prev;
+    };
   }, [open]);
 
   if (!open) return null;
@@ -42,11 +44,13 @@ function ThemePickerModal({ open, palette, setPalette, onClose }) {
 
         <div className="theme-modal-grid">
           {THEMES.map((t) => (
-            <button key={t.id}
-                    type="button"
-                    className={"theme-card" + (palette === t.id ? " is-on" : "")}
-                    onClick={() => setPalette(t.id)}
-                    aria-pressed={palette === t.id}>
+            <button
+              key={t.id}
+              type="button"
+              className={"theme-card" + (palette === t.id ? " is-on" : "")}
+              onClick={() => setPalette(t.id)}
+              aria-pressed={palette === t.id}
+            >
               <div className={"theme-card-preview theme-preview-" + t.id} aria-hidden="true">
                 <span className="theme-card-stars" />
                 <span className="theme-card-bar a" />

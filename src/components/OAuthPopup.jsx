@@ -19,7 +19,9 @@ function OAuthPopup({ open, provider, onAuthenticate, onClose }) {
     if (!open) return;
     const prev = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    return () => { document.body.style.overflow = prev; };
+    return () => {
+      document.body.style.overflow = prev;
+    };
   }, [open]);
 
   if (!open || !provider) return null;
@@ -29,7 +31,9 @@ function OAuthPopup({ open, provider, onAuthenticate, onClose }) {
       <div className={"oauth-window is-" + provider.id} onClick={(e) => e.stopPropagation()}>
         <div className="oauth-window-chrome">
           <div className="oauth-dots" aria-hidden="true">
-            <span /><span /><span />
+            <span />
+            <span />
+            <span />
           </div>
           <div className="oauth-url mono">🔒 {provider.authDomain}</div>
         </div>
@@ -37,13 +41,20 @@ function OAuthPopup({ open, provider, onAuthenticate, onClose }) {
           <div className={"oauth-provider-icon is-" + provider.id}>{provider.icon}</div>
           <h2 className="serif oauth-title">Autorizar Andrômeda</h2>
           <p className="oauth-blurb">
-            A Andrômeda receberá acesso à sua conta <strong>{provider.name}</strong> com estas permissões:
+            A Andrômeda receberá acesso à sua conta <strong>{provider.name}</strong> com estas
+            permissões:
           </p>
           <ul className="oauth-perms">
-            {provider.permissions.map((p, i) => <li key={i}><span className="oauth-perm-check">✓</span> {p}</li>)}
+            {provider.permissions.map((p, i) => (
+              <li key={i}>
+                <span className="oauth-perm-check">✓</span> {p}
+              </li>
+            ))}
           </ul>
           <div className="oauth-actions">
-            <button className="btn-ghost btn" onClick={onClose} type="button">Cancelar</button>
+            <button className="btn-ghost btn" onClick={onClose} type="button">
+              Cancelar
+            </button>
             <button className="btn oauth-cta" onClick={onAuthenticate} type="button">
               Autenticar com {provider.authName} →
             </button>

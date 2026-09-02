@@ -1,0 +1,6 @@
+{
+  "request": "GET /api/v1/dashboard/developer",
+  "status": 200,
+  "contentType": "application/json",
+  "body": "{\"currentSprintItems\":[],\"avgCycleTimeHours\":null,\"avgLeadTimeHours\":null,\"storyPointsDelivered\":null,\"totalSpInSprint\":null,\"tokensByDay\":[],\"sprintCostUsd\":null,\"avgTokensPerSp\":null,\"openPrs\":0,\"mergedPrs\":0,\"inProgressItems\":[],\"totalSprintItems\":0,\"burndownSeries\":[],\"aiSprintSummary\":null,\"aiCostByWorkItemId\":{},\"subscriptionCostPerUserUsd\":null}"
+}

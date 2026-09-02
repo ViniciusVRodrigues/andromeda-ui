@@ -21,7 +21,9 @@ export function SprintProgressBar({ value, max, label }) {
       >
         <div style={{ ...styles.fill, width: `${pct}%` }} />
       </div>
-      <div className="mono" style={styles.label}>{label}</div>
+      <div className="mono" style={styles.label}>
+        {label}
+      </div>
     </div>
   );
 }

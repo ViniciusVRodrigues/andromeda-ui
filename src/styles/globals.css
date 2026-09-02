@@ -1,0 +1,43 @@
+/* Andrômeda — superfície de estilos global (frontend-foundation / frontend-design-tokens).
+ *
+ * Ordem de cascata por camadas: theme < base(tokens) < components(legado) < utilities.
+ * O preflight do Tailwind NÃO é importado de propósito: o reset/normalização continua
+ * vindo de tokens.css, e o legado em legacy.css não pode ser rebaseado.
+ * Utilities vencem o legado em empate de especificidade — é a catraca: código novo
+ * escreve com utilities, legado só muda quando for tocado. */
+
+@layer theme, base, components, utilities;
+
+@import "tailwindcss/theme.css" layer(theme);
+@import "./tokens.css" layer(base);
+@import "./legacy.css" layer(components);
+@import "tailwindcss/utilities.css" layer(utilities);
+
+/* Projeção dos tokens da casa para o tema Tailwind. `inline` mantém as utilities
+ * referenciando var() — assim data-palette troca as 3 paletas em runtime sem
+ * recompilar nada. Cores/tipografia literais em código novo são proibidas:
+ * se falta um token, ele nasce em tokens.css e só então é projetado aqui. */
+@theme inline {
+  --color-bg: var(--bg);
+  --color-bg-elev: var(--bg-elev);
+  --color-bg-deep: var(--bg-deep);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-fg: var(--fg);
+  --color-fg-muted: var(--fg-muted);
+  --color-fg-dim: var(--fg-dim);
+  --color-accent: var(--accent);
+  --color-accent-deep: var(--accent-deep);
+  --color-accent-soft: var(--accent-soft);
+  --color-warn: var(--warn);
+  --color-good: var(--good);
+  --color-bad: var(--bad);
+
+  --radius-card: var(--radius);
+  --radius-btn: var(--radius-sm);
+
+  --shadow-soft: var(--shadow-soft);
+
+  --font-serif: "DM Serif Display", "Times New Roman", serif;
+  --font-mono: "JetBrains Mono", "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
