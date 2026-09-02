@@ -2,7 +2,7 @@
 
 import { Wordmark } from "../../components/Wordmark.jsx";
 import { TEAM } from "../../data/team.js";
-import backlogPreview from "../../assets/backlog-preview.png";
+import dashboardPreview from "../../assets/dashboard-preview.png";
 
 const STEPS = [
   {
@@ -244,8 +244,9 @@ function HomeScreen({ onLogin, onSignup }) {
             O painel, de verdade<span className="accent">.</span>
           </h2>
           <p className="section-lede">
-            Sem maquete. É o backlog de um projeto real, sincronizado do Azure DevOps e montado em
-            árvore pela hierarquia de work items da própria organização.
+            Sem maquete. Sprint atual, burndown, planejado × entregue × uso de IA entre sprints e o
+            custo de IA de cada work item — tudo montado a partir do que é sincronizado do Azure
+            DevOps e dos provedores de IA da equipe.
           </p>
         </div>
 
@@ -254,12 +255,12 @@ function HomeScreen({ onLogin, onSignup }) {
             <span className="product-frame-dot"></span>
             <span className="product-frame-dot"></span>
             <span className="product-frame-dot"></span>
-            <span className="product-frame-url mono">app.andromeda.dev/backlog</span>
+            <span className="product-frame-url mono">andromeda.ia.br/andromeda/dashboard</span>
           </div>
           <div className="product-frame-body">
             <img
-              src={backlogPreview}
-              alt="Backlog da Andrômeda em árvore: um Epic com Features, User Stories e Tasks aninhados, cada item com tipo, status e campos de complexidade e esforço"
+              src={dashboardPreview}
+              alt="Dashboard individual da Andrômeda: burndown da sprint atual, gráfico comparativo de planejado × entregue × custo e tokens de IA entre as últimas sprints, painéis de em andamento e KPIs com variação contra a sprint anterior"
             />
           </div>
         </div>
