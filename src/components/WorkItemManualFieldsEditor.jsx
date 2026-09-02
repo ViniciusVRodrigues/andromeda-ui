@@ -27,8 +27,8 @@ export function WorkItemManualFieldsEditor({
   hideLabel = false,
   onChanged,
   // Hierarchy rollup (optional): the sum of this field across all descendants, shown only when the
-  // item has no value of its own. `undefined` on older backends -- the row simply reads "não
-  // definido", exactly as before.
+  // item has no value of its own. `undefined` on older backends -- the row simply reads "—",
+  // exactly as before.
   rolledUp = null,
   descendantCount = 0,
   // Planning containers (Epic/Feature) don't carry their own value — the backend rejects manual
@@ -101,7 +101,7 @@ export function WorkItemManualFieldsEditor({
                   <span className="wi-fields-rollup-tag">soma dos filhos</span>
                 </span>
               ) : (
-                <span className="wi-fields-value is-unset">não definido</span>
+                <span className="wi-fields-value is-unset">—</span>
               )
             ) : (
               <span className="wi-fields-value">{value}</span>
