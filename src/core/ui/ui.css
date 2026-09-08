@@ -301,3 +301,25 @@ textarea.ui-field-input {
   font: inherit;
   color: inherit;
 }
+
+/* Alvo de clique cheio no card de work item: o titulo e um <button>, e o
+ * ::after o estica sobre o card inteiro. O card precisa ser o contexto de
+ * posicionamento; o hover ja vem do .backlog-card. */
+.backlog-card {
+  position: relative;
+}
+.ui-work-item-link.ui-work-item-stretch::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+.backlog-card:focus-within {
+  border-color: var(--accent);
+}
+/* Controles reais do card ficam acima da camada esticada do titulo. */
+.backlog-card .backlog-toggle,
+.backlog-card .backlog-card-actions,
+.backlog-card .wi-fields-editor {
+  position: relative;
+  z-index: 1;
+}

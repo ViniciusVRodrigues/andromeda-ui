@@ -217,6 +217,16 @@ test("individual dashboard links sprint work to GitHub review context", async ({
   await page.getByRole("button", { name: "Work item #101 · Corrigir sincronização" }).click();
   await expect(page.getByRole("dialog")).toContainText("Sprint 25");
   await page.keyboard.press("Escape");
+
+  // o cartao INTEIRO abre o modal: clica numa borda vazia, longe do titulo —
+  // antes so o texto do titulo era clicavel.
+  const card = page.getByRole("article").filter({ hasText: "Corrigir sincronização" }).first();
+  const box = await card.boundingBox();
+  await page.mouse.click(box.x + box.width - 12, box.y + box.height - 10);
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+
   await page.getByRole("heading", { name: "Minha sprint" }).scrollIntoViewIfNeeded();
   await expect(page).toHaveScreenshot("individual-sprint-context.png");
 });

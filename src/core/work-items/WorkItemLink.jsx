@@ -133,25 +133,43 @@ export function WorkItemModal({ id, onClose, onChanged }) {
       )}
       {item && (
         <div className="space-y-5">
-          <dl className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            {[
+          {/* Só entra na grade o que tem valor: repetir "Não informado" dez vezes
+           * afogava status, esforço e custo, que são o que se vem ver aqui. */}
+          {(() => {
+            const rows = [
               ["Status", item.status],
               ["Sprint", item.sprintName],
               ["Responsável", item.assignee],
               ["Prioridade", item.priority],
               ["Item pai", item.parentExternalId],
-              ["Criado", date(item.createdAt)],
-              ["Iniciado", date(item.startedAt)],
-              ["Concluído", date(item.completedAt)],
-              ["Cycle time", hours(item.cycleTimeHours)],
-              ["Lead time", hours(item.leadTimeHours)],
-            ].map(([label, value]) => (
-              <div key={label}>
-                <dt className="text-fg-muted">{label}</dt>
-                <dd className="text-fg m-0">{display(value)}</dd>
-              </div>
-            ))}
-          </dl>
+              ["Criado", item.createdAt && date(item.createdAt)],
+              ["Iniciado", item.startedAt && date(item.startedAt)],
+              ["Concluído", item.completedAt && date(item.completedAt)],
+              ["Cycle time", item.cycleTimeHours != null && hours(item.cycleTimeHours)],
+              ["Lead time", item.leadTimeHours != null && hours(item.leadTimeHours)],
+            ].filter(([, value]) => value);
+            const missing = 10 - rows.length;
+            return (
+              <>
+                <dl className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3">
+                  {rows.map(([label, value]) => (
+                    <div key={label} className="min-w-0">
+                      <dt className="mono text-fg-dim text-[10px] tracking-wider uppercase">
+                        {label}
+                      </dt>
+                      <dd className="text-fg m-0 truncate">{value}</dd>
+                    </div>
+                  ))}
+                </dl>
+                {missing > 0 && (
+                  <p className="text-fg-dim m-0 text-sm">
+                    {missing}{" "}
+                    {missing === 1 ? "campo ainda não medido" : "campos ainda não medidos"}.
+                  </p>
+                )}
+              </>
+            );
+          })()}
           {item.labels?.length > 0 && (
             <p className="text-fg-muted">Tags: {item.labels.join(" · ")}</p>
           )}

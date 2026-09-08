@@ -135,7 +135,7 @@ function WorkItemRow({ item, onItemChanged, toggle }) {
               onChanged={(updated) =>
                 onItemChanged(item.id, applyManualFieldsUpdate(item, updated))
               }
-              className="backlog-card-title"
+              className="backlog-card-title ui-work-item-stretch"
             >
               {item.title}
             </WorkItemLink>

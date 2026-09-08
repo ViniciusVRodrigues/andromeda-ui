@@ -41,7 +41,7 @@ import { SprintEffortAiChart } from "../../components/charts/SprintEffortAiChart
 import { fmtTokensM } from "../../core/tokenMath.js";
 import { SprintProgressBar } from "../../components/SprintProgressBar.jsx";
 import { AllocationModal } from "../ai-usage/components/AllocationModal.jsx";
-import { WorkItemManualFieldsEditor } from "../../components/WorkItemManualFieldsEditor.jsx";
+import { WorkItemCard } from "../../core/work-items/WorkItemCard.jsx";
 
 /* ── Helpers ─────────────────────────────────────── */
 
@@ -324,139 +324,29 @@ function SprintItemsCard({
           onAction={() => onNavigate?.("backlog")}
         />
       ) : (
-        <div className="-mx-2 overflow-x-auto">
-          <table className="w-full border-collapse text-left" aria-label="Work items da sprint">
-            <thead>
-              <tr className="border-line-strong border-b">
-                <th className="mono text-fg-dim px-2 py-2 text-[10px] font-normal tracking-wider uppercase">
-                  Tipo
-                </th>
-                <th className="mono text-fg-dim px-2 py-2 text-[10px] font-normal tracking-wider uppercase">
-                  ID
-                </th>
-                <th className="mono text-fg-dim px-2 py-2 text-[10px] font-normal tracking-wider uppercase">
-                  Título
-                </th>
-                <th className="mono text-fg-dim px-2 py-2 text-[10px] font-normal tracking-wider uppercase">
-                  Status
-                </th>
-                <th className="mono text-fg-dim px-2 py-2 text-right text-[10px] font-normal tracking-wider uppercase">
-                  SP
-                </th>
-                <th
-                  className="mono text-fg-dim px-2 py-2 text-right text-[10px] font-normal tracking-wider uppercase"
-                  title="Complexidade — valor do Azure ou manual (editável na célula)"
-                >
-                  Complexidade
-                </th>
-                <th
-                  className="mono text-fg-dim px-2 py-2 text-right text-[10px] font-normal tracking-wider uppercase"
-                  title="Esforço — valor do Azure ou manual (editável na célula)"
-                >
-                  Esforço
-                </th>
-                <th
-                  className="mono text-fg-dim px-2 py-2 text-right text-[10px] font-normal tracking-wider uppercase"
-                  title="Custo de IA alocado a este item"
-                >
-                  Custo IA
-                </th>
-                <th
-                  className="mono text-fg-dim px-2 py-2 text-right text-[10px] font-normal tracking-wider uppercase"
-                  title="Tokens por story point"
-                >
-                  T/SP
-                </th>
-                <th
-                  className="mono text-fg-dim px-2 py-2 text-right text-[10px] font-normal tracking-wider uppercase"
-                  title="Cycle time"
-                >
-                  Ciclo
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {sorted.map((item) => {
-                const cost = costOf(item.id);
-                const costDominant = totalCost > 0 && cost / totalCost >= 0.4;
-                const cycleOutlier =
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-2" aria-label="Work items da sprint">
+          {sorted.map((item) => {
+            const cost = costOf(item.id);
+            return (
+              <WorkItemCard
+                key={item.id}
+                item={item}
+                cost={cost}
+                costDominant={totalCost > 0 && cost / totalCost >= 0.4}
+                cycleOutlier={
                   avgCycle != null && avgCycle > 0 && item.cycleTimeHours != null
                     ? item.cycleTimeHours / avgCycle
-                    : null;
-                const tpsOutlier =
+                    : null
+                }
+                tpsOutlier={
                   avgTokensPerSp != null && avgTokensPerSp > 0 && item.tokensPerSp != null
                     ? item.tokensPerSp / avgTokensPerSp
-                    : null;
-                return (
-                  <tr key={item.id} className="border-line border-b">
-                    <td className="px-2 py-2.5 align-middle">
-                      <span className="mono" style={typeBadgeStyle(item.type)}>
-                        {item.type || "Item"}
-                      </span>
-                    </td>
-                    <td className="mono text-fg-dim px-2 py-2.5 align-middle text-[11px] whitespace-nowrap">
-                      {item.externalId || "—"}
-                    </td>
-                    <td
-                      className="text-fg px-2 py-2.5 align-middle"
-                      style={{ fontSize: "var(--mono-base)" }}
-                    >
-                      <WorkItemLink id={item.id}>{item.title || "—"}</WorkItemLink>
-                    </td>
-                    <td className="px-2 py-2.5 align-middle">
-                      <span className="mono" style={statusBadgeStyle(item.resolvedStatus)}>
-                        {item.resolvedStatus || "—"}
-                      </span>
-                    </td>
-                    <td className="mono text-fg px-2 py-2.5 text-right align-middle">
-                      {item.storyPoints != null ? fmt1(item.storyPoints) : "—"}
-                    </td>
-                    <td className="px-2 py-2.5 align-middle [&_.wi-fields-editor]:items-end [&_.wi-fields-row]:justify-end">
-                      <WorkItemManualFieldsEditor
-                        workItemId={item.id}
-                        field="complexity"
-                        value={item.complexity ?? null}
-                        source={item.complexitySource ?? null}
-                        label="Complexidade"
-                        hideLabel
-                        onChanged={(updated) => onItemChanged(item.id, updated)}
-                      />
-                    </td>
-                    <td className="px-2 py-2.5 align-middle [&_.wi-fields-editor]:items-end [&_.wi-fields-row]:justify-end">
-                      <WorkItemManualFieldsEditor
-                        workItemId={item.id}
-                        field="effort"
-                        value={item.effort ?? item.storyPoints ?? null}
-                        source={item.effortSource ?? null}
-                        label="Esforço"
-                        hideLabel
-                        onChanged={(updated) => onItemChanged(item.id, updated)}
-                      />
-                    </td>
-                    <td
-                      className="mono px-2 py-2.5 text-right align-middle whitespace-nowrap"
-                      style={{ color: costDominant ? "var(--bad)" : "var(--fg)" }}
-                    >
-                      {cost > 0 ? `$${cost.toFixed(2)}` : "—"}
-                      {costDominant ? " ⚠" : ""}
-                    </td>
-                    <td className="mono text-fg-muted px-2 py-2.5 text-right align-middle whitespace-nowrap">
-                      {fmt1(item.tokensPerSp)}
-                      {tpsOutlier && tpsOutlier >= 2
-                        ? ` (${tpsOutlier.toFixed(1).replace(".", ",")}×)`
-                        : ""}
-                    </td>
-                    <td className="mono text-fg-muted px-2 py-2.5 text-right align-middle whitespace-nowrap">
-                      {item.cycleTimeHours != null ? `${fmt1(item.cycleTimeHours)}h` : "—"}
-                      {cycleOutlier && cycleOutlier >= 2
-                        ? ` (${cycleOutlier.toFixed(1).replace(".", ",")}× média)`
-                        : ""}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                    : null
+                }
+                onChanged={(updated) => onItemChanged(item.id, updated)}
+              />
+            );
+          })}
         </div>
       )}
     </DevDashCard>

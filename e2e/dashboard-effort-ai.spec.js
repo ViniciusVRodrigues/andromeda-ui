@@ -107,18 +107,19 @@ test("individual: colaboração e evolução da sprint preservam métricas e alo
   await page.keyboard.press("Escape");
   await expect(dialog).toBeHidden();
 
-  // work items em tabela: cabeçalho de colunas + separações por linha
-  await expect(page.getByRole("columnheader", { name: "Custo IA" })).toBeVisible();
-  await expect(page.getByRole("columnheader", { name: "T/SP" })).toBeVisible();
-  await expect(page.getByRole("columnheader", { name: "Complexidade" })).toBeVisible();
-  await expect(page.getByRole("columnheader", { name: "Esforço" })).toBeVisible();
+  // work items em card: o cartao inteiro abre o modal e as metricas vazias
+  // simplesmente nao aparecem (complexidade/esforco agora se editam no modal).
+  const wiCard = page.getByRole("article", { name: "Tratar rate limit da API" });
+  await expect(wiCard).toBeVisible();
+  await expect(wiCard.getByText("Custo IA")).toBeVisible();
+  await expect(wiCard.getByText("T/SP")).toBeVisible();
   await page
     .locator(".dev-dash-card")
     .filter({ hasText: "Work Items" })
     .first()
     .scrollIntoViewIfNeeded();
   await page.waitForTimeout(200);
-  await expect(page).toHaveScreenshot("dashboard-sprint-items-table.png", {
+  await expect(page).toHaveScreenshot("dashboard-sprint-items-cards.png", {
     maxDiffPixelRatio: 0.02,
   });
 });
