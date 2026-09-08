@@ -1,0 +1,20 @@
+# Normaliza as quebras de linha. Sem isto, core.autocrlf=true reescreve a arvore
+# para CRLF a cada checkout e o `npm run format:check` acusa o repositorio
+# inteiro, porque o Prettier espera LF.
+* text=auto eol=lf
+
+# Binarios: nunca converter.
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.webp binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.eot binary
+*.pdf binary
+
+# Baselines visuais do Playwright — diffs em bytes nao ajudam ninguem.
+e2e/snapshots/*.png binary -diff
