@@ -1,3 +1,4 @@
+import { WorkItemLink } from "../../core/work-items/WorkItemLink.jsx";
 /**
  * BacklogPage — hierarchy-paginated backlog tree for a selected project.
  *
@@ -129,7 +130,15 @@ function WorkItemRow({ item, onItemChanged, toggle }) {
                 #{item.externalId}
               </span>
             )}
-            <span className="backlog-card-title">{item.title}</span>
+            <WorkItemLink
+              id={item.id}
+              onChanged={(updated) =>
+                onItemChanged(item.id, applyManualFieldsUpdate(item, updated))
+              }
+              className="backlog-card-title"
+            >
+              {item.title}
+            </WorkItemLink>
             <TypeBadge type={item.resolvedType || item.type} />
             <StatusPill status={item.resolvedStatus || item.status} />
           </div>

@@ -1,3 +1,4 @@
+import { WorkItemLink } from "../../core/work-items/WorkItemLink.jsx";
 /**
  * ReposPage — detalhe dos repositórios de um projeto.
  *
@@ -126,10 +127,10 @@ function PullRequestDrawer({ repoId, repoName, pr, onClose }) {
           <>
             <dt>Work item</dt>
             <dd>
-              <a href={`/backlog?workItemId=${pr.linkedWorkItemId}`}>
+              <WorkItemLink id={pr.linkedWorkItemId}>
                 {pr.linkedWorkItemExternalId}
                 {pr.linkedWorkItemTitle ? ` · ${pr.linkedWorkItemTitle}` : ""}
-              </a>
+              </WorkItemLink>
             </dd>
           </>
         ) : null}

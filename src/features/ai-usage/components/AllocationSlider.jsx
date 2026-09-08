@@ -1,3 +1,4 @@
+import { WorkItemLink } from "../../../core/work-items/WorkItemLink.jsx";
 import React from "react";
 import Slider from "../../../core/ui/Slider.jsx";
 
@@ -63,7 +64,7 @@ export function AllocationSlider({ item, onChange, onRemove, disabled, tokensLab
             whiteSpace: "nowrap",
           }}
         >
-          {label}
+          <WorkItemLink id={item.workItemId}>{label}</WorkItemLink>
         </span>
         <span
           className="mono"

@@ -1,3 +1,4 @@
+import { WorkItemLink } from "../../../core/work-items/WorkItemLink.jsx";
 import React from "react";
 
 function relativeTime(isoStr) {
@@ -205,7 +206,7 @@ function HistoryItem({ item }) {
                   className="mono"
                   style={{ flex: 1, color: "var(--fg)", fontSize: "var(--mono-sm)" }}
                 >
-                  {s.workItemTitle || s.workItemId}
+                  <WorkItemLink id={s.workItemId}>{s.workItemTitle || s.workItemId}</WorkItemLink>
                 </span>
                 <span
                   className="mono"

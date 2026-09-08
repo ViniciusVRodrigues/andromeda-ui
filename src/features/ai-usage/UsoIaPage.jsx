@@ -2,281 +2,352 @@ import React from "react";
 import { useUsoIa } from "./hooks/useUsoIa.js";
 import { MetricsHeader } from "./components/MetricsHeader.jsx";
 import { FluencyScoreSection } from "./components/FluencyScoreSection.jsx";
-import { PendingAllocationCard } from "./components/PendingAllocationCard.jsx";
 import { AllocationModal } from "./components/AllocationModal.jsx";
-import { AllocationHistory } from "./components/AllocationHistory.jsx";
+import { WorkItemLink } from "../../core/work-items/WorkItemLink.jsx";
+import Modal from "../../core/ui/Modal.jsx";
 import Combobox from "../../core/ui/Combobox.jsx";
+import { fmtTokensM } from "../../core/tokenMath.js";
 
-/* Sentinela para "Meu uso" (selectedUserId === null). Radix Select reserva a
- * string vazia para limpar a seleção, então o estado "sem usuário escolhido"
- * precisa de um valor próprio que nunca colida com um id real. */
-const MY_USAGE = "__my_usage__";
+const dayLabel = (day) => day?.split("-").reverse().join("/");
+const money = (value) =>
+  value == null
+    ? "Não informado"
+    : Number(value).toLocaleString("pt-BR", { style: "currency", currency: "USD" });
+const tokens = (row) => (row.totalInputTokens || 0) + (row.totalOutputTokens || 0);
 
-/**
- * @param {{ can: (tab: string) => boolean }} props
- */
 export function UsoIaPage({ can }) {
+  const state = useUsoIa();
   const {
-    selectedUserId,
-    setSelectedUserId,
     month,
-    setMonth,
+    selectedUserId,
     summary,
-    summaryLoading,
-    summaryError,
     fluency,
-    fluencyLoading,
-    fluencyError,
     pending,
-    pendingLoading,
-    pendingError,
-    removePendingCard,
     history,
-    historyPage,
-    setHistoryPage,
-    historyLoading,
-    historyError,
-    sprintItems,
-    teamMembers,
-    acceptAllocation,
-    manualAllocate,
-    manualAllocateNoSuggestion,
-  } = useUsoIa();
-
-  const [modalBatch, setModalBatch] = React.useState(null);
-  const [modalLoading, setModalLoading] = React.useState(false);
-  const [toast, setToast] = React.useState(null);
-
-  const canSeeTeam = can("uso-ia-team");
-  const isReadOnly = !!selectedUserId && canSeeTeam;
-
-  function showToast(msg, ok = true) {
-    setToast({ msg, ok });
-    setTimeout(() => setToast(null), 3000);
-  }
-
-  async function handleAccept(batch) {
+    daily,
+    members,
+    mutation,
+    params,
+    setParam,
+  } = state;
+  const [selectedDay, setSelectedDay] = React.useState(null);
+  const [allocating, setAllocating] = React.useState(false);
+  const [notice, setNotice] = React.useState("");
+  React.useEffect(() => {
+    setSelectedDay(null);
+    setAllocating(false);
+    mutation.reset();
+  }, [month, selectedUserId]);
+  const rows = React.useMemo(() => {
+    const map = new Map();
+    for (const day of daily.data || [])
+      map.set(day.day, {
+        day: day.day,
+        totalInputTokens: day.inputTokens,
+        totalOutputTokens: day.outputTokens,
+        totalInteractions: day.interactions,
+        estimatedCostUsd: day.costUsd,
+        status: "unallocated",
+        splits: [],
+      });
+    for (const allocation of history.data || [])
+      map.set(allocation.day, { ...map.get(allocation.day), ...allocation, status: "allocated" });
+    for (const batch of pending.data || [])
+      if (batch.day.startsWith(month))
+        map.set(batch.day, {
+          ...map.get(batch.day),
+          ...batch,
+          status: "pending",
+          splits: map.get(batch.day)?.splits || [],
+        });
+    return [...map.values()].sort((a, b) => b.day.localeCompare(a.day));
+  }, [daily.data, history.data, pending.data, month]);
+  const query = (params.get("busca") || "").trim().toLocaleLowerCase("pt-BR");
+  const filter = params.get("situacao") || "all";
+  const visible = rows.filter(
+    (row) =>
+      (filter === "all" || row.status === filter) &&
+      [
+        row.day,
+        dayLabel(row.day),
+        ...(row.splits || []).flatMap((s) => [s.workItemTitle, s.workItemId]),
+        ...(row.suggestion || []).flatMap((s) => [s.workItemTitle, s.workItemId]),
+      ].some((value) =>
+        String(value || "")
+          .toLocaleLowerCase("pt-BR")
+          .includes(query),
+      ),
+  );
+  const selected = rows.find((row) => row.day === selectedDay);
+  const loading = [daily, pending, history].some((q) => q.isPending);
+  const failed = [daily, pending, history].filter((q) => q.isError);
+  const statusLabel = (row) =>
+    row.status === "allocated" ? "Alocado" : row.status === "pending" ? "Pendente" : "Sem alocação";
+  async function save(splits, accept = false) {
     try {
-      await acceptAllocation(batch.suggestionAllocationId);
-      removePendingCard(batch.day);
-      showToast("Alocação aceita com sucesso.");
+      await mutation.mutateAsync({ batch: selected, splits, accept });
+      setAllocating(false);
+      setNotice("Alocação salva com sucesso.");
     } catch {
-      showToast("Erro ao aceitar alocação.", false);
+      /* Error stays visible in the dialog. */
     }
   }
-
-  function handleAdjust(batch) {
-    setModalBatch(batch);
-  }
-
-  async function handleModalConfirm(splits) {
-    setModalLoading(true);
-    try {
-      if (modalBatch.suggestionAllocationId) {
-        await manualAllocate(modalBatch.suggestionAllocationId, splits);
-      } else {
-        await manualAllocateNoSuggestion(modalBatch.day, splits);
-      }
-      removePendingCard(modalBatch.day);
-      setModalBatch(null);
-      showToast("Alocação salva com sucesso.");
-    } catch {
-      showToast("Erro ao salvar alocação.", false);
-    } finally {
-      setModalLoading(false);
-    }
-  }
-
-  const selectedMember =
-    canSeeTeam && selectedUserId ? teamMembers.find((m) => m.id === selectedUserId) : null;
-
   return (
-    <div className="dash-wrap">
-      {/* Page header */}
-      <div style={{ marginBottom: 28 }}>
-        <div
-          className="mono"
-          style={{
-            fontSize: "var(--mono-sm)",
-            color: "var(--fg-muted)",
-            textTransform: "uppercase",
-            letterSpacing: "0.12em",
-            marginBottom: 6,
-          }}
-        >
-          consumo individual
-        </div>
-        <h1 className="serif" style={{ fontSize: 40, lineHeight: 1.1 }}>
-          {selectedMember ? (
-            <>
-              {selectedMember.name || selectedMember.email} —{" "}
-              <span style={{ fontStyle: "italic", color: "var(--accent)" }}>Uso IA</span>
-            </>
-          ) : (
-            <>
-              Uso <span style={{ fontStyle: "italic", color: "var(--accent)" }}>IA</span>
-            </>
-          )}
+    <div className="dash-wrap space-y-6">
+      <header>
+        <p className="text-fg-muted font-mono text-sm">consumo individual</p>
+        <h1 className="text-fg font-serif text-4xl">
+          Uso de <span className="text-accent italic">IA</span>
         </h1>
-        <p
-          className="mono"
-          style={{ color: "var(--fg-muted)", fontSize: "var(--mono-sm)", marginTop: 8 }}
-        >
-          Consumo de tokens, score de fluência e alocação por work item.
+        <p className="text-fg-muted mt-2">
+          Explore o consumo diário e entenda em quais work items ele foi utilizado.
         </p>
-      </div>
-
-      {/* Team member selector */}
-      {canSeeTeam && teamMembers.length > 0 && (
-        <div
-          style={{
-            background: "var(--bg-elev)",
-            border: "1px solid var(--line)",
-            borderRadius: "var(--radius-sm)",
-            padding: "12px 16px",
-            marginBottom: 24,
-            display: "flex",
-            alignItems: "center",
-            gap: 12,
-          }}
-        >
-          <span className="mono" style={{ fontSize: "var(--mono-sm)", color: "var(--fg-muted)" }}>
-            Visualizar como
-          </span>
-          <div style={{ minWidth: 220 }}>
-            <Combobox
-              value={selectedUserId || MY_USAGE}
-              onValueChange={(v) => setSelectedUserId(v === MY_USAGE ? null : v)}
-              options={[
-                { value: MY_USAGE, label: "Meu uso" },
-                /* Membros sem id são descartados: um <option> sem value cai no
-                 * próprio texto, que era como o nome do usuário acabava sendo
-                 * enviado no lugar do id. Melhor sumir do seletor do que emitir
-                 * uma requisição silenciosamente errada. */
-                ...teamMembers
-                  .filter((m) => m.id && (m.name || m.email))
-                  .map((m) => ({ value: m.id, label: m.name || m.email })),
-              ]}
-              aria-label="Selecionar membro para visualizar"
-            />
-          </div>
+      </header>
+      {can("uso-ia-team") && (
+        <div className="max-w-sm">
+          <Combobox
+            value={selectedUserId || "__me__"}
+            onValueChange={(value) => state.setSelectedUserId(value === "__me__" ? null : value)}
+            aria-label="Visualizar consumo de"
+            options={[
+              { value: "__me__", label: "Meu uso" },
+              ...(members.data || [])
+                .filter((m) => m.id)
+                .map((m) => ({ value: m.id, label: m.name || m.email })),
+            ]}
+          />
+          {members.isError && <p role="alert">Não foi possível carregar os membros.</p>}
         </div>
       )}
-
-      {/* Metrics header */}
       <MetricsHeader
-        summary={summary}
-        loading={summaryLoading}
+        summary={summary.data}
+        loading={summary.isPending}
         month={month}
-        onMonthChange={setMonth}
+        onMonthChange={state.setMonth}
       />
-
-      {summaryError && (
-        <div
-          className="mono"
-          style={{ color: "var(--bad)", fontSize: "var(--mono-sm)", marginBottom: 20 }}
-        >
-          Erro ao carregar resumo: {summaryError}
-        </div>
+      {summary.isError && (
+        <p role="alert" className="text-bad">
+          Não foi possível carregar o resumo.
+        </p>
       )}
-
-      {/* Fluency score */}
-      <FluencyScoreSection fluency={fluency} loading={fluencyLoading} error={fluencyError} />
-
-      {/* Pending allocations */}
-      {(pendingLoading || pendingError || pending.length > 0) && (
-        <div style={{ marginBottom: 32 }}>
-          <div style={{ marginBottom: 12 }}>
-            <span
-              className="mono"
-              style={{
-                fontSize: "var(--mono-sm)",
-                color: "var(--fg-muted)",
-                textTransform: "uppercase",
-                letterSpacing: "0.10em",
-              }}
-            >
-              Alocações pendentes
-            </span>
+      <section className="rounded-card border-line bg-bg-elev border p-4 sm:p-6">
+        <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
+          <div>
+            <h2 className="font-serif text-2xl">Consumo e alocações</h2>
+            <p className="text-fg-muted text-sm">
+              Uma linha por dia · {visible.length} de {rows.length} dias no mês
+            </p>
           </div>
-
-          {pendingLoading && (
-            <div
-              style={{
-                background: "var(--bg-elev)",
-                border: "1px solid var(--line)",
-                borderRadius: "var(--radius-sm)",
-                height: 72,
-              }}
-            />
+          <div className="flex flex-wrap gap-3">
+            <label className="text-fg-muted text-sm">
+              Buscar
+              <input
+                className="ui-field-input mt-1"
+                type="search"
+                placeholder="Data, título ou ID do work item"
+                value={params.get("busca") || ""}
+                onChange={(e) => setParam("busca", e.target.value)}
+              />
+            </label>
+            <label className="text-fg-muted text-sm">
+              Situação
+              <select
+                aria-label="Situação"
+                className="ui-field-input mt-1"
+                value={filter}
+                onChange={(e) => setParam("situacao", e.target.value)}
+              >
+                <option value="all">Todas</option>
+                <option value="pending">Pendente</option>
+                <option value="allocated">Alocado</option>
+                <option value="unallocated">Sem alocação</option>
+              </select>
+            </label>
+          </div>
+        </div>
+        {loading ? (
+          <p role="status">Carregando consumo…</p>
+        ) : failed.length ? (
+          <div role="alert">
+            <p>Não foi possível carregar o consumo completo.</p>
+            <button className="btn" onClick={() => failed.forEach((q) => q.refetch())}>
+              Tentar novamente
+            </button>
+          </div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-sm">
+              <caption className="sr-only">Uso diário de IA e alocações no mês selecionado</caption>
+              <thead className="border-line text-fg-muted border-b">
+                <tr>
+                  {["Dia", "Tokens", "Interações", "Custo", "Situação", "Work items"].map(
+                    (title) => (
+                      <th scope="col" key={title} className="p-3">
+                        {title}
+                      </th>
+                    ),
+                  )}
+                </tr>
+              </thead>
+              <tbody>
+                {visible.map((row) => (
+                  <tr
+                    key={row.day}
+                    className="border-line hover:bg-bg cursor-pointer border-b"
+                    onClick={(event) => {
+                      if (!event.target.closest("button")) {
+                        event.currentTarget.querySelector("button")?.focus();
+                        setSelectedDay(row.day);
+                      }
+                    }}
+                  >
+                    <td className="p-3">
+                      <button
+                        className="ui-work-item-link text-accent underline"
+                        onClick={() => {
+                          mutation.reset();
+                          setSelectedDay(row.day);
+                        }}
+                        aria-label={`Ver uso de ${dayLabel(row.day)}`}
+                      >
+                        {dayLabel(row.day)}
+                      </button>
+                    </td>
+                    <td className="p-3 font-mono">
+                      {row.totalInputTokens == null ? "—" : `${fmtTokensM(tokens(row))} tokens`}
+                    </td>
+                    <td className="p-3">{row.totalInteractions ?? "—"}</td>
+                    <td className="p-3">{money(row.estimatedCostUsd)}</td>
+                    <td
+                      className={`p-3 ${row.status === "allocated" ? "text-good" : "text-accent"}`}
+                    >
+                      {statusLabel(row)}
+                    </td>
+                    <td className="p-3">{row.splits?.length || "—"}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+            {visible.length === 0 && (
+              <p className="text-fg-muted p-6 text-center">
+                {rows.length
+                  ? "Nenhum resultado para os filtros selecionados."
+                  : "Nenhum consumo registrado neste mês."}
+              </p>
+            )}
+          </div>
+        )}
+        {notice && (
+          <p role="status" className="text-good mt-3">
+            {notice}
+          </p>
+        )}
+      </section>
+      <FluencyScoreSection
+        fluency={fluency.data}
+        loading={fluency.isPending}
+        error={fluency.error?.message}
+      />
+      {selected && !allocating && (
+        <Modal
+          open
+          onOpenChange={(open) => {
+            if (!open && !mutation.isPending) setSelectedDay(null);
+          }}
+          title={`Uso de IA · ${dayLabel(selected.day)}`}
+          subtitle="Consumo diário e distribuição entre work items."
+          showClose
+          closeDisabled={mutation.isPending}
+          size="wide"
+          footer={
+            !selectedUserId && selected.status !== "allocated" ? (
+              <>
+                <button
+                  className="btn"
+                  disabled={mutation.isPending}
+                  onClick={() => setAllocating(true)}
+                >
+                  Alocar consumo
+                </button>
+                {selected.suggestionAllocationId && (
+                  <button
+                    className="btn-ghost btn"
+                    disabled={mutation.isPending}
+                    onClick={() => save(null, true)}
+                  >
+                    Aceitar sugestão
+                  </button>
+                )}
+              </>
+            ) : null
+          }
+        >
+          <div className="mb-5 grid grid-cols-2 gap-4">
+            <p>Entrada: {fmtTokensM(selected.totalInputTokens || 0)} tokens</p>
+            <p>Saída: {fmtTokensM(selected.totalOutputTokens || 0)} tokens</p>
+            <p>Custo: {money(selected.estimatedCostUsd)}</p>
+            <p>Situação: {statusLabel(selected)}</p>
+          </div>
+          <h3 className="mb-3 font-serif text-xl">Work items alocados</h3>
+          {selected.splits?.length ? (
+            selected.splits.map((split) => (
+              <div
+                key={split.workItemId}
+                className="border-line flex justify-between gap-3 border-b py-3"
+              >
+                <WorkItemLink id={split.workItemId}>
+                  {split.workItemTitle || split.workItemId}
+                </WorkItemLink>
+                <span>
+                  {Math.round(Number(split.percentage) * 100)}% ·{" "}
+                  {fmtTokensM(tokens(selected) * Number(split.percentage))} tokens
+                </span>
+              </div>
+            ))
+          ) : (
+            <p className="text-fg-muted">Este consumo ainda não possui alocação confirmada.</p>
           )}
-
-          {!pendingLoading && pendingError && (
-            <div className="mono" style={{ color: "var(--bad)", fontSize: "var(--mono-sm)" }}>
-              Erro ao carregar pendências: {pendingError}
+          {selected.suggestion?.length > 0 && (
+            <div className="mt-5">
+              <h3 className="font-serif text-xl">Sugestão de alocação</h3>
+              {selected.suggestion.map((split) => (
+                <p key={split.workItemId} className="py-2">
+                  <WorkItemLink id={split.workItemId}>
+                    {split.workItemTitle || split.workItemId}
+                  </WorkItemLink>{" "}
+                  · {Math.round(Number(split.percentage) * 100)}%
+                </p>
+              ))}
             </div>
           )}
-
-          {!pendingLoading && !pendingError && pending.length === 0 && (
-            <p className="mono" style={{ color: "var(--fg-muted)", fontSize: "var(--mono-sm)" }}>
-              Nenhuma alocação pendente.
+          {selectedUserId && (
+            <p className="text-fg-muted mt-4">Consumo de outro membro · somente leitura.</p>
+          )}
+          {mutation.isError && (
+            <p role="alert" className="text-bad mt-3">
+              {mutation.error.message}
             </p>
           )}
-
-          {!pendingLoading &&
-            !pendingError &&
-            pending.map((batch) => (
-              <PendingAllocationCard
-                key={batch.day}
-                batch={batch}
-                onAccept={handleAccept}
-                onAdjust={handleAdjust}
-                readOnly={isReadOnly}
-              />
-            ))}
-        </div>
+        </Modal>
       )}
-
-      {/* Allocation history */}
-      <AllocationHistory
-        history={history}
-        loading={historyLoading}
-        error={historyError}
-        historyPage={historyPage}
-        onPageChange={setHistoryPage}
-      />
-
-      {/* Allocation modal */}
-      {modalBatch && (
-        <AllocationModal
-          batch={modalBatch}
-          sprintItems={sprintItems}
-          onClose={() => !modalLoading && setModalBatch(null)}
-          onConfirm={handleModalConfirm}
-          loading={modalLoading}
-        />
-      )}
-
-      {/* Toast */}
-      {toast && (
-        <div
-          style={{
-            position: "fixed",
-            bottom: 24,
-            left: "50%",
-            transform: "translateX(-50%)",
-            background: toast.ok ? "var(--good)" : "var(--bad)",
-            color: "var(--bg)",
-            padding: "10px 22px",
-            borderRadius: "var(--radius-sm)",
-            zIndex: 2000,
-            fontSize: "var(--mono-sm)",
-            fontFamily: "inherit",
-            pointerEvents: "none",
-          }}
-        >
-          {toast.msg}
-        </div>
+      {selected && allocating && (
+        <>
+          <AllocationModal
+            batch={selected}
+            sprintItems={[]}
+            onClose={() => {
+              if (!mutation.isPending) setAllocating(false);
+            }}
+            onConfirm={save}
+            loading={mutation.isPending}
+            error={mutation.error?.message}
+          />
+          {mutation.isError && (
+            <p role="alert" className="text-bad">
+              {mutation.error.message}
+            </p>
+          )}
+        </>
       )}
     </div>
   );

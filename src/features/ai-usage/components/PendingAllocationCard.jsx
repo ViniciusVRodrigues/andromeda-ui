@@ -1,3 +1,4 @@
+import { WorkItemLink } from "../../../core/work-items/WorkItemLink.jsx";
 import React from "react";
 import { fmtTokensM } from "../../../core/tokenMath.js";
 
@@ -76,7 +77,8 @@ export function PendingAllocationCard({ batch, onAccept, onAdjust, readOnly }) {
                       padding: "2px 8px",
                     }}
                   >
-                    {s.workItemTitle} · {pct}% · ≈{fmtTokensM((pct / 100) * totalTokens)} tokens
+                    <WorkItemLink id={s.workItemId}>{s.workItemTitle}</WorkItemLink> · {pct}% · ≈
+                    {fmtTokensM((pct / 100) * totalTokens)} tokens
                   </span>
                 );
               })}

@@ -4,6 +4,15 @@
  * exercitaria teste ou captura. */
 
 export const DEVELOPER_FIXTURE = {
+  sprintContext: {
+    sprintId: "s-25",
+    sprintName: "Sprint 25",
+    startDate: "2026-08-31",
+    endDate: "2026-09-13",
+    avgTimeToFirstReviewHours: null,
+    reviewedPrs: 0,
+    pullRequests: [],
+  },
   currentSprintItems: [
     {
       id: "wi-1",
@@ -191,9 +200,11 @@ export const TEAM_FIXTURE = {
   stalePrs: [],
 };
 
+// O dia precisa cair DENTRO de sprintContext (2026-08-31 → 2026-09-13): a
+// dashboard filtra as pendências pela janela real da sprint.
 export const PENDING_BATCHES_FIXTURE = [
   {
-    day: "2026-08-29",
+    day: "2026-08-31",
     totalInputTokens: 12000,
     totalOutputTokens: 6000,
     totalInteractions: 8,

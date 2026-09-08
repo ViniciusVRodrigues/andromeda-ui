@@ -293,3 +293,11 @@ textarea.ui-field-input {
     grid-template-columns: 1fr;
   }
 }
+.ui-work-item-link {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+}

@@ -119,6 +119,8 @@ test("rework: velocity, insights, deltas, type badges e outliers renderizam com 
   await expect(page.getByText("AZDO-102").first()).toBeVisible();
   await expect(page.getByText("BUG", { exact: true }).first()).toBeVisible();
 
+  await page.getByText("Evolução e comparação entre sprints", { exact: true }).click();
+
   // comparação entre sprints — o VelocityCard deu lugar ao gráfico composto
   // "Entrega × Esforço × IA" (dashboard-effort-ai-comparison); nome da sprint
   // anterior aparece no eixo
