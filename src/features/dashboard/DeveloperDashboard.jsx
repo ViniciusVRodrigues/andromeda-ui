@@ -871,7 +871,7 @@ function InsightsStrip({ data }) {
       {insights.map((i) => (
         <span
           key={i.id}
-          className={`mono rounded-btn bg-bg-elev border px-3 py-1 text-[11px] ${tone[i.tone] || tone.info}`}
+          className={`mono rounded-btn bg-bg-elev border px-3 py-1 text-[length:var(--mono-sm)] ${tone[i.tone] || tone.info}`}
         >
           {i.text}
         </span>
@@ -910,7 +910,7 @@ function KpiDelta({ current, previous, invert = false, unit = "" }) {
   const good = invert ? !up : up;
   return (
     <span
-      className="mono ml-2 text-[10px]"
+      className="mono ml-2 text-[length:var(--mono-sm)]"
       style={{ color: good ? "var(--good)" : "var(--bad)" }}
       title={`vs sprint anterior: ${Number(previous).toFixed(1)}${unit}`}
     >
@@ -1055,14 +1055,16 @@ export function DeveloperDashboard({ projectId, sprintId, startDate, endDate, mo
         </div>
       )}
 
-      <section className="rounded-card border-line bg-bg-elev mb-5 border p-5">
+      {/* Cabecalho, nao card: eram duas linhas de texto ocupando uma caixa
+       * inteira, competindo em peso com os cards que carregam dados. */}
+      <section className="border-line mb-5 border-b pb-4">
         <h2 className="font-serif text-2xl">
           {loading
             ? "Carregando sprint…"
             : data?.sprintContext?.sprintName || "Nenhuma sprint atual atribuída"}
         </h2>
         {data?.sprintContext && (
-          <p className="text-fg-muted mt-2">
+          <p className="text-fg-muted mt-1">
             {data.sprintContext.startDate?.split("-").reverse().join("/")} —{" "}
             {data.sprintContext.endDate?.split("-").reverse().join("/")} · Seus work items e consumo
             de IA

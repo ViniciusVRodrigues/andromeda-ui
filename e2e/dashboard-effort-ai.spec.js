@@ -111,7 +111,8 @@ test("individual: colaboração e evolução da sprint preservam métricas e alo
   // simplesmente nao aparecem (complexidade/esforco agora se editam no modal).
   const wiCard = page.getByRole("article", { name: "Tratar rate limit da API" });
   await expect(wiCard).toBeVisible();
-  await expect(wiCard.getByText("Custo IA")).toBeVisible();
+  // custo dominante recebe cor + ⚠; as unidades ficam inline na linha de fatos
+  await expect(wiCard.getByText("$0.70")).toBeVisible();
   await expect(wiCard.getByText("T/SP")).toBeVisible();
   await page
     .locator(".dev-dash-card")

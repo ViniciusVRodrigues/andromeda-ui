@@ -154,9 +154,7 @@ export function WorkItemModal({ id, onClose, onChanged }) {
                 <dl className="grid grid-cols-2 gap-x-6 gap-y-4 sm:grid-cols-3">
                   {rows.map(([label, value]) => (
                     <div key={label} className="min-w-0">
-                      <dt className="mono text-fg-dim text-[10px] tracking-wider uppercase">
-                        {label}
-                      </dt>
+                      <dt className="mono text-fg-dim text-[length:var(--mono-sm)]">{label}</dt>
                       <dd className="text-fg m-0 truncate">{value}</dd>
                     </div>
                   ))}

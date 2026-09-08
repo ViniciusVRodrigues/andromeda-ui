@@ -138,8 +138,8 @@ export function UsoIaPage({ can }) {
               Uma linha por dia · {visible.length} de {rows.length} dias no mês
             </p>
           </div>
-          <div className="flex flex-wrap gap-3">
-            <label className="text-fg-muted text-sm">
+          <div className="flex flex-wrap items-end gap-3">
+            <label className="ui-field-stack text-fg-muted text-sm">
               Buscar
               <input
                 className="ui-field-input mt-1"
@@ -149,7 +149,7 @@ export function UsoIaPage({ can }) {
                 onChange={(e) => setParam("busca", e.target.value)}
               />
             </label>
-            <label className="text-fg-muted text-sm">
+            <label className="ui-field-stack text-fg-muted text-sm">
               Situação
               <select
                 aria-label="Situação"
@@ -238,7 +238,12 @@ export function UsoIaPage({ can }) {
           </div>
         )}
         {notice && (
-          <p role="status" className="text-good mt-3">
+          <p
+            role="status"
+            className="text-good mt-3 flex items-center gap-2 rounded-[var(--radius-sm)] px-3 py-2"
+            style={{ background: "color-mix(in srgb, var(--good) 12%, transparent)" }}
+          >
+            <span aria-hidden="true">✓</span>
             {notice}
           </p>
         )}
