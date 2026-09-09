@@ -10,6 +10,7 @@ import { Field, SelectField } from "../../components/Field.jsx";
 import api from "../../core/api/client.js";
 import { ALWAYS_ON_PERMISSIONS } from "../../core/auth/permissionLabels.js";
 import { orgUrlLabel } from "../../lib/appUrl.js";
+import { useAvailability } from "./useAvailability.js";
 
 const ADMIN_ROLE = "Administrador";
 
@@ -170,14 +171,34 @@ function SignupScreen({ onCancel, onDone }) {
   const pwRules = passwordRules(password.value);
   const pwOk = pwRules.ok && password.value === password.confirm;
 
+  /* Colisão de e-mail e de organização só apareciam na etapa 13, depois de tudo
+   * preenchido. A verificação acontece na etapa onde o dado é digitado; o envio
+   * final continua validando, porque não há reserva. */
+  const emailAvailability = useAvailability(
+    /\S+@\S+\.\S+/.test(personal.email) ? personal.email : "",
+    React.useCallback((v) => `/v1/users/email-availability?email=${encodeURIComponent(v)}`, []),
+    5,
+  );
+  const orgAvailability = useAvailability(
+    org.name,
+    React.useCallback(
+      (v) => `/v1/organizations/name-availability?name=${encodeURIComponent(v)}`,
+      [],
+    ),
+    2,
+  );
+
   const valid = [
-    personal.fullName.trim().length >= 3 && /\S+@\S+\.\S+/.test(personal.email), // 0 pessoal
+    personal.fullName.trim().length >= 3 &&
+      /\S+@\S+\.\S+/.test(personal.email) &&
+      emailAvailability.status !== "taken", // 0 pessoal
     verify.verified, // 1 verificar
     pwOk, // 2 senha
     org.name.trim().length >= 2 &&
       org.slug.trim().length >= 2 &&
       org.sector.trim().length >= 1 &&
-      org.country.trim().length >= 1, // 3 org
+      org.country.trim().length >= 1 &&
+      orgAvailability.status !== "taken", // 3 org
     project.name.trim().length >= 2 && project.description.trim().length >= 4, // 4 projeto
     senioridade.length >= 1, // 5 senioridade
     true, // 6 cargos (4 defaults always present)
@@ -261,7 +282,9 @@ function SignupScreen({ onCancel, onDone }) {
                 {submitError}
               </div>
             )}
-            {step === 0 && <StepPersonal v={personal} onChange={setPersonal} />}
+            {step === 0 && (
+              <StepPersonal v={personal} onChange={setPersonal} availability={emailAvailability} />
+            )}
             {step === 1 && (
               <StepVerify
                 v={verify}
@@ -271,7 +294,9 @@ function SignupScreen({ onCancel, onDone }) {
               />
             )}
             {step === 2 && <StepPassword v={password} onChange={setPassword} rules={pwRules} />}
-            {step === 3 && <StepOrganization v={org} onChange={setOrg} />}
+            {step === 3 && (
+              <StepOrganization v={org} onChange={setOrg} availability={orgAvailability} />
+            )}
             {step === 4 && <StepProject v={project} onChange={setProject} />}
             {step === 5 && (
               <StepChipList
@@ -329,7 +354,7 @@ function passwordRules(v) {
 
 /* ─── Step content ─────────────────────────────────────────── */
 
-function StepPersonal({ v, onChange }) {
+function StepPersonal({ v, onChange, availability }) {
   return (
     <div className="signup-orbit-fields">
       <Field
@@ -354,6 +379,11 @@ function StepPersonal({ v, onChange }) {
         value={ADMIN_ROLE}
         hint="Você cria a organização — não pode mudar agora."
       />
+      {availability?.status === "taken" && (
+        <p role="alert" className="text-bad" style={{ marginTop: 8 }}>
+          Este e-mail já está vinculado a uma organização no Andrômeda.
+        </p>
+      )}
     </div>
   );
 }
@@ -509,7 +539,7 @@ function Rule({ ok, label }) {
   );
 }
 
-function StepOrganization({ v, onChange }) {
+function StepOrganization({ v, onChange, availability }) {
   return (
     <div className="signup-orbit-fields">
       <Field
@@ -539,6 +569,11 @@ function StepOrganization({ v, onChange }) {
         onChange={(x) => onChange({ ...v, country: x })}
         options={["Brasil", "Portugal", "Estados Unidos", "México", "Argentina", "Outro"]}
       />
+      {availability?.status === "taken" && (
+        <p role="alert" className="text-bad" style={{ marginTop: 8 }}>
+          Já existe uma organização com esse nome. Escolha outro.
+        </p>
+      )}
     </div>
   );
 }

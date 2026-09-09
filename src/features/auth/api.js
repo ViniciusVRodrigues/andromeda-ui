@@ -31,3 +31,13 @@ export function sendEmailVerification(email) {
 export function confirmEmailVerification(email, code) {
   return api.post("/v1/auth/email-verification/confirm", { email, code });
 }
+
+/** Solicita o link de redefinição. Responde 202 mesmo para e-mail sem conta. */
+export function requestPasswordReset(email) {
+  return api.post("/v1/auth/password-reset", { email });
+}
+
+/** Redefine a senha com o token recebido por e-mail. */
+export function confirmPasswordReset(token, password) {
+  return api.post("/v1/auth/password-reset/confirm", { token, password });
+}

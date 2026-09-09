@@ -25,6 +25,8 @@ import {
 import { HomeScreen } from "./features/home/HomeScreen.jsx";
 import { SignupScreen } from "./features/auth/SignupScreen.jsx";
 import { LoginScreen } from "./features/auth/LoginScreen.jsx";
+import { ForgotPasswordScreen } from "./features/auth/ForgotPasswordScreen.jsx";
+import { ResetPasswordScreen } from "./features/auth/ResetPasswordScreen.jsx";
 import { OnboardingScreen } from "./features/onboarding/OnboardingScreen.jsx";
 import { DashboardPage } from "./features/dashboard/DashboardPage.jsx";
 import { BacklogPage } from "./features/backlog/BacklogPage.jsx";
@@ -201,6 +203,8 @@ function AppShell() {
               path="/login"
               element={<LoginScreenWrapper enterApp={enterApp} onHome={() => navigate("/")} />}
             />
+            <Route path="/esqueci-senha" element={<ForgotPasswordScreen />} />
+            <Route path="/redefinir-senha" element={<ResetPasswordScreen />} />
             <Route
               path="/onboard"
               element={
