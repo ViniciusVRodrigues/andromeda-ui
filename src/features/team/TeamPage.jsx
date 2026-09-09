@@ -78,14 +78,19 @@ export function TeamPage() {
   /* ── convite ── */
   const [invitingMember, setInvitingMember] = React.useState(false);
   const [inviteDraft, setInviteDraft] = React.useState({ email: "", roleId: "" });
+  const [inviteError, setInviteError] = React.useState("");
   const openInvite = () => {
     setInviteDraft({ email: "", roleId: roles[0]?.id || "" });
     setInvitingMember(true);
   };
-  const closeInvite = () => setInvitingMember(false);
+  const closeInvite = () => {
+    setInviteError("");
+    setInvitingMember(false);
+  };
   const sendInvite = async () => {
     const email = inviteDraft.email.trim();
     if (!email || !inviteDraft.roleId) return;
+    setInviteError("");
     try {
       await inviteUser.mutateAsync({
         email,
@@ -93,8 +98,16 @@ export function TeamPage() {
         seniority: inviteDraft.seniority || null,
       });
       setInvitingMember(false);
-    } catch (_) {
-      /* mantém o modal aberto em falha */
+    } catch (err) {
+      /* O modal ficava aberto e mudo: o 409 chegava e era engolido. A mensagem
+       * crua do client traz rota e status, entao nao serve para o usuario.
+       * O texto e neutro de proposito — dizer "pertence a outra organizacao"
+       * confirmaria a existencia do e-mail em outro tenant. */
+      setInviteError(
+        /\(409\)/.test(err?.message || "")
+          ? "Este e-mail já está vinculado a uma organização no Andrômeda."
+          : "Não foi possível enviar o convite. Tente novamente.",
+      );
     }
   };
 
@@ -285,6 +298,11 @@ export function TeamPage() {
             </>
           }
         >
+          {inviteError && (
+            <p role="alert" className="text-bad mb-3">
+              {inviteError}
+            </p>
+          )}
           <label className="ui-field">
             <span className="ui-field-label">Email do funcionário</span>
             <input
@@ -293,7 +311,10 @@ export function TeamPage() {
               autoFocus
               value={inviteDraft.email}
               placeholder="nome@empresa.com"
-              onChange={(e) => setInviteDraft({ ...inviteDraft, email: e.target.value })}
+              onChange={(e) => {
+                setInviteError("");
+                setInviteDraft({ ...inviteDraft, email: e.target.value });
+              }}
             />
           </label>
 
