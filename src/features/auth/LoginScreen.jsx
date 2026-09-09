@@ -91,33 +91,6 @@ function LoginScreen({ onLogin, onHome, error }) {
           </button>
         </form>
       </div>
-
-      <div
-        style={{
-          position: "absolute",
-          bottom: 28,
-          left: 32,
-          fontSize: 10,
-          color: "var(--fg-dim)",
-          letterSpacing: "0.22em",
-          textTransform: "uppercase",
-        }}
-      >
-        v0.1 · build 2026.05.15
-      </div>
-      <div
-        style={{
-          position: "absolute",
-          bottom: 28,
-          right: 32,
-          fontSize: 10,
-          color: "var(--fg-dim)",
-          letterSpacing: "0.22em",
-          textTransform: "uppercase",
-        }}
-      >
-        TCC · BES
-      </div>
     </div>
   );
 }

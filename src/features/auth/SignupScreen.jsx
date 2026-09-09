@@ -250,7 +250,6 @@ function SignupScreen({ onCancel, onDone }) {
       finalLabel="Criar organização →"
       onComplete={handleComplete}
       onCancel={onCancel}
-      versionmark="v0.1 · onboarding"
       shiftY="3vh"
       renderStep={(step, nav) => {
         // All role labels available for invites (defaults are immutable, custom are editable)

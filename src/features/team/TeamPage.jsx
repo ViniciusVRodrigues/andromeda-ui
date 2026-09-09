@@ -306,7 +306,7 @@ export function TeamPage() {
               >
                 {roles.map((r) => (
                   <option key={r.id} value={r.id}>
-                    {r.name}
+                    {r.label || r.name}
                   </option>
                 ))}
               </select>
@@ -390,7 +390,7 @@ export function TeamPage() {
               >
                 {roles.map((r) => (
                   <option key={r.id} value={r.id}>
-                    {r.name}
+                    {r.label || r.name}
                   </option>
                 ))}
               </select>
