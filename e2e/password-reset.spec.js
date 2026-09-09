@@ -27,7 +27,7 @@ test("link ausente ou inválido orienta a pedir outro", async ({ page }) => {
   await expect(page.getByRole("alert")).toContainText("não contém um link de redefinição válido");
 
   await page.route("**/api/v1/auth/password-reset/confirm", (route) =>
-    route.fulfill({ status: 400, json: { code: "PASSWORD_RESET_TOKEN_INVALID" } }),
+    route.fulfill({ status: 422, json: { code: "PASSWORD_RESET_TOKEN_INVALID" } }),
   );
   await page.goto("/redefinir-senha?token=expirado");
   await page.getByLabel("Nova senha").fill("Senha!123");

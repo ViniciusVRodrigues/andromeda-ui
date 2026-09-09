@@ -55,11 +55,15 @@ export function ResetPasswordScreen() {
     } catch (err) {
       const msg = err?.message || "";
       setError(
-        /PASSWORD_RESET_TOKEN_INVALID|\(400\)/.test(msg)
+        /* Casa pelo CODIGO do erro, não pelo status: o handler responde 422
+         * para regra de negócio, não 400. */
+        /PASSWORD_RESET_TOKEN_INVALID/.test(msg)
           ? "Este link de redefinição não é mais válido. Solicite um novo."
-          : /\(429\)|TOO_MANY/.test(msg)
-            ? "Muitas tentativas. Aguarde alguns minutos e tente novamente."
-            : "Não foi possível redefinir agora. Tente novamente em instantes.",
+          : /PASSWORD_TOO_WEAK/.test(msg)
+            ? "A senha precisa ter ao menos 6 caracteres, uma letra maiúscula e um caractere especial."
+            : /TOO_MANY_ATTEMPTS/.test(msg)
+              ? "Muitas tentativas. Aguarde alguns minutos e tente novamente."
+              : "Não foi possível redefinir agora. Tente novamente em instantes.",
       );
     } finally {
       setBusy(false);
