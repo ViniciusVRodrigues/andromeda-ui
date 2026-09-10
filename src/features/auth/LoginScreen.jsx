@@ -1,6 +1,7 @@
 /* Login screen */
 
 import React from "react";
+import { Link } from "react-router-dom";
 import { Wordmark } from "../../components/Wordmark.jsx";
 
 function LoginScreen({ onLogin, onHome, error }) {
@@ -89,34 +90,14 @@ function LoginScreen({ onLogin, onHome, error }) {
           <button type="submit" className="btn" style={{ width: "100%", marginTop: 8 }}>
             Entrar na constelação →
           </button>
+          <Link
+            to="/esqueci-senha"
+            className="text-fg-muted"
+            style={{ display: "inline-block", marginTop: 16 }}
+          >
+            Esqueci minha senha
+          </Link>
         </form>
-      </div>
-
-      <div
-        style={{
-          position: "absolute",
-          bottom: 28,
-          left: 32,
-          fontSize: 10,
-          color: "var(--fg-dim)",
-          letterSpacing: "0.22em",
-          textTransform: "uppercase",
-        }}
-      >
-        v0.1 · build 2026.05.15
-      </div>
-      <div
-        style={{
-          position: "absolute",
-          bottom: 28,
-          right: 32,
-          fontSize: 10,
-          color: "var(--fg-dim)",
-          letterSpacing: "0.22em",
-          textTransform: "uppercase",
-        }}
-      >
-        TCC · BES
       </div>
     </div>
   );

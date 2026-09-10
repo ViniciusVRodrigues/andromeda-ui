@@ -13,6 +13,17 @@ import { TAB_TO_ROUTE, resolveRoute } from "../core/auth/shell.js";
 import { orgRoute } from "../lib/orgRoutes.js";
 import { useAzureConnectionStatus } from "../features/integrations/hooks.js";
 
+/* Nome no botao de perfil: "Nome Sobrenome" acima de 16 caracteres estoura a
+ * largura da sidebar, entao cai para so o primeiro nome. Um nome unico longo
+ * e preservado — cortar nao daria alternativa melhor. */
+export function shortDisplayName(fullName) {
+  const name = (fullName || "").trim().replace(/\s+/g, " ");
+  if (!name) return "";
+  const [first, second] = name.split(" ");
+  if (!second) return first;
+  return `${first} ${second}`.length > 16 ? first : `${first} ${second}`;
+}
+
 const svgIcon = (children) => (
   <svg
     viewBox="0 0 24 24"
@@ -186,9 +197,15 @@ export function ShellLayout() {
           </nav>
 
           <div className="admin-side-foot">
-            <button className="admin-side-item" onClick={() => onNavigate("perfil")} title="Perfil">
+            <button
+              className="admin-side-item"
+              onClick={() => onNavigate("perfil")}
+              title={profile?.personal?.fullName || "Perfil"}
+            >
               <span className="admin-side-icon">{ICON_USER}</span>
-              <span className="admin-side-label">{profile?.personal?.fullName || "Perfil"}</span>
+              <span className="admin-side-label">
+                {shortDisplayName(profile?.personal?.fullName) || "Perfil"}
+              </span>
             </button>
             <button
               className="admin-side-item admin-side-item--action"

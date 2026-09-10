@@ -1,0 +1,6 @@
+{
+  "request": "GET /api/v1/ai/allocations/history",
+  "status": 200,
+  "contentType": "application/json",
+  "body": "{\"content\":[],\"totalElements\":0,\"totalPages\":0,\"number\":0,\"size\":100}"
+}

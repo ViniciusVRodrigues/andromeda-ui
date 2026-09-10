@@ -105,7 +105,6 @@ function OnboardingScreen({ onDone }) {
         validity={valid}
         finalLabel="Entrar no dashboard →"
         onComplete={handleComplete}
-        versionmark="v0.1 · setup"
         renderStep={(step) => (
           <>
             {step === 0 && <StepWelcome />}

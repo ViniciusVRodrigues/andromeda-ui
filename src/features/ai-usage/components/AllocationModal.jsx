@@ -1,3 +1,5 @@
+import { WorkItemLink } from "../../../core/work-items/WorkItemLink.jsx";
+import { useQuery } from "@tanstack/react-query";
 import React from "react";
 import { AllocationSlider } from "./AllocationSlider.jsx";
 import { getAllocationCandidates } from "../api.js";
@@ -45,89 +47,27 @@ function redistributeProportional(items, changedIndex, newVal) {
  * Has a left accent border on hover to signal interactivity.
  */
 function CandidateRow({ si, wi, onAdd }) {
-  const [hovered, setHovered] = React.useState(false);
-  const type = si.type ?? wi?.type;
-  const externalId = si.externalId ?? wi?.externalId;
-  const storyPoints = si.storyPoints ?? wi?.storyPoints;
   return (
-    <button
-      type="button"
-      onMouseEnter={() => setHovered(true)}
-      onMouseLeave={() => setHovered(false)}
-      style={{
-        display: "flex",
-        alignItems: "center",
-        gap: 8,
-        width: "100%",
-        textAlign: "left",
-        padding: "7px 10px",
-        background: hovered ? "var(--bg-elev)" : "none",
-        border: "none",
-        borderBottom: "1px solid var(--line)",
-        borderLeft: hovered ? "2px solid var(--accent)" : "2px solid transparent",
-        cursor: "pointer",
-        transition: "background 0.15s, border-color 0.15s",
-      }}
-      onClick={() => onAdd(si)}
-    >
-      {type ? (
-        <span
-          className="mono"
-          style={{
-            fontSize: 10,
-            color: "var(--accent)",
-            background: "color-mix(in srgb, var(--accent) 14%, transparent)",
-            border: "1px solid color-mix(in srgb, var(--accent) 28%, transparent)",
-            borderRadius: 4,
-            padding: "1px 6px",
-            flexShrink: 0,
-          }}
-        >
-          {type}
-        </span>
-      ) : null}
-      {externalId ? (
-        <span className="mono" style={{ fontSize: 11, color: "var(--fg-dim)", flexShrink: 0 }}>
-          {externalId}
-        </span>
-      ) : null}
-      <span
-        style={{
-          fontSize: "0.82rem",
-          fontWeight: 500,
-          color: "var(--fg)",
-          flex: 1,
-          minWidth: 0,
-          overflow: "hidden",
-          textOverflow: "ellipsis",
-          whiteSpace: "nowrap",
-        }}
-      >
-        {si.workItemTitle}
+    <div className="border-line flex flex-wrap items-center gap-2 border-b py-3">
+      <span className="text-accent font-mono text-sm">
+        {si.type ?? wi?.type} {si.externalId ?? wi?.externalId}
       </span>
-      {storyPoints != null ? (
-        <span className="mono" style={{ fontSize: 11, color: "var(--fg-muted)", flexShrink: 0 }}>
-          {storyPoints} SP
-        </span>
-      ) : null}
-      {si.sprintName && (
-        <span
-          className="mono"
-          style={{
-            fontSize: "0.68rem",
-            color: "var(--fg-dim)",
-            background: "var(--bg-deep)",
-            border: "1px solid var(--line)",
-            borderRadius: 4,
-            padding: "1px 6px",
-            flexShrink: 0,
-            letterSpacing: "0.04em",
-          }}
-        >
-          {si.sprintName}
-        </span>
+      <WorkItemLink id={si.workItemId} className="min-w-0 flex-1">
+        {si.workItemTitle || si.title}
+      </WorkItemLink>
+      {(si.storyPoints ?? wi?.storyPoints) != null && (
+        <span className="text-fg-muted text-sm">{si.storyPoints ?? wi?.storyPoints} SP</span>
       )}
-    </button>
+      <span className="text-fg-muted text-sm">{si.sprintName}</span>
+      <button
+        type="button"
+        className="btn-ghost btn"
+        onClick={() => onAdd(si)}
+        aria-label={"Adicionar " + (si.workItemTitle || si.title)}
+      >
+        Adicionar
+      </button>
+    </div>
   );
 }
 
@@ -141,28 +81,24 @@ function CandidateRow({ si, wi, onAdd }) {
  *   loading: boolean
  * }} props
  */
-export function AllocationModal({ batch, sprintItems, itemsById, onClose, onConfirm, loading }) {
-  // Fetch day-specific candidates; fall back to static sprintItems if fetch fails or is loading
-  const [candidates, setCandidates] = React.useState(null);
-  React.useEffect(() => {
-    if (!batch?.day) return;
-    getAllocationCandidates(batch.day)
-      .then((data) => {
-        const mapped = (Array.isArray(data) ? data : []).map((c) => ({
-          workItemId: c.workItemId,
-          workItemTitle: c.title || "",
-          sprintName: c.sprintName || "",
-          type: c.type ?? null,
-          externalId: c.externalId ?? null,
-          storyPoints: c.storyPoints ?? null,
-        }));
-        setCandidates(mapped);
-      })
-      .catch(() => {
-        // On error fall back to static sprintItems
-        setCandidates(null);
-      });
-  }, [batch?.day]);
+export function AllocationModal({
+  batch,
+  sprintItems,
+  itemsById,
+  onClose,
+  onConfirm,
+  loading,
+  error,
+}) {
+  const candidateQuery = useQuery({
+    queryKey: ["ai-usage", "candidates", batch.day],
+    queryFn: () => getAllocationCandidates(batch.day),
+    staleTime: 30000,
+  });
+  const candidates = candidateQuery.data?.map((c) => ({
+    ...c,
+    workItemTitle: c.title || c.workItemTitle || "",
+  }));
 
   const resolvedSprintItems =
     candidates ??
@@ -297,6 +233,20 @@ export function AllocationModal({ batch, sprintItems, itemsById, onClose, onConf
         </>
       }
     >
+      {error && (
+        <p role="alert" className="text-bad mb-3">
+          {error}
+        </p>
+      )}
+      {candidateQuery.isPending && <p role="status">Carregando work items do dia…</p>}
+      {candidateQuery.isError && (
+        <p role="alert" className="text-bad mb-3">
+          Não foi possível carregar os work items.{" "}
+          <button className="btn" onClick={() => candidateQuery.refetch()}>
+            Tentar novamente
+          </button>
+        </p>
+      )}
       {/* Sliders */}
       {items.length === 0 ? (
         <div

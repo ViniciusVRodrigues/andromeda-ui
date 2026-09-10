@@ -1,132 +1,85 @@
-import React from "react";
-import {
-  acceptAllocation,
-  getAiAllocationHistory,
-  getAiFluencyScore,
-  getAiUsageSummary,
-  getPendingAllocations,
-  getSprintItems,
-  getTeamMembers,
-  manualAllocate,
-  manualAllocateNoSuggestion,
-} from "../api.js";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useSearchParams } from "react-router-dom";
+import { useIdentity } from "../../../core/auth/IdentityContext.jsx";
+import { api, toQuery } from "../../../core/api/client.js";
+import * as usage from "../api.js";
 
 export function useUsoIa() {
-  const [selectedUserId, setSelectedUserId] = React.useState(null);
-  const [month, setMonth] = React.useState(() => {
-    const d = new Date();
-    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  const [params, setParams] = useSearchParams();
+  const { can } = useIdentity();
+  const client = useQueryClient();
+  const current = new Date();
+  const defaultMonth = `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, "0")}`;
+  const month = /^\d{4}-(0[1-9]|1[0-2])$/.test(params.get("mes") || "")
+    ? params.get("mes")
+    : defaultMonth;
+  const selectedUserId = can("uso-ia-team") ? params.get("pessoa") : null;
+  const setParam = (key, value) =>
+    setParams(
+      (old) => {
+        const next = new URLSearchParams(old);
+        if (value) next.set(key, value);
+        else next.delete(key);
+        return next;
+      },
+      { replace: true },
+    );
+  const scope = selectedUserId ? { userId: selectedUserId } : {};
+  const query = (name, fn) => ({
+    queryKey: ["ai-usage", name, selectedUserId, month],
+    queryFn: fn,
+    staleTime: 30000,
   });
-
-  // Summary
-  const [summary, setSummary] = React.useState(null);
-  const [summaryLoading, setSummaryLoading] = React.useState(false);
-  const [summaryError, setSummaryError] = React.useState(null);
-
-  // Fluency
-  const [fluency, setFluency] = React.useState(null);
-  const [fluencyLoading, setFluencyLoading] = React.useState(false);
-  const [fluencyError, setFluencyError] = React.useState(null);
-
-  // Pending allocations
-  const [pending, setPending] = React.useState([]);
-  const [pendingLoading, setPendingLoading] = React.useState(false);
-  const [pendingError, setPendingError] = React.useState(null);
-
-  // History
-  const [history, setHistory] = React.useState(null);
-  const [historyPage, setHistoryPage] = React.useState(0);
-  const [historyLoading, setHistoryLoading] = React.useState(false);
-  const [historyError, setHistoryError] = React.useState(null);
-
-  // Sprint items
-  const [sprintItems, setSprintItems] = React.useState([]);
-
-  // Team members
-  const [teamMembers, setTeamMembers] = React.useState([]);
-
-  // Fetch summary, fluency, pending on selectedUserId or month change
-  React.useEffect(() => {
-    const params = selectedUserId ? { month, userId: selectedUserId } : { month };
-
-    setSummaryLoading(true);
-    setSummaryError(null);
-    getAiUsageSummary(params)
-      .then(setSummary)
-      .catch((e) => setSummaryError(e.message))
-      .finally(() => setSummaryLoading(false));
-
-    setFluencyLoading(true);
-    setFluencyError(null);
-    const fParams = selectedUserId ? { userId: selectedUserId } : {};
-    getAiFluencyScore(fParams)
-      .then(setFluency)
-      .catch((e) => setFluencyError(e.message))
-      .finally(() => setFluencyLoading(false));
-
-    setPendingLoading(true);
-    setPendingError(null);
-    const pParams = selectedUserId ? { userId: selectedUserId } : {};
-    getPendingAllocations(pParams)
-      .then((data) => setPending(Array.isArray(data) ? data : []))
-      .catch((e) => setPendingError(e.message))
-      .finally(() => setPendingLoading(false));
-  }, [selectedUserId, month]);
-
-  // Fetch history when page changes
-  React.useEffect(() => {
-    setHistoryLoading(true);
-    setHistoryError(null);
-    const hParams = {
-      month,
-      page: historyPage,
-      size: 20,
-      ...(selectedUserId ? { userId: selectedUserId } : {}),
-    };
-    getAiAllocationHistory(hParams)
-      .then(setHistory)
-      .catch((e) => setHistoryError(e.message))
-      .finally(() => setHistoryLoading(false));
-  }, [selectedUserId, month, historyPage]);
-
-  // Fetch sprint items + team members once on mount
-  React.useEffect(() => {
-    getSprintItems()
-      .then((data) => setSprintItems(Array.isArray(data) ? data : []))
-      .catch(() => {});
-    getTeamMembers()
-      .then((data) => setTeamMembers(Array.isArray(data) ? data : []))
-      .catch(() => {});
-  }, []);
-
-  const removePendingCard = React.useCallback((day) => {
-    setPending((prev) => prev.filter((b) => b.day !== day));
-  }, []);
-
+  const summary = useQuery(query("summary", () => usage.getAiUsageSummary({ ...scope, month })));
+  const fluency = useQuery(query("fluency", () => usage.getAiFluencyScore(scope)));
+  const pending = useQuery(query("pending", () => usage.getPendingAllocations(scope)));
+  const daily = useQuery(
+    query("daily", () => api.get(`/v1/ai/usage/daily${toQuery({ ...scope, month })}`)),
+  );
+  // Search reads the entire month's bounded daily history, including server-capped pages.
+  const history = useQuery(
+    query("history", async () => {
+      const first = await usage.getAiAllocationHistory({ ...scope, month, page: 0, size: 100 });
+      const rows = [...(first.content || [])];
+      for (let page = 1; page < (first.totalPages || 1); page++) {
+        const next = await usage.getAiAllocationHistory({ ...scope, month, page, size: 100 });
+        rows.push(...(next.content || []));
+      }
+      return rows;
+    }),
+  );
+  const members = useQuery({
+    queryKey: ["ai-usage", "members"],
+    queryFn: usage.getTeamMembers,
+    enabled: can("uso-ia-team"),
+    staleTime: 60000,
+  });
+  const mutation = useMutation({
+    mutationFn: async ({ batch, splits, accept }) => {
+      if (selectedUserId) throw new Error("Este consumo é somente leitura.");
+      if (accept) return usage.acceptAllocation(batch.suggestionAllocationId);
+      return batch.suggestionAllocationId
+        ? usage.manualAllocate(batch.suggestionAllocationId, splits)
+        : usage.manualAllocateNoSuggestion(batch.day, splits);
+    },
+    onSuccess: () =>
+      Promise.all(
+        ["ai-usage", "dashboard"].map((key) => client.invalidateQueries({ queryKey: [key] })),
+      ),
+  });
   return {
-    selectedUserId,
-    setSelectedUserId,
     month,
-    setMonth,
+    setMonth: (value) => setParam("mes", value),
+    selectedUserId,
+    setSelectedUserId: (value) => setParam("pessoa", value),
     summary,
-    summaryLoading,
-    summaryError,
     fluency,
-    fluencyLoading,
-    fluencyError,
     pending,
-    pendingLoading,
-    pendingError,
-    removePendingCard,
+    daily,
     history,
-    historyPage,
-    setHistoryPage,
-    historyLoading,
-    historyError,
-    sprintItems,
-    teamMembers,
-    acceptAllocation,
-    manualAllocate,
-    manualAllocateNoSuggestion,
+    members,
+    mutation,
+    params,
+    setParam,
   };
 }

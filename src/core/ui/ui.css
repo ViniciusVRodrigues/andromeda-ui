@@ -293,3 +293,83 @@ textarea.ui-field-input {
     grid-template-columns: 1fr;
   }
 }
+.ui-work-item-link {
+  appearance: none;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  font: inherit;
+  color: inherit;
+}
+
+/* Alvo de clique cheio no card de work item: o titulo e um <button>, e o
+ * ::after o estica sobre o card inteiro. O card precisa ser o contexto de
+ * posicionamento; o hover ja vem do .backlog-card. */
+.backlog-card {
+  position: relative;
+}
+.ui-work-item-link.ui-work-item-stretch::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+}
+.backlog-card:focus-within {
+  border-color: var(--accent);
+}
+/* Controles reais do card ficam acima da camada esticada do titulo. */
+.backlog-card .backlog-toggle,
+.backlog-card .backlog-card-actions,
+.backlog-card .wi-fields-editor {
+  position: relative;
+  z-index: 1;
+}
+
+/* KPIs da dashboard individual: um bloco unico com divisorias internas, no
+ * lugar de cinco caixas com borda e hover proprios. Metricas relacionadas
+ * pertencem ao mesmo objeto — a borda por tile as separava sem motivo, e o
+ * hover prometia uma interacao que nao existe. */
+.dev-dash-metrics {
+  gap: 0;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-sm);
+  background: var(--bg-elev);
+  overflow: hidden;
+}
+.dev-dash-metrics .dev-dash-metric-tile {
+  background: transparent;
+  border: 0;
+  border-left: 1px solid var(--line);
+  border-radius: 0;
+  transition: none;
+}
+.dev-dash-metrics .dev-dash-metric-tile:first-child {
+  border-left: 0;
+}
+.dev-dash-metrics .dev-dash-metric-tile:hover {
+  border-color: var(--line);
+  transform: none;
+}
+
+/* Rotulo empilhado sobre o controle. .ui-field-input nao declara display,
+ * entao dentro de um <label> ele fluia AO LADO do texto do rotulo em vez de
+ * abaixo. Escopo no wrapper: o primitivo e usado em todo o app. */
+.ui-field-stack {
+  display: flex;
+  flex-direction: column;
+}
+.ui-field-stack > .ui-field-input {
+  display: block;
+  width: 100%;
+}
+
+/* Login herda o mesmo fundo da tela de criar organizacao (.signup-stage):
+ * eram duas telas do mesmo fluxo com plano de fundo diferente. A regra vive
+ * aqui porque legacy.css e ratchet — so decresce. */
+.login-stage {
+  background:
+    radial-gradient(circle at 80% 0%, rgba(198, 139, 102, 0.12), transparent 50%), var(--bg);
+}
+:root[data-palette="light"] .login-stage {
+  background:
+    radial-gradient(circle at 80% 0%, rgba(166, 102, 71, 0.14), transparent 50%), var(--bg);
+}

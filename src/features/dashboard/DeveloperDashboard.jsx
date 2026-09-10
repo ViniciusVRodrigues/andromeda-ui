@@ -1,3 +1,5 @@
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import { WorkItemLink } from "../../core/work-items/WorkItemLink.jsx";
 /**
  * DeveloperDashboard — individual developer metrics screen.
  *
@@ -39,7 +41,7 @@ import { SprintEffortAiChart } from "../../components/charts/SprintEffortAiChart
 import { fmtTokensM } from "../../core/tokenMath.js";
 import { SprintProgressBar } from "../../components/SprintProgressBar.jsx";
 import { AllocationModal } from "../ai-usage/components/AllocationModal.jsx";
-import { WorkItemManualFieldsEditor } from "../../components/WorkItemManualFieldsEditor.jsx";
+import { WorkItemCard } from "../../core/work-items/WorkItemCard.jsx";
 
 /* ── Helpers ─────────────────────────────────────── */
 
@@ -322,139 +324,29 @@ function SprintItemsCard({
           onAction={() => onNavigate?.("backlog")}
         />
       ) : (
-        <div className="-mx-2 overflow-x-auto">
-          <table className="w-full border-collapse text-left" aria-label="Work items da sprint">
-            <thead>
-              <tr className="border-line-strong border-b">
-                <th className="mono text-fg-dim px-2 py-2 text-[10px] font-normal tracking-wider uppercase">
-                  Tipo
-                </th>
-                <th className="mono text-fg-dim px-2 py-2 text-[10px] font-normal tracking-wider uppercase">
-                  ID
-                </th>
-                <th className="mono text-fg-dim px-2 py-2 text-[10px] font-normal tracking-wider uppercase">
-                  Título
-                </th>
-                <th className="mono text-fg-dim px-2 py-2 text-[10px] font-normal tracking-wider uppercase">
-                  Status
-                </th>
-                <th className="mono text-fg-dim px-2 py-2 text-right text-[10px] font-normal tracking-wider uppercase">
-                  SP
-                </th>
-                <th
-                  className="mono text-fg-dim px-2 py-2 text-right text-[10px] font-normal tracking-wider uppercase"
-                  title="Complexidade — valor do Azure ou manual (editável na célula)"
-                >
-                  Complexidade
-                </th>
-                <th
-                  className="mono text-fg-dim px-2 py-2 text-right text-[10px] font-normal tracking-wider uppercase"
-                  title="Esforço — valor do Azure ou manual (editável na célula)"
-                >
-                  Esforço
-                </th>
-                <th
-                  className="mono text-fg-dim px-2 py-2 text-right text-[10px] font-normal tracking-wider uppercase"
-                  title="Custo de IA alocado a este item"
-                >
-                  Custo IA
-                </th>
-                <th
-                  className="mono text-fg-dim px-2 py-2 text-right text-[10px] font-normal tracking-wider uppercase"
-                  title="Tokens por story point"
-                >
-                  T/SP
-                </th>
-                <th
-                  className="mono text-fg-dim px-2 py-2 text-right text-[10px] font-normal tracking-wider uppercase"
-                  title="Cycle time"
-                >
-                  Ciclo
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {sorted.map((item) => {
-                const cost = costOf(item.id);
-                const costDominant = totalCost > 0 && cost / totalCost >= 0.4;
-                const cycleOutlier =
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-2" aria-label="Work items da sprint">
+          {sorted.map((item) => {
+            const cost = costOf(item.id);
+            return (
+              <WorkItemCard
+                key={item.id}
+                item={item}
+                cost={cost}
+                costDominant={totalCost > 0 && cost / totalCost >= 0.4}
+                cycleOutlier={
                   avgCycle != null && avgCycle > 0 && item.cycleTimeHours != null
                     ? item.cycleTimeHours / avgCycle
-                    : null;
-                const tpsOutlier =
+                    : null
+                }
+                tpsOutlier={
                   avgTokensPerSp != null && avgTokensPerSp > 0 && item.tokensPerSp != null
                     ? item.tokensPerSp / avgTokensPerSp
-                    : null;
-                return (
-                  <tr key={item.id} className="border-line border-b">
-                    <td className="px-2 py-2.5 align-middle">
-                      <span className="mono" style={typeBadgeStyle(item.type)}>
-                        {item.type || "Item"}
-                      </span>
-                    </td>
-                    <td className="mono text-fg-dim px-2 py-2.5 align-middle text-[11px] whitespace-nowrap">
-                      {item.externalId || "—"}
-                    </td>
-                    <td
-                      className="text-fg px-2 py-2.5 align-middle"
-                      style={{ fontSize: "var(--mono-base)" }}
-                    >
-                      {item.title || "—"}
-                    </td>
-                    <td className="px-2 py-2.5 align-middle">
-                      <span className="mono" style={statusBadgeStyle(item.resolvedStatus)}>
-                        {item.resolvedStatus || "—"}
-                      </span>
-                    </td>
-                    <td className="mono text-fg px-2 py-2.5 text-right align-middle">
-                      {item.storyPoints != null ? fmt1(item.storyPoints) : "—"}
-                    </td>
-                    <td className="px-2 py-2.5 align-middle [&_.wi-fields-editor]:items-end [&_.wi-fields-row]:justify-end">
-                      <WorkItemManualFieldsEditor
-                        workItemId={item.id}
-                        field="complexity"
-                        value={item.complexity ?? null}
-                        source={item.complexitySource ?? null}
-                        label="Complexidade"
-                        hideLabel
-                        onChanged={(updated) => onItemChanged(item.id, updated)}
-                      />
-                    </td>
-                    <td className="px-2 py-2.5 align-middle [&_.wi-fields-editor]:items-end [&_.wi-fields-row]:justify-end">
-                      <WorkItemManualFieldsEditor
-                        workItemId={item.id}
-                        field="effort"
-                        value={item.effort ?? item.storyPoints ?? null}
-                        source={item.effortSource ?? null}
-                        label="Esforço"
-                        hideLabel
-                        onChanged={(updated) => onItemChanged(item.id, updated)}
-                      />
-                    </td>
-                    <td
-                      className="mono px-2 py-2.5 text-right align-middle whitespace-nowrap"
-                      style={{ color: costDominant ? "var(--bad)" : "var(--fg)" }}
-                    >
-                      {cost > 0 ? `$${cost.toFixed(2)}` : "—"}
-                      {costDominant ? " ⚠" : ""}
-                    </td>
-                    <td className="mono text-fg-muted px-2 py-2.5 text-right align-middle whitespace-nowrap">
-                      {fmt1(item.tokensPerSp)}
-                      {tpsOutlier && tpsOutlier >= 2
-                        ? ` (${tpsOutlier.toFixed(1).replace(".", ",")}×)`
-                        : ""}
-                    </td>
-                    <td className="mono text-fg-muted px-2 py-2.5 text-right align-middle whitespace-nowrap">
-                      {item.cycleTimeHours != null ? `${fmt1(item.cycleTimeHours)}h` : "—"}
-                      {cycleOutlier && cycleOutlier >= 2
-                        ? ` (${cycleOutlier.toFixed(1).replace(".", ",")}× média)`
-                        : ""}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
+                    : null
+                }
+                onChanged={(updated) => onItemChanged(item.id, updated)}
+              />
+            );
+          })}
         </div>
       )}
     </DevDashCard>
@@ -526,7 +418,7 @@ function InProgressPanel({ items, loading }) {
                 </span>
               </div>
               <div style={{ fontSize: "var(--mono-base)", color: "var(--fg)" }}>
-                {item.title || "—"}
+                <WorkItemLink id={item.id}>{item.title || "—"}</WorkItemLink>
               </div>
               <div>
                 <span
@@ -787,7 +679,8 @@ function PendingAllocationRow({ batch, onAccept, onAdjust, itemsById }) {
                   </span>
                 ) : null}
                 {wi?.externalId ? `${wi.externalId} · ` : ""}
-                {s.workItemTitle} · {pct}% · ≈{fmtTokensM((pct / 100) * totalTokens)} tokens
+                <WorkItemLink id={s.workItemId}>{s.workItemTitle}</WorkItemLink> · {pct}% · ≈
+                {fmtTokensM((pct / 100) * totalTokens)} tokens
               </span>
             );
           })}
@@ -978,7 +871,7 @@ function InsightsStrip({ data }) {
       {insights.map((i) => (
         <span
           key={i.id}
-          className={`mono rounded-btn bg-bg-elev border px-3 py-1 text-[11px] ${tone[i.tone] || tone.info}`}
+          className={`mono rounded-btn bg-bg-elev border px-3 py-1 text-[length:var(--mono-sm)] ${tone[i.tone] || tone.info}`}
         >
           {i.text}
         </span>
@@ -1017,7 +910,7 @@ function KpiDelta({ current, previous, invert = false, unit = "" }) {
   const good = invert ? !up : up;
   return (
     <span
-      className="mono ml-2 text-[10px]"
+      className="mono ml-2 text-[length:var(--mono-sm)]"
       style={{ color: good ? "var(--good)" : "var(--bad)" }}
       title={`vs sprint anterior: ${Number(previous).toFixed(1)}${unit}`}
     >
@@ -1034,79 +927,44 @@ function KpiDelta({ current, previous, invert = false, unit = "" }) {
  * @param {{ projectId?: string, sprintId?: string, startDate?: string, endDate?: string, model?: string, onNavigate?: (tab: string) => void }} props
  */
 export function DeveloperDashboard({ projectId, sprintId, startDate, endDate, model, onNavigate }) {
-  const [data, setData] = React.useState(null);
-  const [loading, setLoading] = React.useState(false);
-  const [error, setError] = React.useState(null);
-
-  const [pending, setPending] = React.useState([]);
-  const [pendingLoading, setPendingLoading] = React.useState(false);
-  const [sprintItems, setSprintItems] = React.useState([]);
+  const client = useQueryClient();
+  const dashboardKey = ["dashboard", "individual", projectId, sprintId, startDate, endDate, model];
+  const dashboard = useQuery({
+    queryKey: dashboardKey,
+    queryFn: () => getDeveloperDashboard({ projectId, sprintId, startDate, endDate, model }),
+    staleTime: 30000,
+  });
+  const data = dashboard.data;
+  const loading = dashboard.isPending;
+  const error = dashboard.error?.message;
+  const fetchData = dashboard.refetch;
+  const pendingQuery = useQuery({
+    queryKey: ["ai-usage", "dashboard-pending"],
+    // Sem wrapper, o React Query passa o contexto como params e o toQuery
+    // serializa queryKey/signal na URL.
+    queryFn: () => getPendingAllocations(),
+    staleTime: 30000,
+  });
+  const pending = (pendingQuery.data || []).filter(
+    (batch) =>
+      data?.sprintContext?.sprintId &&
+      batch.day >= data.sprintContext.startDate &&
+      batch.day <= data.sprintContext.endDate,
+  );
+  const pendingLoading = pendingQuery.isPending;
+  const candidates = useQuery({
+    queryKey: ["ai-usage", "sprint-items"],
+    queryFn: getSprintItems,
+    staleTime: 30000,
+  });
+  const sprintItems = candidates.data || [];
   const [modalBatch, setModalBatch] = React.useState(null);
   const [modalLoading, setModalLoading] = React.useState(false);
   const [toast, setToast] = React.useState(null);
-
-  // Join único (id → work item) que enriquece as alocações — linha pendente e modal —
-  // com tipo/ID externo vindos do payload do dashboard.
-  const itemsById = React.useMemo(() => {
-    const map = new Map();
-    for (const wi of data?.currentSprintItems || []) map.set(wi.id, wi);
-    return map;
-  }, [data?.currentSprintItems]);
-
-  const fetchData = React.useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const result = await getDeveloperDashboard({
-        projectId,
-        sprintId,
-        startDate,
-        endDate,
-        model,
-      });
-      setData(result);
-    } catch (err) {
-      setError(err.message || "Erro ao carregar o dashboard.");
-    } finally {
-      setLoading(false);
-    }
-  }, [projectId, sprintId, startDate, endDate, model]);
-
-  const fetchPending = React.useCallback(async (tokensByDay) => {
-    if (!tokensByDay?.length) return;
-    const days = tokensByDay
-      .map((d) => d.date)
-      .filter(Boolean)
-      .sort();
-    const sprintFrom = days[0];
-    const sprintTo = days[days.length - 1];
-    setPendingLoading(true);
-    try {
-      const all = await getPendingAllocations();
-      const inSprint = (Array.isArray(all) ? all : []).filter(
-        (b) => b.day >= sprintFrom && b.day <= sprintTo,
-      );
-      setPending(inSprint);
-    } catch {
-      setPending([]);
-    } finally {
-      setPendingLoading(false);
-    }
-  }, []);
-
-  React.useEffect(() => {
-    fetchData();
-  }, [fetchData]);
-
-  React.useEffect(() => {
-    if (data?.tokensByDay) fetchPending(data.tokensByDay);
-  }, [data?.tokensByDay, fetchPending]);
-
-  React.useEffect(() => {
-    getSprintItems()
-      .then((d) => setSprintItems(Array.isArray(d) ? d : []))
-      .catch(() => {});
-  }, []);
+  const itemsById = React.useMemo(
+    () => new Map((data?.currentSprintItems || []).map((item) => [item.id, item])),
+    [data],
+  );
 
   function showToast(msg, ok = true) {
     setToast({ msg, ok });
@@ -1114,11 +972,12 @@ export function DeveloperDashboard({ projectId, sprintId, startDate, endDate, mo
   }
 
   function removePending(day) {
-    setPending((prev) => prev.filter((b) => b.day !== day));
+    client.invalidateQueries({ queryKey: ["ai-usage"] });
+    client.invalidateQueries({ queryKey: ["dashboard"] });
   }
 
   function handleSprintItemChanged(itemId, updated) {
-    setData((prev) => {
+    client.setQueryData(dashboardKey, (prev) => {
       if (!prev?.currentSprintItems) return prev;
       return {
         ...prev,
@@ -1182,8 +1041,7 @@ export function DeveloperDashboard({ projectId, sprintId, startDate, endDate, mo
             painel individual
           </div>
           <h1 className="serif" style={{ fontSize: 40, lineHeight: 1.1 }}>
-            Dashboard{" "}
-            <span style={{ fontStyle: "italic", color: "var(--accent)" }}>do Desenvolvedor</span>
+            Minha <span style={{ fontStyle: "italic", color: "var(--accent)" }}>sprint</span>
           </h1>
         </div>
       </div>
@@ -1197,6 +1055,33 @@ export function DeveloperDashboard({ projectId, sprintId, startDate, endDate, mo
         </div>
       )}
 
+      {/* Cabecalho, nao card: eram duas linhas de texto ocupando uma caixa
+       * inteira, competindo em peso com os cards que carregam dados. */}
+      <section className="border-line mb-5 border-b pb-4">
+        <h2 className="font-serif text-2xl">
+          {loading
+            ? "Carregando sprint…"
+            : data?.sprintContext?.sprintName || "Nenhuma sprint atual atribuída"}
+        </h2>
+        {data?.sprintContext && (
+          <p className="text-fg-muted mt-1">
+            {data.sprintContext.startDate?.split("-").reverse().join("/")} —{" "}
+            {data.sprintContext.endDate?.split("-").reverse().join("/")} · Seus work items e consumo
+            de IA
+          </p>
+        )}
+        {!loading && !data?.sprintContext?.sprintId && (
+          <p className="text-fg-muted mt-2">
+            Selecione um projeto e uma sprint nos filtros ou confira a atribuição dos seus work
+            items. IA e GitHub usam o período indicado.
+          </p>
+        )}
+      </section>
+      {pendingQuery.isError && (
+        <p role="alert" className="text-bad mb-4">
+          Não foi possível consultar as alocações pendentes.
+        </p>
+      )}
       {/* Leituras determinísticas da sprint (insights.js) — some sem sinal */}
       <InsightsStrip data={data} />
 
@@ -1212,13 +1097,9 @@ export function DeveloperDashboard({ projectId, sprintId, startDate, endDate, mo
       {/* KPI strip com delta vs sprint anterior (sprintHistory) */}
       <MetricsRow data={data} loading={loading} />
 
-      {/* Row 3: burndown (elástico, estica até a coluna direita) + comparação entre sprints + em andamento */}
-      <div className="mb-4 grid grid-cols-1 gap-4 lg:grid-cols-[minmax(0,55fr)_minmax(0,45fr)]">
-        <BurndownCard data={data?.burndownSeries} loading={loading} onNavigate={onNavigate} fill />
-        <div className="flex min-w-0 flex-col gap-4 [&>.dev-dash-card]:mb-0">
-          <EffortAiCard history={data?.sprintHistory} />
-          <InProgressPanel items={data?.inProgressItems} loading={loading} />
-        </div>
+      <div className="mb-5 grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <InProgressPanel items={data?.inProgressItems} loading={loading} />
+        <GithubSprintCard data={data} loading={loading} />
       </div>
 
       {/* Row 4: unified AI card */}
@@ -1243,6 +1124,15 @@ export function DeveloperDashboard({ projectId, sprintId, startDate, endDate, mo
         onItemChanged={handleSprintItemChanged}
       />
 
+      <details className="rounded-card border-line mb-5 border p-4">
+        <summary className="text-fg-muted cursor-pointer">
+          Evolução e comparação entre sprints
+        </summary>
+        <div className="mt-4 grid grid-cols-1 gap-4 lg:grid-cols-2">
+          <BurndownCard data={data?.burndownSeries} loading={loading} onNavigate={onNavigate} />
+          <EffortAiCard history={data?.sprintHistory} />
+        </div>
+      </details>
       {/* Allocation modal */}
       {modalBatch && (
         <AllocationModal
@@ -1277,5 +1167,88 @@ export function DeveloperDashboard({ projectId, sprintId, startDate, endDate, mo
         </div>
       )}
     </div>
+  );
+}
+
+function GithubSprintCard({ data, loading }) {
+  const context = data?.sprintContext;
+  const prs = context?.pullRequests || [];
+  return (
+    <section className="rounded-card border-line bg-bg-elev border p-5">
+      <p className="text-fg-muted font-mono text-sm">colaboração</p>
+      <h2 className="mb-2 font-serif text-2xl">Meus pull requests</h2>
+      <p className="text-fg-muted mb-4 text-sm">
+        PRs criados no período · todos os seus repositórios conectados
+      </p>
+      {loading ? (
+        <p role="status">Carregando PRs…</p>
+      ) : (
+        <>
+          <dl className="mb-4 grid grid-cols-2 gap-4">
+            {[
+              ["Abertos", data?.openPrs ?? "—"],
+              ["Integrados", data?.mergedPrs ?? "—"],
+              [
+                "Até a primeira review",
+                context?.avgTimeToFirstReviewHours == null
+                  ? "Sem medição"
+                  : fmt1(context.avgTimeToFirstReviewHours) + " h",
+              ],
+              [
+                "Ciclo dos PRs integrados",
+                context?.avgPrCycleTimeHours == null
+                  ? "Sem medição"
+                  : fmt1(context.avgPrCycleTimeHours) + " h",
+              ],
+            ].map(([label, value]) => (
+              <div key={label}>
+                <dt className="text-fg-muted text-sm">{label}</dt>
+                <dd className="font-serif text-2xl">{value}</dd>
+              </div>
+            ))}
+          </dl>
+          <p className="text-fg-muted mb-3 text-sm">
+            Primeira review: {context?.reviewedPrs ?? 0} PRs com medição.
+          </p>
+          {prs.length ? (
+            <ul className="space-y-3">
+              {prs.map((pr) => {
+                const item = data?.currentSprintItems?.find(
+                  (wi) => wi.externalId === pr.linkedWorkItemExternalId,
+                );
+                return (
+                  <li key={pr.id} className="border-line border-t pt-3">
+                    <p>
+                      #{pr.number} · {pr.title}
+                    </p>
+                    <p className="text-fg-muted text-sm">
+                      {pr.status === "OPEN"
+                        ? "Aberto"
+                        : pr.status === "MERGED"
+                          ? "Integrado"
+                          : "Fechado"}{" "}
+                      ·{" "}
+                      {pr.timeToFirstReviewHours == null
+                        ? "Sem primeira review registrada"
+                        : fmt1(pr.timeToFirstReviewHours) + " h até a primeira review"}
+                    </p>
+                    {item && (
+                      <WorkItemLink id={item.id}>
+                        Work item #{item.externalId} · {item.title}
+                      </WorkItemLink>
+                    )}
+                  </li>
+                );
+              })}
+            </ul>
+          ) : (
+            <p className="text-fg-muted">
+              Nenhum PR registrado para você neste período. Confira sua conta GitHub e a
+              sincronização dos repositórios.
+            </p>
+          )}
+        </>
+      )}
+    </section>
   );
 }

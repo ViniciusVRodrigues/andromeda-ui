@@ -119,6 +119,8 @@ test("rework: velocity, insights, deltas, type badges e outliers renderizam com 
   await expect(page.getByText("AZDO-102").first()).toBeVisible();
   await expect(page.getByText("BUG", { exact: true }).first()).toBeVisible();
 
+  await page.getByText("Evolução e comparação entre sprints", { exact: true }).click();
+
   // comparação entre sprints — o VelocityCard deu lugar ao gráfico composto
   // "Entrega × Esforço × IA" (dashboard-effort-ai-comparison); nome da sprint
   // anterior aparece no eixo
@@ -133,8 +135,8 @@ test("rework: velocity, insights, deltas, type badges e outliers renderizam com 
   // KPI delta vs sprint anterior (cycle 10 vs 12 = ▼17%, bom → verde)
   await expect(page.locator(".dev-dash-metric-value-row").first().locator("text=▼")).toBeVisible();
 
-  // outlier de cycle no próprio card (2,1× média)
-  await expect(page.getByText(/2,1× média/).first()).toBeVisible();
+  // outlier de cycle no card do item — sob o rotulo "Ciclo", o "x" basta
+  await expect(page.getByText(/2,1×/).first()).toBeVisible();
 
   // trava o visual populado do rework (baseline novo, intencional)
   await expect(page).toHaveScreenshot("dashboard-individual-rework.png", {

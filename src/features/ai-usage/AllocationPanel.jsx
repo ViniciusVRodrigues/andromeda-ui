@@ -1,3 +1,4 @@
+import { WorkItemLink } from "../../core/work-items/WorkItemLink.jsx";
 import React from "react";
 import api from "../../core/api/client.js";
 import { redistribute, normalise } from "../../core/allocationMath.js";
@@ -203,7 +204,9 @@ export default function AllocationPanel({ pendingDays, onClose, onSaved }) {
                       maxWidth: 300,
                     }}
                   >
-                    {item.workItemTitle || item.workItemId}
+                    <WorkItemLink id={item.workItemId}>
+                      {item.workItemTitle || item.workItemId}
+                    </WorkItemLink>
                   </span>
                   <span
                     style={{
@@ -308,31 +311,18 @@ export default function AllocationPanel({ pendingDays, onClose, onSaved }) {
                 </div>
               )}
               {filtered.map((c) => (
-                <button
+                <div
                   key={c.workItemId}
-                  onClick={() => handleAddCandidate(c)}
-                  style={{
-                    display: "block",
-                    width: "100%",
-                    textAlign: "left",
-                    background: "transparent",
-                    border: "none",
-                    padding: "6px 8px",
-                    cursor: "pointer",
-                    color: "var(--fg)",
-                    fontSize: 12,
-                    borderRadius: 4,
-                  }}
-                  onMouseEnter={(e) =>
-                    (e.currentTarget.style.background = "rgba(198,139,102,0.12)")
-                  }
-                  onMouseLeave={(e) => (e.currentTarget.style.background = "transparent")}
+                  className="border-line flex items-center gap-3 border-b py-2"
                 >
-                  {c.title}
-                  <span style={{ fontSize: 10, color: "var(--fg-dim)", marginLeft: 8 }}>
-                    {c.sprintName}
-                  </span>
-                </button>
+                  <WorkItemLink id={c.workItemId} className="flex-1">
+                    {c.title}
+                  </WorkItemLink>
+                  <span className="text-fg-muted text-sm">{c.sprintName}</span>
+                  <button className="btn-ghost btn" onClick={() => handleAddCandidate(c)}>
+                    Adicionar
+                  </button>
+                </div>
               ))}
             </div>
           )}

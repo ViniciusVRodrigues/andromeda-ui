@@ -15,7 +15,9 @@ import {
  * Os payloads vivem em fixtures/dashboard-rich.mjs (compartilhados com o
  * script de captura do print da landing page). */
 
-test("individual: gráfico composto renderiza e burndown alinha sem vazio", async ({ page }) => {
+test("individual: colaboração e evolução da sprint preservam métricas e alocação", async ({
+  page,
+}) => {
   const { orgSlug } = await loginAsAdmin(page);
   await page.route("**/v1/dashboard/developer**", (route) =>
     route.fulfill({
@@ -45,6 +47,9 @@ test("individual: gráfico composto renderiza e burndown alinha sem vazio", asyn
   await page.goto(`/${orgSlug}/dashboard`);
   await page.waitForLoadState("networkidle");
 
+  await expect(page.getByRole("heading", { name: "Meus pull requests" })).toBeVisible();
+  await page.getByText("Evolução e comparação entre sprints", { exact: true }).click();
+
   // card novo no lugar do Velocity
   await expect(page.getByText("Entrega × Esforço × IA").first()).toBeVisible();
   // legenda com as 4 séries ligadas aos eixos
@@ -55,24 +60,7 @@ test("individual: gráfico composto renderiza e burndown alinha sem vazio", asyn
   // nome de sprint histórica no eixo
   await expect(page.getByText("Sprint 23").first()).toBeVisible();
 
-  // alinhamento: o card Burndown deve terminar na mesma linha do último card
-  // da coluna direita (sem vazio sob o burndown — o defeito do print)
-  const bottoms = await page.evaluate(() => {
-    const cards = [...document.querySelectorAll(".dev-dash-card")];
-    const burndown = cards.find(
-      (c) => c.querySelector(".dev-dash-card-title")?.textContent === "Burndown",
-    );
-    const inProgress = cards.find(
-      (c) => c.querySelector(".dev-dash-card-title")?.textContent === "Em Andamento",
-    );
-    if (!burndown || !inProgress) return null;
-    return {
-      burndown: burndown.getBoundingClientRect().bottom,
-      inProgress: inProgress.getBoundingClientRect().bottom,
-    };
-  });
-  expect(bottoms).not.toBeNull();
-  expect(Math.abs(bottoms.burndown - bottoms.inProgress)).toBeLessThanOrEqual(2);
+  await expect(page.getByText("Burndown", { exact: true })).toBeVisible();
 
   // toHaveScreenshot não aceita fullPage (seria ignorado) — o baseline precisa
   // ENQUADRAR a linha alterada: rola até o card Burndown e trava o viewport
@@ -119,18 +107,20 @@ test("individual: gráfico composto renderiza e burndown alinha sem vazio", asyn
   await page.keyboard.press("Escape");
   await expect(dialog).toBeHidden();
 
-  // work items em tabela: cabeçalho de colunas + separações por linha
-  await expect(page.getByRole("columnheader", { name: "Custo IA" })).toBeVisible();
-  await expect(page.getByRole("columnheader", { name: "T/SP" })).toBeVisible();
-  await expect(page.getByRole("columnheader", { name: "Complexidade" })).toBeVisible();
-  await expect(page.getByRole("columnheader", { name: "Esforço" })).toBeVisible();
+  // work items em card: o cartao inteiro abre o modal e as metricas vazias
+  // simplesmente nao aparecem (complexidade/esforco agora se editam no modal).
+  const wiCard = page.getByRole("article", { name: "Tratar rate limit da API" });
+  await expect(wiCard).toBeVisible();
+  // custo dominante recebe cor + ⚠; as unidades ficam inline na linha de fatos
+  await expect(wiCard.getByText("$0.70")).toBeVisible();
+  await expect(wiCard.getByText("T/SP")).toBeVisible();
   await page
     .locator(".dev-dash-card")
     .filter({ hasText: "Work Items" })
     .first()
     .scrollIntoViewIfNeeded();
   await page.waitForTimeout(200);
-  await expect(page).toHaveScreenshot("dashboard-sprint-items-table.png", {
+  await expect(page).toHaveScreenshot("dashboard-sprint-items-cards.png", {
     maxDiffPixelRatio: 0.02,
   });
 });
