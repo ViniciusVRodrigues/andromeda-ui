@@ -11,6 +11,13 @@ import { AiConnectorCard } from "./AiConnectorCard.jsx";
 import { Icon } from "../../components/charts/Charts.jsx";
 import Drawer from "../../core/ui/Drawer.jsx";
 import { ConfirmDialog } from "../../core/ui/Modal.jsx";
+import { IntegrationDataActions } from "./IntegrationDataActions.jsx";
+import {
+  useRepairAzureData,
+  useWipeAzureData,
+  useRepairGithubData,
+  useWipeGithubData,
+} from "./hooks.js";
 
 function statusDot(status) {
   if (status === "CONNECTED") return "●";
@@ -440,6 +447,8 @@ function AzureOAuthAction({ polling, onTrigger }) {
  * de projeto sem depender de um F5 — nada desmonta esta aba ao trocar de seção,
  * então o estado do pai ficaria congelado no fetch inicial. */
 function AzureIntegrationCard({ onStatusChange }) {
+  const repararAzure = useRepairAzureData();
+  const limparAzure = useWipeAzureData();
   const [status, setStatus] = React.useState(null); // null=loading, "DISCONNECTED"|"CONNECTED"|"EXPIRED"|"ERROR"|"NETWORK_ERROR"
   const [connection, setConnection] = React.useState(null);
   const [logsOpen, setLogsOpen] = React.useState(false);
@@ -717,6 +726,22 @@ function AzureIntegrationCard({ onStatusChange }) {
                 Desconectar
               </button>
             </div>
+
+            <IntegrationDataActions
+              nome="Azure DevOps"
+              conectado={!networkError}
+              confirmPhrase="Azure DevOps"
+              onReparar={() => repararAzure.mutateAsync(undefined)}
+              onLimpar={() => limparAzure.mutateAsync(undefined)}
+              avisoLimpeza={
+                <>
+                  Todos os work items, sprints, histórico de transições e métricas sincronizados
+                  serão <strong>apagados definitivamente</strong> desta organização. A conexão e os
+                  vínculos de projeto permanecem — uma nova sincronização reconstrói os dados a
+                  partir do Azure DevOps.
+                </>
+              }
+            />
           </>
         )}
       </div>
@@ -833,6 +858,8 @@ function GithubPatSetupForm({ onSuccess, onCancel }) {
 /* Espelha a máquina de estados do cartão Azure: loading → disconnected
  * (form de PAT) → connected (badge, meta, ações) → error (reconectar). */
 function GithubIntegrationCard({ onStatusChange }) {
+  const repararGithub = useRepairGithubData();
+  const limparGithub = useWipeGithubData();
   const [status, setStatus] = React.useState(null); // null=loading, "DISCONNECTED"|"CONNECTED"|"EXPIRED"|"ERROR"|"NETWORK_ERROR"
   const [connection, setConnection] = React.useState(null);
   const [logsOpen, setLogsOpen] = React.useState(false);
@@ -1050,6 +1077,21 @@ function GithubIntegrationCard({ onStatusChange }) {
                 Desconectar
               </button>
             </div>
+
+            <IntegrationDataActions
+              nome="GitHub"
+              conectado={!networkError}
+              confirmPhrase="GitHub"
+              onReparar={() => repararGithub.mutateAsync(undefined)}
+              onLimpar={() => limparGithub.mutateAsync(undefined)}
+              avisoLimpeza={
+                <>
+                  Todos os commits, pull requests, revisões, repositórios e métricas sincronizados
+                  serão <strong>apagados definitivamente</strong> desta organização. A conexão
+                  permanece — uma nova sincronização reconstrói os dados a partir do GitHub.
+                </>
+              }
+            />
           </>
         )}
       </div>

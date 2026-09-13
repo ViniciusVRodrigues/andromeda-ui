@@ -1,11 +1,17 @@
 import React from "react";
 import api, { BACKEND_URL } from "../../core/api/client.js";
 import { ConfirmDialog } from "../../core/ui/Modal.jsx";
+import { IntegrationDataActions } from "./IntegrationDataActions.jsx";
+import { useWipeAiUsageData } from "./hooks.js";
 
 /**
  * @param {{ orgSlug: string, can: (perm: string) => boolean }} props
  */
 export function AiConnectorCard({ orgSlug, can }) {
+  const limparIA = useWipeAiUsageData();
+  /* O backend decide o escopo pelas permissoes do token; aqui so ajustamos o
+   * texto do aviso para dizer a verdade sobre o que vai sumir. */
+  const podeApagarDaOrg = can("CONNECTOR_TOKEN_MANAGE_ALL");
   // "empty" | "generated" | "existing" | "loading" | "error"
   const [uiState, setUiState] = React.useState("loading");
   const [existingTokenId, setExistingTokenId] = React.useState(null);
@@ -220,6 +226,31 @@ export function AiConnectorCard({ orgSlug, can }) {
           onConfirm={handleRegen}
         />
       )}
+
+      <IntegrationDataActions
+        nome="Conector de IA"
+        conectado
+        confirmPhrase="APAGAR"
+        onLimpar={() => limparIA.mutateAsync()}
+        avisoLimpeza={
+          <>
+            {podeApagarDaOrg ? (
+              <>
+                O uso de IA de <strong>toda a organização</strong> será apagado: consumo diário,
+                alocações e scores de fluência de todos os usuários.
+              </>
+            ) : (
+              <>
+                <strong>Somente os seus dados</strong> de uso de IA serão apagados — consumo,
+                alocações e o seu score de fluência. Os dados dos outros usuários não são afetados.
+              </>
+            )}{" "}
+            Ao contrário do Azure DevOps e do GitHub, estes dados{" "}
+            <strong>não podem ser recuperados</strong>: eles chegam por upload da extensão, não por
+            sincronização. Não há como desfazer.
+          </>
+        }
+      />
     </div>
   );
 }

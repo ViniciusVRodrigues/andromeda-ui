@@ -113,7 +113,21 @@ export function ConfirmDialog({
   onConfirm,
   busy = false,
   danger = false,
+  confirmPhrase,
+  confirmPhraseLabel,
 }) {
+  // Ação irreversível pede um gesto deliberado: enquanto o texto digitado não
+  // for exatamente `confirmPhrase`, o botão fica desabilitado. Sem a prop, o
+  // diálogo se comporta como sempre (um clique só).
+  const [typed, setTyped] = React.useState("");
+  const requiresPhrase = Boolean(confirmPhrase);
+  const phraseOk = !requiresPhrase || typed.trim() === confirmPhrase;
+
+  // Reabrir o diálogo não pode herdar o texto já validado da vez anterior.
+  React.useEffect(() => {
+    if (!open) setTyped("");
+  }, [open]);
+
   return (
     <Modal
       open={open}
@@ -134,7 +148,7 @@ export function ConfirmDialog({
           <button
             type="button"
             className={danger ? "btn btn-danger" : "btn"}
-            disabled={busy}
+            disabled={busy || !phraseOk}
             onClick={() => {
               onConfirm();
             }}
@@ -145,6 +159,25 @@ export function ConfirmDialog({
       }
     >
       {message ? <p className="confirm-text">{message}</p> : null}
+      {requiresPhrase ? (
+        <label className="ui-field">
+          <span className="ui-field-label">
+            {confirmPhraseLabel ?? (
+              <>
+                Digite <strong>{confirmPhrase}</strong> para confirmar
+              </>
+            )}
+          </span>
+          <input
+            type="text"
+            className="ui-field-input"
+            value={typed}
+            autoComplete="off"
+            disabled={busy}
+            onChange={(e) => setTyped(e.target.value)}
+          />
+        </label>
+      ) : null}
     </Modal>
   );
 }
