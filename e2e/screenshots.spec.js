@@ -53,6 +53,38 @@ test.describe("casca autenticada (admin)", () => {
   }
 });
 
+/* O card do conector AIEF fica abaixo da dobra dentro do container de scroll da
+ * casca, então o fullPage da seção não o captura. Screenshot do elemento garante
+ * que o tutorial (chaves da extensão, passo de GitHub, outras IDEs) não regreda
+ * em silêncio. */
+test.describe("integrações", () => {
+  test("tutorial do conector AIEF", async ({ page }) => {
+    const { orgSlug } = await loginAsAdmin(page);
+    await gotoSection(page, orgSlug, "integracoes");
+    const card = page.locator(".integration-card", { hasText: "AI Connector" });
+    await expect(card).toHaveScreenshot("ai-connector-tutorial.png");
+  });
+
+  /* Os dois <details> ficam fora da dobra e o container de scroll da casca
+   * recorta screenshots de elemento, então cada bloco é capturado aberto e
+   * rolado para dentro da viewport. */
+  test("outras IDEs e troubleshooting do conector", async ({ page }) => {
+    const { orgSlug } = await loginAsAdmin(page);
+    await gotoSection(page, orgSlug, "integracoes");
+    const card = page.locator(".integration-card", { hasText: "AI Connector" });
+
+    const ides = card.locator("details", { hasText: "Outras IDEs" });
+    await ides.locator("summary").click();
+    await ides.scrollIntoViewIfNeeded();
+    await expect(ides).toHaveScreenshot("ai-connector-other-ides.png");
+
+    const trouble = card.locator("details", { hasText: "Não funcionou?" });
+    await trouble.locator("summary").click();
+    await trouble.scrollIntoViewIfNeeded();
+    await expect(trouble).toHaveScreenshot("ai-connector-troubleshooting.png");
+  });
+});
+
 test.describe("diálogos", () => {
   test("modal novo cargo", async ({ page }) => {
     const { orgSlug } = await loginAsAdmin(page);
