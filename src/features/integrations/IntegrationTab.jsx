@@ -319,12 +319,17 @@ function AzurePatSetupForm({ onSuccess, onCancel }) {
   const [error, setError] = React.useState(null);
   const [saving, setSaving] = React.useState(false);
 
-  const slug = orgUrl
-    .replace(/^https?:\/\/dev\.azure\.com\//i, "")
-    .replace(/\/$/, "")
-    .trim();
-  const patLink = slug
-    ? `https://dev.azure.com/${slug}/_usersSettings/tokens`
+  /* O backend aceita dois formatos (ConfigureAzureDevOpsPatUseCase):
+   * https://dev.azure.com/{org} e https://{org}.visualstudio.com. O atalho de
+   * criação de PAT só existe no primeiro, então derivamos {org} dos dois —
+   * antes o .visualstudio.com virava um slug inválido no link. */
+  const org = orgUrl
+    .trim()
+    .replace(/^https?:\/\//i, "")
+    .replace(/\/.*$/, "")
+    .replace(/\.visualstudio\.com$/i, "");
+  const patLink = org
+    ? `https://dev.azure.com/${org}/_usersSettings/tokens`
     : "https://aex.dev.azure.com/me";
 
   const handleSubmit = async (e) => {
@@ -362,11 +367,18 @@ function AzurePatSetupForm({ onSuccess, onCancel }) {
       <div className="integration-pat-scopes">
         <p className="mono integration-pat-scopes-title">Permissões necessárias no PAT:</p>
         <ul className="mono integration-pat-scopes-list">
-          <li>Work Items (Read)</li>
-          <li>Code (Read)</li>
-          <li>Build (Read)</li>
-          <li>Project and Team (Read)</li>
+          <li>Work Items (Read) — sprints, work items e histórico de alterações</li>
+          <li>Project and Team (Read) — projetos, times, iterações e membros</li>
         </ul>
+        <p className="text-fg-muted mt-2 font-mono text-xs">
+          Não é preciso marcar <strong>Code</strong> nem <strong>Build</strong>: a sincronização lê
+          apenas projetos, times, membros e work items. Em <em>Azure DevOps Organizations</em>{" "}
+          selecione a organização inteira — o PAT precisa listar todos os projetos dela.
+        </p>
+        <p className="text-fg-muted mt-2 font-mono text-xs">
+          O PAT é criptografado no Andromeda e usado só para leitura. Quando ele expira a conexão
+          passa a <strong>Token expirado</strong> e a sincronização para até você reconectar.
+        </p>
         <a
           className="integration-pat-link"
           href={patLink}
@@ -400,6 +412,26 @@ function AzurePatSetupForm({ onSuccess, onCancel }) {
         </button>
       </div>
     </form>
+  );
+}
+
+/* O fluxo Entra ID depende de um app registration configurado por quem opera o
+ * Andromeda (AZURE_CLIENT_ID / AZURE_CLIENT_SECRET); o PAT não depende de nada.
+ * Sem o registro o botão abre uma página de erro do Azure, então o aviso e a
+ * saída via PAT ficam junto da ação. */
+function AzureOAuthAction({ polling, onTrigger }) {
+  return (
+    <div>
+      <button className="btn" onClick={onTrigger} disabled={polling}>
+        {polling ? "Aguardando autorização…" : "Abrir autorização Microsoft →"}
+      </button>
+      <p className="text-fg-muted mt-2 font-mono text-xs">
+        Precisa de um aplicativo Entra ID registrado pelo administrador do Andromeda, com os escopos{" "}
+        <code>offline_access</code> e <code>user_impersonation</code> do Azure DevOps (é o que dá o
+        mesmo alcance de um PAT, mais a renovação automática). Se a autorização abrir com erro de
+        configuração, use o PAT.
+      </p>
+    </div>
   );
 }
 
@@ -594,9 +626,7 @@ function AzureIntegrationCard({ onStatusChange }) {
               </div>
             )}
             {authMethod === "OAUTH" && (
-              <button className="btn" onClick={triggerOAuth} disabled={polling}>
-                {polling ? "Aguardando autorização…" : "Abrir autorização Microsoft →"}
-              </button>
+              <AzureOAuthAction polling={polling} onTrigger={triggerOAuth} />
             )}
             {authMethod === "PAT" && (
               <AzurePatSetupForm
@@ -632,9 +662,7 @@ function AzureIntegrationCard({ onStatusChange }) {
               </div>
             )}
             {authMethod === "OAUTH" && (
-              <button className="btn" onClick={triggerOAuth} disabled={polling}>
-                {polling ? "Aguardando autorização…" : "Abrir autorização Microsoft →"}
-              </button>
+              <AzureOAuthAction polling={polling} onTrigger={triggerOAuth} />
             )}
             {authMethod === "PAT" && (
               <AzurePatSetupForm
@@ -754,10 +782,16 @@ function GithubPatSetupForm({ onSuccess, onCancel }) {
       <div className="integration-pat-scopes">
         <p className="mono integration-pat-scopes-title">Permissões necessárias no PAT:</p>
         <ul className="mono integration-pat-scopes-list">
-          <li>repo</li>
-          <li>read:org</li>
-          <li>read:user</li>
+          <li>repo — repositórios, commits, pull requests e reviews (inclusive privados)</li>
+          <li>read:org — listar os repositórios das organizações</li>
+          <li>read:user — identificar o dono do token</li>
         </ul>
+        <p className="text-fg-muted mt-2 font-mono text-xs">
+          Use um token <strong>clássico</strong> (Generate new token → classic) — os escopos acima
+          são de token clássico. Só leitura: nada é escrito no GitHub. Quando o token expira a
+          conexão passa a <strong>Token expirado</strong> e a sincronização para até você
+          reconectar.
+        </p>
         <a
           className="integration-pat-link"
           href="https://github.com/settings/tokens"
