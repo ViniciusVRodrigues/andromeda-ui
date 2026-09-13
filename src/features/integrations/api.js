@@ -210,3 +210,42 @@ export function unbindGithubRepo(projectId, bindingId) {
 export function getAvailableGithubRepos(forProjectId) {
   return api.get(`/v1/integrations/github/repos/available${toQuery({ forProjectId })}`);
 }
+
+/* ── Limpeza e reparo de dados por integração ──
+ *
+ * Reparo relê tudo do provedor preservando os registros existentes (upsert).
+ * Limpeza é hard delete IRREVERSÍVEL. Ambos respondem 202 e correm em segundo
+ * plano: o acompanhamento é o próprio histórico de sincronizações da página.
+ *
+ * Como sempre, o gating de UI destes botões é só UX — quem barra de verdade é o
+ * @PreAuthorize no backend. */
+
+/** Reparo do Azure DevOps. Sem `projectId`, alcança todos os vínculos da organização. */
+export function repairAzureData(projectId) {
+  return api.post(`/v1/integrations/azure/repair${toQuery({ projectId })}`);
+}
+
+/** Apaga os dados do Azure DevOps. Não desconecta nem desvincula. */
+export function wipeAzureData(projectId) {
+  return api.delete(`/v1/integrations/azure/data${toQuery({ projectId })}`);
+}
+
+/** Reparo do GitHub. Sem `projectId`, alcança todos os vínculos da organização. */
+export function repairGithubData(projectId) {
+  return api.post(`/v1/integrations/github/repair${toQuery({ projectId })}`);
+}
+
+/** Apaga os dados do GitHub. Não desconecta a integração. */
+export function wipeGithubData(projectId) {
+  return api.delete(`/v1/integrations/github/data${toQuery({ projectId })}`);
+}
+
+/**
+ * Apaga os dados de uso de IA. Ao contrário de Azure e GitHub, este dado NÃO
+ * volta com re-sync: vem de upload do connector. O escopo (próprio usuário vs.
+ * organização inteira) é decidido pelo backend a partir das permissões do
+ * token — o cliente não escolhe.
+ */
+export function wipeAiUsageData() {
+  return api.delete("/v1/connector-tokens/ai-usage-data");
+}
