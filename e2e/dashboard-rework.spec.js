@@ -50,6 +50,8 @@ const FIXTURE = {
   ],
   avgCycleTimeHours: 10,
   avgLeadTimeHours: 25,
+  cycleTime: { p50: 10, p90: 21, n: 2 },
+  leadTime: { p50: 25, p90: 30, n: 2 },
   storyPointsDelivered: 5,
   totalSpInSprint: 24,
   tokensByDay: [
@@ -86,6 +88,7 @@ const FIXTURE = {
       spPlanned: 20,
       spDelivered: 10,
       avgCycleTimeHours: 12,
+      cycleTimeP50: 12,
       totalTokens: 9000,
       totalCostUsd: 0.72,
     },
@@ -97,6 +100,7 @@ const FIXTURE = {
       spPlanned: 24,
       spDelivered: 5,
       avgCycleTimeHours: 10,
+      cycleTimeP50: 10,
       totalTokens: 18000,
       totalCostUsd: 1.0,
     },
@@ -127,13 +131,16 @@ test("rework: velocity, insights, deltas, type badges e outliers renderizam com 
   await expect(page.getByText("Entrega × Esforço × IA").first()).toBeVisible();
   await expect(page.getByText("Sprint 24").first()).toBeVisible();
 
-  // insight determinístico: wi-2 cycle 21h = 2,1× a média de 10h → desvio
-  await expect(page.getByText(/2,1× a média/).first()).toBeVisible();
+  // insight determinístico: wi-2 cycle 21h = 2,1× a mediana de 10h → desvio
+  await expect(page.getByText(/2,1× a mediana/).first()).toBeVisible();
   // custo: wi-2 = 0,70 de 1,00 total → 70% (concentração, k=1 singular)
   await expect(page.getByText(/concentra 70% do custo/).first()).toBeVisible();
 
-  // KPI delta vs sprint anterior (cycle 10 vs 12 = ▼17%, bom → verde)
-  await expect(page.locator(".dev-dash-metric-value-row").first().locator("text=▼")).toBeVisible();
+  // KPI delta vs sprint anterior (cycle p50 10 vs 12 = ▼17%, bom → verde)
+  await expect(page.getByTestId("duration-stat").first().locator("text=▼")).toBeVisible();
+  // a mediana é rotulada como tal, com p90 e amostra no detalhe
+  await expect(page.getByTestId("duration-stat").first()).toContainText("mediana");
+  await expect(page.getByTestId("duration-stat").first()).toContainText("p90 21.0 h · n 2");
 
   // outlier de cycle no card do item — sob o rotulo "Ciclo", o "x" basta
   await expect(page.getByText(/2,1×/).first()).toBeVisible();

@@ -4,9 +4,17 @@ import {
   configureGithubConnection,
   disconnectGithub,
   getGithubConnectionStatus,
+  azureOAuthStartUrl,
+  triggerAzureSync,
   triggerGithubSync,
 } from "./api.js";
 import { useOAuth } from "../../hooks/useOAuth.js";
+import {
+  AzureOAuthAction,
+  AzureOrgUrlFixForm,
+  AzurePatSetupForm,
+  AzureReposAccessNotice,
+} from "./AzureConnectionForms.jsx";
 import { AiConnectorCard } from "./AiConnectorCard.jsx";
 import { Icon } from "../../components/charts/Charts.jsx";
 import Drawer from "../../core/ui/Drawer.jsx";
@@ -17,7 +25,99 @@ import {
   useWipeAzureData,
   useRepairGithubData,
   useWipeGithubData,
+  useIntegrationSyncProgress,
+  useIntegrationDataInvalidator,
 } from "./hooks.js";
+import { WorkItemLinkSettingsCard } from "./WorkItemLinkSettingsCard.jsx";
+
+/* ─── Sync manual assíncrono ─────────────────────────────── */
+
+const SYNC_RESULT_TOASTS = {
+  SUCCESS: ["success", "Sincronização concluída."],
+  PARTIAL: ["error", "Sincronização concluída com falhas. Veja os logs."],
+  FAILED: ["error", "A sincronização falhou. Veja os logs."],
+};
+
+/* O POST /sync responde 202 + syncId antes de qualquer chamada externa. Este
+ * hook dispara, acompanha o syncId pelo histórico de sincronizações e, no fim,
+ * recarrega o status da conexão (um sucesso tira a conexão de ERROR) e os
+ * dados daquela integração. */
+function useManualSync({ integration, trigger, onFinished, showToast, setSecondsLeft }) {
+  const [syncId, setSyncId] = React.useState(null);
+  const [starting, setStarting] = React.useState(false);
+  const progress = useIntegrationSyncProgress(integration, syncId);
+  const invalidate = useIntegrationDataInvalidator(integration);
+
+  const callbacksRef = React.useRef({ onFinished, showToast });
+  callbacksRef.current = { onFinished, showToast };
+
+  React.useEffect(() => {
+    if (!syncId) return;
+    const { onFinished: finished, showToast: toast } = callbacksRef.current;
+    if (progress.lost) {
+      toast("error", "Não foi possível acompanhar a sincronização. Confira os logs.");
+      setSyncId(null);
+      return;
+    }
+    const status = progress.data?.status;
+    if (!status || status === "RUNNING") return;
+    invalidate();
+    finished?.();
+    const [type, msg] = SYNC_RESULT_TOASTS[status] || SYNC_RESULT_TOASTS.FAILED;
+    toast(type, msg);
+    setSyncId(null);
+  }, [syncId, progress.data, progress.lost, invalidate]);
+
+  const start = async () => {
+    setStarting(true);
+    try {
+      const data = await trigger();
+      if (data?.syncId) setSyncId(data.syncId);
+      showToast("success", "Sincronização iniciada.");
+    } catch (err) {
+      if (err?.status === 429 || err?.message?.includes("(429)")) {
+        setSecondsLeft(err.retryAfter ?? 30);
+        showToast("error", "Sincronização em cooldown. Aguarde antes de tentar novamente.");
+      } else if (err?.status === 403) {
+        showToast("error", "Você não tem permissão para sincronizar esta integração.");
+      } else {
+        showToast("error", "Erro ao iniciar a sincronização. Tente novamente.");
+      }
+    } finally {
+      setStarting(false);
+    }
+  };
+
+  return { start, starting, running: starting || !!syncId, progress: progress.data };
+}
+
+/** Linha de progresso sob os botões enquanto um sync manual corre. */
+function SyncProgressLine({ progress }) {
+  const children = progress?.children || [];
+  const done = children.filter((c) => c.status && c.status !== "RUNNING").length;
+  const processed = progress?.entry?.itemsProcessed;
+  let text = "Sincronizando… o progresso aparece aqui e nos logs.";
+  if (children.length) text = `Sincronizando… ${done} de ${children.length} etapas concluídas`;
+  else if (processed != null) text = `Sincronizando… ${processed} itens processados`;
+  const pct = children.length ? Math.max(8, Math.round((done / children.length) * 100)) : 35;
+  return (
+    <div
+      role="status"
+      className="text-fg-muted mt-3 flex items-center gap-2 font-mono text-[length:var(--mono-sm)]"
+    >
+      <span
+        className="bg-line relative block h-1 w-28 overflow-hidden rounded-full"
+        aria-hidden="true"
+      >
+        <span
+          className="bg-accent absolute inset-y-0 left-0 block rounded-full transition-[width] duration-300"
+          style={{ width: `${pct}%` }}
+        />
+      </span>
+      <span>{text}</span>
+    </div>
+  );
+}
 
 function statusDot(status) {
   if (status === "CONNECTED") return "●";
@@ -77,6 +177,7 @@ const OPERATION_LABELS = {
   SYNC_PULL_REQUESTS: "Pull requests",
   SYNC_COMMITS: "Commits",
   SYNC_REPOSITORIES: "Repositórios",
+  PROJECT_REFRESH: "Atualização do projeto",
 };
 
 const STATUS_LABELS = {
@@ -320,128 +421,6 @@ function SyncLogDrawer({ open, onClose, integration = "AZURE_DEVOPS" }) {
 
 /* ─── Cartão Azure DevOps ─────────────────────────────────── */
 
-function AzurePatSetupForm({ onSuccess, onCancel }) {
-  const [orgUrl, setOrgUrl] = React.useState("");
-  const [pat, setPat] = React.useState("");
-  const [error, setError] = React.useState(null);
-  const [saving, setSaving] = React.useState(false);
-
-  /* O backend aceita dois formatos (ConfigureAzureDevOpsPatUseCase):
-   * https://dev.azure.com/{org} e https://{org}.visualstudio.com. O atalho de
-   * criação de PAT só existe no primeiro, então derivamos {org} dos dois —
-   * antes o .visualstudio.com virava um slug inválido no link. */
-  const org = orgUrl
-    .trim()
-    .replace(/^https?:\/\//i, "")
-    .replace(/\/.*$/, "")
-    .replace(/\.visualstudio\.com$/i, "");
-  const patLink = org
-    ? `https://dev.azure.com/${org}/_usersSettings/tokens`
-    : "https://aex.dev.azure.com/me";
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!orgUrl.trim() || !pat.trim()) return;
-    setSaving(true);
-    setError(null);
-    try {
-      await api.post("/v1/integrations/azure/connection/pat", {
-        adoOrganizationUrl: orgUrl.trim(),
-        personalAccessToken: pat.trim(),
-      });
-      onSuccess();
-    } catch (_) {
-      setError("Não foi possível salvar o token. Verifique os dados e tente novamente.");
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  return (
-    <form className="integration-pat-form" onSubmit={handleSubmit}>
-      <label className="ui-field">
-        <span className="ui-field-label">URL da organização Azure DevOps</span>
-        <input
-          className="ui-field-input"
-          type="text"
-          placeholder="https://dev.azure.com/minha-org"
-          value={orgUrl}
-          onChange={(e) => setOrgUrl(e.target.value)}
-          required
-        />
-      </label>
-
-      <div className="integration-pat-scopes">
-        <p className="mono integration-pat-scopes-title">Permissões necessárias no PAT:</p>
-        <ul className="mono integration-pat-scopes-list">
-          <li>Work Items (Read) — sprints, work items e histórico de alterações</li>
-          <li>Project and Team (Read) — projetos, times, iterações e membros</li>
-        </ul>
-        <p className="text-fg-muted mt-2 font-mono text-xs">
-          Não é preciso marcar <strong>Code</strong> nem <strong>Build</strong>: a sincronização lê
-          apenas projetos, times, membros e work items. Em <em>Azure DevOps Organizations</em>{" "}
-          selecione a organização inteira — o PAT precisa listar todos os projetos dela.
-        </p>
-        <p className="text-fg-muted mt-2 font-mono text-xs">
-          O PAT é criptografado no Andromeda e usado só para leitura. Quando ele expira a conexão
-          passa a <strong>Token expirado</strong> e a sincronização para até você reconectar.
-        </p>
-        <a
-          className="integration-pat-link"
-          href={patLink}
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          Criar PAT na Azure DevOps ↗
-        </a>
-      </div>
-
-      <label className="ui-field">
-        <span className="ui-field-label">Personal Access Token</span>
-        <input
-          className="ui-field-input"
-          type="password"
-          placeholder="Cole o PAT aqui"
-          value={pat}
-          onChange={(e) => setPat(e.target.value)}
-          required
-        />
-      </label>
-
-      {error && <p className="mono integration-error">{error}</p>}
-
-      <div className="ui-modal-foot">
-        <button type="button" className="btn-ghost btn" onClick={onCancel}>
-          Cancelar
-        </button>
-        <button type="submit" className="btn" disabled={saving || !orgUrl.trim() || !pat.trim()}>
-          {saving ? "Salvando…" : "Conectar →"}
-        </button>
-      </div>
-    </form>
-  );
-}
-
-/* O fluxo Entra ID depende de um app registration configurado por quem opera o
- * Andromeda (AZURE_CLIENT_ID / AZURE_CLIENT_SECRET); o PAT não depende de nada.
- * Sem o registro o botão abre uma página de erro do Azure, então o aviso e a
- * saída via PAT ficam junto da ação. */
-function AzureOAuthAction({ polling, onTrigger }) {
-  return (
-    <div>
-      <button className="btn" onClick={onTrigger} disabled={polling}>
-        {polling ? "Aguardando autorização…" : "Abrir autorização Microsoft →"}
-      </button>
-      <p className="text-fg-muted mt-2 font-mono text-xs">
-        Precisa de um aplicativo Entra ID registrado pelo administrador do Andromeda, com os escopos{" "}
-        <code>offline_access</code> e <code>user_impersonation</code> do Azure DevOps (é o que dá o
-        mesmo alcance de um PAT, mais a renovação automática). Se a autorização abrir com erro de
-        configuração, use o PAT.
-      </p>
-    </div>
-  );
-}
-
 /* onStatusChange é chamado sempre que o status resolvido muda, para que a casca
  * (AdminSettings) reavalie o banner de "configure o Azure" e a seção de vínculo
  * de projeto sem depender de um F5 — nada desmonta esta aba ao trocar de seção,
@@ -457,8 +436,8 @@ function AzureIntegrationCard({ onStatusChange }) {
   const [authMethod, setAuthMethod] = React.useState(null); // null=not chosen, "OAUTH", "PAT"
   const [syncToast, setSyncToast] = React.useState(null); // { type: "success"|"error", msg: string } | null
 
-  const fetchStatus = React.useCallback(async () => {
-    setStatus(null);
+  const fetchStatus = React.useCallback(async ({ silent = false } = {}) => {
+    if (!silent) setStatus(null);
     try {
       const data = await api.get("/v1/integrations/azure/connection");
       setConnection(data);
@@ -484,7 +463,10 @@ function AzureIntegrationCard({ onStatusChange }) {
     if (status !== null) onStatusChange?.(status);
   }, [status, onStatusChange]);
 
+  /* A URL da organização vai na query do início do OAuth (azure-repos-provider D7). */
+  const [oauthOrgUrl, setOauthOrgUrl] = React.useState("");
   const { trigger: triggerOAuth, polling } = useOAuth({
+    popupUrl: azureOAuthStartUrl(oauthOrgUrl.trim()),
     onSuccess: (data) => {
       setConnection(data);
       setStatus(data.status);
@@ -509,22 +491,13 @@ function AzureIntegrationCard({ onStatusChange }) {
     setTimeout(() => setSyncToast(null), 4000);
   };
 
-  const handleSync = async () => {
-    try {
-      await api.post("/v1/integrations/azure/sync", null);
-      setSecondsLeft(30);
-      showToast("success", "Sincronização iniciada com sucesso.");
-    } catch (err) {
-      if (err.message?.includes("(429)")) {
-        const match = err.message.match(/\d+s/);
-        const secs = match ? parseInt(match[0]) : 30;
-        setSecondsLeft(secs);
-        showToast("error", "Sincronização em cooldown. Aguarde antes de tentar novamente.");
-      } else {
-        showToast("error", "Erro ao iniciar a sincronização. Tente novamente.");
-      }
-    }
-  };
+  const sync = useManualSync({
+    integration: "AZURE_DEVOPS",
+    trigger: triggerAzureSync,
+    onFinished: () => fetchStatus({ silent: true }),
+    showToast,
+    setSecondsLeft,
+  });
 
   const handleDisconnect = async () => {
     try {
@@ -621,8 +594,8 @@ function AzureIntegrationCard({ onStatusChange }) {
         {status === "DISCONNECTED" && (
           <>
             <p className="integration-desc">
-              Conecte o Azure DevOps para habilitar a sincronização automática de sprints e work
-              items.
+              Conecte o Azure DevOps para sincronizar sprints e work items (Boards) e vincular
+              repositórios Git do Azure Repos aos projetos.
             </p>
             {authMethod === null && (
               <div className="integration-method-chooser">
@@ -635,11 +608,19 @@ function AzureIntegrationCard({ onStatusChange }) {
               </div>
             )}
             {authMethod === "OAUTH" && (
-              <AzureOAuthAction polling={polling} onTrigger={triggerOAuth} />
+              <AzureOAuthAction
+                orgUrl={oauthOrgUrl}
+                onOrgUrlChange={setOauthOrgUrl}
+                polling={polling}
+                onTrigger={triggerOAuth}
+              />
             )}
             {authMethod === "PAT" && (
               <AzurePatSetupForm
-                onSuccess={() => fetchStatus()}
+                onSuccess={() => {
+                  setAuthMethod(null);
+                  fetchStatus();
+                }}
                 onCancel={() => setAuthMethod(null)}
               />
             )}
@@ -660,6 +641,12 @@ function AzureIntegrationCard({ onStatusChange }) {
                 {(connection?.consecutiveFailures ?? 0) !== 1 ? "s" : ""}
               </div>
             )}
+            {status === "ERROR" && connection?.lastErrorCode === "AZURE_ORG_URL_INVALID" && (
+              <AzureOrgUrlFixForm
+                currentUrl={connection.azureOrgUrl}
+                onFixed={() => fetchStatus({ silent: true })}
+              />
+            )}
             {authMethod === null && (
               <div className="integration-method-chooser">
                 <button className="btn" onClick={() => setAuthMethod("OAUTH")} disabled={polling}>
@@ -671,11 +658,19 @@ function AzureIntegrationCard({ onStatusChange }) {
               </div>
             )}
             {authMethod === "OAUTH" && (
-              <AzureOAuthAction polling={polling} onTrigger={triggerOAuth} />
+              <AzureOAuthAction
+                orgUrl={oauthOrgUrl}
+                onOrgUrlChange={setOauthOrgUrl}
+                polling={polling}
+                onTrigger={triggerOAuth}
+              />
             )}
             {authMethod === "PAT" && (
               <AzurePatSetupForm
-                onSuccess={() => fetchStatus()}
+                onSuccess={() => {
+                  setAuthMethod(null);
+                  fetchStatus();
+                }}
                 onCancel={() => setAuthMethod(null)}
               />
             )}
@@ -703,13 +698,31 @@ function AzureIntegrationCard({ onStatusChange }) {
                 </div>
               )}
             </div>
+            <AzureReposAccessNotice
+              connection={connection}
+              onUpdatePat={() => setAuthMethod("PAT")}
+            />
+            {authMethod === "PAT" && (
+              <AzurePatSetupForm
+                onSuccess={() => {
+                  setAuthMethod(null);
+                  fetchStatus({ silent: true });
+                }}
+                onCancel={() => setAuthMethod(null)}
+              />
+            )}
             <div className="integration-actions">
               <button
                 className="btn"
-                onClick={handleSync}
-                disabled={secondsLeft > 0 || networkError}
+                onClick={sync.start}
+                disabled={sync.running || secondsLeft > 0 || networkError}
+                aria-busy={sync.running}
               >
-                {secondsLeft > 0 ? `Aguarde ${secondsLeft}s…` : "Sincronizar agora"}
+                {sync.running
+                  ? "Sincronizando…"
+                  : secondsLeft > 0
+                    ? `Aguarde ${secondsLeft}s…`
+                    : "Sincronizar agora"}
               </button>
               <button
                 className="btn-ghost btn"
@@ -726,6 +739,7 @@ function AzureIntegrationCard({ onStatusChange }) {
                 Desconectar
               </button>
             </div>
+            {sync.running ? <SyncProgressLine progress={sync.progress} /> : null}
 
             <IntegrationDataActions
               nome="Azure DevOps"
@@ -868,8 +882,8 @@ function GithubIntegrationCard({ onStatusChange }) {
   const [showPatForm, setShowPatForm] = React.useState(false); // fluxo de reconexão (estado ERROR)
   const [syncToast, setSyncToast] = React.useState(null); // { type: "success"|"error", msg: string } | null
 
-  const fetchStatus = React.useCallback(async () => {
-    setStatus(null);
+  const fetchStatus = React.useCallback(async ({ silent = false } = {}) => {
+    if (!silent) setStatus(null);
     try {
       const data = await getGithubConnectionStatus();
       setConnection(data);
@@ -905,22 +919,13 @@ function GithubIntegrationCard({ onStatusChange }) {
     setTimeout(() => setSyncToast(null), 4000);
   };
 
-  const handleSync = async () => {
-    try {
-      await triggerGithubSync();
-      setSecondsLeft(30);
-      showToast("success", "Sincronização iniciada com sucesso.");
-    } catch (err) {
-      if (err.message?.includes("(429)")) {
-        const match = err.message.match(/\d+s/);
-        const secs = match ? parseInt(match[0]) : 30;
-        setSecondsLeft(secs);
-        showToast("error", "Sincronização em cooldown. Aguarde antes de tentar novamente.");
-      } else {
-        showToast("error", "Erro ao iniciar a sincronização. Tente novamente.");
-      }
-    }
-  };
+  const sync = useManualSync({
+    integration: "GITHUB",
+    trigger: triggerGithubSync,
+    onFinished: () => fetchStatus({ silent: true }),
+    showToast,
+    setSecondsLeft,
+  });
 
   const handleDisconnect = async () => {
     try {
@@ -1057,10 +1062,15 @@ function GithubIntegrationCard({ onStatusChange }) {
             <div className="integration-actions">
               <button
                 className="btn"
-                onClick={handleSync}
-                disabled={secondsLeft > 0 || networkError}
+                onClick={sync.start}
+                disabled={sync.running || secondsLeft > 0 || networkError}
+                aria-busy={sync.running}
               >
-                {secondsLeft > 0 ? `Aguarde ${secondsLeft}s…` : "Sincronizar agora"}
+                {sync.running
+                  ? "Sincronizando…"
+                  : secondsLeft > 0
+                    ? `Aguarde ${secondsLeft}s…`
+                    : "Sincronizar agora"}
               </button>
               <button
                 className="btn-ghost btn"
@@ -1077,6 +1087,7 @@ function GithubIntegrationCard({ onStatusChange }) {
                 Desconectar
               </button>
             </div>
+            {sync.running ? <SyncProgressLine progress={sync.progress} /> : null}
 
             <IntegrationDataActions
               nome="GitHub"
@@ -1128,7 +1139,7 @@ function GithubIntegrationCard({ onStatusChange }) {
 export function IntegrationTab({
   onNavigate,
   orgSlug,
-  can,
+  hasOrg,
   onAzureStatusChange,
   onGithubStatusChange,
 }) {
@@ -1142,9 +1153,14 @@ export function IntegrationTab({
       <AzureIntegrationCard onStatusChange={onAzureStatusChange} />
       <GithubIntegrationCard onStatusChange={onGithubStatusChange} />
 
-      {can &&
-        (can("CONNECTOR_TOKEN_MANAGE_OWN") || can("CONNECTOR_TOKEN_MANAGE_ALL")) &&
-        orgSlug && <AiConnectorCard orgSlug={orgSlug} can={can} />}
+      {/* Some sozinho sem REPOS_READ/REPOS_CONFIGURE. */}
+      <WorkItemLinkSettingsCard />
+
+      {/* Tokens do conector são ORG_ONLY: checagem por código na organização
+       * (`hasOrg`), nunca pelo `can` de aba — que cai em isAdmin para códigos. */}
+      {hasOrg &&
+        (hasOrg("CONNECTOR_TOKEN_MANAGE_OWN") || hasOrg("CONNECTOR_TOKEN_MANAGE_ALL")) &&
+        orgSlug && <AiConnectorCard orgSlug={orgSlug} hasOrg={hasOrg} />}
     </section>
   );
 }

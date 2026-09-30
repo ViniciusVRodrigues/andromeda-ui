@@ -1,9 +1,11 @@
 /* Página Perfil — primeira fatia extraída do AdminSettings (piloto do padrão).
- * Ler-only: dados da sessão via useIdentity + contas de provedor conectadas. */
+ * Ler-only: dados da sessão via useIdentity, "Minhas permissões" e contas de
+ * provedor conectadas. */
 
 import React from "react";
 import { ConnectedAccounts } from "../integrations/ConnectedAccounts.jsx";
 import { useIdentity } from "../../core/auth/IdentityContext.jsx";
+import { MyPermissions } from "./MyPermissions.jsx";
 
 export function ProfilePage() {
   const { profile } = useIdentity();
@@ -28,6 +30,8 @@ export function ProfilePage() {
           </div>
         ))}
       </div>
+
+      <MyPermissions />
 
       <ConnectedAccounts />
     </section>

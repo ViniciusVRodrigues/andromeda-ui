@@ -21,6 +21,10 @@ import {
 import { getTeamMembers } from "../ai-usage/api.js";
 import { WorkItemManualFieldsEditor } from "../../components/WorkItemManualFieldsEditor.jsx";
 import Combobox from "../../core/ui/Combobox.jsx";
+import PageHeader from "../../core/ui/PageHeader.jsx";
+import RefreshControl from "../../core/ui/RefreshControl.jsx";
+import { useProjectRefresh } from "../projects/hooks.js";
+import { useIdentity } from "../../core/auth/IdentityContext.jsx";
 
 const PAGE_SIZE = 20;
 
@@ -431,7 +435,14 @@ function Pager({ page, size, totalElements, onPageChange }) {
 }
 
 export function BacklogPage({ onOpenHierarchyWizard }) {
-  const [projects, setProjects] = React.useState([]);
+  const { projectsWith } = useIdentity();
+  const [allProjects, setProjects] = React.useState([]);
+  /* O backlog lê work items do Azure: só projetos com AZURE_READ efetivo
+   * (project-scoped-permissions — o backend checa o mesmo código no projeto). */
+  const projects = React.useMemo(
+    () => projectsWith(allProjects, "AZURE_READ"),
+    [allProjects, projectsWith],
+  );
   const [projectsLoading, setProjectsLoading] = React.useState(true);
   const [projectId, setProjectId] = React.useState("");
 
@@ -475,6 +486,10 @@ export function BacklogPage({ onOpenHierarchyWizard }) {
   const [orphansTotal, setOrphansTotal] = React.useState(0);
   const [orphansLoading, setOrphansLoading] = React.useState(false);
   const [orphansError, setOrphansError] = React.useState(null);
+
+  /* Frescura vem na resposta de /roots (dataFreshness) — o backlog é uma
+   * leitura por projeto, então a primeira página já carrega a informação. */
+  const [freshness, setFreshness] = React.useState(null);
 
   // ---- tree-wide expand/collapse registry (change 2 & 3) ----
   // Map<nodeId, { depth, expanded, leaf }>, populated imperatively by TreeNode via
@@ -587,6 +602,7 @@ export function BacklogPage({ onOpenHierarchyWizard }) {
       .then((data) => {
         setRoots(data?.content || []);
         setRootsTotal(data?.totalElements || 0);
+        setFreshness(data?.dataFreshness ?? null);
       })
       .catch(() => setRootsError("Não foi possível carregar os itens do backlog."))
       .finally(() => setRootsLoading(false));
@@ -614,6 +630,7 @@ export function BacklogPage({ onOpenHierarchyWizard }) {
     setAutoExpand(null);
     setAutoExpanding(false);
 
+    setFreshness(null);
     if (!projectId) {
       setRoots([]);
       setRootsTotal(0);
@@ -709,17 +726,26 @@ export function BacklogPage({ onOpenHierarchyWizard }) {
     setOrphans((prev) => prev.map((o) => (o.id === itemId ? updated : o)));
   };
 
+  /* O backlog busca fora do React Query: ao concluir o refresh, recarrega as
+   * páginas atuais de raízes e órfãos com os mesmos filtros. */
+  const refresh = useProjectRefresh(projectId, {
+    freshness,
+    onCompleted: () => {
+      loadRoots(projectId, rootsPage, filterParams);
+      loadOrphans(projectId, orphansPage, filterParams);
+    },
+  });
+
   const binding = bindings.find((b) => b.projectId === projectId);
   const hierarchyConfigured = !!(binding?.workflowConfig?.hierarchyLevels?.length > 0);
 
   return (
     <section>
-      <div className="admin-section-head">
-        <h2 className="serif admin-section-title">Backlog</h2>
-        <p className="admin-section-sub">
-          Navegue pelo backlog do projeto em árvore, por hierarquia de work items.
-        </p>
-      </div>
+      <PageHeader
+        title="Backlog"
+        subtitle="Navegue pelo backlog do projeto em árvore, por hierarquia de work items."
+        actions={projectId ? <RefreshControl {...refresh} /> : null}
+      />
 
       <label className="ui-field backlog-project-picker">
         <span className="ui-field-label">Projeto</span>

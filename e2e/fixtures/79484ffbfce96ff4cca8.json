@@ -1,0 +1,6 @@
+{
+  "request": "GET /api/v1/organizations/me/metric-settings",
+  "status": 200,
+  "contentType": "application/json",
+  "body": "{\"remediationBranchPrefixes\":[\"hotfix/\"],\"bugLinkedCountsAsRemediation\":true,\"revertCountsAsRemediation\":true}"
+}

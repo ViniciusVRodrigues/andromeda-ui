@@ -6,6 +6,8 @@ import React from "react";
 import { useIdentity } from "../../core/auth/IdentityContext.jsx";
 import { useOrganization } from "./hooks.js";
 import { orgUrlLabel } from "../../lib/appUrl.js";
+import { SyncSettingsForm } from "./SyncSettingsForm.jsx";
+import { RemediationRulesForm } from "./RemediationRulesForm.jsx";
 
 function AdminRow({ label, value, mono }) {
   return (
@@ -24,12 +26,16 @@ export function GeneralPage() {
   const orgData = data || profile?.org || {};
 
   return (
-    <div className="admin-fields">
-      <AdminRow label="Nome da organização" value={orgData.name} />
-      <AdminRow label="Identificador" value={orgData.slug} mono />
-      <AdminRow label="URL" value={orgData.slug ? orgUrlLabel(orgData.slug) : null} mono />
-      <AdminRow label="Setor" value={orgData.sector} />
-      <AdminRow label="País" value={orgData.country} />
-    </div>
+    <>
+      <div className="admin-fields">
+        <AdminRow label="Nome da organização" value={orgData.name} />
+        <AdminRow label="Identificador" value={orgData.slug} mono />
+        <AdminRow label="URL" value={orgData.slug ? orgUrlLabel(orgData.slug) : null} mono />
+        <AdminRow label="Setor" value={orgData.sector} />
+        <AdminRow label="País" value={orgData.country} />
+      </div>
+      <SyncSettingsForm />
+      <RemediationRulesForm />
+    </>
   );
 }

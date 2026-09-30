@@ -10,15 +10,16 @@ import { WorkItemLink } from "../../core/work-items/WorkItemLink.jsx";
  * {
  *   currentSprintItems: Array<{ id, title, resolvedStatus, storyPoints, cycleTimeHours, leadTimeHours, tokensPerSp,
  *                               complexity, complexitySource, effort, effortSource }>,
- *   avgCycleTimeHours:   number | null,
- *   avgLeadTimeHours:    number | null,
+ *   cycleTime, leadTime: { p50, p90, n } (horas; avg* seguem no payload, deprecados e não lidos),
  *   storyPointsDelivered: number | null,
  *   totalSpInSprint:     number | null,
  *   tokensByDay: Array<{ day, inputTokens, outputTokens, interactions, costUsd }>, // spans the full sprint, zero-filled
  *   sprintCostUsd:   number | null,
  *   avgTokensPerSp:  number | null,
- *   openPrs:   number, // last 30 days, always an int >= 0 (never null)
- *   mergedPrs: number, // last 30 days, always an int >= 0 (never null)
+ *   openPrs:   number, // janela da sprint (ou filtro/30 dias), escopada aos repos do projeto
+ *   mergedPrs: number, // idem; sempre int >= 0
+ *   sprintContext: { ..., review: ReviewMetrics, prCycleTime: { p50, p90, n } },
+ *   sprintHistory: [{ ..., cycleTimeP50 }],
  * }
  *
  * TODO: replace mock fallback with live data once backend is deployed.
@@ -34,6 +35,8 @@ import {
   manualAllocateNoSuggestion,
 } from "../ai-usage/api.js";
 import { getDeveloperDashboard } from "./api.js";
+import RefreshControl from "../../core/ui/RefreshControl.jsx";
+import { useProjectRefresh } from "../projects/hooks.js";
 import { deriveInsights } from "./insights.js";
 import { TokenUsageChart } from "../../components/charts/TokenUsageChart.jsx";
 import { BurndownChart } from "../../components/charts/BurndownChart.jsx";
@@ -42,6 +45,8 @@ import { fmtTokensM } from "../../core/tokenMath.js";
 import { SprintProgressBar } from "../../components/SprintProgressBar.jsx";
 import { AllocationModal } from "../ai-usage/components/AllocationModal.jsx";
 import { WorkItemCard } from "../../core/work-items/WorkItemCard.jsx";
+import { DurationStat } from "../../core/ui/DurationStat.jsx";
+import { ReviewStats } from "../../core/ui/ReviewStats.jsx";
 
 /* ── Helpers ─────────────────────────────────────── */
 
@@ -142,19 +147,13 @@ function MetricsRow({ data, loading }) {
   const prev = history.length >= 2 ? history[history.length - 2] : null;
   const tiles = [
     {
-      label: "Ciclo Médio",
-      value: fmt1(data?.avgCycleTimeHours),
-      unit: "h",
+      label: "Cycle time",
+      duration: data?.cycleTime ?? null,
       delta: (
-        <KpiDelta
-          current={data?.avgCycleTimeHours}
-          previous={prev?.avgCycleTimeHours}
-          invert
-          unit="h"
-        />
+        <KpiDelta current={data?.cycleTime?.p50} previous={prev?.cycleTimeP50} invert unit="h" />
       ),
     },
-    { label: "Lead Time Médio", value: fmt1(data?.avgLeadTimeHours), unit: "h", delta: null },
+    { label: "Lead time", duration: data?.leadTime ?? null, delta: null },
     {
       label: "Story Points",
       value: fmtInt(data?.storyPointsDelivered),
@@ -183,16 +182,22 @@ function MetricsRow({ data, loading }) {
 
   return (
     <div className="dev-dash-metrics" role="list" aria-label="Métricas pessoais">
-      {tiles.map((t) => (
-        <div key={t.label} className="dev-dash-metric-tile" role="listitem">
-          <div className="mono dev-dash-metric-label">{t.label}</div>
-          <div className="dev-dash-metric-value-row">
-            <span className="serif dev-dash-metric-num">{t.value}</span>
-            {t.value !== "—" && <span className="mono dev-dash-metric-unit">{t.unit}</span>}
-            {t.delta}
+      {tiles.map((t) =>
+        t.duration !== undefined ? (
+          <div key={t.label} className="dev-dash-metric-tile" role="listitem">
+            <DurationStat stat={t.duration} label={t.label} extra={t.delta} />
           </div>
-        </div>
-      ))}
+        ) : (
+          <div key={t.label} className="dev-dash-metric-tile" role="listitem">
+            <div className="mono dev-dash-metric-label">{t.label}</div>
+            <div className="dev-dash-metric-value-row">
+              <span className="serif dev-dash-metric-num">{t.value}</span>
+              {t.value !== "—" && <span className="mono dev-dash-metric-unit">{t.unit}</span>}
+              {t.delta}
+            </div>
+          </div>
+        ),
+      )}
     </div>
   );
 }
@@ -233,6 +238,7 @@ const ORDER_OPTIONS = [
  * Sprint work items card — comparable, not a flat list. Each item shows type +
  * externalId (identification) and its cost / tokens-per-SP / cycle against the
  * sprint reference; ordering lives in the URL (`?ord=`) so it survives refresh.
+ * `avgCycle` é a referência de cycle da sprint — hoje a mediana (p50), não a média.
  * @param {{ items: Array, loading: boolean, costByItem: object, avgCycle: number|null,
  *           avgTokensPerSp: number|null, onNavigate: Function, onItemChanged: Function }} props
  */
@@ -938,6 +944,8 @@ export function DeveloperDashboard({ projectId, sprintId, startDate, endDate, mo
   const loading = dashboard.isPending;
   const error = dashboard.error?.message;
   const fetchData = dashboard.refetch;
+  // A query já vive sob ["dashboard"], que o refresh invalida ao concluir.
+  const refresh = useProjectRefresh(projectId, { freshness: data?.dataFreshness });
   const pendingQuery = useQuery({
     queryKey: ["ai-usage", "dashboard-pending"],
     // Sem wrapper, o React Query passa o contexto como params e o toQuery
@@ -1044,6 +1052,7 @@ export function DeveloperDashboard({ projectId, sprintId, startDate, endDate, mo
             Minha <span style={{ fontStyle: "italic", color: "var(--accent)" }}>sprint</span>
           </h1>
         </div>
+        <RefreshControl {...refresh} />
       </div>
 
       {error && (
@@ -1073,7 +1082,7 @@ export function DeveloperDashboard({ projectId, sprintId, startDate, endDate, mo
         {!loading && !data?.sprintContext?.sprintId && (
           <p className="text-fg-muted mt-2">
             Selecione um projeto e uma sprint nos filtros ou confira a atribuição dos seus work
-            items. IA e GitHub usam o período indicado.
+            items. IA e repositórios usam o período indicado.
           </p>
         )}
       </section>
@@ -1099,7 +1108,7 @@ export function DeveloperDashboard({ projectId, sprintId, startDate, endDate, mo
 
       <div className="mb-5 grid grid-cols-1 gap-4 lg:grid-cols-2">
         <InProgressPanel items={data?.inProgressItems} loading={loading} />
-        <GithubSprintCard data={data} loading={loading} />
+        <PullRequestsSprintCard data={data} loading={loading} scoped={!!projectId} />
       </div>
 
       {/* Row 4: unified AI card */}
@@ -1118,7 +1127,7 @@ export function DeveloperDashboard({ projectId, sprintId, startDate, endDate, mo
         items={data?.currentSprintItems}
         loading={loading}
         costByItem={data?.aiCostByWorkItemId}
-        avgCycle={data?.avgCycleTimeHours}
+        avgCycle={data?.cycleTime?.p50 ?? null}
         avgTokensPerSp={data?.avgTokensPerSp}
         onNavigate={onNavigate}
         onItemChanged={handleSprintItemChanged}
@@ -1170,7 +1179,7 @@ export function DeveloperDashboard({ projectId, sprintId, startDate, endDate, mo
   );
 }
 
-function GithubSprintCard({ data, loading }) {
+function PullRequestsSprintCard({ data, loading, scoped }) {
   const context = data?.sprintContext;
   const prs = context?.pullRequests || [];
   return (
@@ -1178,7 +1187,8 @@ function GithubSprintCard({ data, loading }) {
       <p className="text-fg-muted font-mono text-sm">colaboração</p>
       <h2 className="mb-2 font-serif text-2xl">Meus pull requests</h2>
       <p className="text-fg-muted mb-4 text-sm">
-        PRs criados no período · todos os seus repositórios conectados
+        PRs criados no período da sprint ·{" "}
+        {scoped ? "repositórios vinculados ao projeto" : "todos os seus repositórios conectados"}
       </p>
       {loading ? (
         <p role="status">Carregando PRs…</p>
@@ -1188,28 +1198,20 @@ function GithubSprintCard({ data, loading }) {
             {[
               ["Abertos", data?.openPrs ?? "—"],
               ["Integrados", data?.mergedPrs ?? "—"],
-              [
-                "Até a primeira review",
-                context?.avgTimeToFirstReviewHours == null
-                  ? "Sem medição"
-                  : fmt1(context.avgTimeToFirstReviewHours) + " h",
-              ],
-              [
-                "Ciclo dos PRs integrados",
-                context?.avgPrCycleTimeHours == null
-                  ? "Sem medição"
-                  : fmt1(context.avgPrCycleTimeHours) + " h",
-              ],
             ].map(([label, value]) => (
               <div key={label}>
                 <dt className="text-fg-muted text-sm">{label}</dt>
-                <dd className="font-serif text-2xl">{value}</dd>
+                <dd className="m-0 font-serif text-2xl">{value}</dd>
               </div>
             ))}
           </dl>
-          <p className="text-fg-muted mb-3 text-sm">
-            Primeira review: {context?.reviewedPrs ?? 0} PRs com medição.
-          </p>
+          <ReviewStats review={context?.review} className="border-line mb-4 border-t pt-4" />
+          <DurationStat
+            stat={context?.prCycleTime}
+            label="Ciclo dos PRs integrados"
+            size="md"
+            className="border-line mb-4 border-t pt-4"
+          />
           {prs.length ? (
             <ul className="space-y-3">
               {prs.map((pr) => {
@@ -1243,8 +1245,8 @@ function GithubSprintCard({ data, loading }) {
             </ul>
           ) : (
             <p className="text-fg-muted">
-              Nenhum PR registrado para você neste período. Confira sua conta GitHub e a
-              sincronização dos repositórios.
+              Nenhum PR registrado para você neste período. Confira se sua conta do GitHub ou do
+              Azure DevOps está associada ao seu usuário e a sincronização dos repositórios.
             </p>
           )}
         </>

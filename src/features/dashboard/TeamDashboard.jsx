@@ -4,12 +4,16 @@
  *
  * Response shape:
  * {
- *   sprintId, sprintName, teamVelocity, avgCycleTimeHours, avgLeadTimeHours,
- *   teamAiCostUsd,
+ *   sprintId, sprintName, teamVelocity,
+ *   cycleTime, leadTime: { p50, p90, n },      // horas (avg* deprecados, não lidos)
+ *   review: { timeToFirstReview, timeToFirstApproval, reviewedWithinSlaPercent, eligiblePrs, slaHours },
+ *   teamAiCostUsd,          // custo alocado (VALIDATED) a work items do projeto
+ *   unallocatedAiCostUsd,   // uso de IA dos membros ainda sem alocação — nunca somado ao projeto
  *   velocityTrend: [{ sprintId, sprintName, spPlanned, storyPoints, aiCostUsd,
  *                     totalTokens }],
  *   members: [{ userId, name, avatarInitials, storyPointsDelivered,
- *               cycleTimeHours, leadTimeHours, aiCostUsd, avgTokensPerSp, workItemCount }],
+ *               cycle/lead: cycleTime, leadTime (DurationStat), aiCostUsd (alocado ao projeto),
+ *               unallocatedAiCostUsd, avgTokensPerSp, workItemCount }],
  *   stalePrs: [{ prId, title, authorName, createdAt, hoursOpen }] // always an array, sorted by hoursOpen desc; empty when no bound repo
  * }
  *
@@ -18,7 +22,11 @@
 
 import React from "react";
 import { getTeamDashboard } from "./api.js";
+import RefreshControl from "../../core/ui/RefreshControl.jsx";
+import { useProjectRefresh } from "../projects/hooks.js";
 import { SprintEffortAiChart } from "../../components/charts/SprintEffortAiChart.jsx";
+import { DurationInline, DurationStat } from "../../core/ui/DurationStat.jsx";
+import { ReviewStats } from "../../core/ui/ReviewStats.jsx";
 
 /** Format a nullable number to 1 decimal place, or return "—". */
 function fmt1(v) {
@@ -63,6 +71,13 @@ function TeamDashboard({ projectId, sprintId, startDate, endDate }) {
     fetchData();
   }, [fetchData]);
 
+  /* Esta tela busca fora do React Query, então invalidar chaves não a
+   * recarregaria: o refresh chama o próprio fetchData ao concluir. */
+  const refresh = useProjectRefresh(projectId, {
+    freshness: data?.dataFreshness,
+    onCompleted: fetchData,
+  });
+
   const members = data?.members || [];
   const velocityTrend = data?.velocityTrend || [];
   const stalePrs = data?.stalePrs || [];
@@ -91,6 +106,7 @@ function TeamDashboard({ projectId, sprintId, startDate, endDate }) {
             </div>
           )}
         </div>
+        <RefreshControl {...refresh} />
       </div>
 
       {error && (
@@ -106,32 +122,42 @@ function TeamDashboard({ projectId, sprintId, startDate, endDate }) {
       <div style={styles.metricsRow} role="list" aria-label="Métricas do time">
         {[
           { label: "Team Velocity", value: loading ? "…" : fmtInt(data?.teamVelocity), unit: "SP" },
+          { label: "Cycle time", duration: data?.cycleTime ?? null },
+          { label: "Lead time", duration: data?.leadTime ?? null },
           {
-            label: "Avg Cycle Time",
-            value: loading ? "…" : fmt1(data?.avgCycleTimeHours),
-            unit: "h",
+            label: "Custo IA do projeto",
+            value: loading ? "…" : fmtUsd(data?.teamAiCostUsd),
+            unit: "",
+            title: "Alocações validadas para work items deste projeto",
           },
           {
-            label: "Avg Lead Time",
-            value: loading ? "…" : fmt1(data?.avgLeadTimeHours),
-            unit: "h",
+            label: "IA não alocada",
+            value: loading ? "…" : fmtUsd(data?.unallocatedAiCostUsd),
+            unit: "",
+            title:
+              "Uso de IA dos membros no período ainda sem alocação validada — fora do custo do projeto",
           },
-          { label: "AI Cost", value: loading ? "…" : fmtUsd(data?.teamAiCostUsd), unit: "" },
         ].map((c) => (
-          <div key={c.label} style={styles.chip} role="listitem">
-            <div className="mono" style={styles.chipLabel}>
-              {c.label}
-            </div>
-            <div style={styles.chipValue}>
-              <span className="serif" style={styles.chipNum}>
-                {c.value}
-              </span>
-              {c.unit && c.value !== "—" && c.value !== "…" && (
-                <span className="mono" style={styles.chipUnit}>
-                  {c.unit}
-                </span>
-              )}
-            </div>
+          <div key={c.label} style={styles.chip} role="listitem" title={c.title}>
+            {c.duration !== undefined ? (
+              <DurationStat stat={loading ? null : c.duration} label={c.label} />
+            ) : (
+              <>
+                <div className="mono" style={styles.chipLabel}>
+                  {c.label}
+                </div>
+                <div style={styles.chipValue}>
+                  <span className="serif" style={styles.chipNum}>
+                    {c.value}
+                  </span>
+                  {c.unit && c.value !== "—" && c.value !== "…" && (
+                    <span className="mono" style={styles.chipUnit}>
+                      {c.unit}
+                    </span>
+                  )}
+                </div>
+              </>
+            )}
           </div>
         ))}
       </div>
@@ -162,9 +188,10 @@ function TeamDashboard({ projectId, sprintId, startDate, endDate }) {
                 <tr>
                   <th style={styles.th}>Membro</th>
                   <th style={{ ...styles.th, textAlign: "right" }}>SP</th>
-                  <th style={{ ...styles.th, textAlign: "right" }}>Cycle (h)</th>
-                  <th style={{ ...styles.th, textAlign: "right" }}>Lead (h)</th>
-                  <th style={{ ...styles.th, textAlign: "right" }}>AI Cost</th>
+                  <th style={{ ...styles.th, textAlign: "right" }}>Cycle (h, mediana)</th>
+                  <th style={{ ...styles.th, textAlign: "right" }}>Lead (h, mediana)</th>
+                  <th style={{ ...styles.th, textAlign: "right" }}>Custo IA</th>
+                  <th style={{ ...styles.th, textAlign: "right" }}>IA não alocada</th>
                   <th style={{ ...styles.th, textAlign: "right" }}>Tokens/SP</th>
                   <th style={{ ...styles.th, textAlign: "right" }}>Items</th>
                 </tr>
@@ -181,9 +208,16 @@ function TeamDashboard({ projectId, sprintId, startDate, endDate }) {
                     <td style={{ ...styles.td, textAlign: "right" }}>
                       {fmtInt(m.storyPointsDelivered)}
                     </td>
-                    <td style={{ ...styles.td, textAlign: "right" }}>{fmt1(m.cycleTimeHours)}</td>
-                    <td style={{ ...styles.td, textAlign: "right" }}>{fmt1(m.leadTimeHours)}</td>
+                    <td style={{ ...styles.td, textAlign: "right" }}>
+                      <DurationInline stat={m.cycleTime} />
+                    </td>
+                    <td style={{ ...styles.td, textAlign: "right" }}>
+                      <DurationInline stat={m.leadTime} />
+                    </td>
                     <td style={{ ...styles.td, textAlign: "right" }}>{fmtUsd(m.aiCostUsd)}</td>
+                    <td style={{ ...styles.td, textAlign: "right" }}>
+                      {fmtUsd(m.unallocatedAiCostUsd)}
+                    </td>
                     <td style={{ ...styles.td, textAlign: "right" }}>{fmt1(m.avgTokensPerSp)}</td>
                     <td style={{ ...styles.td, textAlign: "right" }}>{fmtInt(m.workItemCount)}</td>
                   </tr>
@@ -191,6 +225,25 @@ function TeamDashboard({ projectId, sprintId, startDate, endDate }) {
               </tbody>
             </table>
           </div>
+        )}
+      </div>
+
+      {/* ── Review de PRs (TTFR, aprovação, % no SLA) ── */}
+      <div style={styles.card}>
+        <div style={styles.cardHead}>
+          <span className="mono" style={styles.cardEyebrow}>
+            colaboração
+          </span>
+          <h3 className="serif" style={styles.cardTitle}>
+            Review de pull requests
+          </h3>
+        </div>
+        {loading ? (
+          <div className="mono" style={styles.emptyState}>
+            Carregando…
+          </div>
+        ) : (
+          <ReviewStats review={data?.review} />
         )}
       </div>
 
@@ -211,7 +264,8 @@ function TeamDashboard({ projectId, sprintId, startDate, endDate }) {
           </div>
         ) : stalePrs.length === 0 ? (
           <div className="mono" style={styles.emptyState}>
-            Nenhuma PR parada — tudo revisado ou sem repositório GitHub vinculado
+            Nenhuma PR parada — tudo revisado ou sem repositório vinculado. Conecte um repositório
+            para acompanhar as revisões.
           </div>
         ) : (
           <ul
@@ -290,6 +344,10 @@ function TeamDashboard({ projectId, sprintId, startDate, endDate }) {
 const styles = {
   header: {
     marginBottom: 24,
+    display: "flex",
+    alignItems: "flex-end",
+    justifyContent: "space-between",
+    gap: 24,
   },
   eyebrow: {
     fontSize: "var(--mono-sm)",

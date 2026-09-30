@@ -12,24 +12,24 @@ const item = (id, st, eff, cy) => ({
 const s1 = {
   currentSprintItems: Array.from({ length: 8 }, (_, i) => item("ABCDEFGH"[i], "DONE", 5, null)),
   aiCostByWorkItemId: { A: 62, B: 12, C: 9, D: 4, E: 3, F: 3, G: 4, H: 3 },
-  avgCycleTimeHours: 10,
+  cycleTime: { p50: 10, p90: null, n: 1 },
   sprintHistory: [],
 };
 const s2 = {
   currentSprintItems: [item("a", "DONE", 3, 21), item("b", "DONE", 3, 9), item("c", "DONE", 3, 10)],
-  avgCycleTimeHours: 10,
+  cycleTime: { p50: 10, p90: null, n: 1 },
   aiCostByWorkItemId: {},
   sprintHistory: [],
 };
 const s3 = {
   currentSprintItems: [item("t", "TODO", 11, null), item("d", "DONE", 5, 8)],
-  avgCycleTimeHours: 8,
+  cycleTime: { p50: 8, p90: null, n: 1 },
   aiCostByWorkItemId: {},
   sprintHistory: [{ endDate: "2026-09-05" }],
 };
 const s4 = {
   currentSprintItems: [],
-  avgCycleTimeHours: null,
+  cycleTime: null,
   aiCostByWorkItemId: {},
   sprintHistory: [
     { name: "Sprint 24", totalCostUsd: 0.42, spDelivered: 10, endDate: "2026-08-01" },
@@ -43,7 +43,7 @@ const s5 = {
     item("y", "DONE", 5, 9),
     item("z", "DONE", 5, 10),
   ],
-  avgCycleTimeHours: 10,
+  cycleTime: { p50: 10, p90: null, n: 1 },
   aiCostByWorkItemId: { w: 25, x: 25, y: 25, z: 25 },
   sprintHistory: [
     { name: "S24", totalCostUsd: 1.0, spDelivered: 20 },
@@ -67,7 +67,7 @@ expect(
 const r2 = deriveInsights(s2);
 console.log("S2:", JSON.stringify(r2.map((i) => i.text)));
 expect(
-  "S2 desvio cita 2,1× a média",
+  "S2 desvio cita 2,1× a mediana",
   r2.some((i) => /2,1×/.test(i.text)),
 );
 

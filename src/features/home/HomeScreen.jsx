@@ -8,7 +8,7 @@ const STEPS = [
   {
     n: "01",
     title: "Conecte",
-    desc: "Autorize GitHub, Azure DevOps e seus provedores de IA. Leva minutos — sem instalar agentes, sem plugins de IDE.",
+    desc: "Conecte seus repositórios (GitHub ou Azure Repos), o Azure Boards e seus provedores de IA. Leva minutos — sem instalar agentes, sem plugins de IDE.",
   },
   {
     n: "02",

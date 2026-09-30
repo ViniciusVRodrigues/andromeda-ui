@@ -1,12 +1,40 @@
 /* API da feature integrations — conexões e vínculos Azure DevOps + GitHub. */
 
-import { api, toQuery } from "../../core/api/client.js";
+import { api, toQuery, BASE_URL } from "../../core/api/client.js";
 
 /* ── Azure DevOps ── */
 
-/** Status da conexão Azure da organização: { status: "CONNECTED" | "DISCONNECTED" | ... }. */
+/**
+ * Status da conexão Azure da organização. `reposAccess` diz se a credencial lê
+ * repositórios Git (PAT com Code (Read)); `null` = desconhecido (OAuth ou
+ * conexão anterior à verificação). `lastErrorCode` acompanha `status = ERROR`
+ * (ex.: `AZURE_ORG_URL_INVALID`, corrigível sem reautorizar).
+ * @returns {Promise<{ status: "CONNECTED" | "DISCONNECTED" | "EXPIRED" | "ERROR", azureOrgUrl: string | null,
+ *   authMethod: "PAT" | "OAUTH" | null, reposAccess?: boolean | null, lastErrorCode?: string | null,
+ *   authorizedByUserId: string | null, lastSuccessAt: string | null, consecutiveFailures: number }>}
+ */
 export function getAzureConnection() {
   return api.get("/v1/integrations/azure/connection");
+}
+
+/**
+ * URL que abre a autorização Microsoft (popup). A URL da organização vai junto
+ * porque o backend não a deriva mais do token (azure-repos-provider D7): ela
+ * viaja no `state` e é validada com `_apis/projects` depois do callback.
+ * @param {string} orgUrl `https://dev.azure.com/{org}` ou `https://{org}.visualstudio.com`
+ */
+export function azureOAuthStartUrl(orgUrl) {
+  return `${BASE_URL}/v1/integrations/azure/connect${toQuery({ orgUrl })}`;
+}
+
+/**
+ * Corrige a URL da organização de uma conexão em `ERROR` por
+ * `AZURE_ORG_URL_INVALID`, sem reautorizar. 422 `AZURE_ORG_URL_INVALID` se a
+ * URL for inválida. Exige AZURE_CONFIGURE.
+ * @param {string} azureOrgUrl
+ */
+export function updateAzureOrgUrl(azureOrgUrl) {
+  return api.put("/v1/integrations/azure/connection/org-url", { azureOrgUrl });
 }
 
 /**
@@ -114,6 +142,25 @@ export function updateAzureWorkflowConfig(bindingId, config) {
   return api.put(`/v1/integrations/azure/bindings/${bindingId}/workflow-config`, config);
 }
 
+/**
+ * Sync manual do Azure DevOps (organização inteira). Assíncrono: 202
+ * `{ syncId }`; 429 no cooldown (`err.retryAfter`), 409 sem conexão.
+ * @returns {Promise<{ syncId: string }>}
+ */
+export function triggerAzureSync() {
+  return api.post("/v1/integrations/azure/sync", null);
+}
+
+/**
+ * Histórico de sincronizações da organização para uma integração — é também
+ * onde se acompanha um sync assíncrono pelo `syncId` devolvido no 202.
+ * @param {"AZURE_DEVOPS" | "GITHUB"} integration
+ * @returns {Promise<Array<{ id: string, parentSyncId?: string | null, integration: string, status: string, operation: string, itemsProcessed?: number, itemsFailed?: number, errorMessage?: string | null }>>}
+ */
+export function getIntegrationSyncLogs(integration) {
+  return api.get(`/v1/integrations/sync-logs${toQuery({ integration })}`);
+}
+
 /* ── GitHub integration ── */
 
 /**
@@ -143,72 +190,111 @@ export function disconnectGithub() {
 }
 
 /**
- * Trigger a manual GitHub sync. 202 on success, 429 during the cooldown,
- * 409 when no connection exists.
+ * Trigger a manual GitHub sync. Assíncrono: responde 202 `{ syncId }` antes de
+ * qualquer chamada externa (o progresso sai do histórico de sincronizações —
+ * `getIntegrationSyncLogs`). 429 no cooldown (`err.retryAfter` em segundos),
+ * 409 sem conexão.
+ * @returns {Promise<{ syncId: string }>}
  */
 export function triggerGithubSync() {
   return api.post("/v1/integrations/github/sync", null);
 }
 
+/* ── Vínculos de repositório (vcs-core-refactor) ──
+ *
+ * Neutros de provedor: o repositório é identificado por `(provider,
+ * externalRepoId)` e o vínculo referencia o id interno (`repositoryId`). A
+ * conexão GitHub (PAT, status, sync, reparo) continua em /v1/integrations/github.
+ * Exigem REPOS_CONFIGURE no backend. */
+
 /**
- * List all GitHub repo bindings for the organization (used by project chips).
- * @returns {Promise<Array<{ id: string, projectId: string, repoId: string, syncEnabled: boolean, lastSyncAt: string | null }>>}
+ * @typedef {"GITHUB" | "AZURE_REPOS"} VcsProvider
+ * @typedef {{ id: string, projectId: string, repositoryId: string, provider: VcsProvider,
+ *   displayName: string, syncEnabled: boolean, lastSyncAt: string | null }} RepoBinding
  */
-export function getGithubBindings() {
-  return api.get("/v1/integrations/github/bindings");
+
+/**
+ * Todos os vínculos de repositório da organização (chips dos cards de projeto).
+ * @returns {Promise<RepoBinding[]>}
+ */
+export function getRepoBindings() {
+  return api.get("/v1/repos/bindings");
 }
 
 /**
- * List the GitHub repo bindings of one project.
+ * Vínculos de repositório de um projeto, de qualquer provedor.
  * @param {string} projectId
+ * @returns {Promise<RepoBinding[]>}
  */
-export function getGithubProjectBindings(projectId) {
-  return api.get(`/v1/integrations/github/projects/${projectId}/bindings`);
+export function getProjectRepoBindings(projectId) {
+  return api.get(`/v1/repos/projects/${projectId}/bindings`);
 }
 
 /**
- * Bind a GitHub repo ("owner/name") to a project.
- * Rejects with 409 GITHUB_REPO_ALREADY_BOUND when the repo is actively bound
- * to a different project.
+ * Vincula um repositório ao projeto. Identifique o repositório por
+ * `externalRepoId` (id no provedor, vindo de `getAvailableRepos`) ou, só no
+ * GitHub, por `fullName` ("owner/name") — o backend resolve o id.
+ * Rejeita com 409 `REPO_ALREADY_BOUND` (vinculado a outro projeto), 409
+ * `VCS_CONNECTION_NOT_FOUND` (provedor sem conexão) ou 422 `REPO_ID_INVALID`;
+ * o código vem em `err.body.code`.
  * @param {string} projectId
- * @param {string} repoId  "owner/name" full name
- * @param {boolean} syncEnabled
+ * @param {{ provider: VcsProvider, externalRepoId?: string, fullName?: string, syncEnabled: boolean }} body
+ * @returns {Promise<RepoBinding>}
  */
-export function bindGithubRepo(projectId, repoId, syncEnabled) {
-  return api.post(`/v1/integrations/github/projects/${projectId}/bindings`, {
-    repoId,
-    syncEnabled,
-  });
+export function bindRepository(projectId, { provider, externalRepoId, fullName, syncEnabled }) {
+  const body = { provider, syncEnabled };
+  if (externalRepoId) body.externalRepoId = externalRepoId;
+  if (fullName) body.fullName = fullName;
+  return api.post(`/v1/repos/projects/${projectId}/bindings`, body);
 }
 
 /**
- * Enable or disable sync for a GitHub repo binding.
+ * Liga/desliga a sincronização de um vínculo (dados já sincronizados ficam).
  * @param {string} bindingId
  * @param {boolean} syncEnabled
  */
-export function toggleGithubRepoSync(bindingId, syncEnabled) {
-  return api.patch(`/v1/integrations/github/bindings/${bindingId}`, { syncEnabled });
+export function toggleRepoBindingSync(bindingId, syncEnabled) {
+  return api.patch(`/v1/repos/bindings/${bindingId}`, { syncEnabled });
 }
 
 /**
- * Remove a GitHub repo binding from a project (soft delete; synced data kept).
+ * Remove o vínculo do projeto (soft delete; dados sincronizados ficam).
  * @param {string} projectId
  * @param {string} bindingId
  */
-export function unbindGithubRepo(projectId, bindingId) {
-  return api.delete(`/v1/integrations/github/projects/${projectId}/bindings/${bindingId}`);
+export function unbindRepository(projectId, bindingId) {
+  return api.delete(`/v1/repos/projects/${projectId}/bindings/${bindingId}`);
 }
 
 /**
- * List GitHub repos available for binding — union of the repos the configured
- * PAT can see and cached repos from previous syncs. Repos bound to other
- * projects are excluded; the one bound to `forProjectId` is kept with
- * `boundToProjectId` populated.
- * @param {string} [forProjectId]
- * @returns {Promise<Array<{ repoId: string, name: string, fullName: string, source: "LIVE" | "CACHED", boundToProjectId: string | null }>>}
+ * Repositórios que o provedor enxerga (LIVE) somados aos já conhecidos
+ * (CACHED). `bindable` é falso quando o repositório está vinculado a outro
+ * projeto; `boundToProjectId` diz a qual.
+ * @param {VcsProvider} provider
+ * @returns {Promise<Array<{ provider: VcsProvider, externalRepoId: string, displayName: string,
+ *   externalProjectId: string | null, externalProjectName: string | null, defaultBranch: string | null,
+ *   bindable: boolean, boundToProjectId: string | null, source: "LIVE" | "CACHED" }>>}
  */
-export function getAvailableGithubRepos(forProjectId) {
-  return api.get(`/v1/integrations/github/repos/available${toQuery({ forProjectId })}`);
+export function getAvailableRepos(provider) {
+  return api.get(`/v1/repos/available${toQuery({ provider })}`);
+}
+
+/* ── Vínculo PR ↔ work item (configuração da organização) ──
+ *
+ * Vale para todos os provedores. Leitura exige REPOS_READ; gravação,
+ * REPOS_CONFIGURE. Prefixo padrão do backend: `AB#`. */
+
+/** @returns {Promise<{ enabled: boolean, prefixes: string[] }>} */
+export function getWorkItemLinkSettings() {
+  return api.get("/v1/repos/settings/work-item-link");
+}
+
+/**
+ * @param {{ enabled: boolean, prefixes: string[] }} settings
+ * @returns {Promise<{ enabled: boolean, prefixes: string[] }>}
+ */
+export function updateWorkItemLinkSettings(settings) {
+  return api.put("/v1/repos/settings/work-item-link", settings);
 }
 
 /* ── Limpeza e reparo de dados por integração ──

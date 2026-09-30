@@ -7,11 +7,24 @@ import React from "react";
 import { Modal } from "../../core/ui/Modal.jsx";
 import { useUsers } from "../users/hooks.js";
 import { useRoles, useUpdateRolePermissions, useCloneRole, useDeleteRole } from "./hooks.js";
-import { PERMISSION_LABELS, ALWAYS_ON_PERMISSIONS } from "../../core/auth/permissionLabels.js";
+import { usePermissionScopes } from "../users/hooks.js";
+import {
+  PERMISSION_LABELS,
+  ALWAYS_ON_PERMISSIONS,
+  SCOPE_ORG,
+  SCOPE_PROJECT,
+  SCOPE_LABELS,
+  scopeOf,
+} from "../../core/auth/permissionLabels.js";
 
-const ALL_PERMISSION_CODES = Object.keys(PERMISSION_LABELS).filter(
+const CONFIGURABLE_CODES = Object.keys(PERMISSION_LABELS).filter(
   (c) => !ALWAYS_ON_PERMISSIONS.includes(c),
 );
+
+/* Nota de membership (project-scoped-permissions): o que muda ao marcar um
+ * código de projeto num cargo. */
+const MEMBERSHIP_NOTE =
+  "Códigos de projeto valem nos projetos em que a pessoa é membro — ou em todos, com “Acesso a todos os projetos”.";
 
 export function RolesPage() {
   const { data: roles = [], isLoading, error, refetch } = useRoles();
@@ -19,6 +32,20 @@ export function RolesPage() {
   const updatePerms = useUpdateRolePermissions();
   const cloneRole = useCloneRole();
   const deleteRoleMut = useDeleteRole();
+  const { data: scopes } = usePermissionScopes();
+
+  /* Colunas agrupadas por escopo (catálogo de GET /v1/permissions). */
+  const groups = React.useMemo(
+    () =>
+      [SCOPE_ORG, SCOPE_PROJECT]
+        .map((scope) => ({
+          scope,
+          codes: CONFIGURABLE_CODES.filter((c) => scopeOf(scopes, c) === scope),
+        }))
+        .filter((g) => g.codes.length > 0),
+    [scopes],
+  );
+  const permissionCodes = React.useMemo(() => groups.flatMap((g) => g.codes), [groups]);
 
   /* rolePerms: { [roleId]: Set<permCode> } derivado da lista; a matriz edita
    * localmente até "Salvar alterações" no modal (delta add/remove). */
@@ -36,12 +63,12 @@ export function RolesPage() {
   const roleCount = (roleId) =>
     members.filter((m) => m.roleId === roleId && m.active !== false).length;
 
-  const permsGridCols = `minmax(160px, 1.4fr) repeat(${ALL_PERMISSION_CODES.length}, minmax(90px, 1fr))`;
+  const permsGridCols = `minmax(160px, 1.4fr) repeat(${permissionCodes.length}, minmax(90px, 1fr))`;
 
   const openEdit = (role) => {
     const currentSet = rolePerms[role.id] || new Set();
     const permsState = {};
-    for (const code of ALL_PERMISSION_CODES) permsState[code] = currentSet.has(code);
+    for (const code of permissionCodes) permsState[code] = currentSet.has(code);
     setEditPerms(permsState);
     setEditingRole({ ...role });
   };
@@ -61,8 +88,8 @@ export function RolesPage() {
     try {
       if (editingRole.id) {
         const original = rolePerms[editingRole.id] || new Set();
-        const add = ALL_PERMISSION_CODES.filter((c) => editPerms[c] && !original.has(c));
-        const remove = ALL_PERMISSION_CODES.filter((c) => !editPerms[c] && original.has(c));
+        const add = permissionCodes.filter((c) => editPerms[c] && !original.has(c));
+        const remove = permissionCodes.filter((c) => !editPerms[c] && original.has(c));
         if (add.length > 0 || remove.length > 0) {
           await updatePerms.mutateAsync({ roleId: editingRole.id, add, remove });
         }
@@ -119,8 +146,19 @@ export function RolesPage() {
       <div className="signup-perms">
         <div className="signup-perms-scroll">
           <div className="signup-perms-grid" style={{ gridTemplateColumns: permsGridCols }}>
+            <div className="signup-perms-head is-corner mono">Escopo</div>
+            {groups.map((g) => (
+              <div
+                key={g.scope}
+                className="signup-perms-head text-accent mono"
+                style={{ gridColumn: `span ${g.codes.length}` }}
+                data-scope={g.scope}
+              >
+                {SCOPE_LABELS[g.scope]}
+              </div>
+            ))}
             <div className="signup-perms-head is-corner mono">Cargos</div>
-            {ALL_PERMISSION_CODES.map((code) => (
+            {permissionCodes.map((code) => (
               <div key={code} className="signup-perms-head mono">
                 {PERMISSION_LABELS[code]}
               </div>
@@ -128,7 +166,7 @@ export function RolesPage() {
             {isLoading ? (
               <div
                 className="member-empty mono"
-                style={{ gridColumn: `1 / span ${ALL_PERMISSION_CODES.length + 1}` }}
+                style={{ gridColumn: `1 / span ${permissionCodes.length + 1}` }}
               >
                 Carregando…
               </div>
@@ -156,7 +194,7 @@ export function RolesPage() {
                       {!r.isDefault && <span className="signup-perms-cargo-edit mono">editar</span>}
                     </span>
                   </button>
-                  {ALL_PERMISSION_CODES.map((code) => {
+                  {permissionCodes.map((code) => {
                     const on = !!rolePerms[r.id]?.has(code);
                     return (
                       <label
@@ -194,6 +232,7 @@ export function RolesPage() {
             )}
           </div>
         </div>
+        <p className="signup-step-footer mono">{MEMBERSHIP_NOTE}</p>
         <p className="signup-step-footer mono">
           Cargos padrão não podem ser editados ou excluídos. As alterações na matriz são salvas ao
           clicar em "Salvar alterações" no modal do cargo.
@@ -238,31 +277,40 @@ export function RolesPage() {
           {editingRole.id ? (
             /* Editing existing: show permission checkboxes */
             <>
-              <p className="ui-field-label" style={{ marginBottom: "var(--spacing-sm)" }}>
-                Permissões
-              </p>
-              <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-                {ALL_PERMISSION_CODES.map((code) => (
-                  <label
-                    key={code}
-                    style={{
-                      display: "flex",
-                      alignItems: "center",
-                      gap: "var(--spacing-sm)",
-                      cursor: "pointer",
-                    }}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={!!editPerms[code]}
-                      onChange={() => setEditPerms((p) => ({ ...p, [code]: !p[code] }))}
-                    />
-                    <span className="mono" style={{ fontSize: "0.85rem" }}>
-                      {PERMISSION_LABELS[code]}
-                    </span>
-                  </label>
-                ))}
-              </div>
+              {groups.map((g) => (
+                <fieldset key={g.scope} className="m-0 mb-4 border-0 p-0">
+                  <legend className="ui-field-label" style={{ marginBottom: "var(--spacing-sm)" }}>
+                    Permissões · {SCOPE_LABELS[g.scope].toLowerCase()}
+                  </legend>
+                  <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
+                    {g.codes.map((code) => (
+                      <label
+                        key={code}
+                        style={{
+                          display: "flex",
+                          alignItems: "center",
+                          gap: "var(--spacing-sm)",
+                          cursor: "pointer",
+                        }}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={!!editPerms[code]}
+                          onChange={() => setEditPerms((p) => ({ ...p, [code]: !p[code] }))}
+                        />
+                        <span className="mono" style={{ fontSize: "0.85rem" }}>
+                          {PERMISSION_LABELS[code]}
+                        </span>
+                      </label>
+                    ))}
+                  </div>
+                  {g.scope === SCOPE_PROJECT ? (
+                    <p className="text-fg-dim m-0 mt-2 font-mono text-[length:var(--mono-sm)]">
+                      {MEMBERSHIP_NOTE}
+                    </p>
+                  ) : null}
+                </fieldset>
+              ))}
 
               {roleCount(editingRole.id) > 0 ? (
                 <p

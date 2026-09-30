@@ -2,5 +2,5 @@
   "request": "GET /api/v1/dashboard/developer?projectId=6a96b750c72203798d740148",
   "status": 200,
   "contentType": "application/json",
-  "body": "{\"currentSprintItems\":[],\"avgCycleTimeHours\":null,\"avgLeadTimeHours\":null,\"storyPointsDelivered\":null,\"totalSpInSprint\":null,\"tokensByDay\":[],\"sprintCostUsd\":null,\"avgTokensPerSp\":null,\"openPrs\":0,\"mergedPrs\":0,\"inProgressItems\":[],\"totalSprintItems\":0,\"burndownSeries\":[],\"aiSprintSummary\":null,\"aiCostByWorkItemId\":{},\"subscriptionCostPerUserUsd\":null}"
+  "body": "{\"currentSprintItems\":[],\"avgCycleTimeHours\":null,\"avgLeadTimeHours\":null,\"cycleTime\":{\"p50\":null,\"p90\":null,\"n\":0},\"leadTime\":{\"p50\":null,\"p90\":null,\"n\":0},\"storyPointsDelivered\":null,\"totalSpInSprint\":null,\"tokensByDay\":[],\"sprintCostUsd\":null,\"avgTokensPerSp\":null,\"openPrs\":0,\"mergedPrs\":0,\"inProgressItems\":[],\"totalSprintItems\":0,\"burndownSeries\":[],\"aiSprintSummary\":null,\"aiCostByWorkItemId\":{},\"subscriptionCostPerUserUsd\":null}"
 }

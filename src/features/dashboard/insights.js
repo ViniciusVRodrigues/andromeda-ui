@@ -7,16 +7,16 @@
  *  S1 sprint 8 itens, custo alocado {A:62,B:12,C:9,D:4,E:3,F:3,G:4,H:3} (total 100)
  *     → concentração dispara com K=3 (62+12+9=83 ≥ 60%? sim, mas K mínimo:
  *       A sozinho=62% ≥60 → K=1) → "1 de 8 itens concentram 62% do custo de IA"
- *  S2 cycle médio 10h, item X cycle 21h → 2,1× ≥ 2 → desvio dispara
+ *  S2 cycle mediano 10h, item X cycle 21h → 2,1× ≥ 2 → desvio dispara
  *  S3 sprint 14 dias, dia 10, itens TODO somam 11 SP → risco dispara
  *  S4 history com 2 sprints, custo 0.42→0.58 → tendência "+38% vs Sprint 24"
- *  S5 tudo homogêneo (4 itens ~25% cada, cycles na média, sem TODO, history<2)
+ *  S5 tudo homogêneo (4 itens ~25% cada, cycles na mediana, sem TODO, history<2)
  *     → insights = [] (faixa some) */
 
 /* Thresholds nomeados — iterar aqui, não na UI. */
 export const INSIGHT_THRESHOLDS = {
   costConcentrationPct: 0.6, // top-K itens cobrindo ≥60% do custo alocado
-  cycleDeviationFactor: 2, // item com cycle ≥ 2× a média da sprint
+  cycleDeviationFactor: 2, // item com cycle ≥ 2× a mediana da sprint
   riskMinRemainingSp: 5, // SP não iniciados mínimos para ligar o alerta de prazo
   trendMinHistory: 2, // pontos de histórico necessários p/ comparação de tendência
 };
@@ -59,8 +59,10 @@ export function deriveInsights(data, { today } = {}) {
     }
   }
 
-  /* ── Desvio: item com cycle time ≥ 2× a média da sprint ── */
-  const avgCycle = data.avgCycleTimeHours;
+  /* ── Desvio: item com cycle time ≥ 2× a mediana da sprint ──
+   * Referência = p50 (metrics-correctness): a média era puxada pelo próprio
+   * outlier que se quer apontar. */
+  const avgCycle = data.cycleTime?.p50 ?? null;
   if (avgCycle != null && avgCycle > 0) {
     const outlier = items
       .filter((it) => it.cycleTimeHours != null)
@@ -69,7 +71,7 @@ export function deriveInsights(data, { today } = {}) {
       insights.push({
         id: "cycle-outlier",
         tone: "warn",
-        text: `${outlier.title || outlier.externalId || outlier.id}: cycle ${fmt1(outlier.cycleTimeHours)}h = ${fmt1(outlier.cycleTimeHours / avgCycle)}× a média da sprint (${fmt1(avgCycle)}h)`,
+        text: `${outlier.title || outlier.externalId || outlier.id}: cycle ${fmt1(outlier.cycleTimeHours)}h = ${fmt1(outlier.cycleTimeHours / avgCycle)}× a mediana da sprint (${fmt1(avgCycle)}h)`,
       });
     }
   }

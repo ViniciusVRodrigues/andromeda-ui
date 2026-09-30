@@ -1,0 +1,6 @@
+{
+  "request": "GET /api/v1/permissions",
+  "status": 200,
+  "contentType": "application/json",
+  "body": "{\"permissions\":[{\"code\":\"AI_READ_ALL\",\"label\":\"Visualizar IA de todos\",\"scope\":\"PROJECT_SCOPABLE\"},{\"code\":\"AZURE_CONFIGURE\",\"label\":\"Configurar Azure DevOps\",\"scope\":\"ORG_ONLY\"},{\"code\":\"CONNECTOR_TOKEN_MANAGE_ALL\",\"label\":\"Gerenciar tokens da org\",\"scope\":\"ORG_ONLY\"},{\"code\":\"DASHBOARD_STRATEGIC\",\"label\":\"Dashboard Estratégico\",\"scope\":\"PROJECT_SCOPABLE\"},{\"code\":\"DASHBOARD_TEAM\",\"label\":\"Dashboard de Time\",\"scope\":\"PROJECT_SCOPABLE\"},{\"code\":\"PRICE_TABLE_MANAGE\",\"label\":\"Gerenciar Tabela de Preços\",\"scope\":\"ORG_ONLY\"},{\"code\":\"PROJECT_ACCESS_ALL\",\"label\":\"Acesso a todos os projetos\",\"scope\":\"ORG_ONLY\"},{\"code\":\"PROJECT_MANAGE\",\"label\":\"Gerenciar Projetos\",\"scope\":\"ORG_ONLY\"},{\"code\":\"REPOS_CONFIGURE\",\"label\":\"Configurar Repositórios\",\"scope\":\"ORG_ONLY\"},{\"code\":\"ROLE_MANAGE\",\"label\":\"Gerenciar Cargos\",\"scope\":\"ORG_ONLY\"},{\"code\":\"USER_MANAGE\",\"label\":\"Gerenciar Usuários\",\"scope\":\"ORG_ONLY\"}]}"
+}

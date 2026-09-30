@@ -1,177 +1,332 @@
 /**
- * ManagerDashboard — strategic dashboard with three scope levels.
- * Fetches from GET /api/v1/dashboard/strategic via getStrategicDashboard().
+ * ManagerDashboard — painel estratégico em três níveis de escopo.
+ * Busca GET /api/v1/dashboard/strategic via getStrategicDashboard().
  *
- * Response shape:
+ * Contrato real (metrics-correctness) — antes a tela lia campos que o backend
+ * nunca mandou (`totalStoryPointsDelivered`, `individualMetrics`…) e mostrava
+ * "—" em tudo:
  * {
- *   scope,
- *   dora: {
- *     leadTimeHours, leadTimeClassification,
- *     deployFrequencyPerWeek, deployFrequencyClassification, deployFrequencyEstimated,
- *     changeFailureRatePct, changeFailureRateClassification, changeFailureRateEstimated,
- *     mttrHours
- *   },
- *   aiCostUsd, aiCostTrend, totalStoryPointsDelivered, avgCycleTimeHours, avgLeadTimeHours,
- *   projects: [{ projectId, projectName, storyPoints, aiCostUsd, memberCount }],
- *   members: [{ userId, name, avatarInitials, storyPointsDelivered, cycleTimeHours, leadTimeHours, aiCostUsd }],
- *   individualMetrics: { ... }
+ *   level: "ORG" | "PROJECT" | "MEMBER",
+ *   delivery: DeliveryMetrics,                       // nível organização (união dos projetos)
+ *   projects: [{ projectId, projectName, totalWorkItems, storyPointsDelivered,
+ *                cycleTime, leadTime, delivery }],    // nível ORG
+ *   projectDetail: { projectId, projectName, delivery,
+ *                    members: [{ userId, name, linkedToAzure, storyPointsDelivered,
+ *                                cycleTime, leadTime, workItemCount }] },   // nível PROJECT
+ *   memberDetail: DeveloperDashboardResponse,        // nível MEMBER
+ *   dataFreshness,
  * }
+ * DeliveryMetrics = { method, changeFailRatePercent, changeFailRateClass, deploymentsPerWeek,
+ *   deploymentFrequencyClass, changeLeadTime, changeLeadTimeClass, mergedPrs, remediationPrs }.
+ * O antigo `dora` segue no payload só por compatibilidade — não é lido.
  *
- * Scope levels:
- *  - Level 1 (no projectId): org view — project cards + DORA section
- *  - Level 2 (projectId, no memberId): project view — members table
- *  - Level 3 (projectId + memberId): individual view — individual metrics
+ * O nível exibido é derivado das props (fonte da verdade do que o usuário
+ * pediu); `level` da resposta não decide nada, para uma string inesperada não
+ * apagar a tela.
  *
- * Props: projectId, memberId, startDate, endDate — controlled externally by DashboardPage.
+ * Props: projectId, memberId, startDate, endDate — controladas pelo DashboardPage.
  */
 
 import React from "react";
 import { getStrategicDashboard } from "./api.js";
+import RefreshControl from "../../core/ui/RefreshControl.jsx";
+import { useProjectRefresh } from "../projects/hooks.js";
+import { DurationInline, DurationStat } from "../../core/ui/DurationStat.jsx";
+import {
+  DeliveryMetricsGrid,
+  DeliveryMethodBadge,
+  formatCfr,
+} from "../../core/ui/DeliveryMetrics.jsx";
+import { ReviewStats } from "../../core/ui/ReviewStats.jsx";
 
-/** Format a nullable number to 1 decimal place, or return "—". */
-function fmt1(v) {
-  if (v == null) return "—";
-  return Number(v).toFixed(1);
-}
-
-/** Format USD with 2 decimal places, or return "—". */
-function fmtUsd(v) {
-  if (v == null) return "—";
-  return `$${Number(v).toFixed(2)}`;
-}
-
-/** Format a nullable integer, or return "—". */
+/** Inteiro, ou "—" sem valor. */
 function fmtInt(v) {
   if (v == null) return "—";
   return String(Math.round(Number(v)));
 }
 
-const GRADE_COLOR = {
-  Elite: "var(--accent)",
-  High: "var(--good)",
-  Medium: "var(--warn)",
-  Low: "var(--bad)",
-};
-
-/**
- * DORA metrics card (Task 10.6).
- * - Lead time: real value, no "(est.)" suffix.
- * - Deploy frequency: value + "(est.)" + tooltip.
- * - Change failure rate: value + "(est.)" + tooltip.
- * - MTTR: always "—".
- */
-function DoraCard({ dora, loading }) {
-  if (!dora && !loading) return null;
-
-  const EST_TOOLTIP = "Estimado a partir de work items DONE por semana";
-
-  const metrics = [
-    {
-      key: "leadTime",
-      label: "Lead Time",
-      value: loading ? "…" : fmt1(dora?.leadTimeHours),
-      unit: "h",
-      classification: dora?.leadTimeClassification,
-      estimated: false,
-    },
-    {
-      key: "deployFreq",
-      label: "Deploy Frequency",
-      value: loading ? "…" : fmt1(dora?.deployFrequencyPerWeek),
-      unit: "/sem",
-      classification: dora?.deployFrequencyClassification,
-      estimated: dora?.deployFrequencyEstimated ?? true,
-      tooltip: EST_TOOLTIP,
-    },
-    {
-      key: "cfr",
-      label: "Change Failure Rate",
-      value: loading ? "…" : fmt1(dora?.changeFailureRatePct),
-      unit: "%",
-      classification: dora?.changeFailureRateClassification,
-      estimated: dora?.changeFailureRateEstimated ?? true,
-      tooltip: EST_TOOLTIP,
-    },
-    {
-      key: "mttr",
-      label: "MTTR",
-      value: "—",
-      unit: "",
-      classification: null,
-      estimated: false,
-    },
-  ];
-
+function initials(name) {
+  if (!name) return "?";
+  const parts = String(name).trim().split(/\s+/);
   return (
-    <div style={styles.card}>
-      <div style={styles.cardHead}>
-        <span className="mono" style={styles.cardEyebrow}>
-          DORA
-        </span>
-        <h3 className="serif" style={styles.cardTitle}>
-          Métricas de Entrega
-        </h3>
+    (parts[0]?.[0] || "") + (parts.length > 1 ? parts[parts.length - 1][0] : "")
+  ).toUpperCase();
+}
+
+function sum(list, key) {
+  return list.reduce((acc, it) => acc + (Number(it?.[key]) || 0), 0);
+}
+
+/* ── Blocos ─────────────────────────────────────── */
+
+function Card({ eyebrow, title, extra, children }) {
+  return (
+    <section className="border-line bg-bg-elev mb-4 rounded-[var(--radius-sm)] border px-5 py-4">
+      <div className="mb-3.5 flex flex-wrap items-start justify-between gap-3">
+        <div>
+          <span className="text-fg-muted mb-1 block font-mono text-[length:var(--mono-sm)] tracking-[0.1em] uppercase">
+            {eyebrow}
+          </span>
+          <h3 className="m-0 font-serif text-[20px]">{title}</h3>
+        </div>
+        {extra}
       </div>
-      <div
-        style={{
-          display: "grid",
-          gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))",
-          gap: 16,
-        }}
-      >
-        {metrics.map((m) => (
-          <div key={m.key} style={styles.doraMetric}>
-            <div className="mono" style={styles.doraLabel}>
-              {m.label}
-              {m.estimated && (
-                <span
-                  title={m.tooltip}
-                  style={styles.estBadge}
-                  aria-label={`Estimado: ${m.tooltip}`}
-                >
-                  {" "}
-                  (est.)
-                </span>
-              )}
-            </div>
-            <div style={{ display: "flex", alignItems: "baseline", gap: 4, marginTop: 6 }}>
-              <span
-                className="serif"
-                style={{
-                  fontSize: 28,
-                  color: m.classification
-                    ? GRADE_COLOR[m.classification] || "var(--fg)"
-                    : "var(--fg)",
-                }}
-              >
-                {m.value}
-              </span>
-              {m.unit && m.value !== "—" && m.value !== "…" && (
-                <span
-                  className="mono"
-                  style={{ fontSize: "var(--mono-sm)", color: "var(--fg-muted)" }}
-                >
-                  {m.unit}
-                </span>
-              )}
-            </div>
-            {m.classification && (
-              <div
-                style={{
-                  marginTop: 4,
-                  fontSize: 9,
-                  letterSpacing: "0.18em",
-                  textTransform: "uppercase",
-                  color: GRADE_COLOR[m.classification] || "var(--fg-muted)",
-                }}
-              >
-                {m.classification}
+      {children}
+    </section>
+  );
+}
+
+function Chips({ items, loading, label }) {
+  return (
+    <div className="mb-5 flex flex-wrap gap-3" role="list" aria-label={label}>
+      {items.map((c) => (
+        <div
+          key={c.label}
+          role="listitem"
+          className="border-line bg-bg-elev min-w-[140px] flex-1 rounded-[var(--radius-sm)] border px-4 py-3.5"
+        >
+          {c.duration ? (
+            <DurationStat stat={loading ? null : c.duration} label={c.label} />
+          ) : (
+            <>
+              <div className="text-fg-muted mb-1.5 font-mono text-[length:var(--mono-sm)]">
+                {c.label}
               </div>
-            )}
-          </div>
-        ))}
-      </div>
+              <div className="flex items-baseline gap-1">
+                <span className="font-serif text-[28px]">{loading ? "…" : c.value}</span>
+                {c.unit && !loading && c.value !== "—" ? (
+                  <span className="text-fg-muted font-mono text-[length:var(--mono-sm)]">
+                    {c.unit}
+                  </span>
+                ) : null}
+              </div>
+            </>
+          )}
+        </div>
+      ))}
     </div>
+  );
+}
+
+function Empty({ children }) {
+  return <div className="text-fg-dim py-2 font-mono text-[length:var(--mono-sm)]">{children}</div>;
+}
+
+function DeliveryCard({ delivery, loading }) {
+  return (
+    <Card
+      eyebrow="entrega"
+      title="Métricas de entrega"
+      extra={!loading ? <DeliveryMethodBadge method={delivery?.method} /> : null}
+    >
+      {loading ? (
+        <Empty>Carregando…</Empty>
+      ) : (
+        <DeliveryMetricsGrid delivery={delivery} showMethod={false} />
+      )}
+    </Card>
+  );
+}
+
+const TH =
+  "text-fg-muted border-line-strong border-b px-2.5 py-1.5 font-mono text-[length:var(--mono-sm)] whitespace-nowrap";
+const TD = "border-line border-b px-2.5 py-[7px] align-middle text-[length:var(--mono-base)]";
+
+/* ── Níveis ─────────────────────────────────────── */
+
+function OrgLevel({ data, loading }) {
+  const projects = data?.projects || [];
+  return (
+    <>
+      <Chips
+        label="Métricas da organização"
+        loading={loading}
+        items={[
+          { label: "Projetos", value: String(projects.length) },
+          { label: "Work items", value: fmtInt(sum(projects, "totalWorkItems")) },
+          {
+            label: "Story Points entregues",
+            value: fmtInt(sum(projects, "storyPointsDelivered")),
+            unit: "SP",
+          },
+          {
+            label: "Change Fail Rate",
+            value: formatCfr(data?.delivery?.changeFailRatePercent) ?? "—",
+          },
+        ]}
+      />
+
+      <DeliveryCard delivery={data?.delivery} loading={loading} />
+
+      <Card eyebrow="projetos" title="Resumo por projeto">
+        {loading ? (
+          <Empty>Carregando…</Empty>
+        ) : projects.length === 0 ? (
+          <Empty>Nenhum projeto com dados no período.</Empty>
+        ) : (
+          <div className="grid grid-cols-[repeat(auto-fill,minmax(240px,1fr))] gap-3">
+            {projects.map((p) => (
+              <article
+                key={p.projectId}
+                className="border-line-strong bg-bg rounded-[var(--radius-sm)] border px-4 py-3.5"
+              >
+                <div className="mb-2 font-serif text-base">{p.projectName || p.projectId}</div>
+                <dl className="m-0 flex flex-col gap-1 font-mono text-[length:var(--mono-sm)]">
+                  {[
+                    ["SP entregues", fmtInt(p.storyPointsDelivered)],
+                    ["Work items", fmtInt(p.totalWorkItems)],
+                    ["Cycle (mediana)", <DurationInline key="c" stat={p.cycleTime} />],
+                    ["Lead (mediana)", <DurationInline key="l" stat={p.leadTime} />],
+                    ["CFR", formatCfr(p.delivery?.changeFailRatePercent) ?? "—"],
+                  ].map(([k, v]) => (
+                    <div key={k} className="flex justify-between gap-2">
+                      <dt className="text-fg-muted">{k}</dt>
+                      <dd className="m-0">{v}</dd>
+                    </div>
+                  ))}
+                </dl>
+                <div className="mt-2.5">
+                  <DeliveryMethodBadge method={p.delivery?.method} />
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+      </Card>
+    </>
+  );
+}
+
+function ProjectLevel({ data, loading }) {
+  const detail = data?.projectDetail;
+  const members = detail?.members || [];
+  return (
+    <>
+      <Chips
+        label="Métricas do projeto"
+        loading={loading}
+        items={[
+          { label: "Membros", value: String(members.length) },
+          { label: "Work items", value: fmtInt(sum(members, "workItemCount")) },
+          {
+            label: "Story Points entregues",
+            value: fmtInt(sum(members, "storyPointsDelivered")),
+            unit: "SP",
+          },
+          {
+            label: "Change Fail Rate",
+            value: formatCfr(detail?.delivery?.changeFailRatePercent) ?? "—",
+          },
+        ]}
+      />
+
+      <DeliveryCard delivery={detail?.delivery} loading={loading} />
+
+      <Card eyebrow="membros" title="Métricas por membro">
+        {loading ? (
+          <Empty>Carregando…</Empty>
+        ) : members.length === 0 ? (
+          <Empty>Nenhum dado disponível</Empty>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="w-full border-collapse">
+              <thead>
+                <tr>
+                  <th className={TH + " text-left"}>Membro</th>
+                  <th className={TH + " text-right"}>SP</th>
+                  <th className={TH + " text-right"}>Cycle (h, mediana)</th>
+                  <th className={TH + " text-right"}>Lead (h, mediana)</th>
+                  <th className={TH + " text-right"}>Items</th>
+                </tr>
+              </thead>
+              <tbody>
+                {members.map((m) => (
+                  <tr key={m.userId}>
+                    <td className={TD}>
+                      <div className="flex items-center gap-2">
+                        <div className="bg-accent text-bg flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold">
+                          {initials(m.name)}
+                        </div>
+                        <span>{m.name || m.userId}</span>
+                        {m.linkedToAzure === false ? (
+                          <span
+                            className="text-fg-dim font-mono text-[length:var(--mono-sm)]"
+                            title="Sem identidade Azure vinculada — itens atribuídos a ele não são contados"
+                          >
+                            (sem Azure)
+                          </span>
+                        ) : null}
+                      </div>
+                    </td>
+                    <td className={TD + " text-right"}>{fmtInt(m.storyPointsDelivered)}</td>
+                    <td className={TD + " text-right"}>
+                      <DurationInline stat={m.cycleTime} />
+                    </td>
+                    <td className={TD + " text-right"}>
+                      <DurationInline stat={m.leadTime} />
+                    </td>
+                    <td className={TD + " text-right"}>{fmtInt(m.workItemCount)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </Card>
+    </>
+  );
+}
+
+function MemberLevel({ data, loading }) {
+  const member = data?.memberDetail;
+  const context = member?.sprintContext;
+  return (
+    <>
+      <Chips
+        label="Métricas do membro"
+        loading={loading}
+        items={[
+          {
+            label: "Story Points entregues",
+            value: fmtInt(member?.storyPointsDelivered),
+            unit: "SP",
+          },
+          { label: "Cycle time", duration: member?.cycleTime ?? null },
+          { label: "Lead time", duration: member?.leadTime ?? null },
+          { label: "PRs abertas", value: fmtInt(member?.openPrs), unit: "prs" },
+          { label: "PRs mescladas", value: fmtInt(member?.mergedPrs), unit: "prs" },
+        ]}
+      />
+
+      <Card
+        eyebrow="colaboração"
+        title="Review de pull requests"
+        extra={
+          context?.sprintName ? (
+            <span className="text-fg-muted font-mono text-[length:var(--mono-sm)]">
+              {context.sprintName}
+            </span>
+          ) : null
+        }
+      >
+        {loading ? (
+          <Empty>Carregando…</Empty>
+        ) : !member ? (
+          <Empty>Nenhum dado disponível</Empty>
+        ) : (
+          <>
+            <ReviewStats review={context?.review} />
+            <div className="border-line mt-4 border-t pt-4">
+              <DurationStat
+                stat={context?.prCycleTime}
+                label="Ciclo dos PRs integrados"
+                size="md"
+              />
+            </div>
+          </>
+        )}
+      </Card>
+    </>
   );
 }
 
@@ -200,359 +355,47 @@ function ManagerDashboard({ projectId, memberId, startDate, endDate }) {
     fetchData();
   }, [fetchData]);
 
-  // Determine scope level from props
+  /* Esta tela busca fora do React Query, então invalidar chaves não a
+   * recarregaria: o refresh chama o próprio fetchData ao concluir. */
+  const refresh = useProjectRefresh(projectId, {
+    freshness: data?.dataFreshness,
+    onCompleted: fetchData,
+  });
+
   const scopeLevel = projectId && memberId ? 3 : projectId ? 2 : 1;
 
   return (
     <div className="dash-wrap">
-      <div style={styles.header}>
+      <div className="mb-6 flex items-end justify-between gap-6">
         <div>
-          <div className="mono" style={styles.eyebrow}>
+          <div className="text-fg-muted mb-1.5 font-mono text-[length:var(--mono-sm)] tracking-[0.12em] uppercase">
             painel estratégico
           </div>
-          <h1 className="serif" style={styles.title}>
+          <h1 className="m-0 font-serif text-[40px] leading-[1.1]">
             {scopeLevel === 3 ? "Individual" : scopeLevel === 2 ? "Projeto" : "Organização"}{" "}
-            <span style={{ fontStyle: "italic", color: "var(--accent)" }}>Dashboard</span>
+            <span className="text-accent italic">Dashboard</span>
           </h1>
+          {scopeLevel === 2 && data?.projectDetail?.projectName ? (
+            <div className="text-fg-muted mt-1 text-sm">{data.projectDetail.projectName}</div>
+          ) : null}
         </div>
+        <RefreshControl {...refresh} />
       </div>
 
       {error && (
-        <div className="mono" style={{ color: "var(--bad)", marginBottom: 16 }}>
+        <div role="alert" className="text-bad mb-4 font-mono">
           {error}{" "}
-          <button className="btn" style={{ marginLeft: 8 }} onClick={fetchData}>
+          <button className="btn ml-2" onClick={fetchData}>
             Tentar novamente
           </button>
         </div>
       )}
 
-      {/* ── Summary chips ── */}
-      <div style={styles.metricsRow} role="list" aria-label="Métricas estratégicas">
-        {[
-          {
-            label: "Story Points",
-            value: loading ? "…" : fmtInt(data?.totalStoryPointsDelivered),
-            unit: "SP",
-          },
-          {
-            label: "Avg Cycle Time",
-            value: loading ? "…" : fmt1(data?.avgCycleTimeHours),
-            unit: "h",
-          },
-          {
-            label: "Avg Lead Time",
-            value: loading ? "…" : fmt1(data?.avgLeadTimeHours),
-            unit: "h",
-          },
-          { label: "AI Cost", value: loading ? "…" : fmtUsd(data?.aiCostUsd), unit: "" },
-        ].map((c) => (
-          <div key={c.label} style={styles.chip} role="listitem">
-            <div className="mono" style={styles.chipLabel}>
-              {c.label}
-            </div>
-            <div style={styles.chipValue}>
-              <span className="serif" style={styles.chipNum}>
-                {c.value}
-              </span>
-              {c.unit && c.value !== "—" && c.value !== "…" && (
-                <span className="mono" style={styles.chipUnit}>
-                  {c.unit}
-                </span>
-              )}
-            </div>
-          </div>
-        ))}
-      </div>
-
-      {/* ── Level 1: Org — project cards + DORA ── */}
-      {scopeLevel === 1 && (
-        <>
-          <DoraCard dora={data?.dora} loading={loading} />
-
-          {(loading || (data?.projects && data.projects.length > 0)) && (
-            <div style={styles.card}>
-              <div style={styles.cardHead}>
-                <span className="mono" style={styles.cardEyebrow}>
-                  projetos
-                </span>
-                <h3 className="serif" style={styles.cardTitle}>
-                  Resumo por Projeto
-                </h3>
-              </div>
-              {loading ? (
-                <div className="mono" style={styles.emptyState}>
-                  Carregando…
-                </div>
-              ) : (
-                <div
-                  style={{
-                    display: "grid",
-                    gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))",
-                    gap: 12,
-                  }}
-                >
-                  {(data?.projects || []).map((p) => (
-                    <div key={p.projectId} style={styles.projectCard}>
-                      <div className="serif" style={{ fontSize: 16, marginBottom: 8 }}>
-                        {p.projectName || p.projectId}
-                      </div>
-                      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-                        <div style={styles.projectStat}>
-                          <span className="mono" style={styles.statLabel}>
-                            SP
-                          </span>
-                          <span className="mono">{fmtInt(p.storyPoints)}</span>
-                        </div>
-                        <div style={styles.projectStat}>
-                          <span className="mono" style={styles.statLabel}>
-                            AI Cost
-                          </span>
-                          <span className="mono">{fmtUsd(p.aiCostUsd)}</span>
-                        </div>
-                        <div style={styles.projectStat}>
-                          <span className="mono" style={styles.statLabel}>
-                            Membros
-                          </span>
-                          <span className="mono">{fmtInt(p.memberCount)}</span>
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          )}
-        </>
-      )}
-
-      {/* ── Level 2: Project — members table ── */}
-      {scopeLevel === 2 && (
-        <>
-          <DoraCard dora={data?.dora} loading={loading} />
-
-          <div style={styles.card}>
-            <div style={styles.cardHead}>
-              <span className="mono" style={styles.cardEyebrow}>
-                membros
-              </span>
-              <h3 className="serif" style={styles.cardTitle}>
-                Métricas por Membro
-              </h3>
-            </div>
-            {loading ? (
-              <div className="mono" style={styles.emptyState}>
-                Carregando…
-              </div>
-            ) : !data?.members || data.members.length === 0 ? (
-              <div className="mono" style={styles.emptyState}>
-                Nenhum dado disponível
-              </div>
-            ) : (
-              <div style={{ overflowX: "auto" }}>
-                <table style={{ width: "100%", borderCollapse: "collapse" }}>
-                  <thead>
-                    <tr>
-                      {["Membro", "SP", "Cycle (h)", "Lead (h)", "AI Cost"].map((h) => (
-                        <th key={h} style={styles.th}>
-                          {h}
-                        </th>
-                      ))}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {data.members.map((m) => (
-                      <tr key={m.userId}>
-                        <td style={styles.td}>
-                          <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                            <div style={styles.avatar}>{m.avatarInitials || "?"}</div>
-                            <span>{m.name || m.userId}</span>
-                          </div>
-                        </td>
-                        <td style={{ ...styles.td, textAlign: "right" }}>
-                          {fmtInt(m.storyPointsDelivered)}
-                        </td>
-                        <td style={{ ...styles.td, textAlign: "right" }}>
-                          {fmt1(m.cycleTimeHours)}
-                        </td>
-                        <td style={{ ...styles.td, textAlign: "right" }}>
-                          {fmt1(m.leadTimeHours)}
-                        </td>
-                        <td style={{ ...styles.td, textAlign: "right" }}>{fmtUsd(m.aiCostUsd)}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </>
-      )}
-
-      {/* ── Level 3: Individual metrics ── */}
-      {scopeLevel === 3 && (
-        <div style={styles.card}>
-          <div style={styles.cardHead}>
-            <span className="mono" style={styles.cardEyebrow}>
-              métricas individuais
-            </span>
-            <h3 className="serif" style={styles.cardTitle}>
-              Desempenho Individual
-            </h3>
-          </div>
-          {loading ? (
-            <div className="mono" style={styles.emptyState}>
-              Carregando…
-            </div>
-          ) : !data?.individualMetrics ? (
-            <div className="mono" style={styles.emptyState}>
-              Nenhum dado disponível
-            </div>
-          ) : (
-            <div style={{ display: "flex", gap: 24, flexWrap: "wrap" }}>
-              {Object.entries(data.individualMetrics).map(([key, value]) => (
-                <div key={key}>
-                  <div className="mono" style={styles.chipLabel}>
-                    {key}
-                  </div>
-                  <div className="serif" style={{ fontSize: 24 }}>
-                    {String(value)}
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-      )}
+      {scopeLevel === 1 && <OrgLevel data={data} loading={loading} />}
+      {scopeLevel === 2 && <ProjectLevel data={data} loading={loading} />}
+      {scopeLevel === 3 && <MemberLevel data={data} loading={loading} />}
     </div>
   );
 }
-
-const styles = {
-  header: {
-    marginBottom: 24,
-  },
-  eyebrow: {
-    fontSize: "var(--mono-sm)",
-    color: "var(--fg-muted)",
-    textTransform: "uppercase",
-    letterSpacing: "0.12em",
-    marginBottom: 6,
-  },
-  title: {
-    fontSize: 40,
-    lineHeight: 1.1,
-  },
-  metricsRow: {
-    display: "flex",
-    gap: 12,
-    flexWrap: "wrap",
-    marginBottom: 20,
-  },
-  chip: {
-    flex: "1 1 140px",
-    background: "var(--bg-elev)",
-    border: "1px solid var(--line)",
-    borderRadius: "var(--radius-sm)",
-    padding: "14px 16px",
-  },
-  chipLabel: {
-    fontSize: "var(--mono-sm)",
-    color: "var(--fg-muted)",
-    marginBottom: 6,
-  },
-  chipValue: {
-    display: "flex",
-    alignItems: "baseline",
-    gap: 4,
-  },
-  chipNum: {
-    fontSize: 28,
-    color: "var(--fg)",
-  },
-  chipUnit: {
-    fontSize: "var(--mono-sm)",
-    color: "var(--fg-muted)",
-  },
-  card: {
-    background: "var(--bg-elev)",
-    border: "1px solid var(--line)",
-    borderRadius: "var(--radius-sm)",
-    padding: "16px 20px",
-    marginBottom: 16,
-  },
-  cardHead: {
-    marginBottom: 14,
-  },
-  cardEyebrow: {
-    fontSize: "var(--mono-sm)",
-    color: "var(--fg-muted)",
-    textTransform: "uppercase",
-    letterSpacing: "0.10em",
-    display: "block",
-    marginBottom: 4,
-  },
-  cardTitle: {
-    fontSize: 20,
-  },
-  emptyState: {
-    color: "var(--fg-dim)",
-    fontSize: "var(--mono-sm)",
-    padding: "8px 0",
-  },
-  doraMetric: {
-    padding: "12px 0",
-  },
-  doraLabel: {
-    fontSize: "var(--mono-sm)",
-    color: "var(--fg-muted)",
-    textTransform: "uppercase",
-    letterSpacing: "0.10em",
-  },
-  estBadge: {
-    color: "var(--fg-dim)",
-    cursor: "help",
-  },
-  th: {
-    textAlign: "left",
-    padding: "6px 10px",
-    fontSize: "var(--mono-sm)",
-    color: "var(--fg-muted)",
-    borderBottom: "1px solid var(--line-strong)",
-    whiteSpace: "nowrap",
-  },
-  td: {
-    padding: "7px 10px",
-    borderBottom: "1px solid var(--line)",
-    fontSize: "var(--mono-base)",
-    verticalAlign: "middle",
-  },
-  avatar: {
-    width: 28,
-    height: 28,
-    borderRadius: "50%",
-    background: "var(--accent)",
-    color: "var(--bg)",
-    display: "flex",
-    alignItems: "center",
-    justifyContent: "center",
-    fontSize: 12,
-    fontWeight: 600,
-    flexShrink: 0,
-  },
-  projectCard: {
-    background: "var(--bg)",
-    border: "1px solid var(--line-strong)",
-    borderRadius: "var(--radius-sm)",
-    padding: "14px 16px",
-  },
-  projectStat: {
-    display: "flex",
-    justifyContent: "space-between",
-    fontSize: "var(--mono-sm)",
-  },
-  statLabel: {
-    color: "var(--fg-muted)",
-  },
-};
 
 export { ManagerDashboard };

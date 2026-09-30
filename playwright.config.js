@@ -16,7 +16,10 @@ export default defineConfig({
   retries: 0,
   timeout: 30_000,
   expect: {
-    toHaveScreenshot: { maxDiffPixelRatio: 0.015, animations: "disabled" },
+    /* 0.1% (era 1.5%): com 1.5% baselines velhas passavam — ex.: a matriz de
+     * cargos ainda com rótulos GITHUB_* (~2.4%) e trocas de texto de <0.1% da
+     * tela. Estável em 2 rodadas consecutivas no Docker (npm run e2e:docker). */
+    toHaveScreenshot: { maxDiffPixelRatio: 0.001, animations: "disabled" },
   },
   use: {
     baseURL: BASE_URL,
