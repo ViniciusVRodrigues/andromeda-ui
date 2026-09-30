@@ -1,5 +1,5 @@
 {
-  "request": "GET /api/v1/integrations/github/bindings",
+  "request": "GET /api/v1/repos/bindings",
   "status": 200,
   "contentType": "application/json",
   "body": "[]"

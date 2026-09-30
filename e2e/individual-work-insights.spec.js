@@ -188,6 +188,8 @@ test("individual dashboard links sprint work to GitHub review context", async ({
         sprintHistory: [],
         openPrs: 1,
         mergedPrs: 0,
+        cycleTime: { p50: null, p90: null, n: 0 },
+        leadTime: { p50: null, p90: null, n: 0 },
         sprintContext: {
           sprintId: "s-1",
           sprintName: "Sprint 25",
@@ -196,6 +198,14 @@ test("individual dashboard links sprint work to GitHub review context", async ({
           avgTimeToFirstReviewHours: 2.5,
           avgPrCycleTimeHours: null,
           reviewedPrs: 1,
+          review: {
+            timeToFirstReview: { p50: 2.5, p90: 2.5, n: 1 },
+            timeToFirstApproval: { p50: null, p90: null, n: 0 },
+            reviewedWithinSlaPercent: 100,
+            eligiblePrs: 1,
+            slaHours: 24,
+          },
+          prCycleTime: { p50: null, p90: null, n: 0 },
           pullRequests: [
             {
               id: "pr-1",
@@ -213,7 +223,11 @@ test("individual dashboard links sprint work to GitHub review context", async ({
   await page.goto(`/${slug}/dashboard`);
   await expect(page.getByRole("heading", { name: "Minha sprint" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Meus pull requests" })).toBeVisible();
-  await expect(page.getByText("Primeira review: 1 PRs com medição.")).toBeVisible();
+  const review = page.getByTestId("review-stats");
+  await expect(review).toContainText("Até a 1ª review");
+  await expect(review).toContainText("2.5");
+  await expect(review).toContainText("Revisados em 24h");
+  await expect(review).toContainText("1 PRs elegíveis");
   await page.getByRole("button", { name: "Work item #101 · Corrigir sincronização" }).click();
   await expect(page.getByRole("dialog")).toContainText("Sprint 25");
   await page.keyboard.press("Escape");
@@ -221,6 +235,9 @@ test("individual dashboard links sprint work to GitHub review context", async ({
   // o cartao INTEIRO abre o modal: clica numa borda vazia, longe do titulo —
   // antes so o texto do titulo era clicavel.
   const card = page.getByRole("article").filter({ hasText: "Corrigir sincronização" }).first();
+  // o card de PRs (review) cresceu e empurrou a tabela para fora da dobra:
+  // mouse.click por coordenada não rola sozinho.
+  await card.scrollIntoViewIfNeeded();
   const box = await card.boundingBox();
   await page.mouse.click(box.x + box.width - 12, box.y + box.height - 10);
   await expect(page.getByRole("dialog")).toBeVisible();

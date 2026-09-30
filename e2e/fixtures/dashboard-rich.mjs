@@ -9,8 +9,17 @@ export const DEVELOPER_FIXTURE = {
     sprintName: "Sprint 25",
     startDate: "2026-08-31",
     endDate: "2026-09-13",
-    avgTimeToFirstReviewHours: null,
-    reviewedPrs: 0,
+    avgTimeToFirstReviewHours: 3.1,
+    avgPrCycleTimeHours: 26.4,
+    reviewedPrs: 4,
+    review: {
+      timeToFirstReview: { p50: 2.5, p90: 9.8, n: 4 },
+      timeToFirstApproval: { p50: 6.2, p90: 20.5, n: 3 },
+      reviewedWithinSlaPercent: 80,
+      eligiblePrs: 5,
+      slaHours: 24,
+    },
+    prCycleTime: { p50: 18.5, p90: 40.2, n: 3 },
     pullRequests: [],
   },
   currentSprintItems: [
@@ -56,6 +65,8 @@ export const DEVELOPER_FIXTURE = {
   ],
   avgCycleTimeHours: 10,
   avgLeadTimeHours: 25,
+  cycleTime: { p50: 10, p90: 21, n: 2 },
+  leadTime: { p50: 25, p90: 30, n: 2 },
   storyPointsDelivered: 5,
   totalSpInSprint: 13,
   tokensByDay: [
@@ -110,6 +121,7 @@ export const DEVELOPER_FIXTURE = {
       spPlanned: 21,
       spDelivered: 18,
       avgCycleTimeHours: 14,
+      cycleTimeP50: 14,
       totalTokens: 21000,
       totalCostUsd: 1.4,
     },
@@ -121,6 +133,7 @@ export const DEVELOPER_FIXTURE = {
       spPlanned: 20,
       spDelivered: 10,
       avgCycleTimeHours: 12,
+      cycleTimeP50: 12,
       totalTokens: 9000,
       totalCostUsd: 0.72,
     },
@@ -132,6 +145,7 @@ export const DEVELOPER_FIXTURE = {
       spPlanned: 13,
       spDelivered: 5,
       avgCycleTimeHours: 10,
+      cycleTimeP50: 10,
       totalTokens: 18000,
       totalCostUsd: 1.0,
     },
@@ -146,7 +160,17 @@ export const TEAM_FIXTURE = {
   teamVelocity: 22,
   avgCycleTimeHours: 14.2,
   avgLeadTimeHours: 30.5,
+  cycleTime: { p50: 12.8, p90: 26.4, n: 7 },
+  leadTime: { p50: 29.5, p90: 52.0, n: 7 },
+  review: {
+    timeToFirstReview: { p50: 3.4, p90: 14.2, n: 9 },
+    timeToFirstApproval: { p50: 7.9, p90: 22.6, n: 8 },
+    reviewedWithinSlaPercent: 81.8,
+    eligiblePrs: 11,
+    slaHours: 24,
+  },
   teamAiCostUsd: 2.1,
+  unallocatedAiCostUsd: 0.64,
   velocityTrend: [
     {
       sprintId: "s-23",
@@ -181,7 +205,10 @@ export const TEAM_FIXTURE = {
       storyPointsDelivered: 13,
       cycleTimeHours: 12.5,
       leadTimeHours: 28,
+      cycleTime: { p50: 11.5, p90: 20.0, n: 4 },
+      leadTime: { p50: 27.0, p90: 44.0, n: 4 },
       aiCostUsd: 1.2,
+      unallocatedAiCostUsd: 0.4,
       avgTokensPerSp: 3200,
       workItemCount: 4,
     },
@@ -192,7 +219,10 @@ export const TEAM_FIXTURE = {
       storyPointsDelivered: 9,
       cycleTimeHours: 16,
       leadTimeHours: 33,
+      cycleTime: { p50: 15.0, p90: 26.4, n: 3 },
+      leadTime: { p50: 31.0, p90: 52.0, n: 3 },
       aiCostUsd: 0.9,
+      unallocatedAiCostUsd: 0.24,
       avgTokensPerSp: 2700,
       workItemCount: 3,
     },
@@ -235,3 +265,202 @@ export const CANDIDATES_FIXTURE = [
     storyPoints: 11,
   },
 ];
+
+/* ── metrics-correctness: contrato real do estratégico e dos repositórios ── */
+
+const dur = (p50, p90, n) => ({ p50, p90, n });
+
+export const DELIVERY_VCS = {
+  method: "VCS_PROXY",
+  changeFailRatePercent: 15.0,
+  changeFailRateClass: "MEDIUM",
+  deploymentsPerWeek: 3.0,
+  deploymentFrequencyClass: "HIGH",
+  changeLeadTime: dur(30.0, 72.5, 12),
+  changeLeadTimeClass: "HIGH",
+  mergedPrs: 12,
+  remediationPrs: 2,
+};
+
+export const DELIVERY_BOARDS = {
+  method: "BOARDS_PROXY",
+  changeFailRatePercent: 20.0,
+  changeFailRateClass: "LOW",
+  deploymentsPerWeek: 1.5,
+  deploymentFrequencyClass: "MEDIUM",
+  changeLeadTime: dur(96.0, 180.0, 6),
+  changeLeadTimeClass: "MEDIUM",
+  mergedPrs: null,
+  remediationPrs: null,
+};
+
+export const DELIVERY_UNAVAILABLE = {
+  method: "UNAVAILABLE",
+  changeFailRatePercent: null,
+  changeFailRateClass: null,
+  deploymentsPerWeek: null,
+  deploymentFrequencyClass: null,
+  changeLeadTime: dur(null, null, 0),
+  changeLeadTimeClass: null,
+  mergedPrs: 0,
+  remediationPrs: 0,
+};
+
+export const STRATEGIC_ORG_FIXTURE = {
+  level: "ORG",
+  delivery: {
+    ...DELIVERY_VCS,
+    changeFailRatePercent: 16.7,
+    changeFailRateClass: "LOW",
+    mergedPrs: 18,
+    remediationPrs: 3,
+    deploymentsPerWeek: 4.5,
+  },
+  projects: [
+    {
+      projectId: "p-1",
+      projectName: "Andrômeda",
+      totalWorkItems: 42,
+      storyPointsDelivered: 55,
+      cycleTime: dur(12.5, 30.0, 20),
+      leadTime: dur(31.0, 70.0, 20),
+      delivery: DELIVERY_VCS,
+    },
+    {
+      projectId: "p-2",
+      projectName: "Portal do Cliente",
+      totalWorkItems: 17,
+      storyPointsDelivered: 21,
+      cycleTime: dur(20.0, 44.0, 8),
+      leadTime: dur(48.0, 96.0, 8),
+      delivery: DELIVERY_BOARDS,
+    },
+    {
+      projectId: "p-3",
+      projectName: "Laboratório",
+      totalWorkItems: 0,
+      storyPointsDelivered: 0,
+      cycleTime: dur(null, null, 0),
+      leadTime: dur(null, null, 0),
+      delivery: DELIVERY_UNAVAILABLE,
+    },
+  ],
+  projectDetail: null,
+  memberDetail: null,
+  dataFreshness: null,
+};
+
+export const STRATEGIC_PROJECT_FIXTURE = {
+  level: "PROJECT",
+  projects: null,
+  projectDetail: {
+    projectId: "p-1",
+    projectName: "Andrômeda",
+    delivery: DELIVERY_VCS,
+    members: [
+      {
+        userId: "u-1",
+        name: "Ana Souza",
+        linkedToAzure: true,
+        storyPointsDelivered: 34,
+        cycleTime: dur(11.5, 20.0, 12),
+        leadTime: dur(27.0, 44.0, 12),
+        workItemCount: 14,
+      },
+      {
+        userId: "u-2",
+        name: "Bruno Lima",
+        linkedToAzure: false,
+        storyPointsDelivered: 21,
+        cycleTime: dur(15.0, 26.4, 8),
+        leadTime: dur(31.0, 52.0, 8),
+        workItemCount: 9,
+      },
+    ],
+  },
+  memberDetail: null,
+  dataFreshness: null,
+};
+
+export const STRATEGIC_MEMBER_FIXTURE = {
+  level: "MEMBER",
+  projects: null,
+  projectDetail: null,
+  memberDetail: DEVELOPER_FIXTURE,
+  dataFreshness: null,
+};
+
+export const REPOS_FIXTURE = {
+  repos: [
+    {
+      repoId: "r-1",
+      repositoryId: "r-1",
+      provider: "GITHUB",
+      fullName: "andromeda/andromeda-ms",
+      displayName: "andromeda/andromeda-ms",
+      defaultBranch: "main",
+      openPrCount: 4,
+      stalePrCount: 1,
+      prCycleTime: dur(18.5, 40.2, 12),
+      review: {
+        timeToFirstReview: dur(2.5, 9.8, 11),
+        timeToFirstApproval: dur(6.2, 20.5, 10),
+        reviewedWithinSlaPercent: 84.6,
+        eligiblePrs: 13,
+        slaHours: 24,
+      },
+      delivery: DELIVERY_VCS,
+    },
+  ],
+  dataFreshness: null,
+};
+
+export const REPO_PRS_FIXTURE = {
+  page: 0,
+  size: 20,
+  totalElements: 2,
+  content: [
+    {
+      id: "pr-1",
+      number: 42,
+      title: "Hotfix: corrigir cálculo do CFR",
+      status: "MERGED",
+      draft: false,
+      authorLogin: "ana",
+      provider: "GITHUB",
+      createdAt: "2026-08-20T10:00:00Z",
+      mergedAt: "2026-08-21T12:00:00Z",
+      closedAt: "2026-08-21T12:00:00Z",
+      cycleTimeHours: 26,
+      timeToFirstReviewHours: 2,
+      timeToFirstApprovalHours: 20,
+      linkedWorkItemExternalId: "AZDO-102",
+      linkedWorkItemId: "wi-2",
+      linkedWorkItemTitle: "Tratar rate limit da API",
+    },
+    {
+      id: "pr-2",
+      number: 43,
+      title: "Rascunho: novo painel",
+      status: "OPEN",
+      draft: true,
+      authorLogin: "bruno",
+      provider: "GITHUB",
+      createdAt: "2026-08-28T09:00:00Z",
+      mergedAt: null,
+      closedAt: null,
+      cycleTimeHours: null,
+      timeToFirstReviewHours: null,
+      timeToFirstApprovalHours: null,
+      linkedWorkItemExternalId: null,
+      linkedWorkItemId: null,
+      linkedWorkItemTitle: null,
+    },
+  ],
+};
+
+export const METRIC_SETTINGS_FIXTURE = {
+  remediationBranchPrefixes: ["hotfix/"],
+  bugLinkedCountsAsRemediation: true,
+  revertCountsAsRemediation: true,
+};

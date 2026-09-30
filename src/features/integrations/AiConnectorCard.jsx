@@ -5,13 +5,15 @@ import { IntegrationDataActions } from "./IntegrationDataActions.jsx";
 import { useWipeAiUsageData } from "./hooks.js";
 
 /**
- * @param {{ orgSlug: string, can: (perm: string) => boolean }} props
+ * @param {{ orgSlug: string, hasOrg: (code: string) => boolean }} props
+ *   `hasOrg` é o predicado de permissão na organização (useIdentity) — os
+ *   códigos CONNECTOR_TOKEN_MANAGE_* são ORG_ONLY.
  */
-export function AiConnectorCard({ orgSlug, can }) {
+export function AiConnectorCard({ orgSlug, hasOrg }) {
   const limparIA = useWipeAiUsageData();
   /* O backend decide o escopo pelas permissoes do token; aqui so ajustamos o
    * texto do aviso para dizer a verdade sobre o que vai sumir. */
-  const podeApagarDaOrg = can("CONNECTOR_TOKEN_MANAGE_ALL");
+  const podeApagarDaOrg = hasOrg("CONNECTOR_TOKEN_MANAGE_ALL");
   // "empty" | "generated" | "existing" | "loading" | "error"
   const [uiState, setUiState] = React.useState("loading");
   const [existingTokenId, setExistingTokenId] = React.useState(null);

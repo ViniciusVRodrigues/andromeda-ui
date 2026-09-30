@@ -101,7 +101,7 @@ function AppShell() {
     api
       .get("/v1/auth/me")
       .then((meData) => {
-        setIdentity(buildIdentity(meData.permissions));
+        setIdentity(buildIdentity(meData));
         setProfile(buildProfile(meData));
         setAuthStatus("authenticated");
       })
@@ -124,12 +124,23 @@ function AppShell() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const enterApp = (meData, route) => {
-    const nextIdentity = buildIdentity(meData.permissions);
+    const nextIdentity = buildIdentity(meData);
     setIdentity(nextIdentity);
     setProfile(buildProfile(meData));
     setAuthStatus("authenticated");
     navigate(route ?? firstAllowedRoute(nextIdentity, meData.orgSlug));
   };
+  /* Relê o /me: memberships e overrides mudam as permissões efetivas sem novo
+   * login (project-scoped-permissions), então quem altera o próprio acesso
+   * precisa reidratar a identidade. Falha silenciosa — a sessão segue válida. */
+  const refreshIdentity = React.useCallback(async () => {
+    try {
+      const meData = await api.get("/v1/auth/me");
+      setIdentity(buildIdentity(meData));
+    } catch (_) {
+      /* mantém a identidade atual */
+    }
+  }, []);
   const exitApp = () => {
     setIdentity(null);
     setProfile(null);
@@ -182,6 +193,7 @@ function AppShell() {
       palette={palette}
       setPalette={setPalette}
       onLogout={exitApp}
+      refreshIdentity={refreshIdentity}
     >
       <div className="app-shell">
         <div className="page-layer" data-screen-label={`page-${keyBase}`} key={keyBase}>

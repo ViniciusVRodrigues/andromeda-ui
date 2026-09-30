@@ -11,7 +11,9 @@ import * as RadixSelect from "@radix-ui/react-select";
  * Diferente de um <select>, o menu aqui é DOM nosso — é o que permite filtrar
  * as opções por digitação sem cair no "pular para a inicial" do nativo.
  *
- * @param {Array<{ value: string, label: string, hint?: string }>} options
+ * @param {Array<{ value: string, label: string, hint?: string, disabled?: boolean }>} options
+ *   `disabled` mantém a opção visível (com o `hint` explicando o porquê) sem
+ *   deixá-la ser escolhida.
  * @param {boolean} [searchable] exibe o campo de filtro (padrão: >8 opções)
  */
 export default function Combobox({
@@ -45,7 +47,10 @@ export default function Combobox({
 
   return (
     <RadixSelect.Root
-      value={value || undefined}
+      /* Sempre controlado: com `undefined` o Radix passaria a não controlado e
+       * manteria a última escolha quando o chamador zera o valor. "" volta ao
+       * placeholder. */
+      value={value ?? ""}
       onValueChange={onValueChange}
       open={open}
       onOpenChange={setOpen}
@@ -82,7 +87,12 @@ export default function Combobox({
               <div className="cmb-empty mono">{emptyMessage}</div>
             ) : (
               filtered.map((o) => (
-                <RadixSelect.Item key={o.value} value={o.value} className="cmb-item">
+                <RadixSelect.Item
+                  key={o.value}
+                  value={o.value}
+                  disabled={o.disabled}
+                  className="cmb-item data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50"
+                >
                   <RadixSelect.ItemText>{o.label}</RadixSelect.ItemText>
                   {o.hint && <span className="cmb-item-hint mono">{o.hint}</span>}
                   <RadixSelect.ItemIndicator className="cmb-item-check">

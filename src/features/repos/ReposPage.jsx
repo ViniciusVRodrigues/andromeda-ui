@@ -15,13 +15,25 @@ import { WorkItemLink } from "../../core/work-items/WorkItemLink.jsx";
  * design system em vez de recriá-lo.
  */
 import React from "react";
+import { Link } from "react-router-dom";
+import { useIdentity } from "../../core/auth/IdentityContext.jsx";
+import { orgRoute } from "../../lib/orgRoutes.js";
 import Combobox from "../../core/ui/Combobox.jsx";
 import PageHeader from "../../core/ui/PageHeader.jsx";
 import MetricGrid, { MetricCard } from "../../core/ui/MetricGrid.jsx";
 import ListCard from "../../core/ui/ListCard.jsx";
 import Drawer from "../../core/ui/Drawer.jsx";
 import { CommitActivityChart } from "../../components/charts/CommitActivityChart.jsx";
-import { useProjects } from "../projects/hooks.js";
+import {
+  durationDetail,
+  durationTooltip,
+  formatHours as formatP50,
+} from "../../core/ui/DurationStat.jsx";
+import { ReviewStats } from "../../core/ui/ReviewStats.jsx";
+import { deliveryMethodLabel, formatCfr } from "../../core/ui/DeliveryMetrics.jsx";
+import RefreshControl from "../../core/ui/RefreshControl.jsx";
+import { ProviderBadge, providerLabel } from "../../core/ui/ProviderBadge.jsx";
+import { useProjects, useProjectRefresh } from "../projects/hooks.js";
 import {
   useProjectRepos,
   useRepoCommitActivity,
@@ -29,7 +41,6 @@ import {
   usePullRequestCommits,
   PAGE_SIZE,
 } from "./hooks.js";
-import { useTriggerGithubSync } from "../integrations/hooks.js";
 
 /* Radix Select reserva a string vazia para limpar a seleção, então "todos"
  * precisa de um valor próprio — mesmo padrão do BacklogPage. */
@@ -53,8 +64,10 @@ function formatHours(value) {
   return value == null ? null : `${Number(value).toFixed(1)}h`;
 }
 
-function formatPercent(value) {
-  return value == null ? null : `${(Number(value) * 100).toFixed(0)}%`;
+/** Mediana de um DurationStat como "12.5h", ou null sem amostra (traço). */
+function formatMedian(stat) {
+  const v = stat && stat.n !== 0 ? formatP50(stat.p50) : null;
+  return v == null ? null : `${v}h`;
 }
 
 function formatDate(iso) {
@@ -68,22 +81,24 @@ function statusVariant(status) {
   return "progress";
 }
 
+/* Identidade neutra do repositório (vcs-core-refactor): `repositoryId` é o id
+ * interno usado nas rotas /v1/repos/repositories/{id}; `displayName` substitui
+ * o `fullName` do GitHub. Os campos legados continuam como fallback. */
+function repoKey(repo) {
+  return repo.repositoryId ?? repo.repoId;
+}
+
+function repoDisplayName(repo) {
+  return repo.displayName ?? repo.fullName;
+}
+
 function StatusPill({ status }) {
   return <span className={`backlog-status-pill status-${statusVariant(status)}`}>{status}</span>;
 }
 
-/** Mapeia o erro do client (mensagem com status) para texto de tela. */
-function syncErrorMessage(err) {
-  const msg = String(err?.message || "");
-  if (msg.includes("(429)")) return "Aguarde alguns minutos antes de sincronizar novamente.";
-  if (msg.includes("(403)")) return "Você não tem permissão para sincronizar.";
-  if (msg.includes("(409)")) return "Conecte o GitHub em Integrações antes de sincronizar.";
-  return "Falha ao sincronizar. Tente novamente.";
-}
-
 /** Detalhe do pull request, incluindo os commits carregados sob demanda. */
 function PullRequestDrawer({ repoId, repoName, pr, onClose }) {
-  /* Os commits vêm da API do GitHub sob demanda, então podem falhar sem que
+  /* Os commits vêm da API do provedor sob demanda, então podem falhar sem que
    * o resto do detalhe — que vem de dados já sincronizados — falhe junto. */
   const commitsQuery = usePullRequestCommits(repoId, pr?.id);
   const commits = commitsQuery.data ?? [];
@@ -104,7 +119,7 @@ function PullRequestDrawer({ repoId, repoName, pr, onClose }) {
           <StatusPill status={pr.status} />
         </dd>
         <dt>Autor</dt>
-        <dd className="mono">{pr.authorGithubLogin || "—"}</dd>
+        <dd className="mono">{pr.authorLogin || "—"}</dd>
         <dt>Aberto em</dt>
         <dd className="mono">{formatDate(pr.createdAt)}</dd>
         {pr.mergedAt ? (
@@ -123,6 +138,14 @@ function PullRequestDrawer({ repoId, repoName, pr, onClose }) {
         <dd className="mono">{formatHours(pr.cycleTimeHours) ?? "—"}</dd>
         <dt>1ª review</dt>
         <dd className="mono">{formatHours(pr.timeToFirstReviewHours) ?? "—"}</dd>
+        <dt>1ª aprovação</dt>
+        <dd className="mono">{formatHours(pr.timeToFirstApprovalHours) ?? "—"}</dd>
+        {pr.draft ? (
+          <>
+            <dt>Draft</dt>
+            <dd className="mono">sim — fora das métricas de review</dd>
+          </>
+        ) : null}
         {pr.linkedWorkItemId ? (
           <>
             <dt>Work item</dt>
@@ -175,9 +198,19 @@ export function ReposPage() {
   const [page, setPage] = React.useState(0);
   const [selectedPr, setSelectedPr] = React.useState(null);
 
-  const { data: projects = [] } = useProjects();
-  const reposQuery = useProjectRepos(projectId);
-  const repos = reposQuery.data ?? [];
+  const { orgSlug, projectsWith } = useIdentity();
+  /* Só projetos com REPOS_READ efetivo (project-scoped-permissions). */
+  const { data: allProjects = [] } = useProjects();
+  const projects = React.useMemo(
+    () => projectsWith(allProjects, "REPOS_READ"),
+    [allProjects, projectsWith],
+  );
+  const reposQuery = useProjectRepos(projectId, rangeDays);
+  const repos = reposQuery.data?.items ?? [];
+  // Todas as queries desta tela vivem sob ["repos"], que o refresh invalida ao concluir.
+  const refresh = useProjectRefresh(projectId, {
+    freshness: reposQuery.data?.dataFreshness ?? null,
+  });
 
   const activityQuery = useRepoCommitActivity(repoId, rangeDays);
   const activity = activityQuery.data ?? [];
@@ -189,14 +222,12 @@ export function ReposPage() {
   });
   const prPage = prsQuery.data || { content: [], totalElements: 0 };
 
-  const sync = useTriggerGithubSync();
-
   // Trocar de projeto zera o repositório escolhido: o id não existe no novo escopo.
   React.useEffect(() => setRepoId(""), [projectId]);
 
   // Com um único repositório não há o que escolher: mostra direto.
   React.useEffect(() => {
-    if (repos.length && !repoId) setRepoId(repos[0].repoId);
+    if (repos.length && !repoId) setRepoId(repoKey(repos[0]));
   }, [repos, repoId]);
 
   // Trocar de filtro reinicia a paginação: manter a página atual mostraria um
@@ -205,9 +236,9 @@ export function ReposPage() {
     setPage(0);
   }, [repoId, status, author]);
 
-  const selectedRepo = repos.find((r) => r.repoId === repoId) || null;
+  const selectedRepo = repos.find((r) => repoKey(r) === repoId) || null;
   const authors = React.useMemo(() => {
-    const set = new Set(prPage.content.map((pr) => pr.authorGithubLogin).filter(Boolean));
+    const set = new Set(prPage.content.map((pr) => pr.authorLogin).filter(Boolean));
     return [...set].sort();
   }, [prPage]);
 
@@ -218,6 +249,7 @@ export function ReposPage() {
       <PageHeader
         title="Repositórios"
         subtitle="Acompanhe a saúde e os pull requests dos repositórios de cada projeto."
+        actions={projectId ? <RefreshControl {...refresh} /> : null}
       />
 
       <div className="filter-bar">
@@ -238,7 +270,11 @@ export function ReposPage() {
             <Combobox
               value={repoId}
               onValueChange={setRepoId}
-              options={repos.map((r) => ({ value: r.repoId, label: r.fullName }))}
+              options={repos.map((r) => ({
+                value: repoKey(r),
+                label: repoDisplayName(r),
+                hint: providerLabel(r.provider),
+              }))}
               aria-label="Selecionar repositório"
             />
           </label>
@@ -265,8 +301,8 @@ export function ReposPage() {
 
       {projectId && reposQuery.isSuccess && !repos.length ? (
         <div className="state-notice mono">
-          Nenhum repositório vinculado a este projeto. Vincule um em{" "}
-          <a href="/integracoes">Integrações</a>.
+          Nenhum repositório vinculado a este projeto. Conecte um repositório do GitHub ou do Azure
+          Repos na tela do projeto, em <Link to={orgRoute(orgSlug, "projetos")}>Projetos</Link>.
         </div>
       ) : null}
 
@@ -276,6 +312,13 @@ export function ReposPage() {
 
       {selectedRepo ? (
         <>
+          <div className="mb-4 flex flex-wrap items-center gap-3" data-testid="repo-identity">
+            <ProviderBadge provider={selectedRepo.provider} />
+            <span className="mono text-fg">{repoDisplayName(selectedRepo)}</span>
+            {selectedRepo.defaultBranch ? (
+              <span className="mono text-fg-muted">· {selectedRepo.defaultBranch}</span>
+            ) : null}
+          </div>
           <MetricGrid>
             <MetricCard label="PRs abertos" value={selectedRepo.openPrCount} />
             <MetricCard
@@ -284,19 +327,35 @@ export function ReposPage() {
               hint="abertos há mais de 24h sem review"
             />
             <MetricCard
-              label="Cycle time médio"
-              value={formatHours(selectedRepo.avgCycleTimeHours)}
+              label="Cycle time de PR (mediana)"
+              value={formatMedian(selectedRepo.prCycleTime)}
+              hint={durationDetail(selectedRepo.prCycleTime) ?? undefined}
+              title={durationTooltip(selectedRepo.prCycleTime)}
             />
             <MetricCard
-              label="1ª review média"
-              value={formatHours(selectedRepo.avgTimeToFirstReviewHours)}
+              label="Change Fail Rate"
+              value={formatCfr(selectedRepo.delivery?.changeFailRatePercent)}
+              hint={deliveryMethodLabel(selectedRepo.delivery?.method)}
+              title="PRs de remediação ÷ PRs mergeados na branch padrão, no período"
             />
             <MetricCard
-              label="CFR"
-              value={formatPercent(selectedRepo.latestCfr)}
-              hint={selectedRepo.latestCfrEstimated ? "valor estimado" : undefined}
+              label="Merges / semana"
+              value={
+                selectedRepo.delivery?.deploymentsPerWeek == null
+                  ? null
+                  : Number(selectedRepo.delivery.deploymentsPerWeek).toFixed(1)
+              }
+              hint={deliveryMethodLabel(selectedRepo.delivery?.method)}
+              title="PRs mergeados na branch padrão por semana (proxy de frequência de deploy)"
             />
           </MetricGrid>
+
+          <section className="page-section">
+            <h3 className="serif page-section-title">Review de pull requests</h3>
+            <div className="chart-panel">
+              <ReviewStats review={selectedRepo.review} />
+            </div>
+          </section>
 
           <section className="page-section">
             <h3 className="serif page-section-title">Atividade de commits</h3>
@@ -333,17 +392,7 @@ export function ReposPage() {
                   aria-label="Filtrar por autor"
                 />
               </div>
-              <button
-                className="btn ml-auto self-start"
-                disabled={sync.isPending}
-                onClick={() => sync.mutate()}
-              >
-                {sync.isPending ? "Sincronizando…" : "Sincronizar"}
-              </button>
             </div>
-            {sync.isError ? (
-              <p className="mono drawer-empty">{syncErrorMessage(sync.error)}</p>
-            ) : null}
 
             {prsQuery.isLoading ? <p className="mono drawer-empty">Carregando…</p> : null}
             {prsQuery.isError ? (
@@ -366,6 +415,7 @@ export function ReposPage() {
                   <>
                     {/* O vínculo só aparece quando resolveu — a ausência é
                         estado normal, então não ganha marca nenhuma. */}
+                    {pr.draft ? <span className="chip chip-sm">draft</span> : null}
                     {pr.linkedWorkItemExternalId ? (
                       <span className="chip chip-sm" title={pr.linkedWorkItemTitle || undefined}>
                         {pr.linkedWorkItemExternalId}
@@ -376,7 +426,7 @@ export function ReposPage() {
                 }
                 meta={
                   <>
-                    <span>{pr.authorGithubLogin || "—"}</span>
+                    <span>{pr.authorLogin || "—"}</span>
                     <span>{formatDate(pr.createdAt)}</span>
                     <span>cycle {formatHours(pr.cycleTimeHours) ?? "—"}</span>
                     <span>1ª review {formatHours(pr.timeToFirstReviewHours) ?? "—"}</span>
@@ -408,7 +458,7 @@ export function ReposPage() {
 
       <PullRequestDrawer
         repoId={repoId}
-        repoName={selectedRepo?.fullName}
+        repoName={selectedRepo ? repoDisplayName(selectedRepo) : undefined}
         pr={selectedPr}
         onClose={() => setSelectedPr(null)}
       />

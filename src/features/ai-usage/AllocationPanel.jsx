@@ -1,6 +1,6 @@
 import { WorkItemLink } from "../../core/work-items/WorkItemLink.jsx";
 import React from "react";
-import api from "../../core/api/client.js";
+import { getAllocationCandidates, saveAllocationForDay } from "./api.js";
 import { redistribute, normalise } from "../../core/allocationMath.js";
 
 export default function AllocationPanel({ pendingDays, onClose, onSaved }) {
@@ -36,8 +36,7 @@ export default function AllocationPanel({ pendingDays, onClose, onSaved }) {
   // Fetch candidates when dropdown opens
   React.useEffect(() => {
     if (!showDropdown || !currentDay) return;
-    api
-      .get(`/v1/ai-usage/allocations/${currentDay.day}/candidates`)
+    getAllocationCandidates(currentDay.day)
       .then((data) => setCandidates(data || []))
       .catch(() => setCandidates([]));
   }, [showDropdown, currentDay]);
@@ -93,7 +92,7 @@ export default function AllocationPanel({ pendingDays, onClose, onSaved }) {
       percentage: (it.pct / 100).toFixed(4),
     }));
     try {
-      await api.put(`/v1/ai-usage/allocations/${currentDay.day}`, body);
+      await saveAllocationForDay(currentDay.day, body);
       onSaved(currentDay.day);
       const remaining = pendingDays.filter((d) => d.day !== currentDay.day);
       if (remaining.length === 0) {

@@ -48,6 +48,15 @@ export function getAllocationCandidates(day) {
 }
 
 /**
+ * Save (replace) the allocation entries of a day — `PUT /v1/ai/allocations/{day}`.
+ * @param {string} day  ISO date string (YYYY-MM-DD)
+ * @param {Array<{ workItemId: string, workItemTitle: string, percentage: number|string }>} entries
+ */
+export function saveAllocationForDay(day, entries) {
+  return api.put(`/v1/ai/allocations/${day}`, entries);
+}
+
+/**
  * Accept a suggested allocation without modifications.
  * @param {string} id  The suggestionAllocationId
  */

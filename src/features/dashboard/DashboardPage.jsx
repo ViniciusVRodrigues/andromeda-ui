@@ -16,15 +16,20 @@ import AllocationPanel from "../ai-usage/AllocationPanel.jsx";
 import api from "../../core/api/client.js";
 import { getAllocationsPending } from "../ai-usage/api.js";
 import { getDashboardSprints } from "../projects/api.js";
+import { useIdentity } from "../../core/auth/IdentityContext.jsx";
 
 /* ── Default filter shapes per tab ── */
 const DEFAULT_INDIVIDUAL = { projectId: "", sprintId: "", startDate: "", endDate: "", model: "" };
 const DEFAULT_EQUIPE = { projectId: "", sprintId: "", startDate: "", endDate: "" };
 const DEFAULT_ESTRATEGICO = { scope: "org", memberId: "", startDate: "", endDate: "" };
 
-function defaultsForTab(tab, projects) {
-  if (tab === "individual") return { ...DEFAULT_INDIVIDUAL, projectId: projects[0]?.id || "" };
-  if (tab === "equipe") return { ...DEFAULT_EQUIPE, projectId: projects[0]?.id || "" };
+/* `projectId` preferido é mantido quando está na lista permitida da aba — trocar
+ * de Individual para Equipe não perde o projeto escolhido (project-scoped-permissions). */
+function defaultsForTab(tab, projects, preferredProjectId = "") {
+  const keep = projects.some((p) => p.id === preferredProjectId) ? preferredProjectId : "";
+  const projectId = keep || projects[0]?.id || "";
+  if (tab === "individual") return { ...DEFAULT_INDIVIDUAL, projectId };
+  if (tab === "equipe") return { ...DEFAULT_EQUIPE, projectId };
   return { ...DEFAULT_ESTRATEGICO };
 }
 
@@ -358,6 +363,21 @@ function DashboardPage({ dash, onLogout, onNavigate }) {
   const [activeTab, setActiveTab] = React.useState(initialTab);
   const [projects, setProjects] = React.useState([]);
 
+  /* Gating por projeto (project-scoped-permissions): cada aba só oferece os
+   * projetos em que o código dela vale; a aba Equipe some quando o projeto
+   * selecionado não tem DASHBOARD_TEAM. O backend barra do mesmo jeito. */
+  const { projectsWith, canOnProject } = useIdentity();
+  const teamProjects = React.useMemo(
+    () => projectsWith(projects, "DASHBOARD_TEAM"),
+    [projects, projectsWith],
+  );
+  const strategicProjects = React.useMemo(
+    () => projectsWith(projects, "DASHBOARD_STRATEGIC"),
+    [projects, projectsWith],
+  );
+  const projectsForTab = (tab) =>
+    tab === "equipe" ? teamProjects : tab === "estrategico" ? strategicProjects : projects;
+
   const [filtersOpen, setFiltersOpen] = React.useState(
     () => localStorage.getItem("dash_filters_open") !== "false",
   );
@@ -380,13 +400,19 @@ function DashboardPage({ dash, onLogout, onNavigate }) {
       .then((data) => {
         const list = Array.isArray(data) ? data : [];
         setProjects(list);
-        if (list.length > 0) {
-          setFilters((prev) => (prev.projectId ? prev : { ...prev, projectId: list[0].id }));
-          setAppliedFilters((prev) => (prev.projectId ? prev : { ...prev, projectId: list[0].id }));
-        }
       })
       .catch(() => {});
   }, []);
+
+  /* Projetos chegaram: escolhe o primeiro permitido para a aba ativa. */
+  React.useEffect(() => {
+    if (activeTab === "estrategico") return;
+    const allowed = projectsForTab(activeTab);
+    if (allowed.length === 0) return;
+    const pick = (prev) => (prev.projectId ? prev : { ...prev, projectId: allowed[0].id });
+    setFilters(pick);
+    setAppliedFilters(pick);
+  }, [projects]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const toggleFilters = () => {
     setFiltersOpen((prev) => {
@@ -398,7 +424,7 @@ function DashboardPage({ dash, onLogout, onNavigate }) {
 
   const handleTabChange = (tab) => {
     setActiveTab(tab);
-    const defaults = defaultsForTab(tab, projects);
+    const defaults = defaultsForTab(tab, projectsForTab(tab), appliedFilters.projectId);
     setFilters(defaults);
     setAppliedFilters(defaults);
   };
@@ -426,6 +452,13 @@ function DashboardPage({ dash, onLogout, onNavigate }) {
   };
 
   const summary = filtersOpen ? null : filterSummary(activeTab, appliedFilters);
+
+  const selectedProjectId = activeTab === "estrategico" ? "" : appliedFilters.projectId;
+  const showEquipe =
+    equipe &&
+    (selectedProjectId
+      ? canOnProject(selectedProjectId, "DASHBOARD_TEAM")
+      : projects.length === 0 || teamProjects.length > 0);
 
   // Build props for each dashboard component from appliedFilters
   const individualProps = {
@@ -478,7 +511,7 @@ function DashboardPage({ dash, onLogout, onNavigate }) {
                 Individual
               </button>
             )}
-            {equipe && (
+            {showEquipe && (
               <button
                 role="tab"
                 aria-selected={activeTab === "equipe"}
@@ -550,7 +583,7 @@ function DashboardPage({ dash, onLogout, onNavigate }) {
               filters={filters}
               onChange={handleFilterChange}
               onAutoApply={handleAutoApply}
-              projects={projects}
+              projects={teamProjects}
             />
           )}
           {activeTab === "estrategico" && (
@@ -559,7 +592,7 @@ function DashboardPage({ dash, onLogout, onNavigate }) {
               onChange={handleFilterChange}
               onTextChange={handleTextChange}
               onTextCommit={handleTextCommit}
-              projects={projects}
+              projects={strategicProjects}
             />
           )}
         </div>

@@ -10,7 +10,7 @@ import { IntegrationTab } from "./IntegrationTab.jsx";
 import { useAzureConnectionInvalidator } from "./hooks.js";
 
 export function IntegrationsPage() {
-  const { can, orgSlug } = useIdentity();
+  const { hasOrg, orgSlug } = useIdentity();
   const navigate = useNavigate();
   const invalidateAzure = useAzureConnectionInvalidator();
 
@@ -18,7 +18,7 @@ export function IntegrationsPage() {
     <IntegrationTab
       onNavigate={(t) => navigate(orgRoute(orgSlug, TAB_TO_ROUTE[t]))}
       orgSlug={orgSlug}
-      can={can}
+      hasOrg={hasOrg}
       onAzureStatusChange={invalidateAzure}
     />
   );

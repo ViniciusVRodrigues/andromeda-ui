@@ -1,5 +1,5 @@
 /* Página Projetos (fatia D): grade de cards + painel de gerenciamento
- * (descrição, vínculos GitHub/Azure, pessoas) + confirmações. O wizard de
+ * (descrição, vínculos de repositório/Azure, pessoas) + confirmações. O wizard de
  * mapeamento Azure é aberto por URL (`?wizard=&binding=`) — decisão D3b, pois
  * o overlay pertence à feature de integrações e pode ser disparado daqui ou do
  * Backlog. Dados compartilhados via cache: ['projects'], ['users'], ['roles']. */
@@ -18,21 +18,32 @@ import {
   bindAzureProject,
   unbindAzureProject,
   getAzureProjectBindings,
-  getGithubBindings,
   getGithubConnectionStatus,
 } from "../integrations/api.js";
-import { useAzureConnectionStatus } from "../integrations/hooks.js";
-import { useProjects } from "./hooks.js";
+import {
+  useAzureConnection,
+  useAzureConnectionStatus,
+  useRepoBindings,
+} from "../integrations/hooks.js";
+import { useProjects, useProjectMemberPermissions } from "./hooks.js";
+import { MemberProjectPermissions } from "./MemberProjectPermissions.jsx";
 import { useUsers } from "../users/hooks.js";
 import { useRoles } from "../organization/hooks.js";
-import { GithubBindingsSection } from "./GithubBindingsSection.jsx";
+import { RepoBindingsSection } from "./RepoBindingsSection.jsx";
 import { AzureProjectSelect } from "./AzureProjectSelect.jsx";
 
 export function ProjectsPage() {
   const queryClient = useQueryClient();
   const [, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
-  const { orgSlug } = useIdentity();
+  const { orgSlug, identity, hasOrg, refreshIdentity } = useIdentity();
+  /* Gating só de UX — a barreira real é o @PreAuthorize do backend:
+   * - criar/editar/finalizar/excluir projeto exige PROJECT_MANAGE (ORG_ONLY);
+   * - mexer nas pessoas do projeto continua exigindo USER_MANAGE;
+   * - vincular/remover repositórios exige REPOS_CONFIGURE. */
+  const canManageProjects = hasOrg("PROJECT_MANAGE");
+  const canEditMembers = hasOrg("USER_MANAGE");
+  const canConfigureRepos = hasOrg("REPOS_CONFIGURE");
   const toIntegrations = () => navigate(orgRoute(orgSlug, "integracoes"));
   const toTeam = () => navigate(orgRoute(orgSlug, "pessoas"));
   const {
@@ -59,9 +70,23 @@ export function ProjectsPage() {
   const [adoBinding, setAdoBinding] = React.useState("");
   const [azureBindings, setAzureBindings] = React.useState([]);
   const [githubConnectionStatus, setGithubConnectionStatus] = React.useState(null);
-  const [githubBindings, setGithubBindings] = React.useState([]);
   const [projectSaving, setProjectSaving] = React.useState(false);
+  const [projectSaveError, setProjectSaveError] = React.useState(null);
   const [addMemberSelectId, setAddMemberSelectId] = React.useState("");
+  const [expandedMemberId, setExpandedMemberId] = React.useState(null);
+
+  /* Overrides por membro (project-scoped-permissions): só com USER_MANAGE e
+   * projeto já salvo com membros — o endpoint exige os dois. */
+  const canManagePermissions = hasOrg("USER_MANAGE");
+  const savedProject = editingProject?.id ? projects.find((p) => p.id === editingProject.id) : null;
+  const memberPermsQuery = useProjectMemberPermissions(editingProject?.id, {
+    enabled: canManagePermissions && (savedProject?.memberIds?.length ?? 0) > 0,
+  });
+  const memberPermsById = React.useMemo(() => {
+    const map = {};
+    for (const e of memberPermsQuery.data || []) map[e.userId] = e;
+    return map;
+  }, [memberPermsQuery.data]);
 
   const refreshAzureBindings = React.useCallback(() => {
     getAzureProjectBindings()
@@ -69,22 +94,20 @@ export function ProjectsPage() {
       .catch(() => setAzureBindings([]));
   }, []);
 
-  const refreshGithubBindings = React.useCallback(() => {
-    getGithubBindings()
-      .then((data) => setGithubBindings(Array.isArray(data) ? data : []))
-      .catch(() => setGithubBindings([]));
-  }, []);
+  /* Vínculos de repositório (todos os provedores) — React Query: o card do
+   * projeto invalida a mesma chave ao vincular/remover, e os chips acompanham. */
+  const { data: repoBindings = [] } = useRepoBindings();
 
   /* Montagem da página = antiga ativação da aba. */
   React.useEffect(() => {
     refreshAzureBindings();
-    refreshGithubBindings();
     getGithubConnectionStatus()
       .then((data) => setGithubConnectionStatus(data?.status || "DISCONNECTED"))
       .catch(() => setGithubConnectionStatus("DISCONNECTED"));
-  }, [refreshAzureBindings, refreshGithubBindings]);
+  }, [refreshAzureBindings]);
 
   const { data: azureConnectionStatus = "DISCONNECTED" } = useAzureConnectionStatus();
+  const { data: azureConnection } = useAzureConnection();
 
   /* ── CRUD ── */
   const openProject = (p) => {
@@ -119,6 +142,8 @@ export function ProjectsPage() {
   };
 
   const closeProject = () => {
+    setProjectSaveError(null);
+    setExpandedMemberId(null);
     setEditingProject(null);
     setProjectAction(null);
   };
@@ -137,9 +162,14 @@ export function ProjectsPage() {
   const saveProject = async () => {
     if (!editingProject || !editingProject.name.trim()) return;
     setProjectSaving(true);
+    setProjectSaveError(null);
     try {
       let savedId = editingProject.id;
-      if (editingProject.id) {
+      /* Sem PROJECT_MANAGE o PUT do projeto daria 403 antes de salvar as
+       * pessoas: nesse caso só o caminho de membros (USER_MANAGE) é usado. */
+      if (!canManageProjects) {
+        /* nada a salvar no projeto em si */
+      } else if (editingProject.id) {
         await api.put(`/v1/projects/${editingProject.id}`, {
           name: editingProject.name.trim(),
           description: editingProject.description || "",
@@ -151,13 +181,21 @@ export function ProjectsPage() {
         });
         savedId = created?.id;
       }
-      if (savedId) {
+      if (savedId && canEditMembers) {
         await updateProjectMembers(savedId, editingProject.memberIds || []);
       }
       await queryClient.invalidateQueries({ queryKey: ["projects"] });
+      /* Membership muda o efetivo por projeto do próprio usuário. */
+      refreshIdentity();
+      setExpandedMemberId(null);
       setEditingProject(null);
-    } catch (_) {
-      /* mantém o modal aberto em falha */
+    } catch (err) {
+      /* mantém o modal aberto em falha, com o motivo */
+      setProjectSaveError(
+        err?.status === 403
+          ? "Você não tem permissão para esta alteração no projeto."
+          : "Não foi possível salvar o projeto. Tente novamente.",
+      );
     } finally {
       setProjectSaving(false);
     }
@@ -258,9 +296,11 @@ export function ProjectsPage() {
             </select>
             <span className="signup-select-caret">▾</span>
           </div>
-          <button className="btn" onClick={openCreateProject}>
-            + Novo projeto
-          </button>
+          {canManageProjects && (
+            <button className="btn" onClick={openCreateProject}>
+              + Novo projeto
+            </button>
+          )}
         </div>
       </div>
 
@@ -303,12 +343,15 @@ export function ProjectsPage() {
             </div>
             <h3 className="serif projects-empty-title">Nenhum projeto ainda</h3>
             <p className="projects-empty-sub mono">
-              Crie o primeiro projeto da organização para começar a vincular pessoas, repositórios e
-              boards.
+              {canManageProjects
+                ? "Crie o primeiro projeto da organização para começar a vincular pessoas, repositórios e boards."
+                : "Peça a quem gerencia projetos da organização para criar o primeiro."}
             </p>
-            <button className="btn" onClick={openCreateProject}>
-              + Novo projeto
-            </button>
+            {canManageProjects && (
+              <button className="btn" onClick={openCreateProject}>
+                + Novo projeto
+              </button>
+            )}
           </div>
         ) : (
           <div className="projects-empty-state">
@@ -333,8 +376,13 @@ export function ProjectsPage() {
             const memberIds = Array.isArray(p.memberIds) ? p.memberIds : [];
             const memberCount = memberIds.length;
             const cardMembers = members.filter((m) => memberIds.includes(m.id)).slice(0, 4);
-            const azureBound = azureBindings.some((b) => b.projectId === p.id);
-            const githubBound = githubBindings.some((b) => b.projectId === p.id);
+            /* O chip "Azure DevOps" acende com o Boards ou com um repositório do Azure Repos. */
+            const azureBound =
+              azureBindings.some((b) => b.projectId === p.id) ||
+              repoBindings.some((b) => b.projectId === p.id && b.provider === "AZURE_REPOS");
+            const githubBound = repoBindings.some(
+              (b) => b.projectId === p.id && b.provider === "GITHUB",
+            );
             const isSelected = editingProject?.id === p.id;
             return (
               <button
@@ -423,7 +471,7 @@ export function ProjectsPage() {
                   <div className="admin-eyebrow mono">
                     {editingProject.id ? "gerenciar projeto" : "novo projeto"}
                   </div>
-                  {editingProject.id && (
+                  {editingProject.id && canManageProjects && (
                     <div
                       className={
                         "signup-select project-status-select is-" +
@@ -464,6 +512,8 @@ export function ProjectsPage() {
                   type="text"
                   autoFocus={!editingProject.id}
                   value={editingProject.name}
+                  readOnly={!canManageProjects}
+                  aria-label="Nome do projeto"
                   placeholder="Nome do novo projeto"
                   onChange={(e) => setEditingProject({ ...editingProject, name: e.target.value })}
                 />
@@ -476,6 +526,7 @@ export function ProjectsPage() {
                     className="ui-field-input"
                     rows={2}
                     value={editingProject.description || ""}
+                    readOnly={!canManageProjects}
                     placeholder="Para que serve este projeto?"
                     onChange={(e) =>
                       setEditingProject({ ...editingProject, description: e.target.value })
@@ -484,11 +535,16 @@ export function ProjectsPage() {
                 </label>
 
                 <div className="project-links">
-                  <GithubBindingsSection
-                    connectionStatus={githubConnectionStatus}
+                  <RepoBindingsSection
+                    connections={{
+                      GITHUB: githubConnectionStatus,
+                      AZURE_REPOS: azureConnectionStatus,
+                    }}
+                    canConfigure={canConfigureRepos}
+                    azureBoardsProjectId={adoBinding || null}
+                    azureOrgUrl={azureConnection?.azureOrgUrl ?? null}
                     projectId={editingProject.id}
                     onNavigate={toIntegrations}
-                    onOrgBindingsChanged={refreshGithubBindings}
                   />
                   <AzureProjectSelect
                     connectionStatus={azureConnectionStatus}
@@ -563,44 +619,76 @@ export function ProjectsPage() {
                         {projectPeople
                           .filter((u) => (editingProject.memberIds || []).includes(u.id))
                           .map((u) => (
-                            <div key={u.id} className="project-members-row">
-                              <div className="project-members-identity">
-                                <span className="project-members-name">{u.name}</span>
-                                <span className="project-members-email mono">{u.email}</span>
-                              </div>
-                              <div className="project-members-azure">
-                                {u.azureEmail ? (
-                                  <span className="project-person-azure-bound mono">
-                                    {u.azureEmail}
-                                  </span>
-                                ) : (
-                                  <span className="project-members-unbound">
-                                    <span className="project-members-unbound-text mono">
-                                      Não vinculado
-                                    </span>
+                            <React.Fragment key={u.id}>
+                              <div className="project-members-row">
+                                <div className="project-members-identity">
+                                  <span className="project-members-name">{u.name}</span>
+                                  <span className="project-members-email mono">{u.email}</span>
+                                  {canManagePermissions &&
+                                  memberPermsById[u.id] &&
+                                  String(u.id) !== String(identity?.userId) ? (
                                     <button
                                       type="button"
-                                      className="project-person-azure-link mono"
-                                      onClick={toTeam}
-                                      title="Ir para Pessoas para configurar a vinculação Azure"
+                                      className="text-accent cursor-pointer self-start border-0 bg-transparent p-0 font-mono text-[length:var(--mono-sm)]"
+                                      aria-expanded={expandedMemberId === u.id}
+                                      onClick={() =>
+                                        setExpandedMemberId((cur) => (cur === u.id ? null : u.id))
+                                      }
                                     >
-                                      Vincular no Pessoas →
+                                      permissões neste projeto ·{" "}
+                                      {memberPermsById[u.id].effective?.length ?? 0}{" "}
+                                      {expandedMemberId === u.id ? "▴" : "▾"}
                                     </button>
-                                  </span>
-                                )}
+                                  ) : canManagePermissions &&
+                                    editingProject.id &&
+                                    !(savedProject?.memberIds || []).includes(u.id) ? (
+                                    <span className="text-fg-dim font-mono text-[length:var(--mono-sm)]">
+                                      salve o projeto para ajustar permissões
+                                    </span>
+                                  ) : null}
+                                </div>
+                                <div className="project-members-azure">
+                                  {u.azureEmail ? (
+                                    <span className="project-person-azure-bound mono">
+                                      {u.azureEmail}
+                                    </span>
+                                  ) : (
+                                    <span className="project-members-unbound">
+                                      <span className="project-members-unbound-text mono">
+                                        Não vinculado
+                                      </span>
+                                      <button
+                                        type="button"
+                                        className="project-person-azure-link mono"
+                                        onClick={toTeam}
+                                        title="Ir para Pessoas para configurar a vinculação Azure"
+                                      >
+                                        Vincular no Pessoas →
+                                      </button>
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="project-members-actions">
+                                  {canEditMembers && (
+                                    <button
+                                      type="button"
+                                      className="project-members-remove btn-ghost btn"
+                                      onClick={() => toggleProjectMember(u.id)}
+                                      aria-label={`Remover ${u.name} do projeto`}
+                                      title="Remover do projeto"
+                                    >
+                                      ×
+                                    </button>
+                                  )}
+                                </div>
                               </div>
-                              <div className="project-members-actions">
-                                <button
-                                  type="button"
-                                  className="project-members-remove btn-ghost btn"
-                                  onClick={() => toggleProjectMember(u.id)}
-                                  aria-label={`Remover ${u.name} do projeto`}
-                                  title="Remover do projeto"
-                                >
-                                  ×
-                                </button>
-                              </div>
-                            </div>
+                              {expandedMemberId === u.id && memberPermsById[u.id] ? (
+                                <MemberProjectPermissions
+                                  projectId={editingProject.id}
+                                  entry={memberPermsById[u.id]}
+                                />
+                              ) : null}
+                            </React.Fragment>
                           ))}
                       </>
                     )}
@@ -608,6 +696,7 @@ export function ProjectsPage() {
 
                   {/* ── Add member row ── */}
                   {(() => {
+                    if (!canEditMembers) return null;
                     const currentIds = editingProject.memberIds || [];
                     const available = projectPeople.filter((u) => !currentIds.includes(u.id));
                     if (available.length === 0) return null;
@@ -647,6 +736,11 @@ export function ProjectsPage() {
                 </div>
               </div>
 
+              {projectSaveError && (
+                <p role="alert" className="text-bad m-0 mt-3">
+                  {projectSaveError}
+                </p>
+              )}
               <div className="project-detail-foot">
                 <button className="btn-ghost btn" onClick={closeProject}>
                   Cancelar
@@ -654,7 +748,11 @@ export function ProjectsPage() {
                 <button
                   className="btn"
                   onClick={saveProject}
-                  disabled={projectSaving || !editingProject.name.trim()}
+                  disabled={
+                    projectSaving ||
+                    !editingProject.name.trim() ||
+                    (!canManageProjects && !canEditMembers)
+                  }
                 >
                   {projectSaving
                     ? "Salvando…"

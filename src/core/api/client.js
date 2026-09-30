@@ -62,6 +62,13 @@ export function decodeJwt() {
   }
 }
 
+/** Retry-After em segundos (o backend manda inteiro); null quando ausente ou ilegível. */
+function parseRetryAfter(value) {
+  if (value == null || value === "") return null;
+  const seconds = Number(value);
+  return Number.isFinite(seconds) && seconds >= 0 ? Math.ceil(seconds) : null;
+}
+
 async function request(path, { method = "GET", body, headers, ...rest } = {}) {
   const token = getToken();
   const res = await fetch(`${BASE_URL}${path}`, {
@@ -85,7 +92,18 @@ async function request(path, { method = "GET", body, headers, ...rest } = {}) {
 
   if (!res.ok) {
     const detail = await res.text().catch(() => "");
-    throw new Error(`API ${method} ${path} falhou (${res.status}): ${detail}`);
+    /* A mensagem mantém o formato "(status)" de sempre — há chamadores que
+     * testam `message.includes("(429)")`. Os campos extras são para quem
+     * precisa do header (Retry-After) ou do código de erro do corpo. */
+    const err = new Error(`API ${method} ${path} falhou (${res.status}): ${detail}`);
+    err.status = res.status;
+    err.retryAfter = parseRetryAfter(res.headers?.get?.("Retry-After"));
+    try {
+      err.body = detail ? JSON.parse(detail) : null;
+    } catch (_) {
+      err.body = null;
+    }
+    throw err;
   }
 
   // 204 No Content or empty body

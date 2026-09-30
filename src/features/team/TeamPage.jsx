@@ -12,10 +12,27 @@ import { useUsers } from "../users/hooks.js";
 import { getAzureUsers } from "../users/api.js";
 import { useRoles, useOrganization } from "../organization/hooks.js";
 import { useInviteUser, useUpdateUser, useDeactivateUser } from "./hooks.js";
+import { useIdentity } from "../../core/auth/IdentityContext.jsx";
+import { UserPermissionsModal } from "../users/permissions/UserPermissionsModal.jsx";
 
 const ALL_PERMISSION_CODES = Object.keys(PERMISSION_LABELS).filter(
   (c) => !ALWAYS_ON_PERMISSIONS.includes(c),
 );
+
+/* Códigos de erro do backend (err.body.code) → mensagem em pt-BR. Ninguém
+ * troca o próprio cargo nem se desativa: o backend responde 403 com esses
+ * códigos mesmo que a UI já esconda/desabilite o controle. */
+const MEMBER_ERROR_MESSAGES = {
+  USER_SELF_ROLE_CHANGE_DENIED:
+    "Você não pode alterar o seu próprio cargo. Peça a outra pessoa que gerencia pessoas.",
+  USER_SELF_DEACTIVATION_DENIED:
+    "Você não pode desativar a sua própria conta. Peça a outra pessoa que gerencia pessoas.",
+};
+
+/** @param {any} err @param {string} fallback */
+function memberErrorMessage(err, fallback) {
+  return MEMBER_ERROR_MESSAGES[err?.body?.code] || fallback;
+}
 
 export function TeamPage() {
   const {
@@ -29,6 +46,10 @@ export function TeamPage() {
   const inviteUser = useInviteUser();
   const updateUser = useUpdateUser();
   const deactivateUser = useDeactivateUser();
+  /* Permissões individuais exigem USER_MANAGE (o GET/PUT do backend também). */
+  const { hasOrg, identity } = useIdentity();
+  const canManagePermissions = hasOrg("USER_MANAGE");
+  const [permissionsMember, setPermissionsMember] = React.useState(null);
 
   const seniorities = React.useMemo(() => {
     const names = Array.isArray(orgQuery?.seniorities) ? orgQuery.seniorities : [];
@@ -112,7 +133,8 @@ export function TeamPage() {
   };
 
   /* ── edição de membro ── */
-  const loggedUserId = React.useMemo(() => decodeJwt()?.sub || null, []);
+  const jwtUserId = React.useMemo(() => decodeJwt()?.sub || null, []);
+  const loggedUserId = identity?.userId || jwtUserId;
   const [editingMember, setEditingMember] = React.useState(null);
   const [memberSaveMsg, setMemberSaveMsg] = React.useState(null); // { ok, text }
   const [azureUserOptions, setAzureUserOptions] = React.useState([]);
@@ -159,19 +181,26 @@ export function TeamPage() {
     try {
       await updateUser.mutateAsync({ member: editingMember, azureUser: selectedAzureUser });
       setEditingMember(null);
-    } catch (_) {
-      setMemberSaveMsg({ ok: false, text: "Erro ao salvar. Tente novamente." });
+    } catch (err) {
+      setMemberSaveMsg({
+        ok: false,
+        text: memberErrorMessage(err, "Erro ao salvar. Tente novamente."),
+      });
     }
   };
 
   const deactivateMember = async () => {
     if (!editingMember) return;
     if (String(editingMember.id) === String(loggedUserId)) return;
+    setMemberSaveMsg(null);
     try {
       await deactivateUser.mutateAsync(editingMember.id);
       setEditingMember(null);
-    } catch (_) {
-      /* ignore */
+    } catch (err) {
+      setMemberSaveMsg({
+        ok: false,
+        text: memberErrorMessage(err, "Não foi possível desativar. Tente novamente."),
+      });
     }
   };
 
@@ -365,142 +394,184 @@ export function TeamPage() {
       )}
 
       {/* ── Modal: Editar membro ── */}
-      {editingMember && (
-        <Modal
-          open
-          onOpenChange={(o) => !o && closeMemberEdit()}
-          eyebrow={
-            <>
-              editar membro ·{" "}
-              {editingMember.name == null
-                ? "convite pendente"
-                : editingMember.active === false
-                  ? "desativado"
-                  : "ativo"}
-            </>
-          }
-          title={
-            editingMember.name ? (
-              <>
-                Editar <span className="ital accent">{editingMember.name}</span>
-              </>
-            ) : (
-              <>
-                Editar <span className="ital accent">membro</span>
-              </>
-            )
-          }
-          subtitle={editingMember.email}
-          footer={
-            <>
-              <button className="btn-ghost btn" onClick={closeMemberEdit}>
-                Fechar
-              </button>
-              <button className="btn" onClick={saveMember} disabled={memberSaving}>
-                {memberSaving ? "Salvando…" : "Salvar alterações →"}
-              </button>
-            </>
-          }
-        >
-          <label className="ui-field">
-            <span className="ui-field-label">Cargo</span>
-            <div className="signup-select">
-              <select
-                value={editingMember.roleId}
-                onChange={(e) => setEditingMember({ ...editingMember, roleId: e.target.value })}
-              >
-                {roles.map((r) => (
-                  <option key={r.id} value={r.id}>
-                    {r.label || r.name}
-                  </option>
-                ))}
-              </select>
-              <span className="signup-select-caret">▾</span>
-            </div>
-          </label>
-
-          {editingMember.roleId && (
-            <p className="role-perm-hint mono" style={{ marginTop: "var(--spacing-sm)" }}>
-              <span className="role-perm-hint-label">permissões deste cargo</span>
-              {permissionSummary(editingMember.roleId)}
-            </p>
-          )}
-
-          <label className="ui-field" style={{ marginTop: "var(--spacing-sm)" }}>
-            <span className="ui-field-label">Senioridade</span>
-            <div className="signup-select">
-              <select
-                value={editingMember.seniority || ""}
-                onChange={(e) =>
-                  setEditingMember({ ...editingMember, seniority: e.target.value || null })
-                }
-              >
-                <option value="">— Sem senioridade —</option>
-                {seniorities.map((s) => (
-                  <option key={s.id} value={s.name}>
-                    {s.name}
-                  </option>
-                ))}
-              </select>
-              <span className="signup-select-caret">▾</span>
-            </div>
-          </label>
-
-          <div className="ui-field" style={{ marginTop: "var(--spacing-md)" }}>
-            <span className="ui-field-label">Identidade Azure</span>
-            {azureUsersLoading && <div className="skeleton" style={{ height: "2.4rem" }} />}
-            {azureUsersError && (
-              <div style={{ fontSize: "0.8rem", color: "var(--bad)" }}>{azureUsersError}</div>
-            )}
-            {!azureUsersLoading && !azureUsersError && (
-              <select
-                className="ui-field-input"
-                value={selectedAzureUser?.azureId || ""}
-                disabled={azureUserOptions.length === 0}
-                onChange={(e) => {
-                  const user = azureUserOptions.find((u) => u.azureId === e.target.value) || null;
-                  setSelectedAzureUser(user);
-                }}
-              >
-                <option value="">— sem vinculação Azure —</option>
-                {azureUserOptions.map((u) => (
-                  <option key={u.azureId} value={u.azureId}>
-                    {u.displayName} ({u.azureEmail})
-                  </option>
-                ))}
-              </select>
-            )}
-          </div>
-
-          {memberSaveMsg && (
-            <p
-              className="mono"
-              style={{
-                marginTop: "var(--spacing-sm)",
-                fontSize: "0.8rem",
-                color: memberSaveMsg.ok ? "var(--good)" : "var(--bad)",
-              }}
-            >
-              {memberSaveMsg.text}
-            </p>
-          )}
-
-          <div className="member-modal-actions" style={{ marginTop: "var(--spacing-md)" }}>
-            <button
-              className="member-modal-danger"
-              onClick={deactivateMember}
-              disabled={
-                memberSaving ||
-                editingMember.active === false ||
-                String(editingMember.id) === String(loggedUserId)
+      {editingMember &&
+        (() => {
+          const isSelf = String(editingMember.id) === String(loggedUserId);
+          return (
+            <Modal
+              open
+              onOpenChange={(o) => !o && closeMemberEdit()}
+              eyebrow={
+                <>
+                  editar membro ·{" "}
+                  {editingMember.name == null
+                    ? "convite pendente"
+                    : editingMember.active === false
+                      ? "desativado"
+                      : "ativo"}
+                </>
+              }
+              title={
+                editingMember.name ? (
+                  <>
+                    Editar <span className="ital accent">{editingMember.name}</span>
+                  </>
+                ) : (
+                  <>
+                    Editar <span className="ital accent">membro</span>
+                  </>
+                )
+              }
+              subtitle={editingMember.email}
+              footer={
+                <>
+                  <button className="btn-ghost btn" onClick={closeMemberEdit}>
+                    Fechar
+                  </button>
+                  <button className="btn" onClick={saveMember} disabled={memberSaving}>
+                    {memberSaving ? "Salvando…" : "Salvar alterações →"}
+                  </button>
+                </>
               }
             >
-              {String(editingMember.id) === String(loggedUserId)
-                ? "Não é possível desativar a si mesmo"
-                : "Desativar usuário"}
-            </button>
-          </div>
-        </Modal>
+              <label className="ui-field">
+                <span className="ui-field-label">Cargo</span>
+                <div className="signup-select">
+                  <select
+                    value={editingMember.roleId}
+                    disabled={isSelf}
+                    aria-describedby={isSelf ? "member-self-role-hint" : undefined}
+                    onChange={(e) => setEditingMember({ ...editingMember, roleId: e.target.value })}
+                  >
+                    {roles.map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {r.label || r.name}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="signup-select-caret">▾</span>
+                </div>
+              </label>
+
+              {isSelf && (
+                <p id="member-self-role-hint" className="text-fg-muted m-0 mt-2">
+                  Você não pode alterar o seu próprio cargo — peça a outra pessoa que gerencia
+                  pessoas.
+                </p>
+              )}
+
+              {editingMember.roleId && (
+                <p className="role-perm-hint mono" style={{ marginTop: "var(--spacing-sm)" }}>
+                  <span className="role-perm-hint-label">permissões deste cargo</span>
+                  {permissionSummary(editingMember.roleId)}
+                </p>
+              )}
+
+              <label className="ui-field" style={{ marginTop: "var(--spacing-sm)" }}>
+                <span className="ui-field-label">Senioridade</span>
+                <div className="signup-select">
+                  <select
+                    value={editingMember.seniority || ""}
+                    onChange={(e) =>
+                      setEditingMember({ ...editingMember, seniority: e.target.value || null })
+                    }
+                  >
+                    <option value="">— Sem senioridade —</option>
+                    {seniorities.map((s) => (
+                      <option key={s.id} value={s.name}>
+                        {s.name}
+                      </option>
+                    ))}
+                  </select>
+                  <span className="signup-select-caret">▾</span>
+                </div>
+              </label>
+
+              <div className="ui-field" style={{ marginTop: "var(--spacing-md)" }}>
+                <span className="ui-field-label">Identidade Azure</span>
+                {azureUsersLoading && <div className="skeleton" style={{ height: "2.4rem" }} />}
+                {azureUsersError && (
+                  <div style={{ fontSize: "0.8rem", color: "var(--bad)" }}>{azureUsersError}</div>
+                )}
+                {!azureUsersLoading && !azureUsersError && (
+                  <select
+                    className="ui-field-input"
+                    value={selectedAzureUser?.azureId || ""}
+                    disabled={azureUserOptions.length === 0}
+                    onChange={(e) => {
+                      const user =
+                        azureUserOptions.find((u) => u.azureId === e.target.value) || null;
+                      setSelectedAzureUser(user);
+                    }}
+                  >
+                    <option value="">— sem vinculação Azure —</option>
+                    {azureUserOptions.map((u) => (
+                      <option key={u.azureId} value={u.azureId}>
+                        {u.displayName} ({u.azureEmail})
+                      </option>
+                    ))}
+                  </select>
+                )}
+              </div>
+
+              {memberSaveMsg && (
+                <p
+                  className="mono"
+                  style={{
+                    marginTop: "var(--spacing-sm)",
+                    fontSize: "0.8rem",
+                    color: memberSaveMsg.ok ? "var(--good)" : "var(--bad)",
+                  }}
+                >
+                  {memberSaveMsg.text}
+                </p>
+              )}
+
+              {canManagePermissions && (
+                <div className="ui-field" style={{ marginTop: "var(--spacing-md)" }}>
+                  <span className="ui-field-label">Permissões individuais</span>
+                  <p className="text-fg-muted m-0 mb-2">
+                    Ajustes além do cargo — na organização ou só em projetos específicos.
+                  </p>
+                  {isSelf ? (
+                    <p className="text-fg-muted m-0">
+                      Suas próprias permissões só podem ser ajustadas por outra pessoa com permissão
+                      de gerenciar pessoas.
+                    </p>
+                  ) : (
+                    <button
+                      type="button"
+                      className="btn-ghost btn"
+                      onClick={() => {
+                        const target = editingMember;
+                        closeMemberEdit();
+                        setPermissionsMember(target);
+                      }}
+                    >
+                      Ajustar permissões →
+                    </button>
+                  )}
+                </div>
+              )}
+
+              <div className="member-modal-actions" style={{ marginTop: "var(--spacing-md)" }}>
+                <button
+                  className="member-modal-danger"
+                  onClick={deactivateMember}
+                  disabled={memberSaving || editingMember.active === false || isSelf}
+                >
+                  {isSelf ? "Não é possível desativar a si mesmo" : "Desativar usuário"}
+                </button>
+              </div>
+            </Modal>
+          );
+        })()}
+
+      {permissionsMember && (
+        <UserPermissionsModal
+          member={permissionsMember}
+          onClose={() => setPermissionsMember(null)}
+        />
       )}
     </section>
   );
