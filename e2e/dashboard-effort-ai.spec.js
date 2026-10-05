@@ -44,7 +44,7 @@ test("individual: colaboração e evolução da sprint preservam métricas e alo
     }),
   );
 
-  await page.goto(`/${orgSlug}/dashboard`);
+  await page.goto(`/${orgSlug}/dashboard?versao=atual`);
   await page.waitForLoadState("networkidle");
 
   await expect(page.getByRole("heading", { name: "Meus pull requests" })).toBeVisible();
@@ -142,7 +142,7 @@ test("equipe: velocity trend vira o mesmo gráfico composto", async ({ page }) =
     }),
   );
 
-  await page.goto(`/${orgSlug}/dashboard`);
+  await page.goto(`/${orgSlug}/dashboard?versao=atual`);
   await page.waitForLoadState("networkidle");
   await page.getByRole("tab", { name: "Equipe" }).click();
   await page.waitForLoadState("networkidle");

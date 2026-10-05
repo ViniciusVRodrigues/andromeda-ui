@@ -1,5 +1,8 @@
 # features/dashboard
 
+> **Prévia v2:** a rota `dashboard` agora renderiza `v2/DashboardsPage.jsx` (3 telas por permissão, dados
+> fictícios — ver `v2/CLAUDE.md`). O dashboard descrito abaixo, ligado à API real, abre com `?versao=atual`.
+
 `DashboardPage.jsx` = dashboard com barra de filtros recolhível + abas de tipo (Individual/Equipe/Estratégico). Reutilizado pela rota `dashboard` (admin) e pelo modo **só-dashboard** (sem sidebar, via `ShellGate` em `App.jsx`).
 Dashboards: individual (`DeveloperDashboard.jsx`) · equipe (`TeamDashboard`) · organização (`ManagerDashboard`). Os três consomem a API real (`/v1/dashboard/*` via `features/dashboard/api.js`); os antigos protótipos mock (`DevDashboard`, `src/data/mockData.js`) foram removidos. O `developer-dashboard/` foi unificado nesta pasta (`frontend-feature-slices`).
 

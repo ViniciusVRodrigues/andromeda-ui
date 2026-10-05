@@ -116,7 +116,7 @@ test("rework: velocity, insights, deltas, type badges e outliers renderizam com 
     route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(FIXTURE) }),
   );
 
-  await page.goto(`/${orgSlug}/dashboard`);
+  await page.goto(`/${orgSlug}/dashboard?versao=atual`);
   await page.waitForLoadState("networkidle");
 
   // badge de tipo + externalId no card de work item

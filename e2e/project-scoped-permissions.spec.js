@@ -97,7 +97,7 @@ test("dashboard: trocar de projeto esconde a aba Equipe sem DASHBOARD_TEAM", asy
   await page.route("**/api/v1/dashboard/team**", (route) => json(route, TEAM_FIXTURE));
   await page.route("**/api/v1/projects/*/sprints", (route) => json(route, []));
 
-  await gotoSection(page, orgSlug, "dashboard");
+  await gotoSection(page, orgSlug, "dashboard?versao=atual");
   const tabs = page.getByRole("tablist", { name: "Tipo de dashboard" });
   const projectSelect = page.locator("#dash-filters-panel").getByLabel("Projeto");
 

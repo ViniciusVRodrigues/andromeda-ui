@@ -220,7 +220,7 @@ test("individual dashboard links sprint work to GitHub review context", async ({
       },
     }),
   );
-  await page.goto(`/${slug}/dashboard`);
+  await page.goto(`/${slug}/dashboard?versao=atual`);
   await expect(page.getByRole("heading", { name: "Minha sprint" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Meus pull requests" })).toBeVisible();
   const review = page.getByTestId("review-stats");

@@ -37,7 +37,7 @@ async function routeStrategic(page) {
 }
 
 async function openStrategic(page, orgSlug) {
-  await page.goto(`/${orgSlug}/dashboard`);
+  await page.goto(`/${orgSlug}/dashboard?versao=atual`);
   await page.waitForLoadState("networkidle");
   await page.getByRole("tab", { name: "Estratégico" }).click();
   await page.waitForLoadState("networkidle");
@@ -113,7 +113,7 @@ test("equipe: durações em mediana, card de review e IA não alocada à parte",
   await page.route("**/api/v1/dashboard/developer**", (route) => json(route, DEVELOPER_FIXTURE));
   await page.route("**/api/v1/dashboard/team**", (route) => json(route, TEAM_FIXTURE));
 
-  await page.goto(`/${orgSlug}/dashboard`);
+  await page.goto(`/${orgSlug}/dashboard?versao=atual`);
   await page.waitForLoadState("networkidle");
   await page.getByRole("tab", { name: "Equipe" }).click();
   await page.waitForLoadState("networkidle");

@@ -47,7 +47,13 @@ test.describe("casca autenticada (admin)", () => {
   for (const section of SECTIONS) {
     test(section, async ({ page }) => {
       const { orgSlug } = await loginAsAdmin(page);
-      await gotoSection(page, orgSlug, section);
+      /* a rota dashboard abre a prévia v2 (dados fictícios, coberta por
+       * dashboards-v2.spec.js); o baseline da casca segue no dashboard ligado à API */
+      await gotoSection(
+        page,
+        orgSlug,
+        section === "dashboard" ? "dashboard?versao=atual" : section,
+      );
       await shot(page, `shell-${section.replace(/\//g, "-")}`);
     });
   }

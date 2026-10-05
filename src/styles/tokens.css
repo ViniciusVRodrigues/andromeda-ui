@@ -26,6 +26,17 @@
   --shadow-soft: 0 30px 80px -40px rgba(0, 0, 0, 0.6);
   --radius: 14px;
   --radius-sm: 8px;
+
+  /* séries categóricas de gráfico (identidade: modelo, projeto, tipo…). Ordem fixa,
+   * nunca ciclada; validada (scripts do skill dataviz) contra --bg-elev: banda de
+   * luminosidade, croma, separação CVD e contraste ≥ 3:1. Status (bom/ruim) continua
+   * em --good/--warn/--bad — série nunca usa cor de status. A paleta mono herda
+   * estes valores: dado é a única coisa colorida na tela monocromática. */
+  --series-1: #c47a4a;
+  --series-2: #3987e5;
+  --series-3: #199e70;
+  --series-4: #9085e9;
+  --series-5: #d55181;
 }
 
 :root[data-palette="mono"] {
@@ -62,6 +73,11 @@
   --good: #5a7c5e;
   --bad: #b85a4e;
   --shadow-soft: 0 30px 80px -40px rgba(80, 50, 20, 0.25);
+  --series-1: #a65a32;
+  --series-2: #2a78d6;
+  --series-3: #1b8f64;
+  --series-4: #6a5bd0;
+  --series-5: #c94f7f;
 }
 
 * {

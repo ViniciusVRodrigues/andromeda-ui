@@ -73,7 +73,7 @@ test("dashboard: Atualizar mostra o progresso e recarrega ao concluir", async ({
     });
   });
 
-  await gotoSection(page, orgSlug, "dashboard");
+  await gotoSection(page, orgSlug, "dashboard?versao=atual");
   const control = page.getByTestId("refresh-control");
   await expect(control).toContainText("Atualizado há 3 dias");
 
@@ -113,7 +113,7 @@ test("dashboard: refresh PARCIAL mostra o erro de cada vínculo", async ({ page 
     }),
   );
 
-  await gotoSection(page, orgSlug, "dashboard");
+  await gotoSection(page, orgSlug, "dashboard?versao=atual");
   const control = page.getByTestId("refresh-control");
   await control.getByRole("button", { name: /atualizar/i }).click();
 
@@ -131,7 +131,7 @@ test("dashboard: 429 vira contagem regressiva do Retry-After", async ({ page }) 
     json(route, { code: "SYNC_COOLDOWN" }, 429, { "Retry-After": "12" }),
   );
 
-  await gotoSection(page, orgSlug, "dashboard");
+  await gotoSection(page, orgSlug, "dashboard?versao=atual");
   const control = page.getByTestId("refresh-control");
   await control.getByRole("button", { name: /atualizar/i }).click();
 
