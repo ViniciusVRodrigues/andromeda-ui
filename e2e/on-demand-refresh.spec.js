@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { loginAsAdmin, gotoSection } from "./auth.mjs";
+import { loginAsAdmin, gotoSection, FIXED_NOW } from "./auth.mjs";
 import { DEVELOPER_FIXTURE } from "./fixtures/dashboard-rich.mjs";
 
 /* Refresh sob demanda (on-demand-refresh, 10.7).
@@ -13,8 +13,8 @@ import { DEVELOPER_FIXTURE } from "./fixtures/dashboard-rich.mjs";
 test.use({ storageState: { cookies: [], origins: [] } });
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-const STALE = new Date(Date.now() - 3 * DAY_MS - 60_000).toISOString(); // "há 3 dias"
-const freshNow = () => new Date(Date.now() - 20_000).toISOString(); // "agora há pouco"
+const STALE = new Date(FIXED_NOW.getTime() - 3 * DAY_MS - 60_000).toISOString(); // "há 3 dias"
+const freshNow = () => new Date(FIXED_NOW.getTime() - 20_000).toISOString(); // "agora há pouco"
 
 function json(route, body, status = 200, headers = {}) {
   return route.fulfill({
