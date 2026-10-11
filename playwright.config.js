@@ -25,7 +25,6 @@ export default defineConfig({
     baseURL: BASE_URL,
     viewport: { width: 1440, height: 900 },
     deviceScaleFactor: 1,
-    clock: { fixAt: "2026-08-31T12:00:00.000Z" },
   },
   projects: [
     {
