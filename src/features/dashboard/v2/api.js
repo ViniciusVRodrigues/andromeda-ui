@@ -36,6 +36,29 @@ const later = (fn) =>
     }, LATENCY_MS),
   );
 
+/* Só em desenvolvimento (e2e): atraso ou falha simulados por fonte secundária, lidos de
+ * localStorage `andromeda.dashboards-v2.mock-faults` = { delayMs: { fluxo: 4000 }, fail: { fluxo: true } }.
+ * Fontes: fluxo, roadmap, qualidade. Some no build de produção. */
+const FAULTS_KEY = "andromeda.dashboards-v2.mock-faults";
+function withFaults(source, fn) {
+  let faults = null;
+  if (import.meta.env.DEV) {
+    try {
+      faults = JSON.parse(localStorage.getItem(FAULTS_KEY) || "null");
+    } catch {
+      faults = null;
+    }
+  }
+  const delay = faults?.delayMs?.[source] ?? 0;
+  const fail = !!faults?.fail?.[source];
+  return new Promise((resolve) => setTimeout(resolve, delay)).then(() =>
+    later(() => {
+      if (fail) throw new Error(`Falha simulada na fonte ${source}`);
+      return fn();
+    }),
+  );
+}
+
 /**
  * Proposto: GET /v1/dashboards/projects — projetos visíveis à pessoa, cada um com
  * `member` (participa do projeto). As permissões por projeto vêm do /v1/auth/me
@@ -83,17 +106,17 @@ export function getAiPractices(params) {
 
 /** Proposto: GET /v1/dashboards/team/flow?projectId=&sprintId= — DASHBOARD_TEAM */
 export function getTeamFlow({ projectId, sprintId }) {
-  return later(() => buildTeamFlow({ projectId, sprintId }));
+  return withFaults("fluxo", () => buildTeamFlow({ projectId, sprintId }));
 }
 
 /** Proposto: GET /v1/dashboards/projects/{projectId}/roadmap?periodDays= — DASHBOARD_STRATEGIC */
 export function getProjectRoadmap({ projectId, periodDays }) {
-  return later(() => buildRoadmap({ projectId, periodDays }));
+  return withFaults("roadmap", () => buildRoadmap({ projectId, periodDays }));
 }
 
 /** Proposto: GET /v1/dashboards/projects/{projectId}/quality?periodDays= — DASHBOARD_STRATEGIC */
 export function getProjectQuality({ projectId, periodDays }) {
-  return later(() => buildQuality({ projectId, periodDays }));
+  return withFaults("qualidade", () => buildQuality({ projectId, periodDays }));
 }
 
 /**

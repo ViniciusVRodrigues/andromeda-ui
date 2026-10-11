@@ -267,3 +267,313 @@ test("layout salvo com id desconhecido e ordem própria renderiza sem erro", asy
   await expect(page.getByRole("heading", { name: "Fluência em IA" })).toHaveCount(0);
   expect(errors).toEqual([]);
 });
+
+/* ── Personalização (P3c): Resumo de Equipe, Projeto e Organização pelo catálogo. ── */
+
+const VIEW_CASES = [
+  {
+    viewKey: "equipe",
+    permissions: ["DASHBOARD_INDIVIDUAL", "DASHBOARD_TEAM"],
+    query: "?visao=equipe",
+    last: "Histórico",
+    sections: [
+      "Resumo da sprint",
+      "Fluxo da sprint",
+      "Pessoas",
+      "Código e revisão",
+      "Uso de IA no time",
+      "Histórico",
+    ],
+    widgets: ["Burndown do time", "Contribuição por pessoa na sprint", "Previsibilidade"],
+  },
+  {
+    viewKey: "projeto",
+    permissions: ["DASHBOARD_STRATEGIC"],
+    query: "?escopo=p-portal",
+    last: "Confiabilidade dos dados",
+    sections: [
+      "Resumo do período",
+      "DORA",
+      "Entrega",
+      "Engenharia",
+      "Investimento em IA",
+      "Confiabilidade dos dados",
+    ],
+    widgets: ["Itens concluídos por tipo", "Saúde por repositório", "Custo de IA por SP entregue"],
+  },
+  {
+    viewKey: "org",
+    permissions: ["DASHBOARD_STRATEGIC"],
+    query: "",
+    last: "Integrações e dados",
+    sections: [
+      "Resumo da organização",
+      "Portfólio de projetos",
+      "Entrega",
+      "Engenharia",
+      "IA na organização",
+      "Integrações e dados",
+    ],
+    widgets: ["Projetos lado a lado", "Custo de IA por modelo", "Completude dos dados"],
+  },
+];
+
+for (const c of VIEW_CASES) {
+  for (const [width, expectedCols] of [
+    [390, 1],
+    [820, 6],
+    [1440, 12],
+  ]) {
+    test(`grid do Resumo ${c.viewKey} sem colunas sobrando em ${width}px`, async ({ page }) => {
+      await page.setViewportSize({ width, height: 900 });
+      await openAs(page, c.permissions, c.query);
+      await expect(page.getByRole("heading", { name: c.last, level: 2 })).toBeVisible();
+      const grids = await gridRows(page);
+      expect(grids.length).toBeGreaterThan(0);
+      for (const g of grids) {
+        expect(g.cols).toBe(expectedCols);
+        for (const sum of g.rows) expect(Math.abs(sum - g.width)).toBeLessThanOrEqual(2);
+      }
+      const overflow = await page.evaluate(() =>
+        [document.documentElement, document.querySelector(".admin-main")]
+          .filter(Boolean)
+          .map((el) => el.scrollWidth - el.clientWidth),
+      );
+      for (const o of overflow) expect(o).toBeLessThanOrEqual(0);
+    });
+  }
+
+  test(`padrão do catálogo: seções na ordem e widgets do Resumo ${c.viewKey}`, async ({ page }) => {
+    await openAs(page, c.permissions, c.query);
+    await expect(page.getByRole("heading", { level: 2 })).toHaveText(c.sections);
+    for (const title of c.widgets) {
+      await expect(page.getByRole("heading", { name: title, level: 3 })).toBeVisible();
+    }
+    /* widgets das sub-abas e os de coleta nova ficam fora do padrão */
+    await expect(page.getByText("requer coleta nova")).toHaveCount(0);
+  });
+}
+
+test("Resumo equipe: layout salvo com id desconhecido, seção trocada e widget do Fluxo", async ({
+  page,
+}) => {
+  const errors = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+  await seedLayouts(page, [
+    {
+      viewKey: "equipe",
+      sections: [
+        {
+          id: "pessoas",
+          collapsed: false,
+          widgets: [
+            { id: "equipe.contribuicao", size: "I" },
+            { id: "equipe.nao-existe", size: "M" },
+          ],
+        },
+        /* widget da sub-aba Fluxo (outro endpoint) ligado no Resumo */
+        { id: "fluxo", collapsed: false, widgets: [{ id: "equipe.fluxo-cumulativo", size: "G" }] },
+        /* seção desconhecida: o widget vai para a seção do catálogo (Código e revisão) */
+        {
+          id: "secao-que-nao-existe",
+          collapsed: false,
+          widgets: [{ id: "equipe.commits-dia", size: "M" }],
+        },
+        /* id de outra visão é ignorado */
+        { id: "resumo", collapsed: false, widgets: [{ id: "individual.kpis", size: "I" }] },
+      ],
+      hidden: ["equipe.burndown"],
+      version: 1,
+      updatedAt: "2026-10-11T12:00:00Z",
+    },
+  ]);
+  await openAs(page, ["DASHBOARD_INDIVIDUAL", "DASHBOARD_TEAM"], "?visao=equipe");
+  await expect(
+    page.getByRole("heading", { name: "Contribuição por pessoa na sprint" }),
+  ).toBeVisible();
+  await expect(page.getByRole("heading", { level: 2 })).toHaveText([
+    "Pessoas",
+    "Fluxo da sprint",
+    "Código e revisão",
+  ]);
+  await expect(
+    page.locator("#eq-fluxo").getByRole("heading", { name: "Itens por estado, dia a dia" }),
+  ).toBeVisible();
+  await expect(
+    page.locator("#eq-codigo").getByRole("heading", { name: "Commits por dia" }),
+  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Burndown do time" })).toHaveCount(0);
+  await expect(page.getByRole("list", { name: "Indicadores pessoais da sprint" })).toHaveCount(0);
+  /* widget fora de widgets e de hidden é "novo": não entra na grade */
+  await expect(page.getByRole("heading", { name: "Previsibilidade" })).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+test("Resumo projeto: layout salvo com id desconhecido e widgets do Roadmap e da Qualidade", async ({
+  page,
+}) => {
+  const errors = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+  await seedLayouts(page, [
+    {
+      viewKey: "projeto",
+      sections: [
+        { id: "epicos", collapsed: false, widgets: [{ id: "projeto.epicos", size: "I" }] },
+        {
+          id: "dora",
+          collapsed: false,
+          widgets: [
+            { id: "projeto.nao-existe", size: "P" },
+            /* tamanho fora dos permitidos (tabela) cai no padrão do widget */
+            { id: "projeto.repositorios", size: "P" },
+          ],
+        },
+        { id: "bugs", collapsed: false, widgets: [{ id: "projeto.bugs-criados-fechados" }] },
+      ],
+      hidden: [],
+      version: 1,
+      updatedAt: "2026-10-11T12:00:00Z",
+    },
+  ]);
+  await openAs(page, ["DASHBOARD_STRATEGIC"], "?escopo=p-portal");
+  await expect(page.getByRole("heading", { name: "Progresso dos épicos" })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 2 })).toHaveText([
+    "Épicos e features",
+    "Bugs",
+    "Engenharia",
+  ]);
+  await expect(
+    page.locator("#pj-engenharia [data-widget-id='projeto.repositorios']"),
+  ).toHaveAttribute("data-size", "I");
+  await expect(
+    page.locator("#pj-bugs").getByRole("heading", { name: "Bugs criados × fechados" }),
+  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: "DORA" })).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
+
+test("Resumo org: layout salvo com id desconhecido renderiza sem erro e o portfólio navega", async ({
+  page,
+}) => {
+  const errors = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+  await seedLayouts(page, [
+    {
+      viewKey: "org",
+      sections: [
+        {
+          id: "portfolio",
+          collapsed: false,
+          widgets: [
+            { id: "org.nao-existe", size: "M" },
+            { id: "org.portfolio", size: "I" },
+          ],
+        },
+        { id: "ia", collapsed: false, widgets: [{ id: "org.fluencia", size: "I" }] },
+      ],
+      hidden: ["org.kpis"],
+      version: 1,
+      updatedAt: "2026-10-11T12:00:00Z",
+    },
+  ]);
+  await openAs(page, ["DASHBOARD_STRATEGIC"]);
+  await expect(page.getByRole("heading", { level: 2 })).toHaveText([
+    "Portfólio de projetos",
+    "IA na organização",
+  ]);
+  await expect(page.getByRole("heading", { name: "Fluência em IA" })).toBeVisible();
+  await page
+    .getByRole("row", { name: /Pagamentos/ })
+    .first()
+    .click();
+  await expect(page).toHaveURL(/escopo=p-pagamentos/);
+  expect(errors).toEqual([]);
+});
+
+/* ── Fonte secundária sem bloquear a grade: o grid aparece com o Resumo; o widget do
+ * Fluxo mostra o próprio esqueleto (ou erro com "Tentar de novo") até a fonte chegar.
+ * Atraso/falha vêm do mock (`andromeda.dashboards-v2.mock-faults`, só em dev). */
+
+const FAULTS_KEY = "andromeda.dashboards-v2.mock-faults";
+
+async function seedFaults(page, faults) {
+  await page.addInitScript(
+    ([key, value]) => localStorage.setItem(key, value),
+    [FAULTS_KEY, JSON.stringify(faults)],
+  );
+}
+
+const TEAM_WITH_FLOW = {
+  viewKey: "equipe",
+  sections: [
+    {
+      id: "fluxo",
+      collapsed: false,
+      widgets: [
+        { id: "equipe.burndown", size: "M" },
+        { id: "equipe.fluxo-cumulativo", size: "M" },
+      ],
+    },
+    { id: "pessoas", collapsed: false, widgets: [{ id: "equipe.contribuicao", size: "I" }] },
+  ],
+  hidden: [],
+  version: 1,
+  updatedAt: "2026-10-11T12:00:00Z",
+};
+
+test("fonte do Fluxo atrasada: a grade aparece e só o widget do Fluxo mostra esqueleto", async ({
+  page,
+}) => {
+  await seedLayouts(page, [TEAM_WITH_FLOW]);
+  await seedFaults(page, { delayMs: { fluxo: 4000 } });
+  await openAs(page, ["DASHBOARD_INDIVIDUAL", "DASHBOARD_TEAM"], "?visao=equipe");
+
+  const flowCell = page.locator("[data-widget-id='equipe.fluxo-cumulativo']");
+  await expect(page.getByRole("heading", { name: "Burndown do time" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Contribuição por pessoa na sprint" }),
+  ).toBeVisible();
+  await expect(flowCell.locator("[data-widget-state='loading']")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Itens por estado, dia a dia" })).toHaveCount(0);
+  /* o esqueleto ocupa a célula do widget, na altura do catálogo */
+  const height = await flowCell
+    .locator("[data-widget-state='loading']")
+    .evaluate((el) => el.getBoundingClientRect().height);
+  expect(height).toBeGreaterThanOrEqual(300);
+  /* só o widget do Fluxo espera */
+  await expect(page.locator("[data-widget-state='loading']")).toHaveCount(1);
+
+  await expect(flowCell.getByRole("heading", { name: "Itens por estado, dia a dia" })).toBeVisible({
+    timeout: 10_000,
+  });
+  await expect(page.locator("[data-widget-state='loading']")).toHaveCount(0);
+});
+
+test("fonte do Fluxo com erro: só o widget mostra o erro e Tentar de novo recupera", async ({
+  page,
+}) => {
+  const errors = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+  await seedLayouts(page, [TEAM_WITH_FLOW]);
+  await seedFaults(page, { fail: { fluxo: true } });
+  await openAs(page, ["DASHBOARD_INDIVIDUAL", "DASHBOARD_TEAM"], "?visao=equipe");
+
+  const flowCell = page.locator("[data-widget-id='equipe.fluxo-cumulativo']");
+  await expect(page.getByRole("heading", { name: "Burndown do time" })).toBeVisible();
+  /* o React Query tenta de novo antes de desistir: o erro chega depois dos retries */
+  const retry = flowCell.getByRole("button", { name: "Tentar de novo" });
+  await expect(retry).toBeVisible({ timeout: 15_000 });
+  await expect(flowCell.getByRole("alert")).toContainText("Não foi possível carregar");
+  await expect(page.getByRole("button", { name: "Tentar de novo" })).toHaveCount(1);
+  await expect(
+    page.getByRole("heading", { name: "Contribuição por pessoa na sprint" }),
+  ).toBeVisible();
+
+  /* a fonte volta: Tentar de novo carrega o widget sem recarregar a página */
+  await page.evaluate((key) => localStorage.removeItem(key), FAULTS_KEY);
+  await retry.click();
+  await expect(flowCell.getByRole("heading", { name: "Itens por estado, dia a dia" })).toBeVisible({
+    timeout: 10_000,
+  });
+  expect(errors).toEqual([]);
+});

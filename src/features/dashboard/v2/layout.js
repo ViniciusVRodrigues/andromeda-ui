@@ -97,7 +97,7 @@ export function resolveLayout(catalog, viewKey, saved, canSee = () => true) {
   const seen = new Set();
   /* widgets de seção desconhecida (renomeada) também valem: a seção do catálogo decide */
   for (const s of (Array.isArray(saved.sections) ? saved.sections : []).filter(Boolean)) {
-    for (const w of s.widgets || []) {
+    for (const w of Array.isArray(s.widgets) ? s.widgets : []) {
       const entry = byId.get(w?.id);
       if (!entry || seen.has(entry.id)) continue;
       seen.add(entry.id);
@@ -105,7 +105,7 @@ export function resolveLayout(catalog, viewKey, saved, canSee = () => true) {
     }
   }
   const hidden = [];
-  for (const id of saved.hidden || []) {
+  for (const id of Array.isArray(saved.hidden) ? saved.hidden : []) {
     const entry = byId.get(id);
     if (!entry || seen.has(entry.id)) continue;
     seen.add(entry.id);

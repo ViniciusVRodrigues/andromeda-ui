@@ -17,8 +17,9 @@
  * com `defaultSize`. `collect: true` = depende de coleta nova: fica no catálogo
  * mas nunca no padrão. `skeletonHeight` (px) desenha a silhueta no carregamento.
  *
- * Nesta etapa só a visão Individual está catalogada (Práticas de IA fica fora do
- * catálogo nesta change). Equipe/Projeto/Organização: task 3.3.
+ * A visão Individual está catalogada aqui; Equipe, Projeto e Organização em
+ * `catalog/<viewKey>.js` (task 3.3). Práticas de IA e Integrações e identidades
+ * ficam fora do catálogo nesta change.
  *
  * @typedef {"P"|"M"|"G"|"I"} WidgetSize
  * @typedef {{ viewKey: string, id: string, domId: string, title: string, question?: string }} CatalogSection
@@ -61,6 +62,14 @@ import {
   PlannedDeliveredWidget,
   selectHistory,
 } from "./widgets/individual/history.jsx";
+import * as equipeCatalog from "./catalog/equipe.js";
+import * as projetoCatalog from "./catalog/projeto.js";
+import * as orgCatalog from "./catalog/org.js";
+
+/* Visões catalogadas em arquivos próprios (`catalog/<viewKey>.js`, task 3.3). Seção
+ * pode ter `nav` (rótulo curto da SectionNav); widget de visão com mais de um
+ * endpoint tem `source` e lê do payload composto — ver `catalog/sources.js`. */
+const OTHER_VIEWS = [equipeCatalog, projetoCatalog, orgCatalog];
 
 export const WIDGET_ID = /^[a-z0-9-]+\.[a-z0-9-]+$/;
 export const SECTION_ID = /^[a-z0-9-]+$/;
@@ -299,7 +308,10 @@ const WIDGETS = [
 ];
 
 /** O catálogo inteiro: `{ sections, widgets }`. */
-export const CATALOG = Object.freeze({ sections: SECTIONS, widgets: WIDGETS });
+export const CATALOG = Object.freeze({
+  sections: [...SECTIONS, ...OTHER_VIEWS.flatMap((v) => v.sections)],
+  widgets: [...WIDGETS, ...OTHER_VIEWS.flatMap((v) => v.widgets)],
+});
 
 /** Seções de uma visão, na ordem do catálogo. */
 export const catalogSections = (viewKey, catalog = CATALOG) =>
