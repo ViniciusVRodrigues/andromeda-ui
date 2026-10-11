@@ -109,8 +109,8 @@ concluído na sprint seguinte só para o roadmap (`laterCompletedAt`), porque o 
 O Resumo de cada visão vira "seu painel": cartões vindos de um catálogo, na ordem de um layout (padrão do
 catálogo ou layout salvo da pessoa). As outras sub-abas continuam fixas. As quatro visões estão catalogadas:
 Individual (P3a, em `catalog.js`) e Equipe/Projeto/Organização (P3c, em `catalog/<viewKey>.js` exportando
-`{ sections, widgets }`, concatenados em `catalog.js`); o modo de edição (Personalizar, arrasto, catálogo no
-Drawer) é o P3b.
+`{ sections, widgets }`, concatenados em `catalog.js`). O modo de edição (P3b, `edit/`) é genérico por `viewKey`:
+vale para toda visão que tiver seções no catálogo e desenhar o Resumo com `DashboardGrid`.
 
 - **O catálogo de cada visão** tem os widgets de todas as sub-abas dela (Equipe: Resumo + Fluxo e qualidade;
   Projeto: Resumo + Roadmap e backlog + Qualidade; Org: Visão geral), menos Práticas de IA e Integrações e
@@ -155,7 +155,43 @@ Drawer) é o P3b.
   quando o P2 (`feature/dashboardlayout` no ms) estiver no ar. Hooks em `hooks.js`: `useDashboardLayouts` +
   `layoutFor(data, viewKey)`, `useSaveLayout(viewKey)` (cache otimista na hora, `PUT` com debounce de 600 ms,
   envios encadeados, 409 → relê e reaplica, outro erro desfaz e relê, pendente é enviado ao desmontar) e
-  `useResetLayout(viewKey)` (`DELETE` otimista).
+  `useResetLayout(viewKey, saver)` (`DELETE` otimista). `saver.cancel()` descarta o PUT pendente e faz o envio em
+  voo não escrever mais no cache (contador de geração); o reset chama antes do `DELETE` e espera a cadeia — senão
+  um flush depois do reset ressuscitaria o layout.
+- **Modo de edição** (`edit/`): `DashboardEditProvider` (`EditContext.jsx`) fica na página, recebe o `viewKey` da
+  sub-aba personalizável (`SUMMARY_TAB`: Resumo; Organização = Visão geral) e guarda a sessão: pilha de desfazer
+  (layout salvo de antes de cada ação; `null` = padrão, que se volta com `DELETE`, nunca com PUT do padrão), estado
+  de entrada (Descartar), toast (8 s, pausa com foco/ponteiro), região `role="status"` única para todos os anúncios
+  pt-BR, foco depois de cada ação (`data-edit-item`/`data-edit-section`/`data-edit-control`), Esc (sai) e Ctrl+Z
+  (desfaz) fora de campos, diálogos, menus e arrasto. Cada ação lê o layout do cache **no instante** e chama
+  `ops.js` (puras) → `save`. `DashboardGrid` desenha `edit/EditGrid.jsx` (`React.lazy` — único módulo que importa o
+  dnd-kit, chunk próprio no build) quando está editando; `EditBar.jsx` tem `CustomizeButton` (+ dica de primeiro uso)
+  e `FiltersOrEditBar` (troca a barra de filtros pela de edição; < 600 px as ações vão para uma barra fixa embaixo em
+  portal no `body` — `container-type` num ancestral prenderia o `fixed`). `CatalogDrawer.jsx` (sem widgets
+  `collect`), `ActionMenu.jsx` (menu ⋯), `prefs.js` (dica e aviso de novos lembrados por `userId` em localStorage).
+- **Decisões do P3b**: arrasto com um `DndContext` para as seções e um por seção (colisões isoladas), setas por
+  índice, `strategy` nula, reordenação só ao soltar (ponteiro e teclado), marcador tracejado no `over`, fantasma em
+  portal só com moldura e título, **sem animação de soltura** (a ordem muda ao soltar; animar voaria ao lugar
+  antigo). Alça/↑↓ trocam por `@min-[600px]` (o `display: none` também tira do Tab). Alvos com `min-h-[44px]` — **não
+  use `min-h-11`**: o `html` tem 13 px, então `11` = 36 px. `motion-reduce:transition-none` sozinho mantém a duração;
+  junte `motion-reduce:duration-0`. Descartar alterações volta ao estado de entrada **e sai** do modo de edição.
+- **Conflito entre abas (409)**: cada `save(body, op)` leva a operação de `ops.js` (via `reapply` da sessão); no
+  409 o hook relê o servidor e reaplica as operações do envio (e as da fila) sobre a versão relida — nunca reenvia o
+  corpo calculado sobre o cache velho. `save` sem operação (Desfazer/Descartar repõem um retrato) não é reaplicado:
+  o servidor vence. Em ambos `onConflict` rebaseia a sessão (estado de entrada = versão relida; pilha = `[relida]`
+  se reaplicou, senão vazia) e anuncia "O painel foi alterado em outra aba; recarregamos a versão mais recente.".
+  Desfazer/Descartar até o padrão (DELETE, que o servidor não versiona) antes relê e só apaga se a versão do
+  servidor ainda for a que a aba conhece. Restaurar padrão mostra sucesso só depois do DELETE; falha = toast de erro
+  com Tentar de novo e nada na pilha. O mock aceita falha simulada: `["PUT"]`/`["DELETE"]` em
+  `andromeda.dashboards-v2.layouts-fail` (localStorage) — só para e2e.
+- **Contraste**: accent como texto (ou fundo de botão com texto `--bg-deep`) usa `--accent-text` (`tokens.css`,
+  ≥ 4,5:1 sobre `--bg`/`--bg-elev`/`--bg-deep` nas três paletas; o `--accent` da light dá 3,15). Bordas de
+  controle de edição em `--fg-muted` (≥ 3:1), não `--line-strong`. O contador do catálogo fica na toolbar do
+  Drawer (o `drawer-subtitle` legado tem 9 px e `--fg-dim`).
+- **Celular**: a barra fixa publica a altura real (`barHeight`) — o toast sobe acima dela e a grade ganha a mesma
+  folga embaixo; atalho "Ir para as ações de edição" logo após o título. `narrow` vem da largura do contêiner da
+  grade (a mesma das container queries); o slot da barra só decide antes de a grade lazy montar. O Drawer
+  (aria-modal) tem região `role="status"` própria para os anúncios feitos com ele aberto.
 - Sem GitHub vinculado, cada widget da seção Código mostra o convite a vincular (antes era um painel único; o
   catálogo não tem estado por seção).
 
@@ -186,6 +222,11 @@ as sub-abas por permissão (inclusive a de integrações) e a prévia sem login.
 sobrando em 390/820/1440 (soma das larguras por linha + gaps = largura da grade, colunas lidas do CSS), sem
 rolagem horizontal, ordem padrão das seções e layout salvo (semeado no localStorage do mock) com id desconhecido —
 para as quatro visões; em Equipe/Projeto o layout salvo também liga widgets das sub-abas (busca da fonte
-secundária) e, na Org, o portfólio continua navegando para o projeto. Os specs do dashboard antigo (e o
+secundária) e, na Org, o portfólio continua navegando para o projeto.
+`e2e/dashboards-edit.spec.js`: só teclado (pegar/mover/soltar/Esc com os anúncios), ocultar + desfazer, catálogo,
+tamanhos, menu ⋯ + Ctrl+Z + persistência no reload, restaurar, descartar, celular 390, reduced motion, alvos ≥ 44 px,
+painel vazio, widget novo e dica de primeiro uso; DELETE e PUT falhando, 409 com duas páginas (dos dois lados,
+Desfazer/Descartar não apagam a outra aba), região do Drawer, widget sozinho sem menu, toast e fim da página em
+360, atalho de teclado no celular, contraste medido nas três paletas e a mesma referência de largura em 600–700 px. Os specs do dashboard antigo (e o
 screenshot `shell-dashboard.png` de `screenshots.spec.js`) navegam com `?versao=atual`, então os baselines dele
 não mudam. A v2 ainda não tem baseline visual — gerar com `npm run e2e:docker:update` (só no Docker).

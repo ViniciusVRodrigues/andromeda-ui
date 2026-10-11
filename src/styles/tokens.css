@@ -20,6 +20,8 @@
   --accent: #c68b66;
   --accent-deep: #a66647;
   --accent-soft: #f4e3c9;
+  /* accent como TEXTO (ou fundo com texto --bg-deep): ≥ 4,5:1 sobre --bg, --bg-elev e --bg-deep */
+  --accent-text: #c68b66;
   --warn: #e2a87a;
   --good: #8fb39a;
   --bad: #c97a6d;
@@ -51,6 +53,7 @@
   --accent: #ffffff;
   --accent-deep: #d4d4d4;
   --accent-soft: #ffffff;
+  --accent-text: #ffffff;
   --warn: #e0e0e0;
   --good: #c8c8c8;
   --bad: #a8a8a8;
@@ -69,6 +72,7 @@
   --accent: #a66647;
   --accent-deep: #7e4628;
   --accent-soft: #2b2418;
+  --accent-text: #7e4628;
   --warn: #b8723e;
   --good: #5a7c5e;
   --bad: #b85a4e;

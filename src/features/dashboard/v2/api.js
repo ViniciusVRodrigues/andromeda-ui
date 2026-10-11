@@ -167,6 +167,20 @@ function writeLayouts(data) {
   }
 }
 
+/* Falha simulada (só o mock, para os e2e de erro): `["PUT"]`/`["DELETE"]` nesta chave
+ * faz o método responder 500 enquanto ela existir. Some com o mock no P4. */
+const LAYOUTS_FAULTS_KEY = "andromeda.dashboards-v2.layouts-fail";
+function injectFault(method, path) {
+  let faults = [];
+  try {
+    faults = JSON.parse(localStorage.getItem(LAYOUTS_FAULTS_KEY) || "[]");
+  } catch (_) {
+    /* sem armazenamento: sem falha simulada */
+  }
+  if (Array.isArray(faults) && faults.includes(method))
+    throw apiError(method, path, 500, "INTERNAL_ERROR");
+}
+
 function validLayoutBody(body) {
   const sections = Array.isArray(body?.sections) ? body.sections : null;
   const hidden = Array.isArray(body?.hidden) ? body.hidden : null;
@@ -186,6 +200,7 @@ const mockLayouts = {
   put: (viewKey, body) =>
     later(() => {
       const path = `/v1/dashboards/layouts/${viewKey}`;
+      injectFault("PUT", path);
       if (!LAYOUT_VIEW_KEYS.includes(viewKey))
         throw apiError("PUT", path, 422, "DASHBOARD_LAYOUT_VIEW_UNKNOWN");
       if (!validLayoutBody(body)) throw apiError("PUT", path, 422, "DASHBOARD_LAYOUT_INVALID");
@@ -205,6 +220,7 @@ const mockLayouts = {
     }),
   remove: (viewKey) =>
     later(() => {
+      injectFault("DELETE", `/v1/dashboards/layouts/${viewKey}`);
       const data = readLayouts();
       writeLayouts({ items: data.items.filter((i) => i.viewKey !== viewKey) });
       return null;
