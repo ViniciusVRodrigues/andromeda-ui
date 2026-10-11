@@ -49,7 +49,8 @@ com as três permissões de dashboard + configuração das integrações). Estad
 - `kit/` — `Panel` (eyebrow, título, `?` com "como ler", fonte, **Gráfico/Tabela**, `note`, `collect` →
   etiqueta **"requer coleta nova"**, `experimental`), `CollectNotice` (aviso no topo de uma aba inteira),
   `Section`, `KpiTile`/`DeltaBadge`, `BarList`/`SegmentBar`/`Meter`/`Legend`, `DataTable`, selos, gráficos Recharts.
-- `views/` — Resumos: `IndividualView`, `TeamView`, `ProjectView`, `OrganizationView`. Sub-abas:
+- `catalog.js`, `layout.js`, `DashboardGrid.jsx`, `widgets/` — Resumo personalizável (ver **Personalização**).
+- `views/` — Resumos: `IndividualView` (monta o grid a partir do catálogo), `TeamView`, `ProjectView`, `OrganizationView`. Sub-abas:
   `PracticesView` (escopo individual/team/org), `TeamFlowView`, `RoadmapView`, `QualityView`, `IntegrationsView`.
 
 ## O que cada visão usa
@@ -102,9 +103,67 @@ concluído na sprint seguinte só para o roadmap (`laterCompletedAt`), porque o 
 - Números em pt-BR (`format.js`; eixos com `axis*`, `nItems` para "1 item/2 itens"). Tokens em milhões nos totais,
   "mil" nas razões (T/SP).
 
+## Personalização (change `dashboards-customizaveis`)
+
+O Resumo de cada visão vira "seu painel": cartões vindos de um catálogo, na ordem de um layout (padrão do
+catálogo ou layout salvo da pessoa). As outras sub-abas continuam fixas. Hoje só a visão **Individual** está
+catalogada (P3a); Equipe/Projeto/Organização são a task 3.3; o modo de edição (Personalizar, arrasto, catálogo no
+Drawer) é o P3b.
+
+- `catalog.js` — `CATALOG = { sections, widgets }`. Widget: `{ id, viewKey, section, title, sizes, defaultSize,
+  default, collect?, skeletonHeight, aliases, select, Component }`. Ids `<viewKey>.<nome>`
+  (`^[a-z0-9-]+\.[a-z0-9-]+$`), opacos e estáveis — renomear = pôr o antigo em `aliases`. Seções fixas por visão
+  (`id` `^[a-z0-9-]+$`, `domId` para a `SectionNav`, `title`, `question`). `select(payload)` tira a fatia do
+  payload da visão (widget nunca busca dado); `Component({ data, ctx })` só desenha (`ctx.onNavigate`). Tamanhos
+  P=4, M=6, G=8, I=12; tabela no mínimo G; faixa de KPIs = um widget, I fixo. `collect: true` fica fora do padrão.
+- `widgets/<visão>/*.jsx` — os `Panel` extraídos das views, agrupados por seção.
+- `layout.js` (puro) — `resolveLayout(catalog, viewKey, saved, canSee)`: sem layout salvo → padrão; com layout →
+  ordem salva, ignorando sem erro ids desconhecidos (resolve `aliases`), de outra visão, repetidos ou sem
+  permissão; widget salvo sob outra seção vai para a do catálogo; tamanho inválido → `defaultSize`; widget que não
+  está nem em `widgets` nem em `hidden` é **novo** (`novos`, fora da grade). Devolve todas as seções (inclusive
+  vazias, para preservar a ordem no salvamento); a grade não desenha seção vazia. `packRows(widgets, cols)`:
+  fechamento de linha na ordem — as colunas que sobram vão para o último widget da linha. `serializeLayout` → corpo
+  do `PUT`.
+- `DashboardGrid.jsx` — `@container`: < 600 px 1 coluna; 600–959 6 colunas (P→3, M→3, G→6, I→6); ≥ 960 12
+  colunas, `max-w-[1600px]`. As quebras de linha diferem entre 6 e 12 colunas, então cada célula recebe `--s6` e
+  `--s12` (classes estáticas `@min-[…]:col-[span_var(--s6)/…]` — o Tailwind não enxerga classe montada em
+  template). Ordem do DOM = ordem visual (sem `dense`). `skeleton` desenha a silhueta do layout com `skeletonHeight`.
+  Enquanto o layout salvo não chega, a silhueta é a do padrão.
+- Layouts: `api.js` (`getDashboardLayouts`, `putDashboardLayout`, `deleteDashboardLayout`, contrato D6) roda sobre
+  `mockLayouts` — localStorage `andromeda.dashboards-v2.layouts` (fallback em memória), versão otimista com 409
+  `DASHBOARD_LAYOUT_VERSION_CONFLICT`, validação 422. **Ponto único de troca** comentado em `layoutsBackend` para
+  quando o P2 (`feature/dashboardlayout` no ms) estiver no ar. Hooks em `hooks.js`: `useDashboardLayouts` +
+  `layoutFor(data, viewKey)`, `useSaveLayout(viewKey)` (cache otimista na hora, `PUT` com debounce de 600 ms,
+  envios encadeados, 409 → relê e reaplica, outro erro desfaz e relê, pendente é enviado ao desmontar) e
+  `useResetLayout(viewKey)` (`DELETE` otimista).
+- Sem GitHub vinculado, cada widget da seção Código mostra o convite a vincular (antes era um painel único; o
+  catálogo não tem estado por seção).
+
+### Biblioteca de arrasto (spike 3.1, 2026-10-11): `@dnd-kit/core` 6.3.1 + `@dnd-kit/sortable` 10.0.0
+
+Spike numa grade de 12 colunas com tamanhos mistos (4/8/6/6/4/4/4/12), `KeyboardSensor`, Chromium:
+- **Clássica com os padrões** (`rectSortingStrategy` + `sortableKeyboardCoordinates`): o teclado anda pela
+  geometria — uma seta → para a direita levou o item da posição 1 para a 6. `rectSortingStrategy` desloca os vizinhos
+  para os retângulos uns dos outros, o que com larguras diferentes sobrepõe cartões.
+- **`@dnd-kit/react` 0.5.0**: reordena o DOM durante o arrasto (lida bem com tamanhos mistos), mas o teclado também
+  anda pela geometria (uma seta → item da posição 1 para a 3), os anúncios padrão são em inglês, duplica o
+  nó arrastado no DOM e a linha é 0.x com betas mensais (última 0.5.1-beta em 2026-09-12) — API ainda instável.
+- **Clássica ajustada** — o que vale para o P3b: `coordinateGetter` **por índice** (setas = posição anterior/seguinte
+  na ordem da seção, mira o retângulo do item ±1 a partir do `over` atual), `strategy={() => null}` (sem transform
+  nos vizinhos) e, no teclado, reordenar só ao soltar. Resultado exato: seta → = posição 2 de 8; Esc devolve à
+  origem; anúncios pt-BR pelo `accessibility.announcements` do `DndContext` ("Pegou X, posição 2 de 7…").
+- **Ponteiro**: reordenar ao vivo no `onDragOver` derivou (soltar sobre o 7º item deixou o arrastado no 4º — cada
+  reordenação muda o layout e dispara outra colisão). No P3b: reordenar só ao soltar (com marcador de soltura) ou
+  ajustar a colisão (`closestCenter` + histerese).
+- **Por que a clássica**: API estável, anúncios e teclado configuráveis no ponto certo, React 18 ok. O risco é não
+  publicar desde dez/2024; plano B continua `pragmatic-drag-and-drop` + menu ⋯ (que já é a alternativa sem arrasto
+  da WCAG 2.5.7). Carregar com `React.lazy` só no modo de edição. Nada de arrasto na UI até o P3b.
+
 ## Verificação
 
 `e2e/dashboards-v2.spec.js` intercepta `GET /v1/auth/me` com cada conjunto de permissões e verifica as três telas,
-as sub-abas por permissão (inclusive a de integrações) e a prévia sem login. Os specs do dashboard antigo (e o
+as sub-abas por permissão (inclusive a de integrações) e a prévia sem login. Personalização: grid sem colunas
+sobrando em 390/820/1440 (soma das larguras por linha + gaps = largura da grade, colunas lidas do CSS), sem
+rolagem horizontal, ordem padrão das seções e layout salvo (semeado no localStorage do mock) com id desconhecido. Os specs do dashboard antigo (e o
 screenshot `shell-dashboard.png` de `screenshots.spec.js`) navegam com `?versao=atual`, então os baselines dele
 não mudam. A v2 ainda não tem baseline visual — gerar com `npm run e2e:docker:update` (só no Docker).
