@@ -143,3 +143,127 @@ test("admin de integrações vê a sub-aba Integrações e identidades", async (
   await expect(page.getByRole("heading", { name: "Vínculos de cada pessoa" })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Últimos problemas de sync" })).toBeVisible();
 });
+
+/* ── Personalização (dashboards-customizaveis P3a): Resumo Individual montado por
+ * catálogo + layout num grid por container query. O layout salvo vive, por ora,
+ * num mock em localStorage (`LAYOUTS_KEY`, ver v2/api.js) — o backend P2 chega depois. */
+
+const LAYOUTS_KEY = "andromeda.dashboards-v2.layouts";
+
+async function seedLayouts(page, items) {
+  await page.addInitScript(
+    ([key, value]) => localStorage.setItem(key, value),
+    [LAYOUTS_KEY, JSON.stringify({ items })],
+  );
+}
+
+/** Para cada grade de widgets: colunas do CSS, e por linha a soma das larguras + gaps. */
+async function gridRows(page) {
+  return page.locator("[data-dashboard-grid]").evaluateAll((grids) =>
+    grids.map((g) => {
+      const cs = getComputedStyle(g);
+      const cols = cs.gridTemplateColumns.split(" ").filter(Boolean).length;
+      const gap = parseFloat(cs.columnGap) || 0;
+      const width = g.getBoundingClientRect().width;
+      const rows = new Map();
+      for (const cell of g.children) {
+        const r = cell.getBoundingClientRect();
+        const top = Math.round(r.top);
+        const row = rows.get(top) || { sum: 0, n: 0 };
+        row.sum += r.width;
+        row.n += 1;
+        rows.set(top, row);
+      }
+      return {
+        cols,
+        width,
+        rows: [...rows.values()].map((r) => Math.round(r.sum + gap * (r.n - 1))),
+      };
+    }),
+  );
+}
+
+for (const [width, expectedCols] of [
+  [390, 1],
+  [820, 6],
+  [1440, 12],
+]) {
+  test(`grid do Resumo individual sem colunas sobrando em ${width}px`, async ({ page }) => {
+    await page.setViewportSize({ width, height: 900 });
+    await openAs(page, ["DASHBOARD_INDIVIDUAL"]);
+    await expect(page.getByRole("heading", { name: "Histórico", level: 2 })).toBeVisible();
+    const grids = await gridRows(page);
+    expect(grids.length).toBeGreaterThan(0);
+    for (const g of grids) {
+      expect(g.cols).toBe(expectedCols);
+      for (const sum of g.rows) expect(Math.abs(sum - g.width)).toBeLessThanOrEqual(2);
+    }
+    const overflow = await page.evaluate(() =>
+      [document.documentElement, document.querySelector(".admin-main")]
+        .filter(Boolean)
+        .map((el) => el.scrollWidth - el.clientWidth),
+    );
+    for (const o of overflow) expect(o).toBeLessThanOrEqual(0);
+  });
+}
+
+test("padrão do catálogo: seções na ordem e widgets do Resumo individual", async ({ page }) => {
+  await openAs(page, ["DASHBOARD_INDIVIDUAL"]);
+  await expect(page.getByRole("heading", { level: 2 })).toHaveText([
+    "Resumo da sprint",
+    "Meu trabalho",
+    "Código",
+    "Uso de IA",
+    "Histórico",
+  ]);
+  for (const title of ["Burndown pessoal", "Meus itens da sprint", "Fluência em IA"]) {
+    await expect(page.getByRole("heading", { name: title, level: 3 })).toBeVisible();
+  }
+});
+
+test("layout salvo com id desconhecido e ordem própria renderiza sem erro", async ({ page }) => {
+  const errors = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+  await seedLayouts(page, [
+    {
+      viewKey: "individual",
+      sections: [
+        {
+          id: "trabalho",
+          collapsed: false,
+          widgets: [
+            { id: "individual.itens", size: "I" },
+            { id: "individual.nao-existe", size: "M" },
+          ],
+        },
+        /* seção renomeada/desconhecida: o widget vai para a seção do catálogo (Código) */
+        {
+          id: "secao-que-nao-existe",
+          collapsed: false,
+          widgets: [{ id: "individual.commits-dia", size: "M" }],
+        },
+        { id: "resumo", collapsed: false, widgets: [{ id: "individual.kpis", size: "I" }] },
+      ],
+      hidden: ["individual.burndown"],
+      version: 1,
+      updatedAt: "2026-10-11T12:00:00Z",
+    },
+  ]);
+  await openAs(page, ["DASHBOARD_INDIVIDUAL"]);
+  await expect(page.getByRole("heading", { name: "Meus itens da sprint" })).toBeVisible();
+  /* a ordem das seções segue o layout salvo (as do catálogo ausentes dele vêm depois);
+   * seções sem widget visível não aparecem */
+  await expect(page.getByRole("heading", { level: 2 })).toHaveText([
+    "Meu trabalho",
+    "Resumo da sprint",
+    "Código",
+  ]);
+  await expect(
+    page.locator("#ind-codigo").getByRole("heading", { name: "Commits por dia" }),
+  ).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Meus PRs na sprint" })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Burndown pessoal" })).toHaveCount(0);
+  /* widget fora de widgets e de hidden é "novo": não entra na grade */
+  await expect(page.getByRole("heading", { name: "Fluência em IA" })).toHaveCount(0);
+  expect(errors).toEqual([]);
+});
