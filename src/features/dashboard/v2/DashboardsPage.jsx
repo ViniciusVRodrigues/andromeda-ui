@@ -448,7 +448,7 @@ export function DashboardsPage({ onLogout, onNavigate, onShowLegacy, standalone 
               <PracticesView scope="individual" projectId={scope} sprintId={sprintId} />
             ) : null}
             {view === "equipe" && sprintId && tab === "resumo" ? (
-              <TeamView projectId={scope} sprintId={sprintId} />
+              <TeamView projectId={scope} sprintId={sprintId} allowed={access.team(project)} />
             ) : null}
             {view === "equipe" && sprintId && tab === "fluxo" ? (
               <TeamFlowView projectId={scope} sprintId={sprintId} />
@@ -457,7 +457,11 @@ export function DashboardsPage({ onLogout, onNavigate, onShowLegacy, standalone 
               <PracticesView scope="team" projectId={scope} sprintId={sprintId} />
             ) : null}
             {view === "projeto" && tab === "resumo" ? (
-              <ProjectView projectId={scope} periodDays={periodDays} />
+              <ProjectView
+                projectId={scope}
+                periodDays={periodDays}
+                allowed={access.strategic(project)}
+              />
             ) : null}
             {view === "projeto" && tab === "roadmap" ? (
               <RoadmapView projectId={scope} periodDays={periodDays} />
@@ -468,6 +472,7 @@ export function DashboardsPage({ onLogout, onNavigate, onShowLegacy, standalone 
             {view === "org" && tab === "geral" ? (
               <OrganizationView
                 periodDays={periodDays}
+                allowed={access.orgStrategic}
                 onOpenProject={(id) =>
                   update({ escopo: id, visao: "projeto", aba: null, sprint: null })
                 }

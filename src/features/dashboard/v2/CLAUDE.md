@@ -50,8 +50,9 @@ com as três permissões de dashboard + configuração das integrações). Estad
   etiqueta **"requer coleta nova"**, `experimental`), `CollectNotice` (aviso no topo de uma aba inteira),
   `Section`, `KpiTile`/`DeltaBadge`, `BarList`/`SegmentBar`/`Meter`/`Legend`, `DataTable`, selos, gráficos Recharts.
 - `catalog.js`, `layout.js`, `DashboardGrid.jsx`, `widgets/` — Resumo personalizável (ver **Personalização**).
-- `views/` — Resumos: `IndividualView` (monta o grid a partir do catálogo), `TeamView`, `ProjectView`, `OrganizationView`. Sub-abas:
-  `PracticesView` (escopo individual/team/org), `TeamFlowView`, `RoadmapView`, `QualityView`, `IntegrationsView`.
+- `views/` — Resumos (montam o grid a partir do catálogo): `IndividualView`, `TeamView`, `ProjectView`,
+  `OrganizationView`. Sub-abas fixas: `PracticesView` (escopo individual/team/org), `TeamFlowView`, `RoadmapView`,
+  `QualityView` (estas três desenham os mesmos widgets do catálogo na grade fixa delas), `IntegrationsView`.
 
 ## O que cada visão usa
 
@@ -106,9 +107,27 @@ concluído na sprint seguinte só para o roadmap (`laterCompletedAt`), porque o 
 ## Personalização (change `dashboards-customizaveis`)
 
 O Resumo de cada visão vira "seu painel": cartões vindos de um catálogo, na ordem de um layout (padrão do
-catálogo ou layout salvo da pessoa). As outras sub-abas continuam fixas. Hoje só a visão **Individual** está
-catalogada (P3a); Equipe/Projeto/Organização são a task 3.3. O modo de edição (P3b) é genérico por `viewKey`: vale
-para toda visão que tiver seções no catálogo e desenhar o Resumo com `DashboardGrid`.
+catálogo ou layout salvo da pessoa). As outras sub-abas continuam fixas. As quatro visões estão catalogadas:
+Individual (P3a, em `catalog.js`) e Equipe/Projeto/Organização (P3c, em `catalog/<viewKey>.js` exportando
+`{ sections, widgets }`, concatenados em `catalog.js`). O modo de edição (P3b, `edit/`) é genérico por `viewKey`:
+vale para toda visão que tiver seções no catálogo e desenhar o Resumo com `DashboardGrid`.
+
+- **O catálogo de cada visão** tem os widgets de todas as sub-abas dela (Equipe: Resumo + Fluxo e qualidade;
+  Projeto: Resumo + Roadmap e backlog + Qualidade; Org: Visão geral), menos Práticas de IA e Integrações e
+  identidades. Os de coleta nova levam `collect: true`. O padrão = o Resumo fixo anterior traduzido para tamanhos
+  (8/4 → G+P, 6/6 → M+M, três iguais → P+P+P, 7/5 → P+G/G+P só quando o lado largo é tabela, senão M+M; coluna
+  empilhada = 2º ao lado, 3º embaixo inteiro). Widgets das sub-abas ficam fora do padrão, em seções próprias
+  (vazias no padrão) ou nas do Resumo.
+- **Payload composto** (`catalog/sources.js`): Equipe recebe `{ resumo, fluxo }` e Projeto `{ resumo, roadmap,
+  qualidade }`; cada widget declara `source` e o `select` do catálogo lê `p[source]` (os `select*` dos arquivos de
+  widget recebem o payload da fonte, e as sub-abas fixas os chamam direto). A view só busca uma fonte secundária
+  quando o layout resolvido tem widget dela (`layoutSources`) e não desenha o grid antes de todas chegarem.
+  Individual e Org recebem o payload direto.
+- **SectionNav**: `defaultNavSections` lista só seções com widget no padrão (rótulo curto `nav`). Não acompanha
+  um layout salvo — limitação conhecida (vale também para a Individual).
+- **Permissão** (`canSee`): a página passa `allowed` (Equipe = `access.team(project)`, Projeto =
+  `access.strategic(project)`, Org = `access.orgStrategic`); nenhum widget exige código além do da visão (D3).
+- As perguntas das seções são fixas no catálogo (antes Projeto/Org/Qualidade interpolavam nome e período).
 
 - `catalog.js` — `CATALOG = { sections, widgets }`. Widget: `{ id, viewKey, section, title, sizes, defaultSize,
   default, collect?, skeletonHeight, aliases, select, Component }`. Ids `<viewKey>.<nome>`
@@ -116,7 +135,8 @@ para toda visão que tiver seções no catálogo e desenhar o Resumo com `Dashbo
   (`id` `^[a-z0-9-]+$`, `domId` para a `SectionNav`, `title`, `question`). `select(payload)` tira a fatia do
   payload da visão (widget nunca busca dado); `Component({ data, ctx })` só desenha (`ctx.onNavigate`). Tamanhos
   P=4, M=6, G=8, I=12; tabela no mínimo G; faixa de KPIs = um widget, I fixo. `collect: true` fica fora do padrão.
-- `widgets/<visão>/*.jsx` — os `Panel` extraídos das views, agrupados por seção.
+- `widgets/<visão>/*.jsx` (`individual`, `equipe`, `projeto`, `org`) — os `Panel` extraídos das views, agrupados
+  por seção.
 - `layout.js` (puro) — `resolveLayout(catalog, viewKey, saved, canSee)`: sem layout salvo → padrão; com layout →
   ordem salva, ignorando sem erro ids desconhecidos (resolve `aliases`), de outra visão, repetidos ou sem
   permissão; widget salvo sob outra seção vai para a do catálogo; tamanho inválido → `defaultSize`; widget que não
@@ -183,7 +203,9 @@ Spike numa grade de 12 colunas com tamanhos mistos (4/8/6/6/4/4/4/12), `Keyboard
 `e2e/dashboards-v2.spec.js` intercepta `GET /v1/auth/me` com cada conjunto de permissões e verifica as três telas,
 as sub-abas por permissão (inclusive a de integrações) e a prévia sem login. Personalização: grid sem colunas
 sobrando em 390/820/1440 (soma das larguras por linha + gaps = largura da grade, colunas lidas do CSS), sem
-rolagem horizontal, ordem padrão das seções e layout salvo (semeado no localStorage do mock) com id desconhecido.
+rolagem horizontal, ordem padrão das seções e layout salvo (semeado no localStorage do mock) com id desconhecido —
+para as quatro visões; em Equipe/Projeto o layout salvo também liga widgets das sub-abas (busca da fonte
+secundária) e, na Org, o portfólio continua navegando para o projeto.
 `e2e/dashboards-edit.spec.js`: só teclado (pegar/mover/soltar/Esc com os anúncios), ocultar + desfazer, catálogo,
 tamanhos, menu ⋯ + Ctrl+Z + persistência no reload, restaurar, descartar, celular 390, reduced motion, alvos ≥ 44 px,
 painel vazio, widget novo e dica de primeiro uso. Os specs do dashboard antigo (e o
