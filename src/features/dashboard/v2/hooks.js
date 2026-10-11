@@ -172,10 +172,14 @@ function setLayoutItem(qc, viewKey, item) {
  * do anterior). Em 409 refaz o `GET` e reaplica a última alteração sobre a versão nova.
  * Outro erro desfaz a parte não salva (se nada mais mudou depois) e relê do servidor.
  * Ao desmontar, o que estiver pendente é enviado na hora (não há `useBlocker` no app).
+ * `cancel()` descarta o pendente e ignora o resultado do envio em andamento (o
+ * Restaurar padrão chama antes do `DELETE`, senão o PUT atrasado ressuscitaria o
+ * layout) e devolve a cadeia, para o `DELETE` sair depois dele no servidor.
  *
  * @param {string} viewKey
  * @returns {{ save: (body: { sections: Array, hidden: string[] }) => void,
- *   flush: () => Promise<void>, isSaving: boolean, error: Error|null }}
+ *   flush: () => Promise<void>, cancel: () => Promise<void>, isSaving: boolean,
+ *   error: Error|null }}
  */
 export function useSaveLayout(viewKey) {
   const qc = useQueryClient();
@@ -184,6 +188,8 @@ export function useSaveLayout(viewKey) {
   const pending = React.useRef(null);
   const snapshot = React.useRef(undefined);
   const chain = React.useRef(Promise.resolve());
+  /* muda a cada cancel(): envio iniciado antes não escreve mais no cache */
+  const generation = React.useRef(0);
   const [status, setStatus] = React.useState({ isSaving: false, error: null });
 
   const versionNow = React.useCallback(
@@ -199,24 +205,29 @@ export function useSaveLayout(viewKey) {
     pending.current = null;
     const before = snapshot.current;
     snapshot.current = undefined;
+    const gen = generation.current;
+    const stale = () => gen !== generation.current;
     setStatus((s) => ({ ...s, isSaving: true }));
     chain.current = chain.current.then(async () => {
+      if (stale()) return;
       try {
         let saved;
         try {
           saved = await putDashboardLayout(viewKey, { ...body, version: versionNow() });
         } catch (e) {
-          if (e?.status !== 409) throw e;
+          if (e?.status !== 409 || stale()) throw e;
           /* outra aba/dispositivo salvou antes: relê e reaplica esta alteração */
           await qc.fetchQuery({
             queryKey: key,
             queryFn: () => getDashboardLayouts(),
             staleTime: 0,
           });
+          if (stale()) return;
           const version = versionNow();
           if (!pending.current) setLayoutItem(qc, viewKey, { viewKey, ...body, version });
           saved = await putDashboardLayout(viewKey, { ...body, version });
         }
+        if (stale()) return;
         if (pending.current) {
           /* chegou alteração nova enquanto salvava: guarda só a versão */
           const cur = layoutFor(qc.getQueryData(key), viewKey);
@@ -224,6 +235,7 @@ export function useSaveLayout(viewKey) {
         } else setLayoutItem(qc, viewKey, saved);
         setStatus({ isSaving: false, error: null });
       } catch (e) {
+        if (stale()) return;
         if (!pending.current && before !== undefined) qc.setQueryData(key, before);
         qc.invalidateQueries({ queryKey: key });
         setStatus({ isSaving: false, error: e });
@@ -231,6 +243,16 @@ export function useSaveLayout(viewKey) {
     });
     return chain.current;
   }, [qc, viewKey, versionNow]);
+
+  const cancel = React.useCallback(() => {
+    clearTimeout(timer.current);
+    timer.current = null;
+    pending.current = null;
+    snapshot.current = undefined;
+    generation.current += 1;
+    setStatus({ isSaving: false, error: null });
+    return chain.current.catch(() => {});
+  }, []);
 
   const save = React.useCallback(
     (body) => {
@@ -253,16 +275,30 @@ export function useSaveLayout(viewKey) {
   /* sair da tela (sidebar, troca de visão) não pode perder a última alteração */
   React.useEffect(() => () => void flush(), [flush]);
 
-  return { save, flush, ...status };
+  return { save, flush, cancel, ...status };
 }
 
-/** Restaurar padrão: `DELETE` otimista (o layout some do cache na hora; erro devolve). */
-export function useResetLayout(viewKey) {
+/**
+ * Restaurar padrão: `DELETE` otimista (o layout some do cache na hora; erro devolve).
+ * Passe o `saver` de `useSaveLayout(viewKey)`: o reset cancela o PUT com debounce
+ * pendente e espera o envio em andamento antes do `DELETE` — sem isso um flush
+ * posterior ressuscitaria o layout apagado.
+ *
+ * @param {string} viewKey
+ * @param {{ cancel: () => Promise<void> }} [saver]
+ */
+export function useResetLayout(viewKey, saver) {
   const qc = useQueryClient();
   const key = dashboardsKeys.layouts();
+  const settled = React.useRef(Promise.resolve());
   return useMutation({
-    mutationFn: () => deleteDashboardLayout(viewKey),
+    mutationFn: async () => {
+      await settled.current;
+      return deleteDashboardLayout(viewKey);
+    },
     onMutate: async () => {
+      /* síncrono antes de qualquer await: o envio em voo não escreve mais no cache */
+      settled.current = saver?.cancel?.() ?? Promise.resolve();
       await qc.cancelQueries({ queryKey: key });
       const before = qc.getQueryData(key);
       setLayoutItem(qc, viewKey, null);
