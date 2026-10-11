@@ -8,10 +8,18 @@ export const ADMIN_CREDS = {
   password: "Baseline#2026",
 };
 
+// Relógio fixo da suíte. As fixtures de replay foram gravadas em setembro/2026 e
+// algumas requisições carregam a data corrente (ex.: Uso de IA pede
+// ?month=AAAA-MM); com o relógio real a suíte quebrava na virada do mês. A opção
+// `use.clock` do playwright.config não existe no Playwright e era ignorada —
+// o relógio só congela via page.clock, instalado antes da primeira navegação.
+export const FIXED_NOW = new Date("2026-09-30T12:00:00.000Z");
+
 // Login executado DENTRO do browser (fetch de página) para passar pela camada
 // record/replay. Retorna o orgSlug da sessão para montar as rotas da casca.
 export async function loginAsAdmin(page) {
   await installApiLayer(page.context());
+  await page.clock.setFixedTime(FIXED_NOW);
   await page.goto("/login");
   const result = await page.evaluate(async (creds) => {
     const res = await fetch("/api/v1/auth/login", {
