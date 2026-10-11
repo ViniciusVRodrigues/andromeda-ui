@@ -26,7 +26,7 @@ function ConnectionCard({ name, conn, extra, asOf }) {
         {conn.consecutiveFailures != null ? (
           <>
             <dt className="mono text-fg-dim font-normal">Falhas seguidas</dt>
-            <dd className="mono text-fg m-0 text-right">{conn.consecutiveFailures}</dd>
+            <dd className="mono text-fg m-0 text-right">{conn.consecutiveFailures ?? "—"}</dd>
           </>
         ) : null}
         {extra}

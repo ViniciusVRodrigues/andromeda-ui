@@ -111,7 +111,7 @@ export function IntegrationsView() {
               <Row k="Token OAuth">expira {fmtIn(az.tokenExpiresAt, now)} · renova sozinho</Row>
             ) : null}
             <Row k="Última chamada ok">{fmtAgo(az.lastSuccessAt, now)}</Row>
-            <Row k="Falhas seguidas">{az.consecutiveFailures}</Row>
+            <Row k="Falhas seguidas">{az.consecutiveFailures ?? "—"}</Row>
           </ConnectionCard>
           <ConnectionCard name="GitHub" status={gh.status}>
             <Row k="Autenticação">{gh.authMethod ?? "—"}</Row>
@@ -122,7 +122,7 @@ export function IntegrationsView() {
                 : "desligado"}
             </Row>
             <Row k="Última chamada ok">{fmtAgo(gh.lastSuccessAt, now)}</Row>
-            <Row k="Falhas seguidas">{gh.consecutiveFailures}</Row>
+            <Row k="Falhas seguidas">{gh.consecutiveFailures ?? "—"}</Row>
             {gh.lastError ? (
               <Row k="Último erro">
                 <span className="text-warn">{gh.lastError.code}</span>

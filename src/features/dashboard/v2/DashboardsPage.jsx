@@ -364,7 +364,7 @@ export function DashboardsPage({ onLogout, onNavigate, onShowLegacy, standalone 
                   ) : null}
                   <div className="ml-auto flex items-center gap-3">
                     {sprintFilter ? (
-                      <div className="w-[300px] max-w-full">
+                      <div className="w-full max-w-[300px] min-w-0">
                         <Combobox
                           value={sprintId}
                           onValueChange={(v) => update({ sprint: v })}
