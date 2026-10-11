@@ -12,6 +12,7 @@
  * lado e o 3º embaixo, inteiro, como no P3a); três iguais → P+P+P.
  */
 
+import { withSource } from "./SourceGate.jsx";
 import { KpisWidget, selectKpis } from "../widgets/equipe/summary.jsx";
 import {
   AgingWidget,
@@ -150,30 +151,43 @@ export const sections = [
   },
 ];
 
-/* `source` diz de qual payload o widget lê; `select` recebe o payload composto. */
+/* `source` diz de qual payload o widget lê; `select` recebe o payload composto. A
+ * fonte principal (`resumo`) chega antes do grid; a secundária (`fluxo`) passa pelo
+ * `withSource`: esqueleto ou erro só naquele cartão enquanto não chega. */
 const fromResumo = (select) => (p) => select(p.resumo);
-const fromFluxo = (select) => (p) => select(p.fluxo);
 
 /**
  * @param {string} name @param {string} section @param {string} title
  * @param {{ sizes: string[], size: string, default?: boolean, collect?: boolean,
  *   height: number, source?: "resumo"|"fluxo", select: Function, Component: Function }} o
  */
-const widget = (name, section, title, o) => ({
-  id: `${VIEW_KEY}.${name}`,
-  viewKey: VIEW_KEY,
-  section,
-  title,
-  sizes: o.sizes,
-  defaultSize: o.size,
-  default: !!o.default,
-  ...(o.collect ? { collect: true } : {}),
-  skeletonHeight: o.height,
-  aliases: [],
-  source: o.source || "resumo",
-  select: o.source === "fluxo" ? fromFluxo(o.select) : fromResumo(o.select),
-  Component: o.Component,
-});
+const widget = (name, section, title, o) => {
+  const source = o.source || "resumo";
+  const render =
+    source === "resumo"
+      ? { select: fromResumo(o.select), Component: o.Component }
+      : withSource({
+          source,
+          title,
+          skeletonHeight: o.height,
+          select: o.select,
+          Component: o.Component,
+        });
+  return {
+    id: `${VIEW_KEY}.${name}`,
+    viewKey: VIEW_KEY,
+    section,
+    title,
+    sizes: o.sizes,
+    defaultSize: o.size,
+    default: !!o.default,
+    ...(o.collect ? { collect: true } : {}),
+    skeletonHeight: o.height,
+    aliases: [],
+    source,
+    ...render,
+  };
+};
 
 /** @type {import("../catalog.js").CatalogWidget[]} */
 export const widgets = [

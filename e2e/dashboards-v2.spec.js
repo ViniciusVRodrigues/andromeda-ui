@@ -489,3 +489,91 @@ test("Resumo org: layout salvo com id desconhecido renderiza sem erro e o portf�
   await expect(page).toHaveURL(/escopo=p-pagamentos/);
   expect(errors).toEqual([]);
 });
+
+/* ── Fonte secundária sem bloquear a grade: o grid aparece com o Resumo; o widget do
+ * Fluxo mostra o próprio esqueleto (ou erro com "Tentar de novo") até a fonte chegar.
+ * Atraso/falha vêm do mock (`andromeda.dashboards-v2.mock-faults`, só em dev). */
+
+const FAULTS_KEY = "andromeda.dashboards-v2.mock-faults";
+
+async function seedFaults(page, faults) {
+  await page.addInitScript(
+    ([key, value]) => localStorage.setItem(key, value),
+    [FAULTS_KEY, JSON.stringify(faults)],
+  );
+}
+
+const TEAM_WITH_FLOW = {
+  viewKey: "equipe",
+  sections: [
+    {
+      id: "fluxo",
+      collapsed: false,
+      widgets: [
+        { id: "equipe.burndown", size: "M" },
+        { id: "equipe.fluxo-cumulativo", size: "M" },
+      ],
+    },
+    { id: "pessoas", collapsed: false, widgets: [{ id: "equipe.contribuicao", size: "I" }] },
+  ],
+  hidden: [],
+  version: 1,
+  updatedAt: "2026-10-11T12:00:00Z",
+};
+
+test("fonte do Fluxo atrasada: a grade aparece e só o widget do Fluxo mostra esqueleto", async ({
+  page,
+}) => {
+  await seedLayouts(page, [TEAM_WITH_FLOW]);
+  await seedFaults(page, { delayMs: { fluxo: 4000 } });
+  await openAs(page, ["DASHBOARD_INDIVIDUAL", "DASHBOARD_TEAM"], "?visao=equipe");
+
+  const flowCell = page.locator("[data-widget-id='equipe.fluxo-cumulativo']");
+  await expect(page.getByRole("heading", { name: "Burndown do time" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Contribuição por pessoa na sprint" }),
+  ).toBeVisible();
+  await expect(flowCell.locator("[data-widget-state='loading']")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Itens por estado, dia a dia" })).toHaveCount(0);
+  /* o esqueleto ocupa a célula do widget, na altura do catálogo */
+  const height = await flowCell
+    .locator("[data-widget-state='loading']")
+    .evaluate((el) => el.getBoundingClientRect().height);
+  expect(height).toBeGreaterThanOrEqual(300);
+  /* só o widget do Fluxo espera */
+  await expect(page.locator("[data-widget-state='loading']")).toHaveCount(1);
+
+  await expect(flowCell.getByRole("heading", { name: "Itens por estado, dia a dia" })).toBeVisible({
+    timeout: 10_000,
+  });
+  await expect(page.locator("[data-widget-state='loading']")).toHaveCount(0);
+});
+
+test("fonte do Fluxo com erro: só o widget mostra o erro e Tentar de novo recupera", async ({
+  page,
+}) => {
+  const errors = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+  await seedLayouts(page, [TEAM_WITH_FLOW]);
+  await seedFaults(page, { fail: { fluxo: true } });
+  await openAs(page, ["DASHBOARD_INDIVIDUAL", "DASHBOARD_TEAM"], "?visao=equipe");
+
+  const flowCell = page.locator("[data-widget-id='equipe.fluxo-cumulativo']");
+  await expect(page.getByRole("heading", { name: "Burndown do time" })).toBeVisible();
+  /* o React Query tenta de novo antes de desistir: o erro chega depois dos retries */
+  const retry = flowCell.getByRole("button", { name: "Tentar de novo" });
+  await expect(retry).toBeVisible({ timeout: 15_000 });
+  await expect(flowCell.getByRole("alert")).toContainText("Não foi possível carregar");
+  await expect(page.getByRole("button", { name: "Tentar de novo" })).toHaveCount(1);
+  await expect(
+    page.getByRole("heading", { name: "Contribuição por pessoa na sprint" }),
+  ).toBeVisible();
+
+  /* a fonte volta: Tentar de novo carrega o widget sem recarregar a página */
+  await page.evaluate((key) => localStorage.removeItem(key), FAULTS_KEY);
+  await retry.click();
+  await expect(flowCell.getByRole("heading", { name: "Itens por estado, dia a dia" })).toBeVisible({
+    timeout: 10_000,
+  });
+  expect(errors).toEqual([]);
+});

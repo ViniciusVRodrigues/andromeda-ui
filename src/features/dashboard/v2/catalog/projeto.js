@@ -87,6 +87,8 @@ import {
   selectResolutionBySeverity,
 } from "../widgets/projeto/quality.jsx";
 
+import { withSource } from "./SourceGate.jsx";
+
 const VIEW_KEY = "projeto";
 const ALL = ["P", "M", "G", "I"];
 const TABLE = ["G", "I"];
@@ -196,6 +198,18 @@ const SOURCES = ["resumo", "roadmap", "qualidade"];
 const widget = (name, sectionId, title, o) => {
   const source = o.source || "resumo";
   if (!SOURCES.includes(source)) throw new Error(`catálogo projeto: fonte ${source} inválida`);
+  /* a fonte principal chega antes do grid; as secundárias passam pelo `withSource`:
+   * esqueleto ou erro só naquele cartão enquanto não chegam */
+  const render =
+    source === "resumo"
+      ? { select: (p) => o.select(p.resumo), Component: o.Component }
+      : withSource({
+          source,
+          title,
+          skeletonHeight: o.height,
+          select: o.select,
+          Component: o.Component,
+        });
   return {
     id: `${VIEW_KEY}.${name}`,
     viewKey: VIEW_KEY,
@@ -208,8 +222,7 @@ const widget = (name, sectionId, title, o) => {
     skeletonHeight: o.height,
     aliases: [],
     source,
-    select: (p) => o.select(p[source]),
-    Component: o.Component,
+    ...render,
   };
 };
 

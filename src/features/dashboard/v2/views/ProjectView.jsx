@@ -15,6 +15,7 @@
 
 import React from "react";
 import { CATALOG } from "../catalog.js";
+import { sourceState } from "../catalog/SourceGate.jsx";
 import { defaultNavSections, layoutSources } from "../catalog/sources.js";
 import { DashboardGrid } from "../DashboardGrid.jsx";
 import { projectHighlights } from "../highlights.js";
@@ -53,11 +54,14 @@ export function ProjectView({ projectId, periodDays, allowed = true }) {
   const needsQuality = sources.has("qualidade");
   const roadmap = useProjectRoadmap({ projectId: needsRoadmap ? projectId : null, periodDays });
   const quality = useProjectQuality({ projectId: needsQuality ? projectId : null, periodDays });
-  const extraPending =
-    (needsRoadmap && (roadmap.isPending || !roadmap.data)) ||
-    (needsQuality && (quality.isPending || !quality.data));
+  /* o grid não espera as fontes secundárias: cada widget delas mostra o próprio
+   * esqueleto ou erro */
+  const ctx = React.useMemo(
+    () => ({ sources: { roadmap: sourceState(roadmap), qualidade: sourceState(quality) } }),
+    [roadmap, quality],
+  );
 
-  if (overview.isPending || !overview.data || layouts.isPending || extraPending) {
+  if (overview.isPending || !overview.data || layouts.isPending) {
     return (
       <div className="mt-2">
         <div aria-hidden="true" className="skeleton mb-4 h-14" />
@@ -68,14 +72,16 @@ export function ProjectView({ projectId, periodDays, allowed = true }) {
 
   const fetching =
     overview.isFetching ||
-    (needsRoadmap && roadmap.isFetching) ||
-    (needsQuality && quality.isFetching);
+    /* fonte secundária só esmaece num refetch com dado; na 1ª carga o cartão tem esqueleto */
+    (needsRoadmap && roadmap.isFetching && roadmap.data != null) ||
+    (needsQuality && quality.isFetching && quality.data != null);
   return (
     <FetchFrame fetching={fetching}>
       <Highlights items={projectHighlights(overview.data)} />
       <DashboardGrid
         layout={layout}
         payload={{ resumo: overview.data, roadmap: roadmap.data, qualidade: quality.data }}
+        ctx={ctx}
       />
     </FetchFrame>
   );

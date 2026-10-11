@@ -16,6 +16,7 @@
 
 import React from "react";
 import { CATALOG } from "../catalog.js";
+import { sourceState } from "../catalog/SourceGate.jsx";
 import { defaultNavSections, layoutSources } from "../catalog/sources.js";
 import { DashboardGrid } from "../DashboardGrid.jsx";
 import { teamHighlights } from "../highlights.js";
@@ -45,9 +46,10 @@ export function TeamView({ projectId, sprintId, allowed = true }) {
   );
   const needsFlow = layoutSources(layout).has("fluxo");
   const flow = useTeamFlow({ projectId: needsFlow ? projectId : null, sprintId });
-  const flowPending = needsFlow && (flow.isPending || !flow.data);
+  /* o grid não espera o fluxo: cada widget dele mostra o próprio esqueleto ou erro */
+  const ctx = React.useMemo(() => ({ sources: { fluxo: sourceState(flow) } }), [flow]);
 
-  if (team.isPending || !team.data || layouts.isPending || flowPending) {
+  if (team.isPending || !team.data || layouts.isPending) {
     return (
       <div className="mt-2">
         <div aria-hidden="true" className="skeleton mb-4 h-14" />
@@ -57,8 +59,9 @@ export function TeamView({ projectId, sprintId, allowed = true }) {
   }
 
   const d = team.data;
+  /* fonte secundária só esmaece a tela num refetch com dado; na 1ª carga o cartão tem esqueleto */
   return (
-    <FetchFrame fetching={team.isFetching || (needsFlow && flow.isFetching)}>
+    <FetchFrame fetching={team.isFetching || (needsFlow && flow.isFetching && flow.data != null)}>
       <Highlights items={teamHighlights(d)} />
       <div className="mt-2">
         <SprintStrip
@@ -70,7 +73,7 @@ export function TeamView({ projectId, sprintId, allowed = true }) {
           }
         />
       </div>
-      <DashboardGrid layout={layout} payload={{ resumo: d, fluxo: flow.data }} />
+      <DashboardGrid layout={layout} payload={{ resumo: d, fluxo: flow.data }} ctx={ctx} />
     </FetchFrame>
   );
 }
