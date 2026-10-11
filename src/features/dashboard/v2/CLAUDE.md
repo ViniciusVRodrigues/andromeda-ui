@@ -175,6 +175,23 @@ vale para toda visão que tiver seções no catálogo e desenhar o Resumo com `D
   antigo). Alça/↑↓ trocam por `@min-[600px]` (o `display: none` também tira do Tab). Alvos com `min-h-[44px]` — **não
   use `min-h-11`**: o `html` tem 13 px, então `11` = 36 px. `motion-reduce:transition-none` sozinho mantém a duração;
   junte `motion-reduce:duration-0`. Descartar alterações volta ao estado de entrada **e sai** do modo de edição.
+- **Conflito entre abas (409)**: cada `save(body, op)` leva a operação de `ops.js` (via `reapply` da sessão); no
+  409 o hook relê o servidor e reaplica as operações do envio (e as da fila) sobre a versão relida — nunca reenvia o
+  corpo calculado sobre o cache velho. `save` sem operação (Desfazer/Descartar repõem um retrato) não é reaplicado:
+  o servidor vence. Em ambos `onConflict` rebaseia a sessão (estado de entrada = versão relida; pilha = `[relida]`
+  se reaplicou, senão vazia) e anuncia "O painel foi alterado em outra aba; recarregamos a versão mais recente.".
+  Desfazer/Descartar até o padrão (DELETE, que o servidor não versiona) antes relê e só apaga se a versão do
+  servidor ainda for a que a aba conhece. Restaurar padrão mostra sucesso só depois do DELETE; falha = toast de erro
+  com Tentar de novo e nada na pilha. O mock aceita falha simulada: `["PUT"]`/`["DELETE"]` em
+  `andromeda.dashboards-v2.layouts-fail` (localStorage) — só para e2e.
+- **Contraste**: accent como texto (ou fundo de botão com texto `--bg-deep`) usa `--accent-text` (`tokens.css`,
+  ≥ 4,5:1 sobre `--bg`/`--bg-elev`/`--bg-deep` nas três paletas; o `--accent` da light dá 3,15). Bordas de
+  controle de edição em `--fg-muted` (≥ 3:1), não `--line-strong`. O contador do catálogo fica na toolbar do
+  Drawer (o `drawer-subtitle` legado tem 9 px e `--fg-dim`).
+- **Celular**: a barra fixa publica a altura real (`barHeight`) — o toast sobe acima dela e a grade ganha a mesma
+  folga embaixo; atalho "Ir para as ações de edição" logo após o título. `narrow` vem da largura do contêiner da
+  grade (a mesma das container queries); o slot da barra só decide antes de a grade lazy montar. O Drawer
+  (aria-modal) tem região `role="status"` própria para os anúncios feitos com ele aberto.
 - Sem GitHub vinculado, cada widget da seção Código mostra o convite a vincular (antes era um painel único; o
   catálogo não tem estado por seção).
 
@@ -208,6 +225,8 @@ para as quatro visões; em Equipe/Projeto o layout salvo também liga widgets da
 secundária) e, na Org, o portfólio continua navegando para o projeto.
 `e2e/dashboards-edit.spec.js`: só teclado (pegar/mover/soltar/Esc com os anúncios), ocultar + desfazer, catálogo,
 tamanhos, menu ⋯ + Ctrl+Z + persistência no reload, restaurar, descartar, celular 390, reduced motion, alvos ≥ 44 px,
-painel vazio, widget novo e dica de primeiro uso. Os specs do dashboard antigo (e o
+painel vazio, widget novo e dica de primeiro uso; DELETE e PUT falhando, 409 com duas páginas (dos dois lados,
+Desfazer/Descartar não apagam a outra aba), região do Drawer, widget sozinho sem menu, toast e fim da página em
+360, atalho de teclado no celular, contraste medido nas três paletas e a mesma referência de largura em 600–700 px. Os specs do dashboard antigo (e o
 screenshot `shell-dashboard.png` de `screenshots.spec.js`) navegam com `?versao=atual`, então os baselines dele
 não mudam. A v2 ainda não tem baseline visual — gerar com `npm run e2e:docker:update` (só no Docker).

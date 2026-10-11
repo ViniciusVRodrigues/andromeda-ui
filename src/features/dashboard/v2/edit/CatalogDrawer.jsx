@@ -29,7 +29,7 @@ function Switch({ checked, label, onChange }) {
         aria-hidden="true"
         className={
           "relative inline-flex h-6 w-11 items-center rounded-full border transition-colors motion-reduce:transition-none motion-reduce:duration-0 " +
-          (checked ? "border-accent bg-accent" : "border-line-strong bg-bg-deep")
+          (checked ? "border-accent-text bg-accent-text" : "border-fg-muted bg-bg-deep")
         }
       >
         <span
@@ -53,7 +53,14 @@ export function CatalogDrawer({ open, onClose }) {
     const t = setTimeout(() => searchRef.current?.focus(), 0);
     return () => clearTimeout(t);
   }, [open]);
+  /* o Drawer é aria-modal: a região da sessão (fora dele) fica muda para o leitor de
+   * tela. Os anúncios feitos com ele aberto (ligar/desligar) saem por esta. */
+  const openSeq = React.useRef(0);
+  React.useEffect(() => {
+    if (open) openSeq.current = edit?.announceSeq ?? 0;
+  }, [open]);
   if (!edit) return null;
+  const drawerAnnouncement = edit.announceSeq > openSeq.current ? edit.announcement : "";
 
   const { layout, viewKey } = edit;
   const onGrid = new Set(layout.sections.flatMap((s) => s.widgets.map((w) => w.id)));
@@ -79,9 +86,11 @@ export function CatalogDrawer({ open, onClose }) {
       open={open}
       onClose={onClose}
       title="Adicionar widgets"
-      subtitle={`${visibleCount} de ${all.length} visíveis`}
       toolbar={
         <div className="border-line border-b px-6 pt-1 pb-4">
+          <p data-catalog-count="" className="mono text-fg-muted m-0 mb-3 text-[13px]">
+            {visibleCount} de {all.length} visíveis
+          </p>
           <label className="block">
             <span className="mono text-fg-muted mb-1.5 block text-[12px]">Buscar widget</span>
             <input
@@ -95,6 +104,9 @@ export function CatalogDrawer({ open, onClose }) {
           </label>
           <p className="sr-only" role="status" aria-live="polite">
             {q ? `${matches.length} resultado${matches.length === 1 ? "" : "s"}` : ""}
+          </p>
+          <p className="sr-only" role="status" aria-live="polite" data-catalog-announcer="">
+            {drawerAnnouncement}
           </p>
         </div>
       }
@@ -125,7 +137,7 @@ export function CatalogDrawer({ open, onClose }) {
                     <span className="text-fg min-w-0 flex-1 text-[14px]">
                       {w.title}
                       {novos.has(w.id) ? (
-                        <span className="mono border-accent text-accent ml-2 inline-block rounded-full border px-2 text-[11px] leading-5">
+                        <span className="mono border-accent-text text-accent-text ml-2 inline-block rounded-full border px-2 text-[11px] leading-5">
                           novo
                         </span>
                       ) : null}

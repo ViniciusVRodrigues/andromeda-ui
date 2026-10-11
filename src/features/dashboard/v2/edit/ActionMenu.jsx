@@ -10,7 +10,7 @@ import React from "react";
 /** Classe dos botões de ícone de 44×44 do modo de edição. */
 /** Sem `display`: quem esconde por largura (`hidden @min-[600px]:inline-flex`) usa esta. */
 export const ICON_BTN_BASE =
-  "min-h-[44px] min-w-[44px] shrink-0 cursor-pointer items-center justify-center rounded-[var(--radius-sm)] border border-line-strong bg-transparent px-2 text-fg-muted hover:border-accent hover:text-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-40";
+  "min-h-[44px] min-w-[44px] shrink-0 cursor-pointer items-center justify-center rounded-[var(--radius-sm)] border border-fg-muted bg-transparent px-2 text-fg-muted hover:border-accent hover:text-fg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-40";
 export const ICON_BTN = "inline-flex " + ICON_BTN_BASE;
 
 /**

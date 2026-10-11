@@ -131,7 +131,9 @@ export function EmptyDashboard({ edit, inEdit = false }) {
         <div className="mt-2 flex flex-wrap justify-center gap-2">
           <button
             type="button"
-            className={EMPTY_BTN + " border-accent bg-accent text-bg-deep hover:bg-accent-deep"}
+            className={
+              EMPTY_BTN + " border-accent-text bg-accent-text text-bg-deep hover:underline"
+            }
             onClick={() => {
               if (!inEdit) edit.enter();
               edit.setDrawerOpen(true);
@@ -141,7 +143,7 @@ export function EmptyDashboard({ edit, inEdit = false }) {
           </button>
           <button
             type="button"
-            className={EMPTY_BTN + " border-line-strong text-fg hover:border-accent bg-transparent"}
+            className={EMPTY_BTN + " border-fg-muted text-fg hover:border-accent bg-transparent"}
             onClick={edit.restoreDefault}
           >
             Restaurar padrão

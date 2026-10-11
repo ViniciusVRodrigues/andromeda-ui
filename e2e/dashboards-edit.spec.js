@@ -7,7 +7,7 @@ import { test, expect } from "@playwright/test";
 const SLUG = "orbital";
 const LAYOUTS_KEY = "andromeda.dashboards-v2.layouts";
 
-async function open(page, { query = "" } = {}) {
+async function open(page, { query = "", heading = "Histórico" } = {}) {
   await page.route("**/api/v1/**", (route) => {
     if (route.request().url().includes("/v1/auth/me")) {
       return route.fulfill({
@@ -26,7 +26,7 @@ async function open(page, { query = "" } = {}) {
   await page.goto("/login");
   await page.evaluate(() => localStorage.setItem("andromeda_token", "e2e-token"));
   await page.goto(`/${SLUG}/dashboard${query}`);
-  await expect(page.getByRole("heading", { name: "Histórico", level: 2 })).toBeVisible();
+  await expect(page.getByRole("heading", { name: heading, level: 2 })).toBeVisible();
 }
 
 async function seedLayouts(page, items) {
@@ -331,7 +331,13 @@ for (const width of [390, 1440]) {
       )
       .evaluateAll((els) =>
         els
-          .filter((e) => e.getClientRects().length > 0 && !e.closest("[inert]"))
+          /* visíveis, fora do cartão inerte; o atalho sr-only só conta com foco (outro teste) */
+          .filter(
+            (e) =>
+              e.getClientRects().length > 0 &&
+              !e.closest("[inert]") &&
+              !(e.classList.contains("sr-only") && document.activeElement !== e),
+          )
           .map((e) => ({
             label: e.getAttribute("aria-label") || e.textContent,
             r: e.getBoundingClientRect(),
@@ -424,4 +430,346 @@ test("dica de primeiro uso: some ao dispensar e não volta", async ({ page }) =>
   await page.reload();
   await expect(page.getByRole("button", { name: "Personalizar" })).toBeVisible();
   await expect(tip).toHaveCount(0);
+});
+
+/* ── Correções do QA (P3b): erros do servidor, conflito entre abas, contraste ── */
+
+const FAULTS_KEY = "andromeda.dashboards-v2.layouts-fail";
+const REBASE_MSG = "O painel foi alterado em outra aba; recarregamos a versão mais recente.";
+const savedLayout = (page) =>
+  page.evaluate(
+    (key) => JSON.parse(localStorage.getItem(key) || "{}").items?.[0] ?? null,
+    LAYOUTS_KEY,
+  );
+/** Espera o layout salvo (mock em localStorage) satisfazer `check(item)`. */
+async function waitSaved(page, check) {
+  await expect.poll(async () => check(await savedLayout(page)), { timeout: 8000 }).toBe(true);
+}
+
+test("restaurar padrão com DELETE falhando: toast de erro e nada falso na pilha", async ({
+  page,
+}) => {
+  await open(page);
+  await enterEdit(page);
+  await page.getByRole("button", { name: "Ocultar Reviews que fiz" }).click();
+  await waitSaved(page, (item) => !!item?.hidden?.includes("individual.reviews"));
+  await page.evaluate((key) => localStorage.setItem(key, JSON.stringify(["DELETE"])), FAULTS_KEY);
+
+  await page.getByRole("button", { name: "Mais ações da personalização" }).click();
+  await page.getByRole("menuitem", { name: "Restaurar padrão" }).click();
+  const toast = page.locator("[data-edit-toast]");
+  await expect(toast).toContainText("Não foi possível restaurar o padrão");
+  await expect(toast.getByRole("button", { name: "Tentar de novo" })).toBeVisible();
+  await expect(announcer(page)).toContainText("Não foi possível restaurar o padrão.");
+  /* o rollback devolveu o layout salvo */
+  await expect
+    .poll(() => order(page, "ind-codigo"))
+    .toEqual(["individual.prs", "individual.commits-dia"]);
+  /* a pilha só tem o Ocultar (um registro falso do Restaurar repetiria o layout salvo):
+   * Desfazer — um DELETE, já sem a falha — traz Reviews de volta */
+  await page.evaluate((key) => localStorage.removeItem(key), FAULTS_KEY);
+  await page.keyboard.press("Control+z");
+  await expect
+    .poll(() => order(page, "ind-codigo"))
+    .toEqual(["individual.prs", "individual.reviews", "individual.commits-dia"]);
+
+  await waitSaved(page, (item) => item === null);
+
+  /* falha de novo; sem ela, Tentar de novo restaura */
+  await page.getByRole("button", { name: "Ocultar Reviews que fiz" }).click();
+  await waitSaved(page, (item) => !!item?.hidden?.includes("individual.reviews"));
+  await page.evaluate((key) => localStorage.setItem(key, JSON.stringify(["DELETE"])), FAULTS_KEY);
+  await page.getByRole("button", { name: "Mais ações da personalização" }).click();
+  await page.getByRole("menuitem", { name: "Restaurar padrão" }).click();
+  await expect(toast).toContainText("Não foi possível restaurar o padrão");
+  await page.evaluate((key) => localStorage.removeItem(key), FAULTS_KEY);
+  await toast.getByRole("button", { name: "Tentar de novo" }).click();
+  await expect(toast).toContainText("Painel restaurado ao padrão");
+  await waitSaved(page, (item) => item === null);
+});
+
+test("PUT falhando: toast de erro com Tentar de novo reenvia a alteração", async ({ page }) => {
+  await open(page);
+  await enterEdit(page);
+  await page.evaluate((key) => localStorage.setItem(key, JSON.stringify(["PUT"])), FAULTS_KEY);
+  await page.getByRole("button", { name: "Ocultar Reviews que fiz" }).click();
+  const toast = page.locator("[data-edit-toast]");
+  await expect(toast).toContainText("Não foi possível salvar o painel");
+  await page.evaluate((key) => localStorage.removeItem(key), FAULTS_KEY);
+  await toast.getByRole("button", { name: "Tentar de novo" }).click();
+  await waitSaved(page, (item) => !!item?.hidden?.includes("individual.reviews"));
+  await expect
+    .poll(() => order(page, "ind-codigo"))
+    .toEqual(["individual.prs", "individual.commits-dia"]);
+});
+
+test("409 nos dois lados: reaplica a operação na versão relida; Desfazer e Descartar não apagam a outra aba", async ({
+  page,
+}) => {
+  const a = page;
+  const b = await page.context().newPage();
+  await open(a);
+  await open(b);
+
+  /* B salva primeiro (v1) */
+  await enterEdit(b);
+  await b.getByRole("button", { name: "Ocultar Burndown pessoal" }).click();
+  await b.getByRole("button", { name: "Concluir" }).click();
+  await waitSaved(a, (item) => item?.version === 1);
+
+  /* A, com o cache velho, oculta outro widget: 409 → relê e reaplica o Ocultar */
+  await enterEdit(a);
+  await a.getByRole("button", { name: "Ocultar Reviews que fiz" }).click();
+  await waitSaved(a, (item) => item?.version === 2);
+  let saved = await savedLayout(a);
+  expect(saved.hidden).toEqual(
+    expect.arrayContaining(["individual.burndown", "individual.reviews"]),
+  );
+  await expect(announcer(a)).toContainText(REBASE_MSG);
+  await expect.poll(() => order(a, "ind-trabalho")).toEqual(["individual.itens"]);
+
+  /* Ctrl+Z em A volta à versão relida (com a mudança de B), nunca ao padrão */
+  await a.keyboard.press("Control+z");
+  await waitSaved(a, (item) => item?.version === 3);
+  saved = await savedLayout(a);
+  expect(saved.hidden).toContain("individual.burndown");
+  expect(saved.hidden).not.toContain("individual.reviews");
+
+  /* B, agora com o cache velho (v1), oculta Commits: o mesmo do outro lado */
+  await enterEdit(b);
+  await b.getByRole("button", { name: "Ocultar Commits por dia" }).click();
+  await waitSaved(b, (item) => item?.version === 4);
+  saved = await savedLayout(b);
+  expect(saved.hidden).toEqual(
+    expect.arrayContaining(["individual.burndown", "individual.commits-dia"]),
+  );
+  expect(saved.hidden).not.toContain("individual.reviews");
+  await expect(announcer(b)).toContainText(REBASE_MSG);
+
+  /* Descartar em B volta ao estado relido (v3), não ao de entrada antigo */
+  await b.getByRole("button", { name: "Mais ações da personalização" }).click();
+  await b.getByRole("menuitem", { name: "Descartar alterações" }).click();
+  await b.getByRole("dialog").getByRole("button", { name: "Descartar" }).click();
+  await waitSaved(b, (item) => item?.version === 5);
+  saved = await savedLayout(b);
+  expect(saved.hidden).toContain("individual.burndown");
+  expect(saved.hidden).not.toContain("individual.commits-dia");
+  await b.close();
+});
+
+test("Desfazer até o padrão (DELETE) não apaga a mudança feita em outra aba", async ({ page }) => {
+  const a = page;
+  const b = await page.context().newPage();
+  await open(a);
+  await open(b);
+  await enterEdit(a);
+  await a.getByRole("button", { name: "Ocultar Reviews que fiz" }).click();
+  await waitSaved(a, (item) => item?.version === 1);
+
+  /* B não sabia da v1: 409, reaplica e grava v2 */
+  await enterEdit(b);
+  await b.getByRole("button", { name: "Ocultar Burndown pessoal" }).click();
+  await waitSaved(b, (item) => item?.version === 2);
+
+  /* o Desfazer de A seria um DELETE (entrada = padrão): confere a versão e rebaseia */
+  await a.keyboard.press("Control+z");
+  await expect(announcer(a)).toContainText(REBASE_MSG);
+  await a.waitForTimeout(800);
+  const saved = await savedLayout(a);
+  expect(saved).not.toBeNull();
+  expect(saved.hidden).toContain("individual.burndown");
+  await b.close();
+});
+
+test("Drawer: ligar e desligar anunciam numa região dentro dele", async ({ page }) => {
+  await open(page);
+  await enterEdit(page);
+  await page.getByRole("button", { name: "Adicionar widgets" }).click();
+  const drawer = page.getByRole("dialog", { name: "Adicionar widgets" });
+  const region = drawer.locator("[data-catalog-announcer]");
+  await expect(region).toHaveAttribute("role", "status");
+  await expect(region).toHaveText("");
+  await drawer.getByRole("switch", { name: "Mostrar Custo por modelo" }).click();
+  await expect(region).toContainText("Custo por modelo oculto.");
+  await drawer.getByRole("switch", { name: "Mostrar Custo por modelo" }).click();
+  await expect(region).toContainText("Custo por modelo adicionado no fim da seção Uso de IA.");
+});
+
+test("menu ⋯ e ↑↓ não aparecem num widget sozinho na seção", async ({ page }) => {
+  await open(page);
+  await enterEdit(page);
+  await expect(page.locator('[data-edit-item="individual.kpis"]')).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Mais ações de Indicadores pessoais da sprint" }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: /^Mover Indicadores pessoais da sprint para/ }),
+  ).toHaveCount(0);
+});
+
+test("celular 360: toast acima da barra fixa (altura real) e fim da página livre", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 360, height: 780 });
+  await open(page);
+  await enterEdit(page);
+  const bar = page.locator("[data-edit-bottom-bar]");
+  await page.getByRole("button", { name: "Ocultar Reviews que fiz" }).click();
+  const toast = page.locator("[data-edit-toast] > div");
+  await expect(toast).toBeVisible();
+  const barBox = await bar.boundingBox();
+  const toastBox = await toast.boundingBox();
+  expect(toastBox.y + toastBox.height).toBeLessThanOrEqual(barBox.y);
+
+  /* rola ao máximo o contêiner que rola a página (qualquer que seja) */
+  await page
+    .locator("[data-edit-item]")
+    .last()
+    .evaluate((el) => {
+      for (let e = el.parentElement; e; e = e.parentElement) {
+        const oy = getComputedStyle(e).overflowY;
+        if ((oy === "auto" || oy === "scroll") && e.scrollHeight > e.clientHeight)
+          e.scrollTop = 1e7;
+      }
+      window.scrollTo(0, 1e7);
+    });
+  const lastBox = await page.locator("[data-edit-item]").last().boundingBox();
+  expect(lastBox.y + lastBox.height).toBeLessThanOrEqual(barBox.y + 1);
+});
+
+test("celular só com teclado: atalho para as ações de edição logo após o título", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  await open(page);
+  await enterEdit(page);
+  await page.keyboard.press("Tab");
+  const skip = page.getByRole("button", { name: "Ir para as ações de edição" });
+  await expect(skip).toBeFocused();
+  const box = await skip.boundingBox();
+  expect(box.height).toBeGreaterThanOrEqual(44);
+  await page.keyboard.press("Enter");
+  await expect(
+    page.locator("[data-edit-bottom-bar]").getByRole("button", { name: "Adicionar" }),
+  ).toBeFocused();
+});
+
+/** Razão de contraste do texto (ou da borda) de `selector` contra o fundo efetivo. */
+function contrastIn(page, selector, mode = "text") {
+  return page.evaluate(
+    ([sel, m]) => {
+      const el = document.querySelector(sel);
+      if (!el) return null;
+      const parse = (c) => {
+        const n = c.match(/[\d.]+/g).map(Number);
+        return [n[0], n[1], n[2], n[3] ?? 1];
+      };
+      const over = (top, base) => [0, 1, 2].map((i) => top[i] * top[3] + base[i] * (1 - top[3]));
+      const layers = [];
+      for (let e = m === "border" ? el.parentElement : el; e; e = e.parentElement) {
+        const c = parse(getComputedStyle(e).backgroundColor);
+        if (c[3] > 0) layers.push(c);
+        if (c[3] >= 1) break;
+      }
+      let bg = parse(getComputedStyle(document.body).backgroundColor).slice(0, 3);
+      for (const l of layers.reverse()) bg = over(l, bg);
+      const cs = getComputedStyle(el);
+      const fg = over(parse(m === "border" ? cs.borderTopColor : cs.color), bg);
+      const lum = (rgb) => {
+        const [r, g, b] = rgb.map((v) => {
+          v /= 255;
+          return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+        });
+        return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+      };
+      const [x, y] = [lum(fg), lum(bg)].sort((p, q) => q - p);
+      return Math.round(((x + 0.05) / (y + 0.05)) * 100) / 100;
+    },
+    [selector, mode],
+  );
+}
+
+test("contraste: textos novos ≥ 4,5:1 e bordas de controle ≥ 3:1 nas três paletas", async ({
+  page,
+}) => {
+  /* Fluência em IA fora de widgets e hidden = "nova" (para o aviso "Ver no catálogo") */
+  await seedLayouts(page, [
+    {
+      viewKey: "individual",
+      sections: [
+        { id: "codigo", collapsed: false, widgets: [{ id: "individual.prs", size: "G" }] },
+      ],
+      hidden: [],
+      version: 1,
+      updatedAt: "2026-10-11T12:00:00Z",
+    },
+  ]);
+  await open(page, { heading: "Código" });
+  const report = {};
+  for (const palette of ["default", "light", "mono"]) {
+    await page.evaluate((p) => document.documentElement.setAttribute("data-palette", p), palette);
+    const r = {};
+    r.entendi = await contrastIn(page, "#dash-edit-tip button");
+    await page.getByRole("button", { name: "Personalizar" }).click();
+    await expect(page.locator("[data-edit-item]").first()).toBeVisible();
+    r.concluir = await contrastIn(page, "[data-edit-bar] [role=toolbar] > button:last-child");
+    r.verCatalogo = await contrastIn(page, "[data-edit-novos] button");
+    r.bordaAlca = await contrastIn(page, '[data-edit-item] [data-edit-control="handle"]', "border");
+    r.bordaTamanho = await contrastIn(page, '[data-edit-control="size"]', "border");
+    r.bordaOcultar = await contrastIn(page, '[data-edit-control="hide"]', "border");
+    r.bordaMenuSecao = await contrastIn(
+      page,
+      '[data-edit-section] > header [data-edit-control="menu"]',
+      "border",
+    );
+    await page.getByRole("button", { name: "Ocultar Meus PRs na sprint" }).click();
+    await expect(page.locator("[data-edit-toast]")).toBeVisible();
+    r.toastDesfazer = await contrastIn(page, "[data-edit-toast] button");
+    await page.keyboard.press("Control+z");
+    await page
+      .locator("[data-edit-bar]")
+      .getByRole("button", { name: "Adicionar widgets" })
+      .click();
+    await expect(page.locator("[data-catalog-count]")).toBeVisible();
+    r.contador = await contrastIn(page, "[data-catalog-count]");
+    r.contadorPx = await page
+      .locator("[data-catalog-count]")
+      .evaluate((e) => parseFloat(getComputedStyle(e).fontSize));
+    r.bordaSwitch = await contrastIn(page, "[role=switch] > span:last-child", "border");
+    await page.keyboard.press("Escape");
+    await page.getByRole("button", { name: "Concluir" }).click();
+    /* a dica volta para ser medida na próxima paleta */
+    await page.evaluate(() => localStorage.removeItem("andromeda.dashboards-v2.edit-prefs"));
+    await page.reload();
+    await expect(page.getByRole("button", { name: "Personalizar" })).toBeVisible();
+    report[palette] = r;
+  }
+  console.log("contraste", JSON.stringify(report));
+  for (const r of Object.values(report)) {
+    for (const k of ["entendi", "concluir", "verCatalogo", "toastDesfazer", "contador"])
+      expect(r[k], k).toBeGreaterThanOrEqual(4.5);
+    for (const k of ["bordaAlca", "bordaTamanho", "bordaOcultar", "bordaMenuSecao", "bordaSwitch"])
+      expect(r[k], k).toBeGreaterThanOrEqual(3);
+    expect(r.contadorPx).toBeGreaterThanOrEqual(11);
+  }
+});
+
+test("perto de 600 px a barra fixa e a grade usam a mesma referência de largura", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 680, height: 900 });
+  await open(page);
+  await enterEdit(page);
+  for (let width = 600; width <= 700; width += 4) {
+    await page.setViewportSize({ width, height: 900 });
+    await page.waitForTimeout(80);
+    const state = await page.evaluate(() => {
+      const handle = document.querySelector('[data-edit-item] [data-edit-control="handle"]');
+      return {
+        gridNarrow: handle.getClientRects().length === 0,
+        barFixed: !!document.querySelector("[data-edit-bottom-bar]"),
+      };
+    });
+    expect(state.barFixed, `largura ${width}`).toBe(state.gridNarrow);
+  }
 });

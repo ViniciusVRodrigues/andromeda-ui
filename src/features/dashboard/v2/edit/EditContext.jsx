@@ -24,6 +24,7 @@ import {
   useResetLayout,
   useSaveLayout,
 } from "../hooks.js";
+import { getDashboardLayouts } from "../api.js";
 import { resolveLayout } from "../layout.js";
 import {
   hideWidget,
@@ -79,7 +80,11 @@ export function DashboardEditProvider({ viewKey, userId = null, canSee = ALL, ch
     [customizable, viewKey, saved, canSee],
   );
 
-  const saver = useSaveLayout(viewKey || "individual");
+  /* 409: a sessão se rebaseia na versão relida (ver `rebase` abaixo) */
+  const conflictRef = React.useRef(null);
+  const saver = useSaveLayout(viewKey || "individual", {
+    onConflict: (info) => conflictRef.current?.(info),
+  });
   const reset = useResetLayout(viewKey || "individual", saver);
 
   const [editing, setEditing] = React.useState(false);
@@ -87,8 +92,10 @@ export function DashboardEditProvider({ viewKey, userId = null, canSee = ALL, ch
   const [drawerOpen, setDrawerOpen] = React.useState(false);
   const [confirmOpen, setConfirmOpen] = React.useState(false);
   const [narrow, setNarrow] = React.useState(false);
+  const [barHeight, setBarHeight] = React.useState(0);
   const [toast, setToast] = React.useState(null);
   const [announcement, setAnnouncement] = React.useState("");
+  const [announceSeq, setAnnounceSeq] = React.useState(0);
   const [prefs, setPrefs] = React.useState(() => readPrefs(userId));
 
   const stack = React.useRef([]);
@@ -97,6 +104,8 @@ export function DashboardEditProvider({ viewKey, userId = null, canSee = ALL, ch
   /* promessa do DELETE em voo (null quando não há): PUTs esperam por ela */
   const resetDone = React.useRef(null);
   const dragging = React.useRef(false);
+  /* conta os rebaseamentos por 409: Desfazer/Descartar em voo desistem se ele mudar */
+  const rebases = React.useRef(0);
   const pendingFocus = React.useRef(null);
   const buttonRef = React.useRef(null);
   const headingRef = React.useRef(null);
@@ -117,7 +126,8 @@ export function DashboardEditProvider({ viewKey, userId = null, canSee = ALL, ch
 
   const announce = React.useCallback((text) => {
     /* repetir o mesmo texto não seria anunciado: alterna um espaço invisível */
-    setAnnouncement((prev) => (prev === text ? `${text} ` : text));
+    setAnnouncement((prev) => (prev === text ? `${text}\u00a0` : text));
+    setAnnounceSeq((n) => n + 1);
   }, []);
 
   const showToast = React.useCallback((t) => setToast({ ...t, key: Date.now() }), []);
@@ -125,9 +135,13 @@ export function DashboardEditProvider({ viewKey, userId = null, canSee = ALL, ch
 
   /* ── persistência ── */
   const resetAsync = reset.mutateAsync;
+  /** DELETE; resolve `true`/`false` (nunca rejeita). PUTs posteriores esperam por ele. */
   const doReset = React.useCallback(() => {
     const p = resetAsync()
-      .catch(() => {})
+      .then(
+        () => true,
+        () => false,
+      )
       .finally(() => {
         if (resetDone.current === p) resetDone.current = null;
       });
@@ -135,40 +149,103 @@ export function DashboardEditProvider({ viewKey, userId = null, canSee = ALL, ch
     return p;
   }, [resetAsync]);
 
+  /** Operação reaplicável no 409: a mesma de `ops.js` sobre o layout relido do servidor. */
+  const reapply = React.useCallback(
+    (fn) => (saved) => fn(resolveLayout(CATALOG, viewKey, saved, canSee)),
+    [viewKey, canSee],
+  );
+
+  /** Outra aba salvou antes: a sessão passa a partir da versão relida. */
+  const rebase = React.useCallback(
+    ({ server, reapplied }) => {
+      rebases.current += 1;
+      entry.current = server;
+      /* se as ações desta aba foram reaplicadas, um Desfazer volta à versão relida
+       * (com a mudança da outra aba) — nunca ao retrato anterior a ela */
+      stack.current = reapplied ? [{ snap: server }] : [];
+      setUndoCount(stack.current.length);
+      const text = "O painel foi alterado em outra aba; recarregamos a versão mais recente.";
+      announce(text);
+      setToast({ message: text, key: Date.now() });
+    },
+    [announce],
+  );
+  conflictRef.current = rebase;
+
+  /**
+   * Repõe um retrato inteiro (Desfazer, Descartar, Desfazer do Restaurar). Vai sem
+   * operação: no 409 o servidor vence. Voltar ao padrão (`null`) é um DELETE, que o
+   * servidor não versiona — então antes confere se o servidor ainda está na versão que
+   * esta aba conhece; se não estiver, rebaseia em vez de apagar a mudança da outra aba.
+   * @returns {Promise<"ok"|"conflict"|"error">}
+   */
   const applySnapshot = React.useCallback(
     async (snap) => {
-      if (!snap) return doReset();
-      /* depois de um DELETE, o PUT só sai quando ele terminar (senão o DELETE o apagaria) */
+      const mark = rebases.current;
       if (resetDone.current) await resetDone.current;
-      lastBody.current = snap;
-      saver.save(snap);
-      return saver.flush();
+      if (snap) {
+        lastBody.current = snap;
+        saver.save(snap);
+        await saver.flush();
+        return rebases.current === mark ? "ok" : "conflict";
+      }
+      await saver.flush();
+      if (rebases.current !== mark) return "conflict";
+      const key = dashboardsKeys.layouts();
+      const expected = layoutFor(qc.getQueryData(key), viewKey)?.version ?? null;
+      try {
+        await qc.fetchQuery({ queryKey: key, queryFn: () => getDashboardLayouts(), staleTime: 0 });
+      } catch (_) {
+        return "error";
+      }
+      const item = layoutFor(qc.getQueryData(key), viewKey);
+      if ((item?.version ?? null) !== expected) {
+        rebase({
+          server: item ? { sections: item.sections, hidden: item.hidden } : null,
+          reapplied: false,
+        });
+        return "conflict";
+      }
+      return (await doReset()) ? "ok" : "error";
     },
-    [doReset, saver],
+    [doReset, saver, qc, viewKey, rebase],
   );
 
   const commit = React.useCallback(
-    (body) => {
+    (body, op) => {
       const record = { snap: savedNow() };
       stack.current.push(record);
       setUndoCount(stack.current.length);
       lastBody.current = body;
       if (resetDone.current) {
         /* com um DELETE em voo, espera ele antes de enfileirar o PUT */
-        resetDone.current.then(() => saver.save(body));
-      } else saver.save(body);
+        resetDone.current.then(() => saver.save(body, op));
+      } else saver.save(body, op);
       return record;
     },
     [saver, savedNow],
   );
 
-  const undo = React.useCallback(() => {
+  const undoRef = React.useRef(null);
+  const undo = React.useCallback(async () => {
     const record = stack.current.pop();
     setUndoCount(stack.current.length);
     if (!record) return;
-    applySnapshot(record.snap);
     announce("Última alteração desfeita.");
-  }, [applySnapshot, announce]);
+    const result = await applySnapshot(record.snap);
+    if (result === "error") {
+      stack.current.push(record);
+      setUndoCount(stack.current.length);
+      announce("Não foi possível desfazer.");
+      showToast({
+        tone: "error",
+        message: "Não foi possível desfazer",
+        actionLabel: "Tentar de novo",
+        onAction: () => undoRef.current?.(),
+      });
+    }
+  }, [applySnapshot, announce, showToast]);
+  undoRef.current = undo;
 
   /* ── ações de widget e seção ── */
   const moveWidgetTo = React.useCallback(
@@ -179,12 +256,15 @@ export function DashboardEditProvider({ viewKey, userId = null, canSee = ALL, ch
       const target = Math.max(0, Math.min(loc.count - 1, to));
       if (focus) pendingFocus.current = { item: id, control: focus };
       if (target === loc.index) return;
-      commit(moveWidget(layoutNow, id, target));
+      commit(
+        moveWidget(layoutNow, id, target),
+        reapply((l) => moveWidget(l, id, target)),
+      );
       announce(
         `${loc.section.widgets[loc.index].entry.title}: posição ${target + 1} de ${loc.count}.`,
       );
     },
-    [current, commit, announce],
+    [current, commit, announce, reapply],
   );
 
   const moveSectionTo = React.useCallback(
@@ -196,17 +276,23 @@ export function DashboardEditProvider({ viewKey, userId = null, canSee = ALL, ch
       const target = Math.max(0, Math.min(n - 1, to));
       if (focus) pendingFocus.current = { section: id, control: focus };
       if (target === from) return;
-      commit(moveSection(layoutNow, id, target));
+      commit(
+        moveSection(layoutNow, id, target),
+        reapply((l) => moveSection(l, id, target)),
+      );
       announce(`Seção ${layoutNow.sections[from].title}: posição ${target + 1} de ${n}.`);
     },
-    [current, commit, announce],
+    [current, commit, announce, reapply],
   );
 
   const show = React.useCallback(
     (id, at, size) => {
       const e = entryOf(id);
       if (!e) return null;
-      const record = commit(showWidget(current(), e, at, size));
+      const record = commit(
+        showWidget(current(), e, at, size),
+        reapply((l) => showWidget(l, e, at, size)),
+      );
       const section = catalogSections(viewKey).find((s) => s.id === e.section);
       announce(
         at == null
@@ -215,7 +301,7 @@ export function DashboardEditProvider({ viewKey, userId = null, canSee = ALL, ch
       );
       return record;
     },
-    [viewKey, current, commit, announce],
+    [viewKey, current, commit, announce, reapply],
   );
 
   const hide = React.useCallback(
@@ -224,7 +310,10 @@ export function DashboardEditProvider({ viewKey, userId = null, canSee = ALL, ch
       const loc = locateWidget(layoutNow, id);
       if (!loc) return;
       const placed = loc.section.widgets[loc.index];
-      const record = commit(hideWidget(layoutNow, id));
+      const record = commit(
+        hideWidget(layoutNow, id),
+        reapply((l) => hideWidget(l, id)),
+      );
       const title = placed.entry.title;
       if (withToast) {
         pendingFocus.current = { afterHide: { section: loc.section.id, index: loc.index } };
@@ -240,24 +329,41 @@ export function DashboardEditProvider({ viewKey, userId = null, canSee = ALL, ch
         });
       } else announce(`${title} oculto.`);
     },
-    [current, commit, announce, showToast, undo, show],
+    [current, commit, announce, showToast, undo, show, reapply],
   );
 
   const resize = React.useCallback(
     (id, size) => {
       const e = entryOf(id);
       if (!e || !e.sizes.includes(size)) return;
-      commit(resizeWidget(current(), e, size));
+      commit(
+        resizeWidget(current(), e, size),
+        reapply((l) => resizeWidget(l, e, size)),
+      );
       announce(`${e.title}: tamanho ${SIZE_LABEL[size]}.`);
     },
-    [current, commit, announce],
+    [current, commit, announce, reapply],
   );
 
-  const restoreDefault = React.useCallback(() => {
-    const record = { snap: savedNow() };
+  /* Restaurar padrão: o toast de sucesso só sai depois do DELETE responder; a falha
+   * vira toast de erro com Tentar de novo e nada entra na pilha de desfazer. */
+  const restoreRef = React.useRef(null);
+  const restoreDefault = React.useCallback(async () => {
+    const snap = savedNow();
+    const ok = await doReset();
+    if (!ok) {
+      announce("Não foi possível restaurar o padrão.");
+      showToast({
+        tone: "error",
+        message: "Não foi possível restaurar o padrão",
+        actionLabel: "Tentar de novo",
+        onAction: () => restoreRef.current?.(),
+      });
+      return;
+    }
+    const record = { snap };
     stack.current.push(record);
     setUndoCount(stack.current.length);
-    doReset();
     announce("Painel restaurado ao padrão. Para desfazer, use o botão Desfazer ou Ctrl+Z.");
     showToast({
       message: "Painel restaurado ao padrão",
@@ -268,6 +374,7 @@ export function DashboardEditProvider({ viewKey, userId = null, canSee = ALL, ch
       },
     });
   }, [savedNow, doReset, announce, showToast, undo, applySnapshot]);
+  restoreRef.current = restoreDefault;
 
   /* ── entrar, sair, descartar ── */
   const dismissTip = React.useCallback(() => {
@@ -293,14 +400,23 @@ export function DashboardEditProvider({ viewKey, userId = null, canSee = ALL, ch
     saver.flush();
   }, [saver]);
 
-  const discard = React.useCallback(() => {
+  const discard = React.useCallback(async () => {
     const snap = entry.current;
     stack.current = [];
     setUndoCount(0);
-    applySnapshot(snap);
     announce("Alterações descartadas.");
     exit();
-  }, [applySnapshot, announce, exit]);
+    const result = await applySnapshot(snap);
+    if (result === "error") {
+      announce("Não foi possível descartar as alterações.");
+      showToast({
+        tone: "error",
+        message: "Não foi possível descartar as alterações",
+        actionLabel: "Tentar de novo",
+        onAction: () => applySnapshot(snap),
+      });
+    }
+  }, [applySnapshot, announce, exit, showToast]);
 
   /* trocar de visão/escopo/aba encerra a edição */
   React.useEffect(() => {
@@ -406,6 +522,8 @@ export function DashboardEditProvider({ viewKey, userId = null, canSee = ALL, ch
         editing,
         narrow,
         setNarrow,
+        barHeight,
+        setBarHeight,
         enter,
         exit,
         undo,
@@ -418,6 +536,8 @@ export function DashboardEditProvider({ viewKey, userId = null, canSee = ALL, ch
         show,
         resize,
         announce,
+        announcement,
+        announceSeq,
         dragging,
         drawerOpen,
         setDrawerOpen,
@@ -449,7 +569,7 @@ export function DashboardEditProvider({ viewKey, userId = null, canSee = ALL, ch
           >
             {announcement}
           </div>
-          <Toast toast={toast} onClose={closeToast} lifted={editing && narrow} />
+          <Toast toast={toast} onClose={closeToast} bottom={editing && narrow ? barHeight : 0} />
         </>
       ) : null}
     </EditContext.Provider>
@@ -461,7 +581,7 @@ export function DashboardEditProvider({ viewKey, userId = null, canSee = ALL, ch
  * `role="status"` da sessão (uma região só, sem leitura dobrada); some em 8 s, com
  * pausa enquanto o foco ou o ponteiro estiver nele.
  */
-function Toast({ toast, onClose, lifted }) {
+function Toast({ toast, onClose, bottom }) {
   const [paused, setPaused] = React.useState(false);
   React.useEffect(() => {
     if (!toast || paused) return;
@@ -473,10 +593,9 @@ function Toast({ toast, onClose, lifted }) {
   return (
     <div
       data-edit-toast=""
-      className={
-        "pointer-events-none fixed inset-x-0 z-[60] flex justify-center px-4 " +
-        (lifted ? "bottom-[88px]" : "bottom-6")
-      }
+      className="pointer-events-none fixed inset-x-0 z-[60] flex justify-center px-4"
+      /* acima da barra fixa (altura medida), senão a 24 px do fundo */
+      style={{ bottom: bottom ? bottom + 12 : 24 }}
     >
       <div
         onMouseEnter={() => setPaused(true)}
@@ -496,7 +615,7 @@ function Toast({ toast, onClose, lifted }) {
               toast.onAction?.();
               onClose();
             }}
-            className="mono text-accent hover:bg-line focus-visible:outline-accent min-h-[44px] cursor-pointer rounded-[var(--radius-sm)] border-0 bg-transparent px-3 text-[13px] focus-visible:outline-2 focus-visible:outline-offset-2"
+            className="mono text-accent-text hover:bg-line focus-visible:outline-accent min-h-[44px] cursor-pointer rounded-[var(--radius-sm)] border-0 bg-transparent px-3 text-[13px] focus-visible:outline-2 focus-visible:outline-offset-2"
           >
             {toast.actionLabel}
           </button>

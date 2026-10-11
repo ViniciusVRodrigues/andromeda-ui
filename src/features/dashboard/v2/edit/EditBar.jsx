@@ -17,8 +17,8 @@ import { useDashboardEdit } from "./EditContext.jsx";
 
 const BTN =
   "mono inline-flex min-h-[44px] shrink-0 cursor-pointer items-center justify-center gap-2 rounded-[var(--radius-sm)] border px-3.5 text-[13px] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent disabled:cursor-not-allowed disabled:opacity-40";
-const BTN_GHOST = BTN + " border-line-strong bg-transparent text-fg hover:border-accent";
-const BTN_PRIMARY = BTN + " border-accent bg-accent text-bg-deep hover:bg-accent-deep";
+const BTN_GHOST = BTN + " border-fg-muted bg-transparent text-fg hover:border-accent";
+const BTN_PRIMARY = BTN + " border-accent-text bg-accent-text text-bg-deep hover:underline";
 
 function PencilIcon() {
   return (
@@ -59,7 +59,7 @@ export function CustomizeButton() {
           <button
             type="button"
             onClick={edit.dismissTip}
-            className="mono text-accent hover:bg-line focus-visible:outline-accent min-h-[44px] cursor-pointer rounded-[var(--radius-sm)] border-0 bg-transparent px-3 text-[12px] focus-visible:outline-2 focus-visible:outline-offset-2"
+            className="mono text-accent-text hover:bg-line focus-visible:outline-accent min-h-[44px] cursor-pointer rounded-[var(--radius-sm)] border-0 bg-transparent px-3 text-[12px] focus-visible:outline-2 focus-visible:outline-offset-2"
           >
             Entendi
           </button>
@@ -114,6 +114,33 @@ function Actions({ edit, placement }) {
   );
 }
 
+/** Barra fixa embaixo (< 600 px); publica a altura real (ela quebra em 2 linhas em 360 px). */
+function BottomBar({ edit, children }) {
+  const ref = React.useRef(null);
+  const setBarHeight = edit.setBarHeight;
+  React.useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    const measure = () => setBarHeight(Math.ceil(el.getBoundingClientRect().height));
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => {
+      ro.disconnect();
+      setBarHeight(0);
+    };
+  }, [setBarHeight]);
+  return (
+    <div
+      ref={ref}
+      data-edit-bottom-bar=""
+      className="border-line-strong bg-bg fixed inset-x-0 bottom-0 z-40 border-t px-4 py-2.5"
+    >
+      {children}
+    </div>
+  );
+}
+
 /** Barra de edição; `className` traz o posicionamento sticky da página. */
 export function EditBar({ className = "" }) {
   const edit = useDashboardEdit();
@@ -123,7 +150,12 @@ export function EditBar({ className = "" }) {
   React.useLayoutEffect(() => {
     const el = slotRef.current;
     if (!el || !setNarrow) return;
-    const measure = () => setNarrow(el.getBoundingClientRect().width < 600);
+    /* a referência é a largura do contêiner da grade (a mesma das container queries);
+     * o slot só decide enquanto a grade de edição (lazy) não montou */
+    const measure = () => {
+      if (document.querySelector("[data-edit-grid]")) return;
+      setNarrow(el.getBoundingClientRect().width < 600);
+    };
     measure();
     const ro = new ResizeObserver(measure);
     ro.observe(el);
@@ -132,6 +164,7 @@ export function EditBar({ className = "" }) {
 
   if (!edit) return null;
   const n = edit.unseenNovos.length;
+  const goToActions = () => edit.addRef.current?.focus();
   const closeDrawer = () => {
     edit.setDrawerOpen(false);
     edit.addRef.current?.focus();
@@ -149,6 +182,16 @@ export function EditBar({ className = "" }) {
             >
               Personalizando o painel
             </h2>
+            {edit.narrow ? (
+              /* a barra fixa vive no fim do body: atalho para quem navega por teclado */
+              <button
+                type="button"
+                onClick={goToActions}
+                className="mono text-accent-text focus-visible:outline-accent sr-only min-h-[44px] cursor-pointer rounded-[var(--radius-sm)] border-0 bg-transparent px-3 text-[13px] underline focus:not-sr-only focus-visible:outline-2 focus-visible:outline-offset-2"
+              >
+                Ir para as ações de edição
+              </button>
+            ) : null}
             <p className="text-fg-muted m-0 mt-0.5 text-[13px] font-normal">
               {edit.narrow
                 ? "Use ↑ ↓ ou o menu ⋯ para mover. Tudo é salvo na hora."
@@ -171,7 +214,7 @@ export function EditBar({ className = "" }) {
                 edit.dismissNovos();
                 edit.setDrawerOpen(true);
               }}
-              className="mono text-accent hover:bg-line focus-visible:outline-accent min-h-[44px] cursor-pointer rounded-[var(--radius-sm)] border-0 bg-transparent px-3 text-[12px] focus-visible:outline-2 focus-visible:outline-offset-2"
+              className="mono text-accent-text hover:bg-line focus-visible:outline-accent min-h-[44px] cursor-pointer rounded-[var(--radius-sm)] border-0 bg-transparent px-3 text-[12px] focus-visible:outline-2 focus-visible:outline-offset-2"
             >
               Ver no catálogo
             </button>
@@ -188,12 +231,9 @@ export function EditBar({ className = "" }) {
       </div>
       {edit.narrow
         ? createPortal(
-            <div
-              data-edit-bottom-bar=""
-              className="border-line-strong bg-bg fixed inset-x-0 bottom-0 z-40 border-t px-4 py-2.5"
-            >
+            <BottomBar edit={edit}>
               <Actions edit={edit} placement="up" />
-            </div>,
+            </BottomBar>,
             document.body,
           )
         : null}

@@ -260,7 +260,7 @@ function SortableWidget({ w, index, count, payload, ctx, active, over }) {
                 value={w.size}
                 data-edit-control="size"
                 onChange={(e) => edit.resize(w.id, e.target.value)}
-                className="mono border-line-strong bg-bg-deep text-fg hover:border-accent focus-visible:outline-accent min-h-[44px] cursor-pointer rounded-[var(--radius-sm)] border px-2 text-[12px] focus-visible:outline-2 focus-visible:outline-offset-2"
+                className="mono border-fg-muted bg-bg-deep text-fg hover:border-accent focus-visible:outline-accent min-h-[44px] cursor-pointer rounded-[var(--radius-sm)] border px-2 text-[12px] focus-visible:outline-2 focus-visible:outline-offset-2"
               >
                 {entry.sizes.map((sz) => (
                   <option key={sz} value={sz}>
@@ -274,12 +274,17 @@ function SortableWidget({ w, index, count, payload, ctx, active, over }) {
               {SIZE_LABEL[entry.sizes[0]]}
             </span>
           )}
-          <ArrowButtons title={title} index={index} count={count} onMove={move} />
-          <ActionMenu
-            label={`Mais ações de ${title}`}
-            items={moveItems(index, count, (to) => move(to, "menu"))}
-            buttonProps={{ "data-edit-focus": "", "data-edit-control": "menu" }}
-          />
+          {count > 1 ? (
+            <ArrowButtons title={title} index={index} count={count} onMove={move} />
+          ) : null}
+          {count > 1 ? (
+            /* com um widget só, todas as ações de mover estariam desabilitadas */
+            <ActionMenu
+              label={`Mais ações de ${title}`}
+              items={moveItems(index, count, (to) => move(to, "menu"))}
+              buttonProps={{ "data-edit-focus": "", "data-edit-control": "menu" }}
+            />
+          ) : null}
           <button
             type="button"
             aria-label={`Ocultar ${title}`}
@@ -422,6 +427,18 @@ function SortableSection({ section, index, count, payload, ctx, active, over }) 
  */
 export default function EditGrid({ layout, payload, ctx }) {
   const edit = useDashboardEdit();
+  const wrapRef = React.useRef(null);
+  const setNarrow = edit.setNarrow;
+  /* mesma referência das container queries: a largura deste contêiner */
+  React.useLayoutEffect(() => {
+    const el = wrapRef.current;
+    if (!el) return;
+    const measure = () => setNarrow(el.getBoundingClientRect().width < 600);
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [setNarrow]);
   const ids = layout.sections.map((s) => s.id);
   const titles = new Map(layout.sections.map((s) => [s.id, s.title]));
   const { sensors, handlers, activeId, overId } = useSortableGroup({
@@ -433,8 +450,12 @@ export default function EditGrid({ layout, payload, ctx }) {
     onMove: (id, to) => edit.moveSectionTo(id, to, "handle"),
   });
   return (
-    <div className="@container" data-edit-grid="">
-      <div className="mx-auto w-full max-w-[1600px] @max-[599px]:pb-24">
+    <div ref={wrapRef} className="@container" data-edit-grid="">
+      <div
+        className="mx-auto w-full max-w-[1600px]"
+        /* o fim da página não fica embaixo da barra fixa */
+        style={edit.narrow && edit.barHeight ? { paddingBottom: edit.barHeight + 16 } : undefined}
+      >
         {visibleCount(layout) === 0 ? <EmptyDashboard edit={edit} inEdit /> : null}
         <DndContext
           sensors={sensors}
