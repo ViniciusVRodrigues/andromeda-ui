@@ -71,10 +71,10 @@ function SourceLine({ sources }) {
  * Cartão de indicador.
  * @param {{ eyebrow?: string, title: string, info?: React.ReactNode, sources?: string[],
  *   actions?: React.ReactNode, table?: { columns: Array, rows: Array }, note?: React.ReactNode, className?: string,
- *   collect?: string, experimental?: boolean, children: React.ReactNode }} props
- *   `table` liga a alternância Gráfico/Tabela no cabeçalho. `collect` marca o painel
- *   com "requer coleta nova" (o dado hoje não é gravado pelo backend) e diz o que
- *   falta coletar no "como ler"; `experimental` marca dados de significado inferido.
+ *   experimental?: boolean, children: React.ReactNode }} props
+ *   `table` liga a alternância Gráfico/Tabela no cabeçalho; `experimental` marca dados
+ *   de significado inferido. Painéis que dependem de coleta nova não existem na v2
+ *   (dashboards-customizaveis): entram quando a coleta existir.
  */
 export function Panel({
   eyebrow,
@@ -84,22 +84,11 @@ export function Panel({
   actions,
   table,
   note,
-  collect,
   experimental,
   className = "",
   children,
 }) {
-  const explain =
-    info || collect ? (
-      <>
-        {info}
-        {collect ? (
-          <span className="mt-2 block">
-            <span className="text-warn">Requer coleta nova:</span> {collect}
-          </span>
-        ) : null}
-      </>
-    ) : null;
+  const explain = info || null;
   const [asTable, setAsTable] = React.useState(false);
   return (
     <div
@@ -110,17 +99,12 @@ export function Panel({
     >
       <div className="mb-4 flex items-start justify-between gap-3">
         <div className="min-w-0">
-          {eyebrow || collect || experimental ? (
+          {eyebrow || experimental ? (
             <span className="mb-1 flex flex-wrap items-center gap-2">
               {eyebrow ? (
                 <span className="mono text-fg-dim text-[11px] tracking-[0.14em] uppercase">
                   {eyebrow}
                 </span>
-              ) : null}
-              {collect ? (
-                <Tag tone="warn" title={`Requer coleta nova: ${collect}`}>
-                  requer coleta nova
-                </Tag>
               ) : null}
               {experimental ? (
                 <Tag title="Significado dos campos inferido pelo nome — sem documentação do conector">
@@ -225,19 +209,5 @@ export function Highlights({ items }) {
         </li>
       ))}
     </ul>
-  );
-}
-
-/**
- * Aviso no topo de uma aba inteira que depende de dado ainda não gravado — evita
- * repetir a etiqueta "requer coleta nova" em todos os cartões.
- */
-export function CollectNotice({ experimental, children }) {
-  return (
-    <div className="border-line border-l-warn bg-bg-elev mb-2 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-[var(--radius-sm)] border border-l-[3px] px-4 py-2.5">
-      <Tag tone="warn">requer coleta nova</Tag>
-      {experimental ? <Tag>experimental</Tag> : null}
-      <span className="text-fg-muted text-[13px] font-normal">{children}</span>
-    </div>
   );
 }

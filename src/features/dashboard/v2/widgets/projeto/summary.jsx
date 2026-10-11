@@ -38,7 +38,7 @@ export function KpisWidget({ data }) {
         tone={k.predictabilityPct != null && k.predictabilityPct < 75 ? "warn" : undefined}
       />
       <KpiTile
-        label="Lead time médio"
+        label="Lead time (mediana)"
         value={fmtDuration(k.leadTimeHours)}
         hint={`cycle time ${fmtDuration(k.cycleTimeHours)}`}
         delta={{ current: k.leadTimeHours, previous: p.leadTimeHours, goodWhen: "down", vs }}
@@ -82,15 +82,25 @@ function DoraCard({ title, value, unit, grade, estimated, description }) {
   );
 }
 
-export const selectDora = (d) => ({ dora: d.dora, leadTimeHours: d.kpis.leadTimeHours });
+export const selectDora = (d) => ({ dora: d.dora });
+
+const DORA_METHOD = {
+  VCS_PROXY: "pelos merges na branch padrão dos repositórios vinculados",
+  BOARDS_PROXY: "pelos work items concluídos (sem repositório vinculado)",
+  UNAVAILABLE: null,
+};
 
 export function DoraLeadTimeWidget({ data }) {
   return (
     <DoraCard
       title="Lead time"
-      value={fmtDuration(data.leadTimeHours)}
+      value={fmtDuration(data.dora.leadTime.hours)}
       grade={data.dora.leadTime.grade}
-      description="Média entre a criação e a conclusão dos work items concluídos no período (Azure DevOps)."
+      description={
+        data.dora.method === "UNAVAILABLE"
+          ? "Sem dado de entrega no período para calcular."
+          : `Lead time de mudança (mediana), ${DORA_METHOD[data.dora.method] ?? "no período"}.`
+      }
     />
   );
 }
@@ -100,10 +110,10 @@ export function DoraDeployFrequencyWidget({ data }) {
     <DoraCard
       title="Frequência de entrega"
       value={fmtNum(data.dora.deployFrequency.perWeek)}
-      unit="itens/semana"
+      unit="por semana"
       grade={data.dora.deployFrequency.grade}
       estimated
-      description="Aproximação: itens concluídos por semana. Nenhuma integração coleta deploys reais."
+      description={`Aproximação ${DORA_METHOD[data.dora.method] ?? "no período"}. Nenhuma integração coleta deploys reais.`}
     />
   );
 }
@@ -114,7 +124,8 @@ export function DoraChangeFailureWidget({ data }) {
       title="Taxa de falha de mudança"
       value={fmtPct(data.dora.changeFailureRate.pct)}
       grade={data.dora.changeFailureRate.grade}
-      description="Issues de bug/hotfix abertas ÷ commits no período, nos repositórios vinculados (GitHub). Issues 'not planned' e duplicadas não contam."
+      estimated={data.dora.changeFailureRate.estimated}
+      description="Parte das mudanças do período que precisaram de correção: PRs de remediação (ligados a bug, com prefixo de correção ou revert) sobre os merges."
     />
   );
 }

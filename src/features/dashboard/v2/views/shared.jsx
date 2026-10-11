@@ -1,6 +1,9 @@
 /* Peças compartilhadas entre as visões (individual, equipe, projeto, organização). */
 
 import React from "react";
+import { useQueryClient } from "@tanstack/react-query";
+import RefreshControl from "../../../../core/ui/RefreshControl.jsx";
+import { useProjectRefresh } from "../../../projects/hooks.js";
 import { fmtDate } from "../format.js";
 import { Meter } from "../kit/Bars.jsx";
 import { TypeBadge } from "../kit/Badges.jsx";
@@ -82,4 +85,48 @@ export function ViewSkeleton() {
 /** Grade de cartões com colunas proporcionais em telas largas. */
 export function Grid({ cols = "lg:grid-cols-2", className = "", children }) {
   return <div className={`grid items-stretch gap-4 ${cols} ${className}`}>{children}</div>;
+}
+
+/**
+ * Erro ao carregar uma visão inteira: texto pelo status (403/404) e "Tentar de novo".
+ * @param {{ error: { status?: number } | null, onRetry: () => void }} props
+ */
+export function ViewError({ error, onRetry }) {
+  const status = error?.status;
+  const text =
+    status === 403
+      ? "Você não tem permissão para ver este painel."
+      : status === 404
+        ? "Projeto ou sprint não encontrado."
+        : "Não foi possível carregar o dashboard.";
+  return (
+    <div role="alert" className="mt-2 flex flex-col items-start gap-3" data-view-state="error">
+      <p className="text-fg-muted m-0">{text}</p>
+      {status === 403 || status === 404 ? null : (
+        <button type="button" className="btn btn-ghost btn-xs" onClick={onRetry}>
+          Tentar de novo
+        </button>
+      )}
+    </div>
+  );
+}
+
+/**
+ * De quando é o dado (`dataFreshness` da resposta) + "Atualizar" (refresh do projeto,
+ * para quem tem AZURE_READ ou REPOS_READ nele). Sem projeto (organização) só mostra a
+ * data. Ao concluir o refresh, recarrega as consultas dos dashboards v2.
+ * @param {{ projectId?: string|null, freshness?: { oldestSyncAt: string|null, refreshRunning?: boolean } | null }} props
+ */
+export function ViewRefresh({ projectId = null, freshness = null }) {
+  const qc = useQueryClient();
+  const refresh = useProjectRefresh(projectId || undefined, {
+    freshness,
+    onCompleted: () => qc.invalidateQueries({ queryKey: ["dashboards-v2"] }),
+  });
+  if (!freshness && !refresh.canRefresh) return null;
+  return (
+    <div className="mb-3 flex justify-end">
+      <RefreshControl {...refresh} />
+    </div>
+  );
 }

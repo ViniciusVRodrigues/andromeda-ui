@@ -63,7 +63,7 @@ export function individualHighlights(d) {
   if (cyc && Math.abs(cyc.pct) >= 10 && out.length < 3) {
     out.push({
       tone: cyc.direction === "down" ? "good" : "info",
-      text: `Seu cycle time médio ${cyc.direction === "down" ? "caiu" : "subiu"} ${Math.abs(cyc.pct).toFixed(0)}% em relação à sprint anterior (${fmtDuration(d.previous.avgCycleTimeHours)} → ${fmtDuration(d.kpis.avgCycleTimeHours)}).`,
+      text: `Seu cycle time mediano ${cyc.direction === "down" ? "caiu" : "subiu"} ${Math.abs(cyc.pct).toFixed(0)}% em relação à sprint anterior (${fmtDuration(d.previous.avgCycleTimeHours)} → ${fmtDuration(d.kpis.avgCycleTimeHours)}).`,
     });
   }
   return out.slice(0, 3);
@@ -180,8 +180,8 @@ export function organizationHighlights(d) {
       text: `Gasto com IA ${cost.direction === "up" ? "subiu" : "caiu"} ${Math.abs(cost.pct).toFixed(0)}% vs o período anterior (${fmtUsd(d.previous.aiCostUsd)} → ${fmtUsd(d.kpis.aiCostUsd)}); custo por SP ${fmtUsd(d.previous.aiCostPerSp)} → ${fmtUsd(d.kpis.aiCostPerSp)}.`,
     });
   }
-  const unalloc = d.ai.costByProject.find((c) => c.projectId == null);
-  const unallocPct = d.kpis.aiCostUsd ? (unalloc.costUsd / d.kpis.aiCostUsd) * 100 : 0;
+  const unalloc = (d.ai.costByProject || []).find((c) => c.projectId == null);
+  const unallocPct = unalloc && d.kpis.aiCostUsd ? (unalloc.costUsd / d.kpis.aiCostUsd) * 100 : 0;
   if (unallocPct >= T.unallocatedAiPct) {
     out.push({
       tone: "warn",
@@ -199,63 +199,16 @@ export function organizationHighlights(d) {
 
 /* ── sub-abas ── */
 
-export function practicesHighlights(d) {
-  const out = [];
-  const s = d.summary;
-  const ag = delta(s.agenticPct, d.previous?.agenticPct);
-  if (ag && Math.abs(ag.pct) >= 10) {
-    out.push({
-      tone: "info",
-      text: `Uso agêntico ${ag.direction === "up" ? "subiu" : "caiu"} de ${fmtPct(d.previous.agenticPct)} para ${fmtPct(s.agenticPct)} das interações.`,
-    });
-  }
-  if (s.customizationPct != null && s.customizationPct < 30) {
-    out.push({
-      tone: "info",
-      text: `Só ${fmtPct(s.customizationPct)} dos dias usaram AGENTS.md ou copilot-instructions — instruções do repositório costumam melhorar as respostas.`,
-    });
-  }
-  if (d.adoption && d.adoption.people - d.adoption.active > 0) {
-    out.push({
-      tone: "info",
-      text: `${d.adoption.people - d.adoption.active} de ${d.adoption.people} pessoas não registraram uso de IA no período.`,
-    });
-  }
-  if (s.applyRatePct != null && s.applyRatePct < 50) {
-    out.push({
-      tone: "warn",
-      text: `Só ${fmtPct(s.applyRatePct)} do código sugerido foi aplicado — muita sugestão descartada.`,
-    });
-  }
-  return out.slice(0, 3);
-}
-
 export function flowHighlights(d) {
   const out = [];
-  const sc = d.scope;
-  if (sc.committedSp && sc.addedSp / sc.committedSp >= 0.15) {
+  const q = d.reviewQueue;
+  if (q?.open && q.drafts && q.drafts / q.open >= 0.3) {
     out.push({
-      tone: "warn",
-      text: `Entraram ${sc.addedSp} SP depois do início da sprint (${fmtPct((sc.addedSp / sc.committedSp) * 100)} do comprometido) — o burndown não mostra essa mudança.`,
+      tone: "info",
+      text: `${q.drafts} de ${q.open} PRs abertos são rascunho — ainda não estão prontos para review.`,
     });
   }
-  if (sc.carriedSp) {
-    out.push({
-      tone: "warn",
-      text: `${sc.carriedSp} SP (${sc.carriedCount} itens) transbordaram para a sprint seguinte.`,
-    });
-  }
-  const top = d.reviewQueue.byReviewer[0];
-  if (top && top.oldestHours > 24) {
-    out.push({
-      tone: "warn",
-      text: `${top.name} tem ${top.pending} review(s) pendente(s); a mais antiga espera há ${fmtDuration(top.oldestHours)}.`,
-    });
-  }
-  const crit = d.bugs.bySeverity.find((b) => b.severity.startsWith("1"));
-  if (crit?.open && out.length < 3)
-    out.push({ tone: "warn", text: `${crit.open} bug(s) crítico(s) aberto(s) na sprint.` });
-  if (d.rework.ratePct != null && d.rework.ratePct >= 10 && out.length < 3) {
+  if (d.rework?.ratePct != null && d.rework.ratePct >= 10 && out.length < 3) {
     out.push({
       tone: "info",
       text: `${fmtPct(d.rework.ratePct)} dos itens concluídos na sprint foram reabertos.`,
@@ -301,9 +254,6 @@ export function qualityHighlights(d) {
       text: `Entraram ${k.bugsCreated} bugs e saíram ${k.bugsClosed} no período — o estoque de bugs cresceu.`,
     });
   }
-  if (k.openCriticalHigh) {
-    out.push({ tone: "warn", text: `${k.openCriticalHigh} bug(s) crítico(s) ou alto(s) abertos.` });
-  }
   if (k.reopenRatePct != null && k.reopenRatePct >= 10) {
     out.push({
       tone: "info",
@@ -322,16 +272,7 @@ export function integrationsHighlights(d) {
       text: `Token do GitHub expirado: ${expired.map((p) => p.name).join(", ")} — commits e PRs dessas pessoas param de ser atribuídos.`,
     });
   }
-  const unlinkedRepos = d.repos.filter(
-    (r) => !r.project && d.asOf - r.updatedAt < 30 * 24 * 3_600_000,
-  );
-  if (unlinkedRepos.length) {
-    out.push({
-      tone: "warn",
-      text: `${unlinkedRepos.length} repositório(s) ativo(s) sem projeto: ${unlinkedRepos.map((r) => r.repo.split("/")[1]).join(", ")}.`,
-    });
-  }
-  if (d.unlinkedCommits.pct >= 10) {
+  if (d.unlinkedCommits?.pct >= 10) {
     out.push({
       tone: "info",
       text: `${fmtPct(d.unlinkedCommits.pct)} dos commits dos últimos 30 dias não têm usuário vinculado.`,

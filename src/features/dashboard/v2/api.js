@@ -1,260 +1,336 @@
 /**
- * API dos dashboards v2 — PRÉVIA COM DADOS FICTÍCIOS.
+ * API dos dashboards v2 (dashboards-customizaveis D1/D6).
  *
- * Cada função já tem a assinatura e o payload finais; hoje elas resolvem os
- * agregadores sobre o mundo simulado (`mock/aggregate.js`). Para ligar ao
- * backend, troque o corpo por `api.get(...)` no endpoint proposto ao lado —
- * telas e hooks não mudam. O usuário do dashboard individual vem do JWT no
- * backend; no mock é a pessoa "Você".
+ * Cada função chama o endpoint real e passa a resposta por um ADAPTADOR da visão,
+ * que converte o formato do servidor (`openspec/changes/dashboards-customizaveis/
+ * contracts.md`) para o que os widgets leem. As diferenças tratadas aqui:
+ *  - timestamps ISO viram ms (os widgets fazem conta com `asOf`, `lastSyncAt`…);
+ *  - durações `DS {p50, p90, n}` ganham, ao lado, o número do p50 com o nome que o
+ *    widget lê e o objeto inteiro em `<nome>Ds` (para mostrar o p90 e o n);
+ *  - séries com mapa (`byModel{}`, `byProject{}`) viram uma chave por modelo/projeto
+ *    na linha, que é o formato que os gráficos desenham;
+ *  - `repos[].displayName` → `repo`; notas DORA continuam em `ELITE/HIGH/…` (o selo
+ *    traduz).
+ * O `dataFreshness` de cada resposta passa intacto (o `RefreshControl` lê o ISO).
+ * Erros seguem o `core/api/client.js`: `err.status` + `err.body.code`.
  */
 
-import {
-  buildIndividual,
-  buildOrganization,
-  buildProject,
-  buildTeam,
-  listProjects,
-  listSprints,
-} from "./mock/aggregate.js";
-import { buildPractices } from "./mock/practices.js";
-import { buildTeamFlow } from "./mock/flow.js";
-import { buildRoadmap } from "./mock/roadmap.js";
-import { buildQuality } from "./mock/quality.js";
-import { buildIntegrations } from "./mock/integrations.js";
+import api, { toQuery } from "../../../core/api/client.js";
 
-/* latência simulada: deixa visível o estado de carregamento/refetch */
-const LATENCY_MS = 180;
-/* erro lançado por fn vira rejeição (senão escaparia do setTimeout e a promise nunca resolveria) */
-const later = (fn) =>
-  new Promise((resolve, reject) =>
-    setTimeout(() => {
-      try {
-        resolve(fn());
-      } catch (e) {
-        reject(e);
-      }
-    }, LATENCY_MS),
-  );
+/* ── conversões genéricas ─────────────────────────────────────────────── */
 
-/* Só em desenvolvimento (e2e): atraso ou falha simulados por fonte secundária, lidos de
- * localStorage `andromeda.dashboards-v2.mock-faults` = { delayMs: { fluxo: 4000 }, fail: { fluxo: true } }.
- * Fontes: fluxo, roadmap, qualidade. Some no build de produção. */
-const FAULTS_KEY = "andromeda.dashboards-v2.mock-faults";
-function withFaults(source, fn) {
-  let faults = null;
-  if (import.meta.env.DEV) {
-    try {
-      faults = JSON.parse(localStorage.getItem(FAULTS_KEY) || "null");
-    } catch {
-      faults = null;
-    }
+const ISO_TS = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/;
+
+/** Timestamps ISO (chaves `asOf`/`…At`) → ms, em profundidade. `dataFreshness` fica como veio. */
+export function msTimestamps(v, key = "") {
+  if (key === "dataFreshness") return v;
+  if (Array.isArray(v)) return v.map((x) => msTimestamps(x));
+  if (v && typeof v === "object") {
+    const o = {};
+    for (const [k, x] of Object.entries(v)) o[k] = msTimestamps(x, k);
+    return o;
   }
-  const delay = faults?.delayMs?.[source] ?? 0;
-  const fail = !!faults?.fail?.[source];
-  return new Promise((resolve) => setTimeout(resolve, delay)).then(() =>
-    later(() => {
-      if (fail) throw new Error(`Falha simulada na fonte ${source}`);
-      return fn();
-    }),
+  if (
+    typeof v === "string" &&
+    (key === "asOf" || key === "at" || /At$/.test(key)) &&
+    ISO_TS.test(v)
+  ) {
+    const ms = Date.parse(v);
+    return Number.isNaN(ms) ? v : ms;
+  }
+  return v;
+}
+
+/** p50 de um DS (aceita número, para respostas antigas/parciais). */
+export const p50 = (v) => (v && typeof v === "object" ? (v.p50 ?? null) : (v ?? null));
+
+/**
+ * Para cada `[de, para]`: `o[para]` = p50 de `o[de]` e `o[para + "Ds"]` = o DS inteiro.
+ * `div` converte a unidade (24 = horas → dias, para as séries em dias).
+ */
+function flatDs(o, pairs, div = 1) {
+  if (!o) return o;
+  const out = { ...o };
+  for (const [from, to] of pairs) {
+    const v = o[from];
+    const n = p50(v);
+    out[to] = n == null ? null : n / div;
+    out[`${to}Ds`] = v && typeof v === "object" ? v : null;
+  }
+  return out;
+}
+/** Linhas `{…, [mapKey]: {k: v}}` → `{…, k: v}` (gráficos com uma série por chave). */
+const spreadMap = (rows, mapKey) =>
+  (rows || []).map(({ [mapKey]: map, ...rest }) => ({ ...rest, ...(map || {}) }));
+
+/* ── adaptadores por visão ────────────────────────────────────────────── */
+
+const KPI_SPRINT = [
+  ["cycleTimeHours", "avgCycleTimeHours"],
+  ["leadTimeHours", "avgLeadTimeHours"],
+  ["timeToFirstReviewHours", "avgTimeToFirstReviewHours"],
+];
+
+export function adaptIndividual(raw) {
+  const d = msTimestamps(raw);
+  return {
+    ...d,
+    person: d.person && {
+      ...d.person,
+      /* qualquer provedor de código vinculado (GitHub ou Azure Repos) */
+      githubLinked: d.person.vcsLinked ?? d.person.githubLinked ?? false,
+    },
+    kpis: flatDs(d.kpis, KPI_SPRINT),
+    previous: flatDs(d.previous, KPI_SPRINT),
+    items: d.items || [],
+    pullRequests: d.pullRequests || [],
+    commitsByDay: d.commitsByDay || [],
+    burndown: d.burndown || [],
+    history: (d.history || []).map((h) => flatDs(h, [["cycleTimeHours", "avgCycleTimeHours"]])),
+  };
+}
+
+export function adaptTeam(raw) {
+  const d = msTimestamps(raw);
+  return {
+    ...d,
+    kpis: flatDs(d.kpis, KPI_SPRINT),
+    previous: flatDs(d.previous, KPI_SPRINT),
+    members: (d.members || []).map((m) => ({
+      ...flatDs(m, [["cycleTimeHours", "avgCycleTimeHours"]]),
+      githubLinked: m.vcsLinked ?? m.githubLinked ?? false,
+    })),
+    repos: (d.repos || []).map((r) => ({
+      ...flatDs(r, [
+        ["prCycleTimeHours", "avgCycleTimeHours"],
+        ["timeToFirstReviewHours", "avgTimeToFirstReviewHours"],
+      ]),
+      repo: r.displayName ?? r.repo,
+    })),
+    history: (d.history || []).map((h) => flatDs(h, [["cycleTimeHours", "avgCycleTimeHours"]])),
+  };
+}
+
+export function adaptTeamFlow(raw) {
+  const d = msTimestamps(raw);
+  const times = (s) =>
+    s &&
+    flatDs(s, [
+      ["queueHours", "queueHours"],
+      ["inProgressHours", "inProgressHours"],
+      ["resolvedHours", "resolvedHours"],
+    ]);
+  return {
+    ...d,
+    states: d.states || [],
+    cfd: d.cfd || [],
+    stateTimes: d.stateTimes && {
+      current: times(d.stateTimes.current),
+      history: (d.stateTimes.history || []).map(times),
+    },
+  };
+}
+
+const KPI_PERIOD = [
+  ["leadTimeHours", "leadTimeHours"],
+  ["cycleTimeHours", "cycleTimeHours"],
+  ["prCycleTimeHours", "prCycleTimeHours"],
+  ["timeToFirstReviewHours", "timeToFirstReviewHours"],
+];
+const FLOW_DAYS = [
+  ["leadTimeHours", "leadTimeDays"],
+  ["cycleTimeHours", "cycleTimeDays"],
+];
+
+export function adaptProjectOverview(raw) {
+  const d = msTimestamps(raw);
+  return {
+    ...d,
+    kpis: flatDs(d.kpis, KPI_PERIOD),
+    previous: flatDs(d.previous, KPI_PERIOD),
+    dora: d.dora && {
+      ...d.dora,
+      leadTime: flatDs(d.dora.leadTime, [["hours", "hours"]]),
+    },
+    flow: (d.flow || []).map((r) => flatDs(r, FLOW_DAYS, 24)),
+    prFlow: (d.prFlow || []).map((r) =>
+      flatDs(r, [["timeToFirstReviewHours", "timeToFirstReviewHours"]]),
+    ),
+    repos: (d.repos || []).map((r) =>
+      flatDs(r, [
+        ["prCycleTimeHours", "avgCycleTimeHours"],
+        ["timeToFirstReviewHours", "avgTimeToFirstReviewHours"],
+      ]),
+    ),
+    ai: d.ai && { ...d.ai, costByBucket: spreadMap(d.ai.costByBucket, "byModel") },
+  };
+}
+
+export function adaptRoadmap(raw) {
+  const d = msTimestamps(raw);
+  const cal = (rows) => (rows || []).map((r) => flatDs(r, [["cycleTimeHours", "cycleDays"]], 24));
+  return {
+    ...d,
+    calibration: d.calibration && {
+      ...d.calibration,
+      byEffort: cal(d.calibration.byEffort),
+      byComplexity: cal(d.calibration.byComplexity),
+    },
+  };
+}
+
+export function adaptQuality(raw) {
+  const d = msTimestamps(raw);
+  return { ...d, kpis: flatDs(d.kpis, [["resolutionHours", "resolutionHours"]]) };
+}
+
+const KPI_ORG = [
+  ["leadTimeHours", "leadTimeHours"],
+  ["cycleTimeHours", "cycleTimeHours"],
+  ["timeToFirstReviewHours", "timeToFirstReviewHours"],
+];
+
+export function adaptOrganization(raw) {
+  const d = msTimestamps(raw);
+  return {
+    ...d,
+    kpis: flatDs(d.kpis, KPI_ORG),
+    previous: flatDs(d.previous, KPI_ORG),
+    portfolio: (d.portfolio || []).map((p) =>
+      flatDs(p, [
+        ["leadTimeHours", "leadTimeHours"],
+        ["prCycleTimeHours", "prCycleTimeHours"],
+      ]),
+    ),
+    delivery: d.delivery && {
+      ...d.delivery,
+      throughputByProject: spreadMap(d.delivery.throughputByProject, "byProject"),
+      flow: (d.delivery.flow || []).map((r) => flatDs(r, FLOW_DAYS, 24)),
+    },
+    engineering: d.engineering && {
+      activity: (d.engineering.activity || []).map((r) =>
+        flatDs(r, [["timeToFirstReviewHours", "timeToFirstReviewHours"]]),
+      ),
+      repos: (d.engineering.repos || []).map((r) =>
+        flatDs(r, [["prCycleTimeHours", "avgCycleTimeHours"]]),
+      ),
+    },
+    ai: d.ai && { ...d.ai, costByBucket: spreadMap(d.ai.costByBucket, "byModel") },
+  };
+}
+
+export const adaptIntegrations = (raw) => msTimestamps(raw);
+
+/* ── projetos e sprints (endpoints existentes) ───────────────────────── */
+
+/**
+ * GET /v1/projects → `[{ id, name, team, memberCount, member }]`. `member` = a pessoa
+ * está em `memberIds`. As permissões por projeto vêm do /v1/auth/me e são aplicadas
+ * na página (o backend valida de novo em cada endpoint).
+ * @param {string|null} userId
+ */
+export async function getDashboardProjects(userId) {
+  const list = await api.get("/v1/projects");
+  return (Array.isArray(list) ? list : [])
+    .filter((p) => p.active !== false)
+    .map((p) => ({
+      id: p.id,
+      name: p.name,
+      team: null,
+      memberCount: (p.memberIds || []).length,
+      member: !!userId && (p.memberIds || []).includes(userId),
+    }));
+}
+
+/** GET /v1/projects/{id}/sprints → PAST + CURRENT, mais recente primeiro (`finishDate` → `endDate`). */
+export async function getProjectSprints(projectId) {
+  const list = await api.get(`/v1/projects/${encodeURIComponent(projectId)}/sprints`);
+  return (Array.isArray(list) ? list : [])
+    .filter((s) => s.timeFrame !== "FUTURE")
+    .map((s) => ({
+      id: s.id,
+      name: s.name,
+      timeFrame: s.timeFrame,
+      startDate: s.startDate,
+      endDate: s.finishDate ?? s.endDate ?? null,
+    }))
+    .sort((a, b) => String(b.startDate ?? "").localeCompare(String(a.startDate ?? "")));
+}
+
+/* ── dados das visões ─────────────────────────────────────────────────── */
+
+/** GET /v1/dashboards/individual?projectId=&sprintId= — DASHBOARD_INDIVIDUAL (a pessoa vem do JWT). */
+export async function getIndividualDashboard({ projectId, sprintId }) {
+  return adaptIndividual(
+    await api.get(`/v1/dashboards/individual${toQuery({ projectId, sprintId })}`),
   );
+}
+
+/** GET /v1/dashboards/team?projectId=&sprintId= — DASHBOARD_TEAM no projeto. */
+export async function getTeamDashboard({ projectId, sprintId }) {
+  return adaptTeam(await api.get(`/v1/dashboards/team${toQuery({ projectId, sprintId })}`));
+}
+
+/** GET /v1/dashboards/team/flow?projectId=&sprintId= — DASHBOARD_TEAM no projeto. */
+export async function getTeamFlow({ projectId, sprintId }) {
+  return adaptTeamFlow(
+    await api.get(`/v1/dashboards/team/flow${toQuery({ projectId, sprintId })}`),
+  );
+}
+
+const projectPath = (projectId, kind, periodDays) =>
+  `/v1/dashboards/projects/${encodeURIComponent(projectId)}/${kind}${toQuery({ periodDays })}`;
+
+/** GET /v1/dashboards/projects/{projectId}/overview?periodDays= — DASHBOARD_STRATEGIC no projeto. */
+export async function getProjectOverview({ projectId, periodDays }) {
+  return adaptProjectOverview(await api.get(projectPath(projectId, "overview", periodDays)));
+}
+
+/** GET /v1/dashboards/projects/{projectId}/roadmap?periodDays= — DASHBOARD_STRATEGIC no projeto. */
+export async function getProjectRoadmap({ projectId, periodDays }) {
+  return adaptRoadmap(await api.get(projectPath(projectId, "roadmap", periodDays)));
+}
+
+/** GET /v1/dashboards/projects/{projectId}/quality?periodDays= — DASHBOARD_STRATEGIC no projeto. */
+export async function getProjectQuality({ projectId, periodDays }) {
+  return adaptQuality(await api.get(projectPath(projectId, "quality", periodDays)));
+}
+
+/** GET /v1/dashboards/organization?periodDays= — DASHBOARD_STRATEGIC em algum projeto. */
+export async function getOrganizationDashboard({ periodDays }) {
+  return adaptOrganization(await api.get(`/v1/dashboards/organization${toQuery({ periodDays })}`));
 }
 
 /**
- * Proposto: GET /v1/dashboards/projects — projetos visíveis à pessoa, cada um com
- * `member` (participa do projeto). As permissões por projeto vêm do /v1/auth/me
- * (projectPermissions) e são aplicadas na página.
+ * GET /v1/dashboards/integrations — AZURE_CONFIGURE, REPOS_CONFIGURE ou USER_MANAGE.
+ * Traz e-mails do Azure e a situação dos tokens das pessoas; nunca segredos.
  */
-export function getDashboardProjects() {
-  return later(() => listProjects());
+export async function getIntegrationsOverview() {
+  return adaptIntegrations(await api.get("/v1/dashboards/integrations"));
 }
 
-/** Proposto: GET /v1/dashboards/projects/{projectId}/sprints (PAST + CURRENT, mais recente primeiro) */
-export function getProjectSprints(projectId) {
-  return later(() => listSprints(projectId));
-}
-
-/** Proposto: GET /v1/dashboards/individual?projectId=&sprintId= — DASHBOARD_INDIVIDUAL */
-export function getIndividualDashboard({ projectId, sprintId }) {
-  return later(() => buildIndividual({ projectId, sprintId }));
-}
-
-/** Proposto: GET /v1/dashboards/team?projectId=&sprintId= — DASHBOARD_TEAM */
-export function getTeamDashboard({ projectId, sprintId }) {
-  return later(() => buildTeam({ projectId, sprintId }));
-}
-
-/** Proposto: GET /v1/dashboards/projects/{projectId}/overview?periodDays= — DASHBOARD_STRATEGIC */
-export function getProjectOverview({ projectId, periodDays }) {
-  return later(() => buildProject({ projectId, periodDays }));
-}
-
-/** Proposto: GET /v1/dashboards/organization?periodDays= — DASHBOARD_STRATEGIC */
-export function getOrganizationDashboard({ periodDays }) {
-  return later(() => buildOrganization({ periodDays }));
-}
-
-/* ── sub-abas (dados que hoje não são gravados vêm marcados "requer coleta nova" nas telas) ── */
-
-/**
- * Proposto: GET /v1/dashboards/ai-practices?scope=individual|team|org&projectId=&sprintId=&periodDays=
- * individual → DASHBOARD_INDIVIDUAL (só a própria pessoa); team → DASHBOARD_TEAM; org → DASHBOARD_STRATEGIC.
- * Equipe/organização devolvem só agregados — nenhum número por pessoa nomeada.
- */
-export function getAiPractices(params) {
-  return later(() => buildPractices(params));
-}
-
-/** Proposto: GET /v1/dashboards/team/flow?projectId=&sprintId= — DASHBOARD_TEAM */
-export function getTeamFlow({ projectId, sprintId }) {
-  return withFaults("fluxo", () => buildTeamFlow({ projectId, sprintId }));
-}
-
-/** Proposto: GET /v1/dashboards/projects/{projectId}/roadmap?periodDays= — DASHBOARD_STRATEGIC */
-export function getProjectRoadmap({ projectId, periodDays }) {
-  return withFaults("roadmap", () => buildRoadmap({ projectId, periodDays }));
-}
-
-/** Proposto: GET /v1/dashboards/projects/{projectId}/quality?periodDays= — DASHBOARD_STRATEGIC */
-export function getProjectQuality({ projectId, periodDays }) {
-  return withFaults("qualidade", () => buildQuality({ projectId, periodDays }));
-}
-
-/**
- * Proposto: GET /v1/dashboards/integrations — admin ou AZURE_CONFIGURE/REPOS_CONFIGURE.
- * Mostra e-mails e situação de tokens das pessoas; nunca segredos (PAT, hash do token).
- */
-export function getIntegrationsOverview() {
-  return later(() => buildIntegrations());
-}
-
-/* ── layouts do Resumo personalizável (dashboards-customizaveis D6) ──────────
- * Assinaturas e contrato finais. O backend (P2, `feature/dashboardlayout`) ainda não
- * existe: por ora as três funções rodam sobre `mockLayouts`, que imita o servidor —
- * versão otimista (409 DASHBOARD_LAYOUT_VERSION_CONFLICT), validação (422) e
- * DELETE idempotente — e guarda em localStorage (com fallback em memória). */
-
-const LAYOUTS_STORAGE_KEY = "andromeda.dashboards-v2.layouts";
-const LAYOUT_VIEW_KEYS = ["individual", "equipe", "projeto", "org"];
-const LAYOUT_WIDGET_ID = /^[a-z0-9-]+\.[a-z0-9-]+$/;
-const LAYOUT_SECTION_ID = /^[a-z0-9-]+$/;
-const LAYOUT_SIZES = ["P", "M", "G", "I"];
-
-/** Erro no formato do `core/api/client.js` (status + body.code). */
-function apiError(method, path, status, code) {
-  const err = new Error(`API ${method} ${path} falhou (${status}): ${code}`);
-  err.status = status;
-  err.retryAfter = null;
-  err.body = { code };
-  return err;
-}
-
-let memoryLayouts = { items: [] };
-function readLayouts() {
-  try {
-    const raw = localStorage.getItem(LAYOUTS_STORAGE_KEY);
-    const parsed = raw ? JSON.parse(raw) : null;
-    return Array.isArray(parsed?.items) ? parsed : memoryLayouts;
-  } catch (_) {
-    return memoryLayouts;
-  }
-}
-function writeLayouts(data) {
-  memoryLayouts = data;
-  try {
-    localStorage.setItem(LAYOUTS_STORAGE_KEY, JSON.stringify(data));
-  } catch (_) {
-    /* modo privado/cota: segue só em memória */
-  }
-}
-
-/* Falha simulada (só o mock, para os e2e de erro): `["PUT"]`/`["DELETE"]` nesta chave
- * faz o método responder 500 enquanto ela existir. Some com o mock no P4. */
-const LAYOUTS_FAULTS_KEY = "andromeda.dashboards-v2.layouts-fail";
-function injectFault(method, path) {
-  let faults = [];
-  try {
-    faults = JSON.parse(localStorage.getItem(LAYOUTS_FAULTS_KEY) || "[]");
-  } catch (_) {
-    /* sem armazenamento: sem falha simulada */
-  }
-  if (Array.isArray(faults) && faults.includes(method))
-    throw apiError(method, path, 500, "INTERNAL_ERROR");
-}
-
-function validLayoutBody(body) {
-  const sections = Array.isArray(body?.sections) ? body.sections : null;
-  const hidden = Array.isArray(body?.hidden) ? body.hidden : null;
-  if (!sections || !hidden) return false;
-  const ids = [...sections.flatMap((s) => (s.widgets || []).map((w) => w.id)), ...hidden];
-  return (
-    sections.every((s) => LAYOUT_SECTION_ID.test(s.id) && Array.isArray(s.widgets)) &&
-    sections.every((s) => s.widgets.every((w) => LAYOUT_SIZES.includes(w.size))) &&
-    ids.every((id) => LAYOUT_WIDGET_ID.test(id)) &&
-    new Set(ids).size === ids.length &&
-    ids.length <= 60
-  );
-}
-
-const mockLayouts = {
-  list: () => later(() => ({ items: readLayouts().items })),
-  put: (viewKey, body) =>
-    later(() => {
-      const path = `/v1/dashboards/layouts/${viewKey}`;
-      injectFault("PUT", path);
-      if (!LAYOUT_VIEW_KEYS.includes(viewKey))
-        throw apiError("PUT", path, 422, "DASHBOARD_LAYOUT_VIEW_UNKNOWN");
-      if (!validLayoutBody(body)) throw apiError("PUT", path, 422, "DASHBOARD_LAYOUT_INVALID");
-      const data = readLayouts();
-      const current = data.items.find((i) => i.viewKey === viewKey) || null;
-      if ((current?.version ?? null) !== (body.version ?? null))
-        throw apiError("PUT", path, 409, "DASHBOARD_LAYOUT_VERSION_CONFLICT");
-      const saved = {
-        viewKey,
-        sections: body.sections,
-        hidden: body.hidden,
-        version: (current?.version ?? 0) + 1,
-        updatedAt: new Date().toISOString(),
-      };
-      writeLayouts({ items: [...data.items.filter((i) => i.viewKey !== viewKey), saved] });
-      return saved;
-    }),
-  remove: (viewKey) =>
-    later(() => {
-      injectFault("DELETE", `/v1/dashboards/layouts/${viewKey}`);
-      const data = readLayouts();
-      writeLayouts({ items: data.items.filter((i) => i.viewKey !== viewKey) });
-      return null;
-    }),
-};
-
-/* Ponto ÚNICO de troca quando o P2 estiver em produção:
- *   import api from "../../../core/api/client.js";
- *   const layoutsBackend = {
- *     list: () => api.get("/v1/dashboards/layouts"),
- *     put: (viewKey, body) => api.put(`/v1/dashboards/layouts/${viewKey}`, body),
- *     remove: (viewKey) => api.delete(`/v1/dashboards/layouts/${viewKey}`),
- *   };
- * e apague `mockLayouts` (e o localStorage acima). Hooks e telas não mudam. */
-const layoutsBackend = mockLayouts;
+/* ── layouts do Resumo personalizável (D6) ────────────────────────────── */
 
 /**
  * GET /v1/dashboards/layouts → `{ items: [{ viewKey, sections, hidden, version, updatedAt }] }`
  * (só as visões que a pessoa pode ver; o usuário vem do JWT).
  */
-export function getDashboardLayouts() {
-  return layoutsBackend.list();
+export async function getDashboardLayouts() {
+  const data = await api.get("/v1/dashboards/layouts");
+  return { items: Array.isArray(data?.items) ? data.items : [] };
 }
 
 /**
  * PUT /v1/dashboards/layouts/{viewKey} — body `{ sections, hidden, version | null }`.
  * 200 objeto salvo (version + 1) · 403 sem a permissão da visão · 422
- * DASHBOARD_LAYOUT_VIEW_UNKNOWN|DASHBOARD_LAYOUT_INVALID · 409 DASHBOARD_LAYOUT_VERSION_CONFLICT.
+ * DASHBOARD_LAYOUT_VIEW_UNKNOWN|DASHBOARD_LAYOUT_INVALID · 409
+ * DASHBOARD_LAYOUT_VERSION_CONFLICT (o hook relê e reaplica).
  */
 export function putDashboardLayout(viewKey, body) {
-  return layoutsBackend.put(viewKey, body);
+  return api.put(`/v1/dashboards/layouts/${encodeURIComponent(viewKey)}`, body);
 }
 
 /** DELETE /v1/dashboards/layouts/{viewKey} — 204, idempotente (volta ao padrão do catálogo). */
 export function deleteDashboardLayout(viewKey) {
-  return layoutsBackend.remove(viewKey);
+  return api.delete(`/v1/dashboards/layouts/${encodeURIComponent(viewKey)}`);
 }

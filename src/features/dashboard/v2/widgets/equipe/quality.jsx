@@ -1,6 +1,5 @@
 /* Widgets da visão Equipe — seção "Qualidade na sprint" (sub-aba Fluxo e
- * qualidade, `buildTeamFlow`): bugs por severidade (requer coleta nova) e itens
- * reabertos (histórico de estados, já gravado). */
+ * qualidade, `GET /v1/dashboards/team/flow`): itens reabertos (histórico de estados). */
 
 import React from "react";
 import { fmtPct } from "../../format.js";
@@ -8,54 +7,6 @@ import { PrPill } from "../../kit/Badges.jsx";
 import { Empty, Panel } from "../../kit/Panel.jsx";
 import { DataTable } from "../../kit/Table.jsx";
 import { ItemCell } from "../../views/shared.jsx";
-
-export const SEVERITY_LABEL = {
-  "1 - Critical": "Crítica",
-  "2 - High": "Alta",
-  "3 - Medium": "Média",
-  "4 - Low": "Baixa",
-};
-
-export const selectBugsBySeverity = (f) => f.bugs.bySeverity;
-
-export function BugsBySeverityWidget({ data: rows }) {
-  return (
-    <Panel
-      eyebrow="bugs da sprint"
-      title="Por severidade"
-      sources={["azure"]}
-      collect="gravar o campo Microsoft.VSTS.Common.Severity (hoje recebido e ignorado)."
-    >
-      <DataTable
-        dense
-        rowKey={(r) => r.severity}
-        rows={rows}
-        columns={[
-          { key: "severity", label: "Severidade", render: (r) => SEVERITY_LABEL[r.severity] },
-          { key: "total", label: "Na sprint", align: "right" },
-          {
-            key: "open",
-            label: "Abertos",
-            align: "right",
-            render: (r) => (
-              <span
-                className={
-                  r.open && r.severity.startsWith("1")
-                    ? "text-bad"
-                    : r.open && r.severity.startsWith("2")
-                      ? "text-warn"
-                      : ""
-                }
-              >
-                {r.open}
-              </span>
-            ),
-          },
-        ]}
-      />
-    </Panel>
-  );
-}
 
 export const selectRework = (f) => f.rework;
 

@@ -1,14 +1,14 @@
 /* Widgets da visão Equipe — seção "Resumo da sprint" (faixa de KPIs). */
 
 import React from "react";
-import { fmtDuration, fmtInt, fmtPct, fmtUsd } from "../../format.js";
+import { fmtDsSpread, fmtDuration, fmtInt, fmtPct, fmtUsd } from "../../format.js";
 import { KpiRow, KpiTile } from "../../kit/Kpi.jsx";
 
 /** Fatia do payload do Resumo da equipe (`buildTeam`). */
 export const selectKpis = (d) => ({
   k: d.kpis,
   prev: d.previous,
-  isCurrent: d.sprint.timeFrame === "CURRENT",
+  isCurrent: d.sprint?.timeFrame === "CURRENT",
   vs: "sprint anterior",
 });
 
@@ -31,9 +31,10 @@ export function KpisWidget({ data }) {
         hint={k.unassigned ? `${k.unassigned} sem responsável` : "todos com responsável"}
       />
       <KpiTile
-        label="Cycle time médio"
+        label="Cycle time (mediana)"
         value={fmtDuration(k.avgCycleTimeHours)}
-        hint="início → conclusão"
+        hint={fmtDsSpread(k.avgCycleTimeHoursDs) || "início → conclusão"}
+        title="Mediana (p50) do tempo entre o início e a conclusão dos itens concluídos na sprint"
         delta={{
           current: k.avgCycleTimeHours,
           previous: prev?.avgCycleTimeHours,
@@ -42,9 +43,10 @@ export function KpisWidget({ data }) {
         }}
       />
       <KpiTile
-        label="Lead time médio"
+        label="Lead time (mediana)"
         value={fmtDuration(k.avgLeadTimeHours)}
-        hint="criação → conclusão"
+        hint={fmtDsSpread(k.avgLeadTimeHoursDs) || "criação → conclusão"}
+        title="Mediana (p50) do tempo entre a criação e a conclusão dos itens concluídos na sprint"
         delta={{
           current: k.avgLeadTimeHours,
           previous: prev?.avgLeadTimeHours,

@@ -10,7 +10,8 @@ import { Empty, Panel } from "../../kit/Panel.jsx";
 import { DataTable } from "../../kit/Table.jsx";
 import { ItemCell } from "../../views/shared.jsx";
 
-const NOT_LINKED = "Vincule sua conta GitHub no perfil para ver commits, PRs e reviews.";
+const NOT_LINKED =
+  "Vincule sua conta do GitHub ou do Azure Repos no perfil para ver commits, PRs e reviews.";
 
 const PR_COLUMNS = [
   {

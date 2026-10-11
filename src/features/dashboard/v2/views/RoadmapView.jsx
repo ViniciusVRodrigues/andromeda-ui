@@ -20,19 +20,17 @@ import {
   BacklogStalenessWidget,
   CycleByComplexityWidget,
   CycleByEffortWidget,
-  DeliveredByAreaWidget,
   DeliveredByTagWidget,
   EpicsWidget,
   FeaturesWidget,
   ManualOverridesWidget,
   selectBacklog,
   selectCalibration,
-  selectDeliveredByArea,
   selectDeliveredByTag,
   selectEpics,
   selectFeatures,
 } from "../widgets/projeto/roadmap.jsx";
-import { FetchFrame, Grid, ViewSkeleton } from "./shared.jsx";
+import { FetchFrame, Grid, ViewError, ViewRefresh, ViewSkeleton } from "./shared.jsx";
 
 export const ROADMAP_SECTIONS = [
   { id: "rm-epicos", label: "Épicos" },
@@ -42,7 +40,11 @@ export const ROADMAP_SECTIONS = [
 ];
 
 export function RoadmapView({ projectId, periodDays }) {
-  const { data, isPending, isFetching } = useProjectRoadmap({ projectId, periodDays });
+  const { data, isPending, isFetching, isError, error, refetch } = useProjectRoadmap({
+    projectId,
+    periodDays,
+  });
+  if (isError && !data) return <ViewError error={error} onRetry={refetch} />;
   if (isPending || !data) return <ViewSkeleton />;
   const d = data;
   const backlog = selectBacklog(d);
@@ -50,6 +52,7 @@ export function RoadmapView({ projectId, periodDays }) {
 
   return (
     <FetchFrame fetching={isFetching}>
+      <ViewRefresh projectId={projectId} freshness={d.dataFreshness} />
       <Highlights items={roadmapHighlights(d)} />
 
       <Section
@@ -79,9 +82,8 @@ export function RoadmapView({ projectId, periodDays }) {
       </Section>
 
       <Section id="rm-temas" title="Temas" question="Em que o esforço do projeto está indo?">
-        <Grid cols="lg:grid-cols-3">
+        <Grid cols="lg:grid-cols-2">
           <DeliveredByTagWidget data={selectDeliveredByTag(d)} />
-          <DeliveredByAreaWidget data={selectDeliveredByArea(d)} />
           <BacklogByTagWidget data={backlog} />
         </Grid>
       </Section>

@@ -158,55 +158,37 @@ export function CommitsWidget({ data: commitsByDay }) {
 
 export const selectReviewQueue = (f) => f.reviewQueue;
 
-export function ReviewQueueWidget({ data: q }) {
-  return (
-    <Panel
-      eyebrow="fila"
-      title="Reviews pedidas e ainda não feitas"
-      sources={["github"]}
-      collect="gravar requested_reviewers dos PRs (hoje recebido e ignorado)."
-      info="PRs abertos em que a pessoa foi chamada para revisar e ainda não revisou, com a espera do mais antigo."
-    >
-      {q.byReviewer.length ? (
-        <BarList
-          rows={q.byReviewer.map((r) => ({
-            key: r.userId,
-            label: r.name,
-            value: r.pending,
-            display: `${r.pending} PR${r.pending > 1 ? "s" : ""}`,
-            sub: `mais antigo há ${fmtDuration(r.oldestHours)}`,
-          }))}
-        />
-      ) : (
-        <Empty>✓ Nenhuma review pendente.</Empty>
-      )}
-    </Panel>
-  );
-}
-
 export function OpenPrsWidget({ data: q }) {
   return (
     <Panel
       eyebrow="pull requests abertos"
       title="Rascunhos, destino e labels"
       sources={["github"]}
-      collect="gravar draft, base e labels dos PRs (hoje recebidos e ignorados)."
-      info="Rascunhos ainda não estão prontos para review. A branch de destino mostra PRs fora do fluxo principal (develop, release). Labels contam os PRs abertos na sprint."
+      info="PRs abertos agora no projeto: rascunhos ainda não estão prontos para review e a branch de destino mostra PRs fora do fluxo principal (develop, release). Labels contam os PRs criados na sprint."
     >
-      <SegmentBar
-        segments={[
-          {
-            label: "Prontos para review",
-            value: q.open - q.drafts,
-            color: "var(--series-1)",
-          },
-          { label: "Rascunho", value: q.drafts, color: "var(--series-2)" },
-        ]}
-      />
-      <p className="mono text-fg-muted m-0 mt-3 text-[12px] font-normal">
-        Destino: {q.byBaseBranch.map((b) => `${b.branch} (${b.count})`).join(" · ") || "—"}
-      </p>
-      {q.labels.length ? (
+      {q.open == null ? (
+        <p className="text-fg-muted m-0 text-[13px] font-normal">
+          Os PRs abertos só aparecem na sprint atual.
+        </p>
+      ) : (
+        <>
+          <SegmentBar
+            segments={[
+              {
+                label: "Prontos para review",
+                value: Math.max(0, q.open - (q.drafts ?? 0)),
+                color: "var(--series-1)",
+              },
+              { label: "Rascunho", value: q.drafts ?? 0, color: "var(--series-2)" },
+            ]}
+          />
+          <p className="mono text-fg-muted m-0 mt-3 text-[12px] font-normal">
+            Destino:{" "}
+            {(q.byBaseBranch || []).map((b) => `${b.branch} (${b.count})`).join(" · ") || "—"}
+          </p>
+        </>
+      )}
+      {q.labels?.length ? (
         <div className="mt-3 flex flex-wrap gap-1.5">
           {q.labels.map((l) => (
             <Tag key={l.label}>

@@ -14,8 +14,8 @@
  *
  * Tamanhos: P=4, M=6, G=8, I=12 colunas (grid de 12); tabela no mínimo G; faixa de
  * KPIs = um widget, I fixo. `default: true` entra no padrão, na ordem do catálogo,
- * com `defaultSize`. `collect: true` = depende de coleta nova: fica no catálogo
- * mas nunca no padrão. `skeletonHeight` (px) desenha a silhueta no carregamento.
+ * com `defaultSize`. Widgets que dependem de coleta nova não entram no catálogo
+ * (decisão da pessoa): voltam quando a coleta existir. `skeletonHeight` (px) desenha a silhueta no carregamento.
  *
  * A visão Individual está catalogada aqui; Equipe, Projeto e Organização em
  * `catalog/<viewKey>.js` (task 3.3). Práticas de IA e Integrações e identidades
@@ -24,7 +24,7 @@
  * @typedef {"P"|"M"|"G"|"I"} WidgetSize
  * @typedef {{ viewKey: string, id: string, domId: string, title: string, question?: string }} CatalogSection
  * @typedef {{ id: string, viewKey: string, section: string, title: string, sizes: WidgetSize[],
- *   defaultSize: WidgetSize, default: boolean, collect?: boolean, skeletonHeight: number,
+ *   defaultSize: WidgetSize, default: boolean, skeletonHeight: number,
  *   aliases: string[], select: (payload: any) => any,
  *   Component: (props: { data: any, ctx?: object }) => any }} CatalogWidget
  */

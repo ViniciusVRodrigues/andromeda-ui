@@ -2,10 +2,10 @@
  * Catálogo da visão Projeto (viewKey `projeto`) — dashboards-customizaveis D2/D3, task 3.3.
  *
  * Reúne os widgets do Resumo (`buildProject`) e das sub-abas Roadmap e backlog
- * (`mock/roadmap.js`) e Qualidade (`mock/quality.js`). O payload do grid é composto:
+ * (`/roadmap`) e Qualidade (`/quality`). O payload do grid é composto:
  * `{ resumo, roadmap, qualidade }` — as fontes secundárias só são buscadas quando o
- * layout tem widget delas (nenhum está no padrão). `collect: true` = requer coleta
- * nova (nunca no padrão).
+ * layout tem widget delas (nenhum está no padrão). Painéis que dependem de coleta
+ * nova (área, severidade, motivo de fechamento, issues) ficam fora até a coleta existir.
  *
  * Padrão = o Resumo fixo anterior traduzido: três iguais → P+P+P (cartões DORA);
  * 6/6 → M+M; 7/5 com gráfico no lado largo → M+M; tabelas e faixas inteiras.
@@ -53,38 +53,27 @@ import {
   BacklogStalenessWidget,
   CycleByComplexityWidget,
   CycleByEffortWidget,
-  DeliveredByAreaWidget,
   DeliveredByTagWidget,
   EpicsWidget,
   FeaturesWidget,
   ManualOverridesWidget,
   selectBacklog,
   selectCalibration,
-  selectDeliveredByArea,
   selectDeliveredByTag,
   selectEpics,
   selectFeatures,
 } from "../widgets/projeto/roadmap.jsx";
 import {
   BugFlowWidget,
-  BugReasonsWidget,
   CommitKindsWidget,
-  IssuesWidget,
   OldestOpenWidget,
-  OpenMatrixWidget,
-  OtherReasonsWidget,
   QualityKpisWidget,
   ReopenedWidget,
-  ResolutionBySeverityWidget,
   selectBugFlow,
-  selectClosingReasons,
   selectCommitKinds,
-  selectIssues,
   selectOldestOpen,
-  selectOpenMatrix,
   selectQualityKpis,
   selectReopened,
-  selectResolutionBySeverity,
 } from "../widgets/projeto/quality.jsx";
 
 import { withSource } from "./SourceGate.jsx";
@@ -170,20 +159,13 @@ export const sections = [
     "Qualidade",
     "Os bugs estão sob controle no período?",
   ),
-  section("bugs", "pj-bugs", "Bugs", "Bugs", "Entra mais bug do que sai? Onde estão os graves?"),
-  section(
-    "correcao",
-    "pj-correcao",
-    "Correção",
-    "Correção",
-    "Quanto tempo leva para corrigir e como os itens são fechados?",
-  ),
+  section("bugs", "pj-bugs", "Bugs", "Bugs", "Entra mais bug do que sai? Quais estão esquecidos?"),
   section(
     "retrabalho",
     "pj-retrabalho",
     "Retrabalho e código",
     "Retrabalho e código",
-    "Quanto volta, quanto vira issue e quanto do código é correção?",
+    "Quanto volta e quanto do código é correção?",
   ),
 ];
 
@@ -192,7 +174,7 @@ const SOURCES = ["resumo", "roadmap", "qualidade"];
 
 /**
  * @param {string} name @param {string} sectionId @param {string} title
- * @param {{ sizes: string[], size: string, default?: boolean, collect?: boolean, height: number,
+ * @param {{ sizes: string[], size: string, default?: boolean, height: number,
  *   source?: "resumo"|"roadmap"|"qualidade", select: Function, Component: Function }} o
  */
 const widget = (name, sectionId, title, o) => {
@@ -218,7 +200,6 @@ const widget = (name, sectionId, title, o) => {
     sizes: o.sizes,
     defaultSize: o.size,
     default: !!o.default,
-    ...(o.collect ? { collect: true } : {}),
     skeletonHeight: o.height,
     aliases: [],
     source,
@@ -350,7 +331,7 @@ export const widgets = [
     Component: CoverageWidget,
   }),
 
-  /* ── Roadmap e backlog (mock/roadmap.js) — fora do padrão ── */
+  /* ── Roadmap e backlog (/roadmap) — fora do padrão ── */
   widget("epicos", "epicos", "Progresso dos épicos", {
     sizes: TABLE,
     size: "I",
@@ -407,15 +388,6 @@ export const widgets = [
     select: selectDeliveredByTag,
     Component: DeliveredByTagWidget,
   }),
-  widget("entregue-area", "temas", "Entregue no período por área", {
-    sizes: ALL,
-    size: "P",
-    collect: true,
-    source: "roadmap",
-    height: 300,
-    select: selectDeliveredByArea,
-    Component: DeliveredByAreaWidget,
-  }),
   widget("backlog-tag", "temas", "Backlog por tag", {
     sizes: ALL,
     size: "P",
@@ -449,12 +421,10 @@ export const widgets = [
     Component: ManualOverridesWidget,
   }),
 
-  /* ── Qualidade (mock/quality.js) — fora do padrão ── */
-  /* um dos KPIs (críticos ou altos) depende da severidade: a faixa inteira é coleta nova */
+  /* ── Qualidade (/quality) — fora do padrão ── */
   widget("qualidade-kpis", "qualidade", "Indicadores de qualidade", {
     sizes: ["I"],
     size: "I",
-    collect: true,
     source: "qualidade",
     height: 112,
     select: selectQualityKpis,
@@ -468,50 +438,13 @@ export const widgets = [
     select: selectBugFlow,
     Component: BugFlowWidget,
   }),
-  widget("bugs-matriz", "bugs", "Bugs abertos por severidade e prioridade", {
-    sizes: TABLE,
-    size: "G",
-    collect: true,
-    source: "qualidade",
-    height: 350,
-    select: selectOpenMatrix,
-    Component: OpenMatrixWidget,
-  }),
   widget("bugs-antigos", "bugs", "Bugs abertos há mais tempo", {
     sizes: TABLE,
     size: "I",
-    collect: true,
     source: "qualidade",
     height: 420,
     select: selectOldestOpen,
     Component: OldestOpenWidget,
-  }),
-  widget("correcao-severidade", "correcao", "Tempo para corrigir por severidade", {
-    sizes: ALL,
-    size: "P",
-    collect: true,
-    source: "qualidade",
-    height: 280,
-    select: selectResolutionBySeverity,
-    Component: ResolutionBySeverityWidget,
-  }),
-  widget("motivo-bugs", "correcao", "Motivo de fechamento dos bugs", {
-    sizes: ALL,
-    size: "P",
-    collect: true,
-    source: "qualidade",
-    height: 280,
-    select: selectClosingReasons,
-    Component: BugReasonsWidget,
-  }),
-  widget("motivo-demais", "correcao", "Motivo de fechamento dos demais itens", {
-    sizes: ALL,
-    size: "P",
-    collect: true,
-    source: "qualidade",
-    height: 280,
-    select: selectClosingReasons,
-    Component: OtherReasonsWidget,
   }),
   widget("reabertura", "retrabalho", "Itens reabertos", {
     sizes: ALL,
@@ -520,15 +453,6 @@ export const widgets = [
     height: 320,
     select: selectReopened,
     Component: ReopenedWidget,
-  }),
-  widget("issues-bug", "retrabalho", "Issues de bug/hotfix no GitHub", {
-    sizes: ALL,
-    size: "P",
-    collect: true,
-    source: "qualidade",
-    height: 320,
-    select: selectIssues,
-    Component: IssuesWidget,
   }),
   widget("commits-tipo", "retrabalho", "Tipo dos commits", {
     sizes: ALL,

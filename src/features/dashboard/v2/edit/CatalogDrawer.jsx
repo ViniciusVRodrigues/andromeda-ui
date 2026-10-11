@@ -1,7 +1,7 @@
 /**
  * Catálogo de widgets da visão no `Drawer` (dashboards-customizaveis D7): busca,
  * contador "N de M visíveis", grupos por seção, switch "Mostrar" e selo "novo".
- * Widgets que dependem de coleta nova (`collect`) não aparecem (decisão da pessoa).
+ * Widgets que dependem de coleta nova não estão no catálogo (decisão da pessoa).
  * Ligar põe o widget no fim da seção, com o tamanho padrão.
  */
 
@@ -69,7 +69,6 @@ export function CatalogDrawer({ open, onClose }) {
   const all = CATALOG.widgets.filter(
     (w) =>
       w.viewKey === viewKey &&
-      !w.collect &&
       (onGrid.has(w.id) || layout.hidden.includes(w.id) || novos.has(w.id)),
   );
   const q = norm(query.trim());

@@ -27,7 +27,7 @@ export const SPANS = {
 /**
  * Seções ordenadas com os widgets visíveis.
  *
- * - Sem layout salvo → padrão do catálogo (`default && !collect`, ordem do catálogo,
+ * - Sem layout salvo → padrão do catálogo (`default`, ordem do catálogo,
  *   `defaultSize`); os demais widgets visíveis vão para `hidden`.
  * - Com layout salvo → ordem das seções e dos widgets do layout. Ids desconhecidos
  *   (nem por alias), de outra visão, repetidos ou sem permissão são ignorados sem
@@ -69,7 +69,7 @@ export function resolveLayout(catalog, viewKey, saved, canSee = () => true) {
   });
 
   if (!saved) {
-    const inDefault = (w) => w.default && !w.collect;
+    const inDefault = (w) => w.default;
     return {
       sections: sectionDefs.map((def) =>
         shape(

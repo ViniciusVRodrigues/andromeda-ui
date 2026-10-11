@@ -23,7 +23,7 @@ export function KpisWidget({ data }) {
         delta={{ current: k.itemsDone, previous: p.itemsDone, vs }}
       />
       <KpiTile
-        label="Lead time médio"
+        label="Lead time (mediana)"
         value={fmtDuration(k.leadTimeHours)}
         hint={`cycle time ${fmtDuration(k.cycleTimeHours)}`}
         delta={{ current: k.leadTimeHours, previous: p.leadTimeHours, goodWhen: "down", vs }}
@@ -31,7 +31,7 @@ export function KpisWidget({ data }) {
       <KpiTile
         label="Taxa de falha"
         value={fmtPct(k.cfrPct)}
-        hint="issues de bug ÷ commits"
+        hint="merges que precisaram de correção (proxy)"
         delta={{ current: k.cfrPct, previous: p.cfrPct, goodWhen: "down", vs }}
       />
       <KpiTile
@@ -97,24 +97,27 @@ const PORTFOLIO_COLUMNS = [
     key: "sprint",
     label: "Sprint atual",
     width: "17%",
-    render: (r) => (
-      <div>
-        <div className="mono mb-1 flex justify-between gap-2 text-[11px]">
-          <span className="text-fg-muted font-normal">{r.currentSprint.name}</span>
-          <span className="tabular-nums">
-            {fmtInt(r.currentSprint.spDone)}/{fmtInt(r.currentSprint.spPlanned)} SP
-          </span>
+    render: (r) =>
+      r.currentSprint == null ? (
+        <span className="text-fg-dim">sem sprint atual</span>
+      ) : (
+        <div>
+          <div className="mono mb-1 flex justify-between gap-2 text-[11px]">
+            <span className="text-fg-muted font-normal">{r.currentSprint.name}</span>
+            <span className="tabular-nums">
+              {fmtInt(r.currentSprint.spDone)}/{fmtInt(r.currentSprint.spPlanned)} SP
+            </span>
+          </div>
+          <Meter
+            value={r.currentSprint.progressPct}
+            marker={r.currentSprint.elapsedPct}
+            markerLabel="tempo corrido da sprint"
+            height={6}
+            tone={r.currentProgressGapPct > 25 ? "warn" : "accent"}
+            label={`${r.name}: ${fmtPct(r.currentSprint.progressPct)} entregue`}
+          />
         </div>
-        <Meter
-          value={r.currentSprint.progressPct}
-          marker={r.currentSprint.elapsedPct}
-          markerLabel="tempo corrido da sprint"
-          height={6}
-          tone={r.currentProgressGapPct > 25 ? "warn" : "accent"}
-          label={`${r.name}: ${fmtPct(r.currentSprint.progressPct)} entregue`}
-        />
-      </div>
-    ),
+      ),
   },
   { key: "predictabilityPct", label: "Previsib.", align: "right", format: fmtPct },
   {

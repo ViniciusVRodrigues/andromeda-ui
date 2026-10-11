@@ -110,7 +110,7 @@ export const selectAllocation = (d) => ({
   pending: d.ai.pendingAllocations,
 });
 
-/** @param {{ data: ReturnType<typeof selectAllocation>, ctx: { onNavigate?: (page: string) => void } }} props */
+/** @param {{ data: ReturnType<typeof selectAllocation>, ctx: { onReviewAi?: (() => void) | null } }} props */
 export function AllocationWidget({ data, ctx }) {
   const { allocation: a, pending } = data;
   return (
@@ -120,10 +120,10 @@ export function AllocationWidget({ data, ctx }) {
       sources={["ia", "azure"]}
       info="Cada dia de uso é dividido automaticamente entre os seus itens em andamento e fica pendente até você validar. Dias sem item em andamento ficam sem alocação — o custo deles não aparece em nenhum item."
       actions={
-        ctx?.onNavigate ? (
+        ctx?.onReviewAi ? (
           <button
             type="button"
-            onClick={() => ctx.onNavigate("uso-ia")}
+            onClick={ctx.onReviewAi}
             className="mono text-accent cursor-pointer border-0 bg-transparent p-0 text-[12px] hover:underline"
           >
             Revisar →

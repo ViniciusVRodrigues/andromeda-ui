@@ -47,10 +47,10 @@ export function CycleTimeHistoryWidget({ data }) {
   return (
     <Panel
       eyebrow="fluxo"
-      title="Cycle time médio"
+      title="Cycle time mediano"
       note={data.note}
       sources={["azure"]}
-      info="Média do tempo entre o início efetivo (1ª transição para Em andamento) e a conclusão dos seus itens concluídos em cada sprint."
+      info="Mediana (p50) do tempo entre o início efetivo (1ª transição para Em andamento) e a conclusão dos seus itens concluídos em cada sprint."
       table={{
         columns: [
           { key: "name", label: "Sprint" },

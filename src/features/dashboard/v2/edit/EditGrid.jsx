@@ -62,8 +62,13 @@ function useReducedMotion() {
   return reduced;
 }
 
-/** Setas = posição anterior/seguinte na ordem do grupo (não a geometria). */
-function indexCoordinates(idsRef) {
+/**
+ * Setas = posição anterior/seguinte na ordem do grupo (não a geometria). A posição
+ * lógica fica em `cursorRef` (e não no `over` da colisão): se a grade ainda está se
+ * acomodando (gráficos medindo, dado chegando), os retângulos ficam velhos e a colisão
+ * pode apontar um vizinho já ao pegar — o anúncio e a soltura seguem o cursor.
+ */
+function indexCoordinates(idsRef, cursorRef, onCursorRef) {
   return (event, { active, context }) => {
     const delta = ["ArrowRight", "ArrowDown"].includes(event.code)
       ? 1
@@ -73,8 +78,11 @@ function indexCoordinates(idsRef) {
     if (!delta) return undefined;
     event.preventDefault();
     const ids = idsRef.current;
-    const at = ids.indexOf(context.over?.id ?? active);
+    const from = cursorRef.current ?? context.over?.id ?? active;
+    const at = ids.indexOf(from);
     const target = ids[Math.max(0, Math.min(ids.length - 1, at + delta))];
+    cursorRef.current = target;
+    onCursorRef.current?.(target);
     const r = context.droppableRects.get(target);
     const a = context.collisionRect;
     if (!r || !a) return undefined;
@@ -96,18 +104,24 @@ function useSortableGroup({ ids, titleOf, where, noun, dropped, onMove }) {
   const [overId, setOverId] = React.useState(null);
   const lastOver = React.useRef(null);
   const start = React.useRef(0);
+  /* arrasto pelo teclado: posição lógica (ver indexCoordinates) */
+  const viaKeyboard = React.useRef(false);
+  const cursor = React.useRef(null);
+  const onCursor = React.useRef(null);
   const n = ids.length;
   const pos = (id) => idsRef.current.indexOf(id) + 1;
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
     useSensor(KeyboardSensor, {
-      coordinateGetter: indexCoordinates(idsRef),
+      coordinateGetter: indexCoordinates(idsRef, cursor, onCursor),
       scrollBehavior: reduced ? "auto" : "smooth",
     }),
   );
 
   const finish = () => {
+    viaKeyboard.current = false;
+    cursor.current = null;
     setActiveId(null);
     setOverId(null);
     /* todos os listeners deste mesmo keydown ainda veem o arrasto ativo (o Esc do modo) */
@@ -116,9 +130,20 @@ function useSortableGroup({ ids, titleOf, where, noun, dropped, onMove }) {
     }, 0);
   };
 
+  /* cada seta: marcador e anúncio pela posição lógica */
+  onCursor.current = (id) => {
+    setOverId(id);
+    if (id === lastOver.current) return;
+    lastOver.current = id;
+    edit.announce(`Posição ${pos(id)} de ${n}.`);
+  };
+
   const handlers = {
-    onDragStart: ({ active }) => {
+    onDragStart: ({ active, activatorEvent }) => {
       edit.dragging.current = true;
+      viaKeyboard.current =
+        typeof KeyboardEvent !== "undefined" && activatorEvent instanceof KeyboardEvent;
+      cursor.current = active.id;
       setActiveId(active.id);
       lastOver.current = active.id;
       start.current = pos(active.id);
@@ -127,6 +152,8 @@ function useSortableGroup({ ids, titleOf, where, noun, dropped, onMove }) {
       );
     },
     onDragOver: ({ over }) => {
+      /* no teclado quem anda é o cursor (onCursor), não a colisão */
+      if (viaKeyboard.current) return;
       const id = over?.id ?? null;
       setOverId(id);
       if (!id || id === lastOver.current) return;
@@ -134,9 +161,10 @@ function useSortableGroup({ ids, titleOf, where, noun, dropped, onMove }) {
       edit.announce(`Posição ${pos(id)} de ${n}.`);
     },
     onDragEnd: ({ active, over }) => {
-      const to = over ? pos(over.id) : start.current;
+      const target = viaKeyboard.current ? cursor.current : (over?.id ?? null);
+      const to = target ? pos(target) : start.current;
       finish();
-      if (over && over.id !== active.id) onMove(active.id, to - 1);
+      if (target && target !== active.id) onMove(active.id, to - 1);
       edit.announce(`${titleOf(active.id)} ${dropped} na posição ${to} de ${n}.`);
     },
     onDragCancel: ({ active }) => {

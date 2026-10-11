@@ -5,7 +5,6 @@
 import React from "react";
 import { keepPreviousData, useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  getAiPractices,
   getIntegrationsOverview,
   getProjectQuality,
   getProjectRoadmap,
@@ -20,33 +19,28 @@ import {
   getDashboardLayouts,
   putDashboardLayout,
 } from "./api.js";
+import { getAllocationsPending } from "../../ai-usage/api.js";
 
 export const dashboardsKeys = {
-  projects: () => ["dashboards-v2", "projects"],
+  projects: (userId) => ["dashboards-v2", "projects", userId ?? null],
   sprints: (projectId) => ["dashboards-v2", "sprints", projectId],
   individual: (p) => ["dashboards-v2", "individual", p.projectId, p.sprintId ?? "current"],
   team: (p) => ["dashboards-v2", "team", p.projectId, p.sprintId ?? "current"],
   project: (p) => ["dashboards-v2", "project", p.projectId, p.periodDays],
   organization: (p) => ["dashboards-v2", "organization", p.periodDays],
-  practices: (p) => [
-    "dashboards-v2",
-    "practices",
-    p.scope,
-    p.projectId ?? "org",
-    p.sprintId ?? "current",
-    p.periodDays ?? null,
-  ],
   flow: (p) => ["dashboards-v2", "flow", p.projectId, p.sprintId ?? "current"],
   roadmap: (p) => ["dashboards-v2", "roadmap", p.projectId, p.periodDays],
   quality: (p) => ["dashboards-v2", "quality", p.projectId, p.periodDays],
   integrations: () => ["dashboards-v2", "integrations"],
   layouts: () => ["dashboards-v2", "layouts"],
+  pendingAllocations: () => ["dashboards-v2", "pending-allocations"],
 };
 
-export function useDashboardProjects() {
+/** Projetos com `member` calculado para a pessoa logada (`memberIds` × `userId`). */
+export function useDashboardProjects(userId) {
   return useQuery({
-    queryKey: dashboardsKeys.projects(),
-    queryFn: () => getDashboardProjects(),
+    queryKey: dashboardsKeys.projects(userId),
+    queryFn: () => getDashboardProjects(userId),
     staleTime: 5 * 60_000,
   });
 }
@@ -95,15 +89,6 @@ export function useOrganizationDashboard(params) {
   });
 }
 
-export function useAiPractices(params) {
-  return useQuery({
-    queryKey: dashboardsKeys.practices(params),
-    queryFn: () => getAiPractices(params),
-    enabled: params.scope === "org" || !!params.projectId,
-    placeholderData: keepPreviousData,
-  });
-}
-
 export function useTeamFlow(params) {
   return useQuery({
     queryKey: dashboardsKeys.flow(params),
@@ -136,6 +121,21 @@ export function useIntegrationsOverview() {
     queryKey: dashboardsKeys.integrations(),
     queryFn: () => getIntegrationsOverview(),
     staleTime: 60_000,
+  });
+}
+
+/**
+ * Dias de uso de IA da pessoa aguardando validação (`GET /v1/ai/allocations/pending-batches`),
+ * para o aviso no topo do dashboard. Falha = sem aviso (não bloqueia a tela).
+ * @param {boolean} enabled só para quem tem a visão Individual (o uso é da própria pessoa)
+ */
+export function usePendingAllocations(enabled) {
+  return useQuery({
+    queryKey: dashboardsKeys.pendingAllocations(),
+    queryFn: () => getAllocationsPending(),
+    enabled: !!enabled,
+    staleTime: 60_000,
+    retry: false,
   });
 }
 

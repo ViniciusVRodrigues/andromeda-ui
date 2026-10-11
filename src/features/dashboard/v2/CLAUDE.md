@@ -1,98 +1,84 @@
-# features/dashboard/v2 — dashboards por permissão (PRÉVIA, dados fictícios)
+# features/dashboard/v2 — dashboards por permissão (ligados aos endpoints /v1/dashboards/*)
 
-Redesenho da tela de dashboard em três telas montadas pelas permissões, cada uma com sub-abas. **Só front**:
-os dados vêm de um mundo simulado (`mock/`), não da API. A rota `dashboard` mostra a v2 por padrão;
-`?versao=atual` abre o dashboard antigo ligado à API real (`../DashboardPage.jsx`) para comparação — os specs
-e2e antigos navegam assim. Não fazer merge em `main` sem decidir isso: merge publica (deploy automático).
+Redesenho da tela de dashboard em três telas montadas pelas permissões, cada uma com sub-abas. Os dados vêm
+dos endpoints do andromeda-ms (change `dashboards-customizaveis`, contratos em
+`openspec/changes/dashboards-customizaveis/contracts.md`). A rota `dashboard` mostra a v2 por padrão;
+`?versao=atual` abre o dashboard antigo (`../DashboardPage.jsx`, `/v1/dashboard/*`) até o P5 trocar e remover —
+os specs e2e antigos navegam assim.
 
 ## Permissões → telas e sub-abas (`DashboardsPage.jsx`)
 
 | Permissão | O que aparece | Sub-abas (`?aba=`) |
 |---|---|---|
-| `DASHBOARD_INDIVIDUAL` | Tela 1 — projetos **da pessoa**, visão **Individual** | Resumo · Práticas de IA (só a própria pessoa) |
-| + `DASHBOARD_TEAM` | Tela 2 — nos projetos da pessoa, **Individual \| Equipe** | Equipe: Resumo · Fluxo e qualidade · Práticas de IA (só agregados) |
-| `DASHBOARD_STRATEGIC` | Tela 3 — **Organização · visão geral** + **todos** os projetos na visão **Projeto** | Projeto: Resumo · Roadmap e backlog · Qualidade. Organização: Visão geral · Práticas de IA (agregado) · Integrações e identidades* |
+| `DASHBOARD_INDIVIDUAL` | Tela 1 — projetos **da pessoa** (`memberIds` do `GET /v1/projects` contém o `userId` do /me), visão **Individual** | Resumo |
+| + `DASHBOARD_TEAM` | Tela 2 — **Individual \| Equipe** nos projetos com o código | Equipe: Resumo · Fluxo e qualidade |
+| `DASHBOARD_STRATEGIC` | Tela 3 — **Organização · visão geral** (código em algum projeto) + os projetos com o código na visão **Projeto** | Projeto: Resumo · Roadmap e backlog · Qualidade. Organização: Visão geral · Integrações e identidades* |
 
-\* "Integrações e identidades" só para admin ou `AZURE_CONFIGURE`/`REPOS_CONFIGURE` (mostra e-mails e a
-situação dos tokens das pessoas; nunca segredos). As permissões somam. **Escopo por projeto**
-(`project-scoped-permissions`): `DASHBOARD_INDIVIDUAL` e a visão geral da organização usam `hasOrg`; Equipe e
-Projeto valem por projeto (`canOnProject`). Os projetos da prévia são fictícios (`fictional: true`, fora de
-`projectPermissions`): para eles o código vale se a pessoa o tem em algum projeto e é membro (ou tem
-`PROJECT_ACCESS_ALL`); estratégico da organização vê todos — ver `accessModel` em `DashboardsPage.jsx`. Gating
-aqui é UX; o backend valida com `@perm.onProject`/`@PreAuthorize` nos mesmos códigos. Práticas de IA de outras pessoas nunca aparecem por nome — equipe e
-organização recebem só agregados e contagens de pessoas.
+\* "Integrações e identidades" para admin ou `AZURE_CONFIGURE`/`REPOS_CONFIGURE`/`USER_MANAGE` (a mesma regra do
+`GET /v1/dashboards/integrations`; mostra e-mails do Azure e a situação dos tokens; nunca segredos). As permissões
+somam. **Escopo por projeto** (`project-scoped-permissions`): `DASHBOARD_INDIVIDUAL` usa `hasOrg`; a visão da
+organização usa `holdsAnywhere` (o servidor libera com `@perm.onAnyProject`); Equipe e Projeto valem por projeto
+(`canOnProject`). Gating aqui é UX; o backend valida com `@perm.onProject`/`@PreAuthorize` nos mesmos códigos.
+**Práticas de IA está escondida** (sem aba, sem `PracticesView`, sem endpoint) até existir a coleta — decisão da
+pessoa. Uma visão com uma sub-aba só não mostra a barra de abas.
 
-Em `npm run dev` há um seletor **simular** (só `import.meta.env.DEV`; inclui "estratégico + admin"). **Sem
-backend/login**: `npm run dev` e abra `/previa/dashboard` (rota só de dev, `DashboardPreviewRoute` em `App.jsx`,
-com as três permissões de dashboard + configuração das integrações). Estado na URL:
-`?escopo=org|<projectId>&visao=individual|equipe|projeto&aba=&sprint=&periodo=30|90|180|365`.
+Estado na URL: `?escopo=org|<projectId>&visao=individual|equipe|projeto&aba=&sprint=&periodo=30|90|180|365`.
+A rota `/previa/dashboard` (só em dev, sem login) não tem mais dado para mostrar — sai no P5 com o resto.
 
 ## Estrutura
 
-- `api.js` — funções com a **assinatura e o payload finais** e o endpoint proposto em comentário. Hoje
-  resolvem os agregadores do mock; para ligar ao backend troque o corpo por `api.get(...)`. Telas e hooks não mudam.
-- `hooks.js` — React Query, `keepPreviousData` (troca de filtro esmaece a tela em vez de piscar esqueleto).
-- `mock/world.js` — registros-base que as integrações gravam (work items, PRs, reviews, commits, issues de bug,
-  uso de IA diário, alocações, fluency, logs de sync). Semente e "agora" fixos (`MOCK_NOW` = 30/09/2026 15h) ⇒
-  determinístico. As duas últimas sprints do usuário "Você" no Portal são roteirizadas (`SCRIPTED`).
-- `mock/enrich.js` — acrescenta, com **semente própria** (os números-base não mudam), os dados que a 1ª versão
-  não usava: tags, área, complexidade, ajuste manual, severidade, motivo, coluna do board, horas restantes,
-  histórico de estados por modelo de processo (com Resolved e reabertura), entrada/saída da sprint, troca de
-  responsável/estimativa, épicos → features → itens e backlog fora de sprint, PRs (rascunho, labels, branch de
-  destino, revisores pedidos), mensagem e autor git dos commits, workspace/máquina e `fluencyMetrics` do uso de
-  IA, identidades, tokens do conector, conexões, execuções de sync, rate limit, repositórios visíveis e
-  configuração dos projetos. `mock/store.js` monta e memoiza o mundo completo.
-- Agregadores — **especificação do cálculo para o backend**, com o id do catálogo
-  (`andromeda-catalogo-dados-integracoes.xlsx`: AZ-/GH-/IA-/CX-) comentado em cada campo:
-  `aggregate.js` (resumos das quatro visões), `practices.js`, `flow.js`, `roadmap.js`, `quality.js`, `integrations.js`.
+- `api.js` — uma função por endpoint (`api.get` do `core/api/client.js`) e um **adaptador por visão** que converte
+  o formato do servidor para o que os widgets leem: timestamps ISO (`asOf`, `…At`) viram ms; durações DS
+  `{p50, p90, n}` ganham o p50 no nome que o widget lê (ex.: `kpis.cycleTimeHours` → `avgCycleTimeHours`; séries
+  em dias → `leadTimeDays`) e o objeto inteiro em `<nome>Ds` (os KPIs mostram "p90 … · n itens" com
+  `fmtDsSpread`); mapas `byModel{}`/`byProject{}` viram uma chave por linha; `repos[].displayName` → `repo`;
+  `vcsLinked` alimenta o `githubLinked` dos widgets (GitHub ou Azure Repos). `dataFreshness` passa intacto.
+  Projetos: `GET /v1/projects` (`member` de `memberIds` × usuário atual, `team: null` — o DTO não tem time);
+  sprints: `GET /v1/projects/{id}/sprints` (`finishDate → endDate`, sem FUTURE, mais recente primeiro).
+- `hooks.js` — React Query, `keepPreviousData` (troca de filtro esmaece a tela em vez de piscar esqueleto);
+  `usePendingAllocations` (`GET /v1/ai/allocations/pending-batches`) para o aviso de alocação.
+- `mock/` — o mundo simulado da prévia. **Nenhum import em `src/`**: só o `scripts/gen-dashboards-v2-fixtures.mjs`
+  o usa para gerar as fixtures dos e2e. Sai no P5.
 - `highlights.js` — leituras automáticas do topo de cada visão/sub-aba (funções puras, limiares nomeados).
-- `kit/` — `Panel` (eyebrow, título, `?` com "como ler", fonte, **Gráfico/Tabela**, `note`, `collect` →
-  etiqueta **"requer coleta nova"**, `experimental`), `CollectNotice` (aviso no topo de uma aba inteira),
-  `Section`, `KpiTile`/`DeltaBadge`, `BarList`/`SegmentBar`/`Meter`/`Legend`, `DataTable`, selos, gráficos Recharts.
+- `kit/` — `Panel` (eyebrow, título, `?` com "como ler", fonte, **Gráfico/Tabela**, `note`, `experimental`),
+  `Section`, `KpiTile`/`DeltaBadge`, `BarList`/`SegmentBar`/`Meter`/`Legend`, `DataTable`, selos (`GradeBadge`
+  traduz `ELITE/HIGH/MEDIUM/LOW`), gráficos Recharts.
 - `catalog.js`, `layout.js`, `DashboardGrid.jsx`, `widgets/` — Resumo personalizável (ver **Personalização**).
 - `views/` — Resumos (montam o grid a partir do catálogo): `IndividualView`, `TeamView`, `ProjectView`,
-  `OrganizationView`. Sub-abas fixas: `PracticesView` (escopo individual/team/org), `TeamFlowView`, `RoadmapView`,
-  `QualityView` (estas três desenham os mesmos widgets do catálogo na grade fixa delas), `IntegrationsView`.
+  `OrganizationView`. Sub-abas fixas: `TeamFlowView`, `RoadmapView`, `QualityView` (desenham os mesmos widgets do
+  catálogo na grade fixa delas), `IntegrationsView`. Cada visão trata erro (`ViewError`: 403/404 explicam, o resto
+  tem "Tentar de novo") e mostra o `ViewRefresh` (`RefreshControl` com o `dataFreshness` da resposta + Atualizar
+  do projeto; na organização/integrações só a data).
+- Paridade com o dashboard antigo (decisão 3): **Atualizar** (`ViewRefresh`; ao concluir invalida
+  `["dashboards-v2"]`), **aviso de alocação de IA pendente** (`components/PendingAllocationsBanner.jsx`, na
+  página, para quem vê o próprio Uso de IA e tem a casca) e o link **"Editar no backlog →"** nos itens da
+  Individual (a edição inline de esforço/complexidade não veio — decisão da pessoa).
 
 ## O que cada visão usa
 
-- **Individual · Resumo** (sprint): burndown pessoal (AZ-081), itens (AZ-037..070, CX-001/002/008), PRs e reviews
-  (GH-032..058, GH-067/068), commits (GH-062), uso de IA (IA-102..105), alocação (IA-106..112), fluency (IA-090..096),
-  histórico (AZ-082, CX-005).
-- **Equipe · Resumo**: velocity/itens/cycle/lead/estimativa (AZ-075..081), envelhecimento vs p85, contribuição por
-  pessoa (CX-006), PRs parados (CX-009), carga de review (GH-048), repositórios (GH-063..066), IA do time (CX-007).
-- **Equipe · Fluxo e qualidade**: fluxo cumulativo e tempo por categoria de estado (AZ-034..036, AZ-062..065),
-  quadro por coluna e horas restantes (AZ-061*), escopo — entrou/saiu/transbordou/estimativa (AZ-066*), trocas de
-  responsável (AZ-066*), fila de review por revisor, rascunhos, branch de destino, labels (GH-045*), bugs por
-  severidade (AZ-061*), reabertura (AZ-062..065).
-- **Práticas de IA** (individual/equipe/org): modos de uso, uso agêntico, linhas por linguagem, edições
-  multi-arquivo, código aplicado, contexto enviado, AGENTS.md/copilot-instructions, ferramentas do agente, MCP,
-  sessões, premium × standard, faixa de custo (IA-019..089*, **experimental**); workspaces e máquinas (IA-010..013);
-  org: por projeto via nome do workspace.
-- **Projeto · Resumo** (período): DORA (CX-013..015; frequência aproximada "estimado"), vazão, previsibilidade,
-  lead × cycle, % de bugs, fluxo de PRs, repositórios, custo de IA atribuído, consumo × assinatura (IA-100), cobertura.
-- **Projeto · Roadmap e backlog**: épicos/features pela hierarquia (AZ-054, AZ-071..073) com previsão pelo ritmo das
-  últimas 8 semanas, backlog (prioridade AZ-043, tags AZ-044, última alteração AZ-060), entregue por tag/área
-  (AZ-046*), calibração esforço/complexidade × cycle time (AZ-047/048/069), ajustes manuais (AZ-049/050).
-- **Projeto · Qualidade**: bugs criados × fechados, abertos por severidade × prioridade*, aging, tempo para corrigir
-  por severidade*, motivo de fechamento (Reason*), reabertura, issues de bug/hotfix (GH-052..055*), tipo dos commits (GH-026).
-- **Organização · Visão geral**: tudo agregado + portfólio com saúde (`healthOf`), IA por modelo/projeto/editor.
-- **Organização · Integrações e identidades**: conexões (AZ-001..008, GH-003..009), pessoas × vínculos (GH-010..015,
-  AZ-022, IA-001..005, IA-018), repositórios visíveis (GH-016, ao vivo) e vínculos (GH-022..024), commits sem usuário
-  (GH-031*), execuções de sync (AZ-083..088, GH-071..076), rate limit (GH-069*), configuração (AZ-011..036, AZ-074,
-  GH-008/009, IA-097..100).
+- **Individual · Resumo** (`/dashboards/individual`): burndown pessoal, itens, PRs e reviews, commits, uso de IA,
+  alocação, fluência, histórico. A pessoa vem sempre do JWT.
+- **Equipe · Resumo** (`/dashboards/team`): velocity/itens/cycle/lead/estimativa, envelhecimento vs p85,
+  contribuição por pessoa, PRs parados, carga de review, repositórios, IA do time (só o custo alocado ao projeto).
+- **Equipe · Fluxo e qualidade** (`/dashboards/team/flow`): fluxo cumulativo com 3 categorias (sem Resolvido),
+  tempo por etapa (mediana), rascunhos/destino/labels dos PRs abertos (só na sprint atual) e reabertura.
+- **Projeto · Resumo** (`/projects/{id}/overview`): DORA do `DeliveryMetricsCalculator` (`method`
+  VCS_PROXY/BOARDS_PROXY/UNAVAILABLE), vazão, previsibilidade, lead × cycle, % de bugs, fluxo de PRs,
+  repositórios, custo de IA atribuído, consumo × assinatura (assinatura null = não configurada), cobertura.
+- **Projeto · Roadmap e backlog** (`/projects/{id}/roadmap`): épicos/features com previsão pelo ritmo de 8
+  semanas, backlog, entregue por tag, calibração esforço/complexidade × cycle time, ajustes manuais.
+- **Projeto · Qualidade** (`/projects/{id}/quality`): KPIs, bugs criados × fechados, bugs abertos há mais tempo
+  (sem severidade), reabertura, tipo dos commits.
+- **Organização · Visão geral** (`/dashboards/organization`): só os projetos com `DASHBOARD_STRATEGIC` de quem
+  chama; portfólio com saúde (`currentSprint` pode vir null), IA por modelo/projeto/editor, integrações.
+- **Organização · Integrações e identidades** (`/dashboards/integrations`): conexões, pessoas × vínculos,
+  repositórios vinculados, commits sem usuário por login do provedor (`byLogin`), execuções de sync
+  (`AZURE_DEVOPS`/`GITHUB`, erro só com código e HTTP).
 
-\* = **requer coleta nova** (hoje "Recebido e ignorado"/"Usado e descartado"): o painel leva a etiqueta e o "como
-ler" diz o que gravar. `fluencyMetrics` exige mudar a spec `ai-usage-upsert` (hoje manda descartar).
-
-Continuam de fora por não terem utilidade de exibição: PAT do GitHub e hash do token do conector (segredos), dono
-do PAT, ID numérico do autor, cache ETag, `datasetId`, `gitHubLogin` da extensão, hash da máquina, metadados
-técnicos de campo (AZ-030/032/033), nome da branch e descrição do PR (só servem para achar o AB#), demais relações
-do item (AZ-055) e commits de um PR (GH-051, já na tela Repositórios). **MTTR** (CX-016) segue fora: não há fonte.
-
-Notas do simulador: o uso de IA não chega por projeto — no projeto/org é atribuído pela divisão diária entre work
-items; na equipe é o uso dos membros nas datas da sprint (CX-007). Item que transbordou de sprint conta como
-concluído na sprint seguinte só para o roadmap (`laterCompletedAt`), porque o mundo simulado não duplica o registro.
+**Fora até existir a coleta** (decisão 4; removidos do catálogo **e** das sub-abas fixas): quadro por coluna,
+horas restantes, trocas de responsável, escopo (entrou/saiu/transbordou), bugs por severidade, fila por revisor,
+entregue por área, matriz e tempo por severidade, motivo de fechamento, issues de bug, rate limit e a
+configuração na aba de integrações. O `scope.atRiskSp` do `/team/flow` fica sem uso até a coleta de escopo (C2).
 
 ## Regras visuais
 
@@ -114,7 +100,7 @@ vale para toda visão que tiver seções no catálogo e desenhar o Resumo com `D
 
 - **O catálogo de cada visão** tem os widgets de todas as sub-abas dela (Equipe: Resumo + Fluxo e qualidade;
   Projeto: Resumo + Roadmap e backlog + Qualidade; Org: Visão geral), menos Práticas de IA e Integrações e
-  identidades. Os de coleta nova levam `collect: true`. O padrão = o Resumo fixo anterior traduzido para tamanhos
+  identidades. Os de coleta nova ficam fora. O padrão = o Resumo fixo anterior traduzido para tamanhos
   (8/4 → G+P, 6/6 → M+M, três iguais → P+P+P, 7/5 → P+G/G+P só quando o lado largo é tabela, senão M+M; coluna
   empilhada = 2º ao lado, 3º embaixo inteiro). Widgets das sub-abas ficam fora do padrão, em seções próprias
   (vazias no padrão) ou nas do Resumo.
@@ -130,11 +116,11 @@ vale para toda visão que tiver seções no catálogo e desenhar o Resumo com `D
 - As perguntas das seções são fixas no catálogo (antes Projeto/Org/Qualidade interpolavam nome e período).
 
 - `catalog.js` — `CATALOG = { sections, widgets }`. Widget: `{ id, viewKey, section, title, sizes, defaultSize,
-  default, collect?, skeletonHeight, aliases, select, Component }`. Ids `<viewKey>.<nome>`
+  default, skeletonHeight, aliases, select, Component }`. Ids `<viewKey>.<nome>`
   (`^[a-z0-9-]+\.[a-z0-9-]+$`), opacos e estáveis — renomear = pôr o antigo em `aliases`. Seções fixas por visão
   (`id` `^[a-z0-9-]+$`, `domId` para a `SectionNav`, `title`, `question`). `select(payload)` tira a fatia do
   payload da visão (widget nunca busca dado); `Component({ data, ctx })` só desenha (`ctx.onNavigate`). Tamanhos
-  P=4, M=6, G=8, I=12; tabela no mínimo G; faixa de KPIs = um widget, I fixo. `collect: true` fica fora do padrão.
+  P=4, M=6, G=8, I=12; tabela no mínimo G; faixa de KPIs = um widget, I fixo.
 - `widgets/<visão>/*.jsx` (`individual`, `equipe`, `projeto`, `org`) — os `Panel` extraídos das views, agrupados
   por seção.
 - `layout.js` (puro) — `resolveLayout(catalog, viewKey, saved, canSee)`: sem layout salvo → padrão; com layout →
@@ -149,10 +135,10 @@ vale para toda visão que tiver seções no catálogo e desenhar o Resumo com `D
   `--s12` (classes estáticas `@min-[…]:col-[span_var(--s6)/…]` — o Tailwind não enxerga classe montada em
   template). Ordem do DOM = ordem visual (sem `dense`). `skeleton` desenha a silhueta do layout com `skeletonHeight`.
   Enquanto o layout salvo não chega, a silhueta é a do padrão.
-- Layouts: `api.js` (`getDashboardLayouts`, `putDashboardLayout`, `deleteDashboardLayout`, contrato D6) roda sobre
-  `mockLayouts` — localStorage `andromeda.dashboards-v2.layouts` (fallback em memória), versão otimista com 409
-  `DASHBOARD_LAYOUT_VERSION_CONFLICT`, validação 422. **Ponto único de troca** comentado em `layoutsBackend` para
-  quando o P2 (`feature/dashboardlayout` no ms) estiver no ar. Hooks em `hooks.js`: `useDashboardLayouts` +
+- Layouts: `api.js` (`getDashboardLayouts`, `putDashboardLayout`, `deleteDashboardLayout`) chama o contrato D6
+  real (`GET /v1/dashboards/layouts`, `PUT`/`DELETE /v1/dashboards/layouts/{viewKey}`): 409
+  `DASHBOARD_LAYOUT_VERSION_CONFLICT` entra no fluxo de conflito abaixo; 422/403/500 viram o toast de erro com
+  Tentar de novo. Hooks em `hooks.js`: `useDashboardLayouts` +
   `layoutFor(data, viewKey)`, `useSaveLayout(viewKey)` (cache otimista na hora, `PUT` com debounce de 600 ms,
   envios encadeados, 409 → relê e reaplica, outro erro desfaz e relê, pendente é enviado ao desmontar) e
   `useResetLayout(viewKey, saver)` (`DELETE` otimista). `saver.cancel()` descarta o PUT pendente e faz o envio em
@@ -167,8 +153,7 @@ vale para toda visão que tiver seções no catálogo e desenhar o Resumo com `D
   `ops.js` (puras) → `save`. `DashboardGrid` desenha `edit/EditGrid.jsx` (`React.lazy` — único módulo que importa o
   dnd-kit, chunk próprio no build) quando está editando; `EditBar.jsx` tem `CustomizeButton` (+ dica de primeiro uso)
   e `FiltersOrEditBar` (troca a barra de filtros pela de edição; < 600 px as ações vão para uma barra fixa embaixo em
-  portal no `body` — `container-type` num ancestral prenderia o `fixed`). `CatalogDrawer.jsx` (sem widgets
-  `collect`), `ActionMenu.jsx` (menu ⋯), `prefs.js` (dica e aviso de novos lembrados por `userId` em localStorage).
+  portal no `body` — `container-type` num ancestral prenderia o `fixed`). `CatalogDrawer.jsx`, `ActionMenu.jsx` (menu ⋯), `prefs.js` (dica e aviso de novos lembrados por `userId` em localStorage).
 - **Decisões do P3b**: arrasto com um `DndContext` para as seções e um por seção (colisões isoladas), setas por
   índice, `strategy` nula, reordenação só ao soltar (ponteiro e teclado), marcador tracejado no `over`, fantasma em
   portal só com moldura e título, **sem animação de soltura** (a ordem muda ao soltar; animar voaria ao lugar
@@ -182,8 +167,8 @@ vale para toda visão que tiver seções no catálogo e desenhar o Resumo com `D
   se reaplicou, senão vazia) e anuncia "O painel foi alterado em outra aba; recarregamos a versão mais recente.".
   Desfazer/Descartar até o padrão (DELETE, que o servidor não versiona) antes relê e só apaga se a versão do
   servidor ainda for a que a aba conhece. Restaurar padrão mostra sucesso só depois do DELETE; falha = toast de erro
-  com Tentar de novo e nada na pilha. O mock aceita falha simulada: `["PUT"]`/`["DELETE"]` em
-  `andromeda.dashboards-v2.layouts-fail` (localStorage) — só para e2e.
+  com Tentar de novo e nada na pilha. Nos e2e, `failLayouts(["PUT"|"DELETE"])` do servidor falso
+  (`e2e/dashboards-v2-api.mjs`) simula a falha.
 - **Contraste**: accent como texto (ou fundo de botão com texto `--bg-deep`) usa `--accent-text` (`tokens.css`,
   ≥ 4,5:1 sobre `--bg`/`--bg-elev`/`--bg-deep` nas três paletas; o `--accent` da light dá 3,15). Bordas de
   controle de edição em `--fg-muted` (≥ 3:1), não `--line-strong`. O contador do catálogo fica na toolbar do
@@ -217,16 +202,24 @@ Spike numa grade de 12 colunas com tamanhos mistos (4/8/6/6/4/4/4/12), `Keyboard
 
 ## Verificação
 
-`e2e/dashboards-v2.spec.js` intercepta `GET /v1/auth/me` com cada conjunto de permissões e verifica as três telas,
-as sub-abas por permissão (inclusive a de integrações) e a prévia sem login. Personalização: grid sem colunas
-sobrando em 390/820/1440 (soma das larguras por linha + gaps = largura da grade, colunas lidas do CSS), sem
-rolagem horizontal, ordem padrão das seções e layout salvo (semeado no localStorage do mock) com id desconhecido —
-para as quatro visões; em Equipe/Projeto o layout salvo também liga widgets das sub-abas (busca da fonte
-secundária) e, na Org, o portfólio continua navegando para o projeto.
-`e2e/dashboards-edit.spec.js`: só teclado (pegar/mover/soltar/Esc com os anúncios), ocultar + desfazer, catálogo,
-tamanhos, menu ⋯ + Ctrl+Z + persistência no reload, restaurar, descartar, celular 390, reduced motion, alvos ≥ 44 px,
-painel vazio, widget novo e dica de primeiro uso; DELETE e PUT falhando, 409 com duas páginas (dos dois lados,
-Desfazer/Descartar não apagam a outra aba), região do Drawer, widget sozinho sem menu, toast e fim da página em
-360, atalho de teclado no celular, contraste medido nas três paletas e a mesma referência de largura em 600–700 px. Os specs do dashboard antigo (e o
-screenshot `shell-dashboard.png` de `screenshots.spec.js`) navegam com `?versao=atual`, então os baselines dele
-não mudam. A v2 ainda não tem baseline visual — gerar com `npm run e2e:docker:update` (só no Docker).
+Os e2e rodam contra **respostas no formato do servidor**: `e2e/dashboards-v2-api.mjs` instala (no contexto do
+navegador) um servidor falso que serve as fixtures de `e2e/fixtures/dashboards-v2/` — geradas uma vez a partir do
+mock por `node scripts/gen-dashboards-v2-fixtures.mjs` (que converte para o contrato: DS, ISO, mapas, notas,
+`byLogin`, sem campos de coleta) — e guarda os layouts em memória com as regras do D6 (409, 422, DELETE
+idempotente; `failLayouts`, `delaySource`/`failSource` para os casos de erro). Duas abas do mesmo contexto
+dividem o servidor (testes de 409). Para mudar dado de teste: altere o mock ou a conversão e rode o script.
+
+`e2e/dashboards-v2.spec.js`: as três telas por permissão, sub-abas (sem Práticas de IA; integrações por
+permissão), adaptador (p90 ao lado do p50, notas DORA, `byModel` em colunas, `byLogin`, `AZURE_DEVOPS`,
+sem "[object Object]"/NaN), sprint passada por deep-link e FUTURE fora do seletor, frescor + aviso de alocação,
+link para o backlog, erro 403/500 da visão; grid sem colunas sobrando em 390/820/1440, ordem padrão e layout salvo
+com id desconhecido nas quatro visões; widgets das sub-abas no Resumo (fonte secundária atrasada ou com erro só
+no próprio cartão) e `equipe.prs-abertos` ligado pelo `/team/flow`.
+`e2e/dashboards-edit.spec.js`: só teclado (pegar/mover/soltar/Esc com os anúncios; a posição do teclado é lógica,
+não geométrica — ver `indexCoordinates` em `edit/EditGrid.jsx`), ocultar + desfazer, catálogo, tamanhos, menu ⋯ +
+Ctrl+Z + persistência no reload, restaurar, descartar, celular 390, reduced motion, alvos ≥ 44 px, painel vazio,
+widget novo e dica de primeiro uso; DELETE e PUT falhando, 409 com duas páginas, região do Drawer, widget sozinho
+sem menu, toast e fim da página em 360, atalho de teclado no celular, contraste nas três paletas, a mesma
+referência de largura em 600–700 px e o Personalizar desabilitado até o layout salvo chegar. Os specs do dashboard
+antigo (e o screenshot `shell-dashboard.png` de `screenshots.spec.js`) navegam com `?versao=atual`, então os
+baselines dele não mudam. A v2 ainda não tem baseline visual — gerar com `npm run e2e:docker:update` (só no Docker).

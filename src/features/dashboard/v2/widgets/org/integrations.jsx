@@ -33,8 +33,9 @@ function ConnectionCard({ name, conn, extra, asOf }) {
       </dl>
       {conn.lastError ? (
         <p className="mono text-fg-muted border-line m-0 mt-3 border-t pt-2 text-[11px] font-normal">
-          Último erro {fmtAgo(conn.lastError.at, asOf)}:{" "}
-          <span className="text-warn">{conn.lastError.code}</span> — {conn.lastError.message}
+          Último erro{conn.lastError.at ? ` ${fmtAgo(conn.lastError.at, asOf)}` : ""}:{" "}
+          <span className="text-warn">{conn.lastError.code}</span>
+          {conn.lastError.message ? ` — ${conn.lastError.message}` : ""}
         </p>
       ) : null}
     </div>
@@ -60,8 +61,8 @@ export function AiConnectorWidget({ data }) {
       conn={{ status: "CONNECTED", lastSuccessAt: ai.lastUploadAt }}
       extra={
         <>
-          <dt className="mono text-fg-dim font-normal">Tokens ativos</dt>
-          <dd className="mono text-fg m-0 text-right">{ai.activeTokens}</dd>
+          <dt className="mono text-fg-dim font-normal">Tokens ativos na organização</dt>
+          <dd className="mono text-fg m-0 text-right">{ai.activeTokens ?? "—"}</dd>
         </>
       }
     />

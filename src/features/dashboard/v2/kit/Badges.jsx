@@ -80,7 +80,9 @@ export function PrPill({ status, stale }) {
   );
 }
 
-const GRADE_TONE = { Elite: "good", Alto: "good", Médio: "warn", Baixo: "bad" };
+/* notas DORA do servidor (DeliveryMetricsCalculator) */
+const GRADE_TONE = { ELITE: "good", HIGH: "good", MEDIUM: "warn", LOW: "bad" };
+export const GRADE_LABEL = { ELITE: "Elite", HIGH: "Alto", MEDIUM: "Médio", LOW: "Baixo" };
 export function GradeBadge({ grade, estimated }) {
   if (!grade) return null;
   const tone = GRADE_TONE[grade];
@@ -94,7 +96,7 @@ export function GradeBadge({ grade, estimated }) {
       <span
         className={`mono rounded-full border px-2 py-0.5 text-[11px] tracking-[0.06em] uppercase ${cls}`}
       >
-        {grade}
+        {GRADE_LABEL[grade] ?? grade}
       </span>
       {estimated ? (
         <span

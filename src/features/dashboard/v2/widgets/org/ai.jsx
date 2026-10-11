@@ -73,7 +73,7 @@ export function AiCostByProjectWidget({ data }) {
       info="O uso de IA não chega por projeto: ele é atribuído quando cada dia de uso é dividido entre work items. O que não foi dividido (dias sem item em andamento) aparece como não alocado."
     >
       <BarList
-        rows={rows.map((c) => ({
+        rows={(rows || []).map((c) => ({
           key: c.projectId ?? "none",
           label: c.projectId ? c.name : <span className="text-fg-muted">{c.name}</span>,
           value: c.costUsd,
