@@ -88,13 +88,15 @@ export function resolveLayout(catalog, viewKey, saved, canSee = () => true) {
   }
 
   const defById = new Map(sectionDefs.map((d) => [d.id, d]));
-  const savedSections = (saved.sections || []).filter((s) => defById.has(s?.id));
+  const savedSections = (Array.isArray(saved.sections) ? saved.sections : []).filter((s) =>
+    defById.has(s?.id),
+  );
   const order = [...new Set([...savedSections.map((s) => s.id), ...sectionDefs.map((d) => d.id)])];
   const collapsed = new Map(savedSections.map((s) => [s.id, !!s.collapsed]));
   const placedBySection = new Map(order.map((id) => [id, []]));
   const seen = new Set();
   /* widgets de seção desconhecida (renomeada) também valem: a seção do catálogo decide */
-  for (const s of saved.sections || []) {
+  for (const s of (Array.isArray(saved.sections) ? saved.sections : []).filter(Boolean)) {
     for (const w of s.widgets || []) {
       const entry = byId.get(w?.id);
       if (!entry || seen.has(entry.id)) continue;
