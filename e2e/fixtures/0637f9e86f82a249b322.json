@@ -1,6 +1,0 @@
-{
-  "request": "GET /api/v1/ai/sprint-items",
-  "status": 200,
-  "contentType": "application/json",
-  "body": "[]"
-}

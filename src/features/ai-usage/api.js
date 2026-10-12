@@ -91,13 +91,6 @@ export function getAiAllocationHistory(params) {
 }
 
 /**
- * Fetch current sprint work items for the allocation modal.
- */
-export function getSprintItems() {
-  return api.get("/v1/ai/sprint-items");
-}
-
-/**
  * Fetch team members for the manager selector.
  */
 export function getTeamMembers() {

@@ -2,6 +2,17 @@ import React from "react";
 import ReactDOM from "react-dom/client";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import App from "./App.jsx";
+/* Fontes servidas pelo próprio app (antes vinham do Google Fonts pela rede): mesmas
+ * famílias e pesos de antes — DM Serif Display 400 normal e itálico, JetBrains Mono
+ * 300–800 — com todos os subconjuntos (unicode-range) e font-display: swap. */
+import "@fontsource/dm-serif-display/400.css";
+import "@fontsource/dm-serif-display/400-italic.css";
+import "@fontsource/jetbrains-mono/300.css";
+import "@fontsource/jetbrains-mono/400.css";
+import "@fontsource/jetbrains-mono/500.css";
+import "@fontsource/jetbrains-mono/600.css";
+import "@fontsource/jetbrains-mono/700.css";
+import "@fontsource/jetbrains-mono/800.css";
 import "./styles/globals.css";
 
 // Estado de servidor vive aqui, não em useState de componente (frontend-server-state).

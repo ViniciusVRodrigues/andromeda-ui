@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { loginAsAdmin, gotoSection, shot } from "./auth.mjs";
+import { installDashboardsApi } from "./dashboards-v2-api.mjs";
 
 // Baseline visual pré-refactor (frontend-foundation, spec frontend-tooling-baseline).
 // Cobertura: público (landing/login/signup) + casca admin autenticada nas seções
@@ -47,6 +48,11 @@ test.describe("casca autenticada (admin)", () => {
   for (const section of SECTIONS) {
     test(section, async ({ page }) => {
       const { orgSlug } = await loginAsAdmin(page);
+      /* o replay não tem as respostas de /v1/dashboards/*: o servidor falso dos
+       * dashboards responde por elas e deixa o resto (o /me do admin, a casca) com o
+       * replay. O admin tem DASHBOARD_STRATEGIC e não participa dos projetos das
+       * fixtures, então abre a visão geral da organização. */
+      if (section === "dashboard") await installDashboardsApi(page, { passthrough: true });
       await gotoSection(page, orgSlug, section);
       await shot(page, `shell-${section.replace(/\//g, "-")}`);
     });

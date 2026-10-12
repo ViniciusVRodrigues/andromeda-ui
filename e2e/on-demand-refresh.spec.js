@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { loginAsAdmin, gotoSection, FIXED_NOW } from "./auth.mjs";
-import { DEVELOPER_FIXTURE } from "./fixtures/dashboard-rich.mjs";
+import { gotoDashboard, installDashboardsApi, readFixture } from "./dashboards-v2-api.mjs";
 
 /* Refresh sob demanda (on-demand-refresh, 10.7).
  *
@@ -25,11 +25,20 @@ function json(route, body, status = 200, headers = {}) {
   });
 }
 
-/** Dashboard individual com frescura controlada pelo teste. */
-async function mockDeveloperDashboard(page, freshness) {
-  await page.route("**/api/v1/dashboard/developer**", (route) =>
-    json(route, { ...DEVELOPER_FIXTURE, dataFreshness: freshness() }),
+/** Dashboard individual (servidor falso dos dashboards) com a frescura controlada pelo
+ * teste. AZURE_READ libera o Atualizar do projeto (refresh exige AZURE_READ ou REPOS_READ). */
+async function openDashboard(page, freshness) {
+  await page.clock.setFixedTime(FIXED_NOW);
+  await page.route("**/api/v1/dashboards/individual**", (route) =>
+    json(route, {
+      ...readFixture("individual__p-portal__p-portal-s27"),
+      dataFreshness: freshness(),
+    }),
   );
+  await installDashboardsApi(page, {
+    permissions: ["DASHBOARD_INDIVIDUAL", "AZURE_READ", "PROJECT_MANAGE"],
+  });
+  await gotoDashboard(page);
 }
 
 function binding(id, integration, status, extra = {}) {
@@ -37,10 +46,7 @@ function binding(id, integration, status, extra = {}) {
 }
 
 test("dashboard: Atualizar mostra o progresso e recarrega ao concluir", async ({ page }) => {
-  const { orgSlug } = await loginAsAdmin(page);
-
   let oldestSyncAt = STALE;
-  await mockDeveloperDashboard(page, () => ({ oldestSyncAt, refreshRunning: false }));
 
   let posts = 0;
   await page.route("**/api/v1/projects/*/refresh", (route) => {
@@ -73,7 +79,7 @@ test("dashboard: Atualizar mostra o progresso e recarrega ao concluir", async ({
     });
   });
 
-  await gotoSection(page, orgSlug, "dashboard");
+  await openDashboard(page, () => ({ oldestSyncAt, refreshRunning: false }));
   const control = page.getByTestId("refresh-control");
   await expect(control).toContainText("Atualizado há 3 dias");
 
@@ -92,8 +98,6 @@ test("dashboard: Atualizar mostra o progresso e recarrega ao concluir", async ({
 });
 
 test("dashboard: refresh PARCIAL mostra o erro de cada vínculo", async ({ page }) => {
-  const { orgSlug } = await loginAsAdmin(page);
-  await mockDeveloperDashboard(page, () => ({ oldestSyncAt: STALE, refreshRunning: false }));
   await page.route("**/api/v1/projects/*/refresh", (route) =>
     json(route, { syncId: "sync-2" }, 202),
   );
@@ -113,7 +117,7 @@ test("dashboard: refresh PARCIAL mostra o erro de cada vínculo", async ({ page 
     }),
   );
 
-  await gotoSection(page, orgSlug, "dashboard");
+  await openDashboard(page, () => ({ oldestSyncAt: STALE, refreshRunning: false }));
   const control = page.getByTestId("refresh-control");
   await control.getByRole("button", { name: /atualizar/i }).click();
 
@@ -125,13 +129,11 @@ test("dashboard: refresh PARCIAL mostra o erro de cada vínculo", async ({ page 
 });
 
 test("dashboard: 429 vira contagem regressiva do Retry-After", async ({ page }) => {
-  const { orgSlug } = await loginAsAdmin(page);
-  await mockDeveloperDashboard(page, () => ({ oldestSyncAt: STALE, refreshRunning: false }));
   await page.route("**/api/v1/projects/*/refresh", (route) =>
     json(route, { code: "SYNC_COOLDOWN" }, 429, { "Retry-After": "12" }),
   );
 
-  await gotoSection(page, orgSlug, "dashboard");
+  await openDashboard(page, () => ({ oldestSyncAt: STALE, refreshRunning: false }));
   const control = page.getByTestId("refresh-control");
   await control.getByRole("button", { name: /atualizar/i }).click();
 

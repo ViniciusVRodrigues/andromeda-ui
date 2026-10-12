@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { loginAsAdmin } from "./auth.mjs";
+import { DASH_NOW, gotoDashboard, installDashboardsApi } from "./dashboards-v2-api.mjs";
 
 async function setup(page) {
   const { orgSlug } = await loginAsAdmin(page);
@@ -111,6 +112,11 @@ test("AI table filters, nested work item edit and allocation refresh", async ({ 
     page.getByRole("button", { name: "Corrigir sincronização", exact: true }),
   ).toBeFocused();
   await page.getByRole("button", { name: "Alocar consumo", exact: true }).click();
+  /* modal de alocação: total do dia em milhões de tokens (o baseline dele vinha do
+   * dashboard antigo; o modal vive no Uso de IA desde a troca dos dashboards) */
+  const allocation = page.getByRole("dialog").filter({ hasText: "Distribua os" });
+  await expect(allocation).toContainText("Distribua os 0,012M tokens deste dia");
+  await expect(allocation).toHaveScreenshot("allocation-modal.png");
   await page.getByRole("button", { name: "Confirmar alocação →" }).click();
   await expect(page.getByRole("dialog")).toContainText("Work items alocados");
   await expect(page.getByRole("dialog")).toContainText("Alocado");
@@ -165,85 +171,32 @@ test("AI loading failures are explicit and retryable", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Ver uso de 30/08/2026" })).toBeVisible();
 });
 
+/* Dashboard individual (migrado para o dashboard novo na troca, dashboards-customizaveis
+ * P5): cada PR da sprint aponta o work item ligado e o tempo até a 1ª review, e as
+ * reviews que a pessoa fez aparecem ao lado. O dashboard novo não abre o modal do work
+ * item — a edição fica no Backlog (link "Editar no backlog →", em dashboards-v2.spec.js). */
 test("individual dashboard links sprint work to GitHub review context", async ({ page }) => {
-  const slug = await setup(page);
-  const item = {
-    id: "wi-1",
-    title: "Corrigir sincronização",
-    externalId: "101",
-    type: "STORY",
-    resolvedStatus: "IN_PROGRESS",
-    effort: 3,
-    storyPoints: 3,
-  };
-  await page.route("**/api/v1/dashboard/developer**", (route) =>
-    route.fulfill({
-      json: {
-        currentSprintItems: [item],
-        inProgressItems: [item],
-        totalSprintItems: 1,
-        totalSpInSprint: 3,
-        storyPointsDelivered: 0,
-        tokensByDay: [],
-        sprintHistory: [],
-        openPrs: 1,
-        mergedPrs: 0,
-        cycleTime: { p50: null, p90: null, n: 0 },
-        leadTime: { p50: null, p90: null, n: 0 },
-        sprintContext: {
-          sprintId: "s-1",
-          sprintName: "Sprint 25",
-          startDate: "2026-08-20",
-          endDate: "2026-08-31",
-          avgTimeToFirstReviewHours: 2.5,
-          avgPrCycleTimeHours: null,
-          reviewedPrs: 1,
-          review: {
-            timeToFirstReview: { p50: 2.5, p90: 2.5, n: 1 },
-            timeToFirstApproval: { p50: null, p90: null, n: 0 },
-            reviewedWithinSlaPercent: 100,
-            eligiblePrs: 1,
-            slaHours: 24,
-          },
-          prCycleTime: { p50: null, p90: null, n: 0 },
-          pullRequests: [
-            {
-              id: "pr-1",
-              number: 42,
-              title: "Corrigir sync",
-              status: "OPEN",
-              timeToFirstReviewHours: 2.5,
-              linkedWorkItemExternalId: "101",
-            },
-          ],
-        },
-      },
-    }),
-  );
-  await page.goto(`/${slug}/dashboard`);
-  await expect(page.getByRole("heading", { name: "Minha sprint" })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Meus pull requests" })).toBeVisible();
-  const review = page.getByTestId("review-stats");
-  await expect(review).toContainText("Até a 1ª review");
-  await expect(review).toContainText("2.5");
-  await expect(review).toContainText("Revisados em 24h");
-  await expect(review).toContainText("1 PRs elegíveis");
-  await page.getByRole("button", { name: "Work item #101 · Corrigir sincronização" }).click();
-  await expect(page.getByRole("dialog")).toContainText("Sprint 25");
-  await page.keyboard.press("Escape");
+  await page.clock.setFixedTime(DASH_NOW);
+  await installDashboardsApi(page, { permissions: ["DASHBOARD_INDIVIDUAL", "PROJECT_MANAGE"] });
+  await gotoDashboard(page);
+  await expect(page.getByRole("heading", { name: "Meu trabalho", level: 2 })).toBeVisible();
 
-  // o cartao INTEIRO abre o modal: clica numa borda vazia, longe do titulo —
-  // antes so o texto do titulo era clicavel.
-  const card = page.getByRole("article").filter({ hasText: "Corrigir sincronização" }).first();
-  // o card de PRs (review) cresceu e empurrou a tabela para fora da dobra:
-  // mouse.click por coordenada não rola sozinho.
-  await card.scrollIntoViewIfNeeded();
-  const box = await card.boundingBox();
-  await page.mouse.click(box.x + box.width - 12, box.y + box.height - 10);
-  await expect(page.getByRole("dialog")).toBeVisible();
-  await page.keyboard.press("Escape");
-  await expect(page.getByRole("dialog")).toHaveCount(0);
+  const prs = page.locator("[data-widget-id='individual.prs']");
+  await expect(prs.getByRole("heading", { name: "Meus PRs na sprint" })).toBeVisible();
+  const pr = prs.getByRole("row").filter({ hasText: "feat: histórico de alterações" });
+  await expect(pr).toContainText("#338 · portal-api · item #4741");
+  await expect(pr).toContainText("2,7 h");
+  /* o mesmo PR aparece no item da sprint */
+  const item = page
+    .locator("[data-widget-id='individual.itens']")
+    .getByRole("row")
+    .filter({ hasText: "Histórico de alterações em área do cliente" });
+  await expect(item).toContainText("#338");
 
-  await page.getByRole("heading", { name: "Minha sprint" }).scrollIntoViewIfNeeded();
-  await expect(page).toHaveScreenshot("individual-sprint-context.png");
+  const reviews = page.locator("[data-widget-id='individual.reviews']");
+  await expect(reviews).toContainText("7");
+  await expect(reviews).toContainText("Pediu mudanças");
+
+  await prs.scrollIntoViewIfNeeded();
+  await expect(prs).toHaveScreenshot("dashboard-individual-prs.png");
 });

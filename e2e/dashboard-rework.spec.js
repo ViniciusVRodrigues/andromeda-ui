@@ -1,153 +1,49 @@
 import { test, expect } from "@playwright/test";
-import { loginAsAdmin } from "./auth.mjs";
+import { DASH_NOW, gotoDashboard, installDashboardsApi } from "./dashboards-v2-api.mjs";
 
-/* Verifica o REWORK da dashboard individual com um payload rico, interceptando
- * apenas GET /v1/dashboard/developer (login/me seguem pelo replay). Sem isto o
- * baseline da org seed (estado vazio) não exercita velocity, insights, deltas,
- * badges de tipo nem outliers — as features novas passariam sem nenhum teste. */
+/* Dashboard individual com dados (era o REWORK do dashboard antigo; migrado para o
+ * dashboard novo na troca, dashboards-customizaveis P5). O que continua protegido:
+ * leituras automáticas que citam os números, KPIs com a mediana + p90/n e a variação
+ * contra a sprint anterior, itens identificados por tipo + id externo e a comparação
+ * entre sprints. O servidor falso responde com as fixtures de e2e/fixtures/dashboards-v2
+ * (Portal do Cliente, Sprint 27, pessoa u-1). */
 
-const FIXTURE = {
-  currentSprintItems: [
-    {
-      id: "wi-1",
-      title: "Relacionar PR ao work item",
-      resolvedStatus: "DONE",
-      storyPoints: 5,
-      complexity: 5,
-      effort: 5,
-      cycleTimeHours: 8,
-      leadTimeHours: 20,
-      tokensPerSp: 1200,
-      type: "STORY",
-      externalId: "AZDO-101",
-    },
-    {
-      id: "wi-2",
-      title: "Tratar rate limit da API",
-      resolvedStatus: "IN_PROGRESS",
-      storyPoints: 8,
-      complexity: 8,
-      effort: 8,
-      cycleTimeHours: 21,
-      leadTimeHours: 30,
-      tokensPerSp: 4000,
-      type: "BUG",
-      externalId: "AZDO-102",
-    },
-    {
-      id: "wi-3",
-      title: "Calcular velocity por sprint",
-      resolvedStatus: "TODO",
-      storyPoints: 11,
-      complexity: 3,
-      effort: 11,
-      cycleTimeHours: null,
-      leadTimeHours: null,
-      tokensPerSp: null,
-      type: "TASK",
-      externalId: "AZDO-103",
-    },
-  ],
-  avgCycleTimeHours: 10,
-  avgLeadTimeHours: 25,
-  cycleTime: { p50: 10, p90: 21, n: 2 },
-  leadTime: { p50: 25, p90: 30, n: 2 },
-  storyPointsDelivered: 5,
-  totalSpInSprint: 24,
-  tokensByDay: [
-    { day: "2026-08-31", inputTokens: 5000, outputTokens: 2000, interactions: 10, costUsd: 0.42 },
-    { day: "2026-09-01", inputTokens: 8000, outputTokens: 3000, interactions: 14, costUsd: 0.58 },
-  ],
-  sprintCostUsd: 1.0,
-  avgTokensPerSp: 1500,
-  openPrs: 2,
-  mergedPrs: 3,
-  inProgressItems: [
-    {
-      id: "wi-2",
-      title: "Tratar rate limit da API",
-      type: "BUG",
-      storyPoints: 8,
-      externalId: "AZDO-102",
-    },
-  ],
-  totalSprintItems: 3,
-  burndownSeries: [
-    { date: "2026-08-31", remainingSp: 24, idealSp: 12 },
-    { date: "2026-09-01", remainingSp: 19, idealSp: 24 },
-  ],
-  aiSprintSummary: { totalTokens: 18000, totalCostUsd: 1.0, unallocatedDaysCount: 0 },
-  aiCostByWorkItemId: { "wi-1": 0.3, "wi-2": 0.7 },
-  subscriptionCostPerUserUsd: null,
-  sprintHistory: [
-    {
-      sprintId: "s-24",
-      name: "Sprint 24",
-      startDate: "2026-08-17",
-      endDate: "2026-08-30",
-      spPlanned: 20,
-      spDelivered: 10,
-      avgCycleTimeHours: 12,
-      cycleTimeP50: 12,
-      totalTokens: 9000,
-      totalCostUsd: 0.72,
-    },
-    {
-      sprintId: "s-25",
-      name: "Sprint 25",
-      startDate: "2026-08-31",
-      endDate: "2026-09-13",
-      spPlanned: 24,
-      spDelivered: 5,
-      avgCycleTimeHours: 10,
-      cycleTimeP50: 10,
-      totalTokens: 18000,
-      totalCostUsd: 1.0,
-    },
-  ],
-};
-
-test("rework: velocity, insights, deltas, type badges e outliers renderizam com dados", async ({
+test("individual: destaques com números, KPIs com p90 e variação, itens com tipo e histórico entre sprints", async ({
   page,
 }) => {
-  const { orgSlug } = await loginAsAdmin(page);
-  // registrado depois do installApiLayer → tem precedência sobre o replay
-  await page.route("**/v1/dashboard/developer**", (route) =>
-    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(FIXTURE) }),
-  );
-
-  await page.goto(`/${orgSlug}/dashboard`);
-  await page.waitForLoadState("networkidle");
-
-  // badge de tipo + externalId no card de work item
-  await expect(page.getByText("AZDO-102").first()).toBeVisible();
-  await expect(page.getByText("BUG", { exact: true }).first()).toBeVisible();
-
-  await page.getByText("Evolução e comparação entre sprints", { exact: true }).click();
-
-  // comparação entre sprints — o VelocityCard deu lugar ao gráfico composto
-  // "Entrega × Esforço × IA" (dashboard-effort-ai-comparison); nome da sprint
-  // anterior aparece no eixo
-  await expect(page.getByText("Entrega × Esforço × IA").first()).toBeVisible();
-  await expect(page.getByText("Sprint 24").first()).toBeVisible();
-
-  // insight determinístico: wi-2 cycle 21h = 2,1× a mediana de 10h → desvio
-  await expect(page.getByText(/2,1× a mediana/).first()).toBeVisible();
-  // custo: wi-2 = 0,70 de 1,00 total → 70% (concentração, k=1 singular)
-  await expect(page.getByText(/concentra 70% do custo/).first()).toBeVisible();
-
-  // KPI delta vs sprint anterior (cycle p50 10 vs 12 = ▼17%, bom → verde)
-  await expect(page.getByTestId("duration-stat").first().locator("text=▼")).toBeVisible();
-  // a mediana é rotulada como tal, com p90 e amostra no detalhe
-  await expect(page.getByTestId("duration-stat").first()).toContainText("mediana");
-  await expect(page.getByTestId("duration-stat").first()).toContainText("p90 21.0 h · n 2");
-
-  // outlier de cycle no card do item — sob o rotulo "Ciclo", o "x" basta
-  await expect(page.getByText(/2,1×/).first()).toBeVisible();
-
-  // trava o visual populado do rework (baseline novo, intencional)
-  await expect(page).toHaveScreenshot("dashboard-individual-rework.png", {
-    fullPage: true,
-    maxDiffPixelRatio: 0.02,
+  await page.clock.setFixedTime(DASH_NOW);
+  await installDashboardsApi(page, {
+    permissions: ["DASHBOARD_INDIVIDUAL", "AI_READ_OWN", "PROJECT_MANAGE"],
   });
+  await gotoDashboard(page);
+  await expect(page.getByRole("heading", { name: "Resumo da sprint" })).toBeVisible();
+
+  /* leitura determinística (highlights.js): cita o percentual, o tempo corrido e o que falta */
+  await expect(
+    page.getByText(/Você entregou 47% dos pontos com 80% da sprint corrida — faltam 8 SP/),
+  ).toBeVisible();
+
+  /* a mediana é rotulada como tal, com p90 e amostra; variação vs a sprint anterior */
+  const kpis = page.getByRole("list", { name: "Indicadores pessoais da sprint" });
+  const cycle = kpis.getByRole("listitem").filter({ hasText: "Cycle time (mediana)" });
+  await expect(cycle).toContainText("1,9 d");
+  await expect(cycle).toContainText("p90 3,4 d · 6 itens");
+  await expect(cycle).toContainText("10%");
+  await expect(cycle).toContainText("vs sprint anterior");
+
+  /* trava o visual do topo do dashboard individual (destaques, faixa da sprint e KPIs) */
+  await page.waitForLoadState("networkidle");
+  await expect(page).toHaveScreenshot("dashboard-individual.png");
+
+  /* item identificado por tipo + id externo na tabela dos itens da sprint */
+  const items = page.locator("[data-widget-id='individual.itens']");
+  const bug = items.getByRole("row").filter({ hasText: "Corrigir timeout em checkout" });
+  await expect(bug).toContainText(/bug/i);
+  await expect(bug).toContainText("#4740");
+
+  /* comparação entre sprints: a tabela do "Planejado × entregue" traz as sprints anteriores */
+  const history = page.locator("[data-widget-id='individual.planejado-entregue']");
+  await history.getByRole("button", { name: "Tabela" }).click();
+  await expect(history.getByRole("cell", { name: "Sprint 26" })).toBeVisible();
+  await expect(history.getByRole("cell", { name: "Sprint 22" })).toBeVisible();
 });

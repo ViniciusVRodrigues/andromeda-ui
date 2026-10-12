@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { loginAsAdmin, gotoSection } from "./auth.mjs";
-import { DEVELOPER_FIXTURE, TEAM_FIXTURE } from "./fixtures/dashboard-rich.mjs";
+import { gotoDashboard, installDashboardsApi } from "./dashboards-v2-api.mjs";
 
 /* Permissões com escopo por projeto (project-scoped-permissions, 9.6).
  *
@@ -88,33 +88,47 @@ async function asScopedManager(page, projectPermissions, extraOrgCodes = []) {
   return loginAsAdmin(page);
 }
 
+/* Dashboard (migrado para o dashboard novo na troca, dashboards-customizaveis P5): a
+ * visão Equipe vale por projeto (`canOnProject`). Servidor falso de dashboards-v2-api.mjs:
+ * a pessoa u-1 é membro de Portal do Cliente e App Mobile. */
 test("dashboard: trocar de projeto esconde a aba Equipe sem DASHBOARD_TEAM", async ({ page }) => {
-  const { orgSlug } = await asScopedManager(page, {
-    [P_A]: ["DASHBOARD_TEAM", "REPOS_READ", "AZURE_READ"],
-    [P_B]: ["REPOS_READ"],
+  const orgPermissions = ["DASHBOARD_INDIVIDUAL", "USER_MANAGE"];
+  await installDashboardsApi(page, {
+    me: {
+      permissions: orgPermissions,
+      orgPermissions,
+      projectPermissions: {
+        "p-portal": ["DASHBOARD_TEAM", "REPOS_READ", "AZURE_READ"],
+        "p-mobile": ["REPOS_READ"],
+      },
+    },
   });
-  await page.route("**/api/v1/dashboard/developer**", (route) => json(route, DEVELOPER_FIXTURE));
-  await page.route("**/api/v1/dashboard/team**", (route) => json(route, TEAM_FIXTURE));
-  await page.route("**/api/v1/projects/*/sprints", (route) => json(route, []));
+  await gotoDashboard(page);
+  const scope = page.getByRole("combobox", { name: "Escopo do dashboard" });
+  const views = page.getByRole("radiogroup", { name: "Visão" });
 
-  await gotoSection(page, orgSlug, "dashboard");
-  const tabs = page.getByRole("tablist", { name: "Tipo de dashboard" });
-  const projectSelect = page.locator("#dash-filters-panel").getByLabel("Projeto");
+  /* Portal do Cliente (com DASHBOARD_TEAM) é o primeiro: a visão Equipe existe */
+  await expect(scope).toContainText("Portal do Cliente");
+  await expect(views.getByRole("radio", { name: "Equipe" })).toBeVisible();
 
-  // Projeto Atlas (com DASHBOARD_TEAM) selecionado por padrão: a aba existe.
-  await expect(projectSelect).toHaveValue(P_A);
-  await expect(tabs.getByRole("tab", { name: "Equipe" })).toBeVisible();
+  /* App Mobile não tem DASHBOARD_TEAM: sobra só a Individual (sem seletor de visão) */
+  await scope.click();
+  await page.getByRole("option", { name: /App Mobile/ }).click();
+  await expect(page).toHaveURL(/escopo=p-mobile/);
+  await expect(views).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Resumo da sprint" })).toBeVisible();
 
-  // Boreal não tem DASHBOARD_TEAM: a aba some.
-  await projectSelect.selectOption(P_B);
-  await expect(tabs.getByRole("tab", { name: "Equipe" })).toHaveCount(0);
+  /* de volta ao Portal: a Equipe volta e abre */
+  await scope.click();
+  await page.getByRole("option", { name: /Portal do Cliente/ }).click();
+  await views.getByRole("radio", { name: "Equipe" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Contribuição por pessoa na sprint" }),
+  ).toBeVisible();
 
-  // De volta ao Atlas: a aba volta e o seletor da Equipe só lista projetos com o código.
-  await projectSelect.selectOption(P_A);
-  await tabs.getByRole("tab", { name: "Equipe" }).click();
-  const teamSelect = page.locator("#dash-filters-panel").getByLabel("Projeto");
-  await expect(teamSelect).toHaveValue(P_A);
-  await expect(teamSelect.locator("option", { hasText: "Projeto Boreal" })).toHaveCount(0);
+  /* projeto sem participação nem código de equipe/estratégico não entra no escopo */
+  await scope.click();
+  await expect(page.getByRole("option", { name: /Pagamentos/ })).toHaveCount(0);
 });
 
 test("pessoas: override por projeto é salvo e códigos não possuídos ficam bloqueados", async ({

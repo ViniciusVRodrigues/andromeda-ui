@@ -20,12 +20,33 @@
   --accent: #c68b66;
   --accent-deep: #a66647;
   --accent-soft: #f4e3c9;
+  /* accent como TEXTO (ou fundo com texto --bg-deep): ≥ 4,5:1 sobre --bg, --bg-elev e --bg-deep */
+  --accent-text: #c68b66;
   --warn: #e2a87a;
   --good: #8fb39a;
   --bad: #c97a6d;
+  /* status como TEXTO (e borda de selo): ≥ 4,5:1 sobre --bg, --bg-elev e --bg-deep.
+   * No default e no mono os de base já passam (≥ 4,9); a light escurece. */
+  --warn-text: var(--warn);
+  --good-text: var(--good);
+  --bad-text: var(--bad);
   --shadow-soft: 0 30px 80px -40px rgba(0, 0, 0, 0.6);
   --radius: 14px;
   --radius-sm: 8px;
+
+  /* séries categóricas de gráfico (identidade: modelo, projeto, tipo…). Ordem fixa,
+   * nunca ciclada; validada (scripts do skill dataviz) contra --bg-elev: banda de
+   * luminosidade, croma, separação CVD e contraste ≥ 3:1. Status (bom/ruim) continua
+   * em --good/--warn/--bad — série nunca usa cor de status. A paleta mono herda
+   * estes valores DE PROPÓSITO (decidido no P4b de dashboards-customizaveis): o dado é
+   * a única coisa colorida na tela monocromática; a legenda com texto (≥ 2 séries) e a
+   * alternância Gráfico/Tabela garantem que nada dependa só de cor. Cinzas não serviriam:
+   * só 4 tons passam de 3:1 sobre o --bg-elev do mono e o 5º ficaria em 3,2:1. */
+  --series-1: #c47a4a;
+  --series-2: #3987e5;
+  --series-3: #199e70;
+  --series-4: #9085e9;
+  --series-5: #d55181;
 }
 
 :root[data-palette="mono"] {
@@ -40,6 +61,7 @@
   --accent: #ffffff;
   --accent-deep: #d4d4d4;
   --accent-soft: #ffffff;
+  --accent-text: #ffffff;
   --warn: #e0e0e0;
   --good: #c8c8c8;
   --bad: #a8a8a8;
@@ -58,10 +80,20 @@
   --accent: #a66647;
   --accent-deep: #7e4628;
   --accent-soft: #2b2418;
+  --accent-text: #7e4628;
   --warn: #b8723e;
   --good: #5a7c5e;
   --bad: #b85a4e;
+  /* os de base dão 2,97/3,65/3,55 sobre --bg-elev; estes ≥ 4,8 sobre bg/elev/deep */
+  --warn-text: #874a1c;
+  --good-text: #3f5f44;
+  --bad-text: #8f3a2f;
   --shadow-soft: 0 30px 80px -40px rgba(80, 50, 20, 0.25);
+  --series-1: #a65a32;
+  --series-2: #2a78d6;
+  --series-3: #1b8f64;
+  --series-4: #6a5bd0;
+  --series-5: #c94f7f;
 }
 
 * {

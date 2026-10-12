@@ -28,7 +28,7 @@ import { LoginScreen } from "./features/auth/LoginScreen.jsx";
 import { ForgotPasswordScreen } from "./features/auth/ForgotPasswordScreen.jsx";
 import { ResetPasswordScreen } from "./features/auth/ResetPasswordScreen.jsx";
 import { OnboardingScreen } from "./features/onboarding/OnboardingScreen.jsx";
-import { DashboardPage } from "./features/dashboard/DashboardPage.jsx";
+import { DashboardsPage } from "./features/dashboard/v2/DashboardsPage.jsx";
 import { BacklogPage } from "./features/backlog/BacklogPage.jsx";
 import { ReposPage } from "./features/repos/ReposPage.jsx";
 import { ProfilePage } from "./features/profile/ProfilePage.jsx";
@@ -335,8 +335,8 @@ function ShellGate({ identity, profile }) {
     if (section !== "dashboard")
       return <Navigate to={orgRoute(sessionSlug, "dashboard")} replace />;
     return (
-      <div className="dash-only">
-        <DashboardPageWithLogout />
+      <div className="dash-only overflow-x-clip">
+        <DashboardOnly />
       </div>
     );
   }
@@ -442,14 +442,14 @@ function SectionContent() {
   );
 }
 
-/* Rota do dashboard (admin): wrapper fino — dash/onNavigate do contexto+navegador,
- * idêntico ao que o monólito passava. */
+/* Rota do dashboard (com a casca): wrapper fino — onNavigate do contexto+navegador. */
 function DashboardRoute() {
   const navigate = useNavigate();
-  const { dash, orgSlug } = useIdentity();
+  const { orgSlug } = useIdentity();
+  const onNavigate = (t) => navigate(orgRoute(orgSlug, TAB_TO_ROUTE[t]));
   return (
     <section className="admin-dash">
-      <DashboardPage dash={dash} onNavigate={(t) => navigate(orgRoute(orgSlug, TAB_TO_ROUTE[t]))} />
+      <DashboardsPage onNavigate={onNavigate} />
     </section>
   );
 }
@@ -474,10 +474,10 @@ function BacklogRoute() {
   );
 }
 
-/* dash-only: DashboardPage precisa de `dash` e do logout — ambos do contexto. */
-function DashboardPageWithLogout() {
-  const { dash, onLogout } = useIdentity();
-  return <DashboardPage dash={dash} onLogout={onLogout} />;
+/* Modo só-dashboard (sem a casca): a página ganha o botão de Sair do contexto. */
+function DashboardOnly() {
+  const { onLogout } = useIdentity();
+  return <DashboardsPage onLogout={onLogout} />;
 }
 
 /* URLs da casca sem prefixo de organização (/backlog, /uso-ia/precificacao) — o formato

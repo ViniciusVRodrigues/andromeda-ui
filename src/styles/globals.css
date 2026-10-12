@@ -29,9 +29,18 @@
   --color-accent: var(--accent);
   --color-accent-deep: var(--accent-deep);
   --color-accent-soft: var(--accent-soft);
+  --color-accent-text: var(--accent-text);
   --color-warn: var(--warn);
   --color-good: var(--good);
   --color-bad: var(--bad);
+  --color-warn-text: var(--warn-text);
+  --color-good-text: var(--good-text);
+  --color-bad-text: var(--bad-text);
+  --color-series-1: var(--series-1);
+  --color-series-2: var(--series-2);
+  --color-series-3: var(--series-3);
+  --color-series-4: var(--series-4);
+  --color-series-5: var(--series-5);
 
   --radius-card: var(--radius);
   --radius-btn: var(--radius-sm);
@@ -40,4 +49,33 @@
 
   --font-serif: "DM Serif Display", "Times New Roman", serif;
   --font-mono: "JetBrains Mono", "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+/* Borda do combobox no dashboard v2 ≥ 3:1 (D8): `--fg-muted`, como as outras bordas de
+ * controle. Só aqui dentro — o `.cmb-trigger` global (legacy.css) fica como está. */
+@layer utilities {
+  [data-dashboard-v2] .cmb-trigger,
+  :root[data-palette="light"] [data-dashboard-v2] .cmb-trigger {
+    border-color: var(--fg-muted);
+  }
+  /* a camada utilities vence a do legado: repõe o foco (accent como borda, ≥ 3:1) */
+  [data-dashboard-v2] .cmb-trigger:focus-visible {
+    border-color: var(--accent-text);
+  }
+}
+
+/* Dashboard v2 com prefers-reduced-motion: nada de rolagem suave, transição ou animação
+ * (inclui o Drawer de filtros, que usa as animações do legado). dashboards-customizaveis D8. */
+@media (prefers-reduced-motion: reduce) {
+  [data-dashboard-v2],
+  [data-dashboard-v2] *,
+  [data-dashboard-v2] *::before,
+  [data-dashboard-v2] *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0s !important;
+    transition-delay: 0s !important;
+    animation-duration: 0s !important;
+    animation-delay: 0s !important;
+    animation-iteration-count: 1 !important;
+  }
 }

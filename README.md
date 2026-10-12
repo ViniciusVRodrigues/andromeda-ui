@@ -53,7 +53,7 @@ npm run preview # serve o build de produção localmente
         ├── auth/SignupScreen.jsx       # onboarding orbital
         ├── onboarding/OnboardingScreen.jsx
         ├── admin/AdminSettings.jsx
-        └── dashboard/{Dev,Team,Manager}Dashboard.jsx
+        └── dashboard/v2/DashboardsPage.jsx  # dashboard (visões por permissão)
 ```
 
 ## Integração futura com o Spring Boot
