@@ -70,7 +70,7 @@ const PORTFOLIO_COLUMNS = [
           />
           <span className="text-fg">{r.name}</span>
         </span>
-        <span className="mono text-fg-dim block text-[11px] font-normal">
+        <span className="mono text-fg-muted block text-[11px] font-normal">
           {r.team} · {r.memberCount} pessoas
         </span>
       </div>
@@ -84,7 +84,7 @@ const PORTFOLIO_COLUMNS = [
         <HealthBadge health={r.health} />
         {r.health.reasons.length ? (
           <span
-            className="text-fg-dim block truncate text-[11px] font-normal"
+            className="text-fg-muted block truncate text-[11px] font-normal"
             title={r.health.reasons.join(" · ")}
           >
             {r.health.reasons[0]}
@@ -99,7 +99,7 @@ const PORTFOLIO_COLUMNS = [
     width: "17%",
     render: (r) =>
       r.currentSprint == null ? (
-        <span className="text-fg-dim">sem sprint atual</span>
+        <span className="text-fg-muted">sem sprint atual</span>
       ) : (
         <div>
           <div className="mono mb-1 flex justify-between gap-2 text-[11px]">
@@ -136,14 +136,14 @@ const PORTFOLIO_COLUMNS = [
     key: "cfrPct",
     label: "Falha",
     align: "right",
-    render: (r) => <span className={r.cfrPct > 15 ? "text-bad" : ""}>{fmtPct(r.cfrPct)}</span>,
+    render: (r) => <span className={r.cfrPct > 15 ? "text-bad-text" : ""}>{fmtPct(r.cfrPct)}</span>,
   },
   { key: "prCycleTimeHours", label: "Ciclo PR", align: "right", format: fmtDuration },
   {
     key: "stalePrs",
     label: "Parados",
     align: "right",
-    render: (r) => <span className={r.stalePrs >= 3 ? "text-warn" : ""}>{r.stalePrs}</span>,
+    render: (r) => <span className={r.stalePrs >= 3 ? "text-warn-text" : ""}>{r.stalePrs}</span>,
   },
   { key: "aiCostUsd", label: "Custo IA", align: "right", format: fmtUsd },
   { key: "aiCostPerSp", label: "IA/SP", align: "right", format: fmtUsd },

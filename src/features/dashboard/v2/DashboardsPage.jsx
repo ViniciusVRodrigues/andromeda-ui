@@ -21,7 +21,6 @@
 
 import React from "react";
 import { useSearchParams } from "react-router-dom";
-import Combobox from "../../../core/ui/Combobox.jsx";
 import { useIdentity } from "../../../core/auth/IdentityContext.jsx";
 import { fmtDate } from "./format.js";
 import { useDashboardProjects, usePendingAllocations, useProjectSprints } from "./hooks.js";
@@ -39,12 +38,13 @@ import { IntegrationsView, INTEGRATIONS_SECTIONS } from "./views/IntegrationsVie
 import { ViewSkeleton } from "./views/shared.jsx";
 import { DashboardEditProvider } from "./edit/EditContext.jsx";
 import { CustomizeButton, FiltersOrEditBar } from "./edit/EditBar.jsx";
+import { FilterBar, TABPANEL_ID, tabId } from "./FilterBar.jsx";
 
 const PERIODS = [
-  { days: 30, label: "30 dias" },
-  { days: 90, label: "90 dias" },
-  { days: 180, label: "6 meses" },
-  { days: 365, label: "12 meses" },
+  { days: 30, label: "30 dias", short: "30 d" },
+  { days: 90, label: "90 dias", short: "90 d" },
+  { days: 180, label: "6 meses", short: "6 m" },
+  { days: 365, label: "12 meses", short: "12 m" },
 ];
 
 const VIEW_LABEL = { individual: "Individual", equipe: "Equipe", projeto: "Projeto" };
@@ -98,88 +98,6 @@ function accessModel(ident) {
       ident.hasOrg("REPOS_CONFIGURE") ||
       ident.hasOrg("USER_MANAGE"),
   };
-}
-
-function SubTabs({ value, options, onChange }) {
-  return (
-    <div
-      role="tablist"
-      aria-label="Sub-abas do dashboard"
-      className="border-line flex flex-wrap gap-x-5 border-b"
-    >
-      {options.map((o) => {
-        const active = o.value === value;
-        return (
-          <button
-            key={o.value}
-            type="button"
-            role="tab"
-            aria-selected={active}
-            onClick={() => onChange(o.value)}
-            className={
-              "mono -mb-px cursor-pointer border-0 border-b-2 bg-transparent px-0.5 pt-1 pb-2 text-[13px] transition-colors " +
-              (active ? "border-accent text-fg" : "text-fg-muted hover:text-fg border-transparent")
-            }
-          >
-            {o.label}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-function Segmented({ value, options, onChange, label }) {
-  return (
-    <div
-      role="radiogroup"
-      aria-label={label}
-      className="border-line-strong inline-flex rounded-full border p-0.5"
-    >
-      {options.map((o) => {
-        const active = o.value === value;
-        return (
-          <button
-            key={o.value}
-            type="button"
-            role="radio"
-            aria-checked={active}
-            onClick={() => onChange(o.value)}
-            className={
-              "mono cursor-pointer rounded-full border-0 px-3.5 py-1.5 text-[12px] transition-colors " +
-              (active ? "bg-accent text-bg-deep" : "text-fg-muted hover:text-fg bg-transparent")
-            }
-          >
-            {o.label}
-          </button>
-        );
-      })}
-    </div>
-  );
-}
-
-function SectionNav({ sections }) {
-  return (
-    <nav aria-label="Seções do dashboard" className="flex flex-wrap gap-1.5">
-      {sections.map((s) => (
-        <button
-          key={s.id}
-          type="button"
-          onClick={() =>
-            document.getElementById(s.id)?.scrollIntoView({
-              behavior: window.matchMedia?.("(prefers-reduced-motion: reduce)").matches
-                ? "auto"
-                : "smooth",
-              block: "start",
-            })
-          }
-          className="mono border-line text-fg-muted hover:border-line-strong hover:text-fg cursor-pointer rounded-full border bg-transparent px-3 py-1 text-[11px] tracking-[0.04em]"
-        >
-          {s.label}
-        </button>
-      ))}
-    </nav>
-  );
 }
 
 export function DashboardsPage({ onLogout, onNavigate, onShowLegacy, standalone = false }) {
@@ -290,7 +208,7 @@ export function DashboardsPage({ onLogout, onNavigate, onShowLegacy, standalone 
 
   return (
     <DashboardEditProvider viewKey={editViewKey} userId={ident.identity?.userId ?? null}>
-      <div className={bare ? "mx-auto max-w-[1480px] px-6 py-6 md:px-9" : ""}>
+      <div data-dashboard-v2="" className={bare ? "mx-auto max-w-[1480px] px-6 py-6 md:px-9" : ""}>
         <header className="mb-5">
           <div className="flex flex-wrap items-center gap-3">
             <h1 className="serif text-fg m-0 text-[34px] leading-tight">Dashboard</h1>
@@ -344,123 +262,115 @@ export function DashboardsPage({ onLogout, onNavigate, onShowLegacy, standalone 
         ) : (
           <>
             <FiltersOrEditBar className={stickyBar}>
-              <div className={stickyBar}>
-                <div className="flex flex-wrap items-center gap-3">
-                  <div className="w-[270px] max-w-full">
-                    <Combobox
-                      value={scope}
-                      onValueChange={(v) => update({ escopo: v, sprint: null })}
-                      options={scopeOptions}
-                      aria-label="Escopo do dashboard"
-                    />
-                  </div>
-                  {view !== "org" && views.length > 1 ? (
-                    <Segmented
-                      label="Visão"
-                      value={view}
-                      options={views.map((v) => ({ value: v, label: VIEW_LABEL[v] }))}
-                      onChange={(v) => update({ visao: v, aba: null })}
-                    />
-                  ) : null}
-                  <div className="ml-auto flex items-center gap-3">
-                    {sprintFilter ? (
-                      <div className="w-[300px] max-w-full">
-                        <Combobox
-                          value={sprintId}
-                          onValueChange={(v) => update({ sprint: v })}
-                          placeholder={sprints.isPending ? "Carregando sprints…" : "Sem sprints"}
-                          options={sprintList.map((s) => ({
-                            value: s.id,
-                            label: `${s.name}${s.timeFrame === "CURRENT" ? " (atual)" : ""}`,
-                            hint: `${fmtDate(s.startDate)} – ${fmtDate(s.endDate)}`,
-                          }))}
-                          aria-label="Sprint"
-                        />
-                      </div>
-                    ) : null}
-                    {periodFilter ? (
-                      <Segmented
-                        label="Período"
-                        value={periodDays}
-                        options={PERIODS.map((p) => ({ value: p.days, label: p.label }))}
-                        onChange={(v) => update({ periodo: v })}
-                      />
-                    ) : null}
-                  </div>
-                </div>
-                {tabs.length > 1 ? (
-                  <div className="mt-3">
-                    <SubTabs value={tab} options={tabs} onChange={(v) => update({ aba: v })} />
-                  </div>
-                ) : null}
-                {sections.length ? (
-                  <div className="mt-3">
-                    <SectionNav sections={sections} />
-                  </div>
-                ) : null}
-              </div>
+              <FilterBar
+                className={stickyBar}
+                scope={scope}
+                scopeOptions={scopeOptions}
+                onScope={(v) => update({ escopo: v, sprint: null })}
+                views={view !== "org" ? views.map((v) => ({ value: v, label: VIEW_LABEL[v] })) : []}
+                view={view}
+                onView={(v) => update({ visao: v, aba: null })}
+                sprint={
+                  sprintFilter
+                    ? {
+                        value: sprintId,
+                        onChange: (v) => update({ sprint: v }),
+                        placeholder: sprints.isPending ? "Carregando sprints…" : "Sem sprints",
+                        options: sprintList.map((s) => ({
+                          value: s.id,
+                          label: `${s.name}${s.timeFrame === "CURRENT" ? " (atual)" : ""}`,
+                          hint: `${fmtDate(s.startDate)} – ${fmtDate(s.endDate)}`,
+                        })),
+                      }
+                    : null
+                }
+                period={
+                  periodFilter
+                    ? {
+                        value: periodDays,
+                        options: PERIODS.map((p) => ({
+                          value: p.days,
+                          label: p.label,
+                          short: p.short,
+                        })),
+                        onChange: (v) => update({ periodo: v }),
+                      }
+                    : null
+                }
+                tabs={tabs}
+                tab={tab}
+                onTab={(v) => update({ aba: v })}
+                sections={sections}
+              />
             </FiltersOrEditBar>
 
-            {view === "individual" && sprintId && tab === "resumo" ? (
-              <IndividualView
-                projectId={scope}
-                sprintId={sprintId}
-                onNavigate={onNavigate}
-                onReviewAi={canReviewAi ? reviewAi : null}
-              />
-            ) : null}
-            {view === "equipe" && sprintId && tab === "resumo" ? (
-              <TeamView projectId={scope} sprintId={sprintId} allowed={access.team(project)} />
-            ) : null}
-            {view === "equipe" && sprintId && tab === "fluxo" ? (
-              <TeamFlowView projectId={scope} sprintId={sprintId} />
-            ) : null}
-            {view === "projeto" && tab === "resumo" ? (
-              <ProjectView
-                projectId={scope}
-                periodDays={periodDays}
-                allowed={access.strategic(project)}
-              />
-            ) : null}
-            {view === "projeto" && tab === "roadmap" ? (
-              <RoadmapView projectId={scope} periodDays={periodDays} />
-            ) : null}
-            {view === "projeto" && tab === "qualidade" ? (
-              <QualityView projectId={scope} periodDays={periodDays} />
-            ) : null}
-            {view === "org" && tab === "geral" ? (
-              <OrganizationView
-                periodDays={periodDays}
-                allowed={access.orgStrategic}
-                onOpenProject={(id) =>
-                  update({ escopo: id, visao: "projeto", aba: null, sprint: null })
-                }
-              />
-            ) : null}
-            {view === "org" && tab === "integracoes" ? <IntegrationsView /> : null}
-            {(view === "individual" || view === "equipe") && !sprintId && sprints.isError ? (
-              <div role="alert" className="flex flex-col items-start gap-3">
-                <p className="text-fg-muted m-0">Não foi possível carregar as sprints.</p>
-                <button
-                  type="button"
-                  className="btn btn-ghost btn-xs"
-                  onClick={() => sprints.refetch()}
-                >
-                  Tentar de novo
-                </button>
-              </div>
-            ) : null}
-            {(view === "individual" || view === "equipe") &&
-            !sprintId &&
-            !sprints.isPending &&
-            !sprints.isError ? (
-              <p className="text-fg-muted">Este projeto ainda não tem sprints sincronizadas.</p>
-            ) : null}
-            {!view ? (
-              <p className="text-fg-muted">
-                Nenhuma visão disponível para este projeto com o seu cargo.
-              </p>
-            ) : null}
+            {/* com mais de uma sub-aba, o conteúdo é o tabpanel delas (aria-controls) */}
+            <div
+              {...(tabs.length > 1
+                ? { role: "tabpanel", id: TABPANEL_ID, "aria-labelledby": tabId(tab) }
+                : {})}
+            >
+              {view === "individual" && sprintId && tab === "resumo" ? (
+                <IndividualView
+                  projectId={scope}
+                  sprintId={sprintId}
+                  onNavigate={onNavigate}
+                  onReviewAi={canReviewAi ? reviewAi : null}
+                />
+              ) : null}
+              {view === "equipe" && sprintId && tab === "resumo" ? (
+                <TeamView projectId={scope} sprintId={sprintId} allowed={access.team(project)} />
+              ) : null}
+              {view === "equipe" && sprintId && tab === "fluxo" ? (
+                <TeamFlowView projectId={scope} sprintId={sprintId} />
+              ) : null}
+              {view === "projeto" && tab === "resumo" ? (
+                <ProjectView
+                  projectId={scope}
+                  periodDays={periodDays}
+                  allowed={access.strategic(project)}
+                />
+              ) : null}
+              {view === "projeto" && tab === "roadmap" ? (
+                <RoadmapView projectId={scope} periodDays={periodDays} />
+              ) : null}
+              {view === "projeto" && tab === "qualidade" ? (
+                <QualityView projectId={scope} periodDays={periodDays} />
+              ) : null}
+              {view === "org" && tab === "geral" ? (
+                <OrganizationView
+                  periodDays={periodDays}
+                  allowed={access.orgStrategic}
+                  onOpenProject={(id) =>
+                    update({ escopo: id, visao: "projeto", aba: null, sprint: null })
+                  }
+                />
+              ) : null}
+              {view === "org" && tab === "integracoes" ? <IntegrationsView /> : null}
+              {(view === "individual" || view === "equipe") && !sprintId && sprints.isError ? (
+                <div role="alert" className="flex flex-col items-start gap-3">
+                  <p className="text-fg-muted m-0">Não foi possível carregar as sprints.</p>
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-xs"
+                    onClick={() => sprints.refetch()}
+                  >
+                    Tentar de novo
+                  </button>
+                </div>
+              ) : null}
+              {(view === "individual" || view === "equipe") &&
+              !sprintId &&
+              !sprints.isPending &&
+              !sprints.isError ? (
+                <p className="text-fg-muted">Este projeto ainda não tem sprints sincronizadas.</p>
+              ) : null}
+              {!view ? (
+                <p className="text-fg-muted">
+                  Nenhuma visão disponível para este projeto com o seu cargo.
+                </p>
+              ) : null}
+            </div>
           </>
         )}
       </div>

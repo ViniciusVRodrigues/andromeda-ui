@@ -31,7 +31,13 @@ export default function Drawer({
   React.useEffect(() => {
     if (!open) return;
     const onKey = (e) => {
-      if (e.key === "Escape") onClose();
+      if (e.key !== "Escape") return;
+      /* Esc fecha só a camada de cima: com um menu do Radix (Combobox) aberto dentro do
+       * painel, o mesmo Esc fecharia o menu e o Drawer juntos. O menu ainda está no DOM
+       * quando o evento chega aqui (o Radix fecha no fim do despacho). */
+      if (e.defaultPrevented || document.querySelector("[data-radix-popper-content-wrapper]"))
+        return;
+      onClose();
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);

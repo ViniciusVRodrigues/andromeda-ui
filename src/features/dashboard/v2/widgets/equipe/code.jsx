@@ -46,7 +46,7 @@ export function StalePrsWidget({ data }) {
               key: "hoursOpen",
               label: "Aberto há",
               align: "right",
-              render: (r) => <span className="text-warn">{fmtDuration(r.hoursOpen)}</span>,
+              render: (r) => <span className="text-warn-text">{fmtDuration(r.hoursOpen)}</span>,
             },
           ]}
         />
@@ -110,7 +110,7 @@ export function ReposWidget({ data: repos }) {
             key: "stalePrs",
             label: "Parados",
             align: "right",
-            render: (r) => <span className={r.stalePrs ? "text-warn" : ""}>{r.stalePrs}</span>,
+            render: (r) => <span className={r.stalePrs ? "text-warn-text" : ""}>{r.stalePrs}</span>,
           },
           { key: "prsMerged", label: "Merge", align: "right" },
           { key: "avgCycleTimeHours", label: "Ciclo PR", align: "right", format: fmtDuration },

@@ -65,13 +65,13 @@ export function StatusPill({ status }) {
 export function PrPill({ status, stale }) {
   if (stale) {
     return (
-      <span className="mono text-warn inline-flex items-center gap-1 text-[12px] whitespace-nowrap">
+      <span className="mono text-warn-text inline-flex items-center gap-1 text-[12px] whitespace-nowrap">
         <span aria-hidden="true">⏸</span> Parado
       </span>
     );
   }
   const icon = { OPEN: "○", MERGED: "●", CLOSED: "×" }[status];
-  const tone = { OPEN: "text-fg", MERGED: "text-good", CLOSED: "text-fg-dim" }[status];
+  const tone = { OPEN: "text-fg", MERGED: "text-good-text", CLOSED: "text-fg-muted" }[status];
   return (
     <span className={`mono inline-flex items-center gap-1 text-[12px] whitespace-nowrap ${tone}`}>
       <span aria-hidden="true">{icon}</span>
@@ -87,9 +87,9 @@ export function GradeBadge({ grade, estimated }) {
   if (!grade) return null;
   const tone = GRADE_TONE[grade];
   const cls = {
-    good: "text-good border-good",
-    warn: "text-warn border-warn",
-    bad: "text-bad border-bad",
+    good: "text-good-text border-good-text",
+    warn: "text-warn-text border-warn-text",
+    bad: "text-bad-text border-bad-text",
   }[tone];
   return (
     <span className="inline-flex items-center gap-2">
@@ -100,7 +100,7 @@ export function GradeBadge({ grade, estimated }) {
       </span>
       {estimated ? (
         <span
-          className="mono text-fg-dim text-[11px] font-normal"
+          className="mono text-fg-muted text-[11px] font-normal"
           title="Aproximação: não há dado real de deploy"
         >
           estimado
@@ -111,9 +111,9 @@ export function GradeBadge({ grade, estimated }) {
 }
 
 const HEALTH = {
-  ok: { label: "Saudável", icon: "✓", cls: "text-good" },
-  attention: { label: "Atenção", icon: "!", cls: "text-warn" },
-  risk: { label: "Em risco", icon: "▲", cls: "text-bad" },
+  ok: { label: "Saudável", icon: "✓", cls: "text-good-text" },
+  attention: { label: "Atenção", icon: "!", cls: "text-warn-text" },
+  risk: { label: "Em risco", icon: "▲", cls: "text-bad-text" },
 };
 export function HealthBadge({ health }) {
   const h = HEALTH[health.level];
@@ -130,10 +130,10 @@ export function HealthBadge({ health }) {
 
 export function ConnectionBadge({ status }) {
   const map = {
-    CONNECTED: ["✓", "Conectado", "text-good"],
-    EXPIRED: ["!", "Expirado", "text-warn"],
-    ERROR: ["▲", "Erro", "text-bad"],
-    DISCONNECTED: ["×", "Desconectado", "text-fg-dim"],
+    CONNECTED: ["✓", "Conectado", "text-good-text"],
+    EXPIRED: ["!", "Expirado", "text-warn-text"],
+    ERROR: ["▲", "Erro", "text-bad-text"],
+    DISCONNECTED: ["×", "Desconectado", "text-fg-muted"],
   };
   const [icon, label, cls] = map[status] || map.DISCONNECTED;
   return (
@@ -166,8 +166,8 @@ export function FluencyStage({ stage }) {
 export function Tag({ children, tone = "neutral", title }) {
   const cls = {
     neutral: "border-line-strong text-fg-muted",
-    accent: "border-accent text-accent",
-    warn: "border-warn text-warn",
+    accent: "border-accent-text text-accent-text",
+    warn: "border-warn-text text-warn-text",
   }[tone];
   return (
     <span

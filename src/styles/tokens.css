@@ -25,6 +25,11 @@
   --warn: #e2a87a;
   --good: #8fb39a;
   --bad: #c97a6d;
+  /* status como TEXTO (e borda de selo): ≥ 4,5:1 sobre --bg, --bg-elev e --bg-deep.
+   * No default e no mono os de base já passam (≥ 4,9); a light escurece. */
+  --warn-text: var(--warn);
+  --good-text: var(--good);
+  --bad-text: var(--bad);
   --shadow-soft: 0 30px 80px -40px rgba(0, 0, 0, 0.6);
   --radius: 14px;
   --radius-sm: 8px;
@@ -33,7 +38,10 @@
    * nunca ciclada; validada (scripts do skill dataviz) contra --bg-elev: banda de
    * luminosidade, croma, separação CVD e contraste ≥ 3:1. Status (bom/ruim) continua
    * em --good/--warn/--bad — série nunca usa cor de status. A paleta mono herda
-   * estes valores: dado é a única coisa colorida na tela monocromática. */
+   * estes valores DE PROPÓSITO (decidido no P4b de dashboards-customizaveis): o dado é
+   * a única coisa colorida na tela monocromática; a legenda com texto (≥ 2 séries) e a
+   * alternância Gráfico/Tabela garantem que nada dependa só de cor. Cinzas não serviriam:
+   * só 4 tons passam de 3:1 sobre o --bg-elev do mono e o 5º ficaria em 3,2:1. */
   --series-1: #c47a4a;
   --series-2: #3987e5;
   --series-3: #199e70;
@@ -76,6 +84,10 @@
   --warn: #b8723e;
   --good: #5a7c5e;
   --bad: #b85a4e;
+  /* os de base dão 2,97/3,65/3,55 sobre --bg-elev; estes ≥ 4,8 sobre bg/elev/deep */
+  --warn-text: #874a1c;
+  --good-text: #3f5f44;
+  --bad-text: #8f3a2f;
   --shadow-soft: 0 30px 80px -40px rgba(80, 50, 20, 0.25);
   --series-1: #a65a32;
   --series-2: #2a78d6;

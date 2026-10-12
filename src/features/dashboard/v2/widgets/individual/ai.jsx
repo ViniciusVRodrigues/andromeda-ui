@@ -124,7 +124,7 @@ export function AllocationWidget({ data, ctx }) {
           <button
             type="button"
             onClick={ctx.onReviewAi}
-            className="mono text-accent cursor-pointer border-0 bg-transparent p-0 text-[12px] hover:underline"
+            className="mono text-accent-text cursor-pointer border-0 bg-transparent p-0 text-[12px] hover:underline"
           >
             Revisar →
           </button>
@@ -155,7 +155,7 @@ export function AllocationWidget({ data, ctx }) {
       />
       {pending.length ? (
         <div className="border-line mt-4 border-t pt-3">
-          <span className="mono text-fg-dim mb-2 block text-[11px] tracking-[0.1em] uppercase">
+          <span className="mono text-fg-muted mb-2 block text-[11px] tracking-[0.1em] uppercase">
             aguardando validação
           </span>
           <ul className="m-0 flex list-none flex-col gap-2 p-0">
@@ -168,7 +168,7 @@ export function AllocationWidget({ data, ctx }) {
                   </span>
                 </div>
                 <div
-                  className="mono text-fg-dim truncate font-normal"
+                  className="mono text-fg-muted truncate font-normal"
                   title={p.splits.map((s) => `#${s.externalId} ${s.title}`).join(" · ")}
                 >
                   {p.splits.map((s) => `#${s.externalId} ${Math.round(s.pct)}%`).join(" · ")}
@@ -197,7 +197,9 @@ export function FluencyWidget({ data: fluency }) {
         <div>
           <div className="mb-3 flex items-center justify-between gap-2">
             <FluencyStage stage={fluency.overallStage} />
-            <span className="mono text-fg-dim text-[11px] font-normal">{fluency.overallLabel}</span>
+            <span className="mono text-fg-muted text-[11px] font-normal">
+              {fluency.overallLabel}
+            </span>
           </div>
           <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
             {fluency.categories.map((c) => (
@@ -209,7 +211,8 @@ export function FluencyWidget({ data: fluency }) {
           </ul>
           {tip?.tips?.length ? (
             <p className="border-line text-fg-muted m-0 mt-3 border-t pt-3 text-[12px] leading-relaxed font-normal">
-              <span className="text-accent">Próximo passo ({tip.category}):</span> {tip.tips[0]}
+              <span className="text-accent-text">Próximo passo ({tip.category}):</span>{" "}
+              {tip.tips[0]}
             </p>
           ) : null}
         </div>

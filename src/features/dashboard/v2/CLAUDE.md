@@ -180,6 +180,35 @@ vale para toda visão que tiver seções no catálogo e desenhar o Resumo com `D
 - Sem GitHub vinculado, cada widget da seção Código mostra o convite a vincular (antes era um painel único; o
   catálogo não tem estado por seção).
 
+### Acessibilidade e responsividade do dashboard inteiro (P4b, D8)
+
+- **Barra fixa de filtros** (`FilterBar.jsx`, `data-dash-filters`): o arranjo segue a largura **da própria
+  barra** (ResizeObserver — com a casca, a barra lateral come parte da viewport). < 600 px: `[Escopo][Filtros]` +
+  sub-abas; visão, sprint/período e "Ir para a seção" ficam no `core/ui/Drawer` "Filtros" (o foco volta ao botão
+  ao fechar; escolher uma seção fecha o Drawer, rola e foca o `h2` da seção). ≥ 600 px: duas linhas — filtros
+  numa, sub-abas + chips das seções numa faixa que rola na horizontal (sem barra de rolagem visível; o foco
+  traz o item à vista). Rótulo do combobox numa linha com reticências. Medido: 117 px (13,9% de 844) em 390 e
+  117 px (9,9% de 1180) em 820; 65 px na Individual em 390. Seções com `scroll-mt-[150px]`.
+- **Alvos ≥ 44 px, ≥ 8 px entre eles**: sub-abas, opções do segmentado, chips, Gráfico/Tabela e "?" têm a caixa
+  de 44 px e a pílula visível num span de dentro (margem negativa devolve a altura — densidade igual). Opções do
+  mesmo segmentado/par Gráfico-Tabela encostam (sem sobrepor); entre controles distintos, ≥ 8 px.
+- **Teclado**: `SubTabs` (APG, ativação automática) com ←/→, Home/End, um ponto de Tab, `aria-controls` →
+  `role="tabpanel"` (`dash-tabpanel`, só com > 1 sub-aba). `Segmented` com roving tabindex e setas (mudam a
+  escolha, como radio).
+- **Gráficos** (`kit/chartSummary.js`): o `Panel` dá id ao `h3` e um contexto; cada gráfico é `<figure
+  aria-labelledby>` e o SVG do Recharts recebe `role="img"` + `aria-label` "Título: resumo" gerado do dado
+  (`trendSummary`, `columnSummary`, `burndownSummary` — "restam X de Y SP no dia N de M; ideal Z"). Prop
+  `summary` sobrescreve.
+- **Contraste**: nenhum texto em `--fg-dim` (vale para widgets novos: use `text-fg-muted`). Texto de status
+  usa `text-warn-text`/`text-good-text`/`text-bad-text` (tokens novos; na light #874a1c/#3f5f44/#8f3a2f, ≥ 4,8
+  sobre bg/elev/deep; no default e no mono = o token de base); borda de selo de status idem. Accent como texto
+  ou fundo de pílula ativa → `--accent-text`. `--series-*` no mono herdam as cores **de propósito** (decisão do
+  P4b; ver comentário em `tokens.css`).
+- **Movimento**: `globals.css` zera transição/animação/rolagem suave em `[data-dashboard-v2]` com
+  `prefers-reduced-motion` (inclui o Drawer do legado).
+- **Celular**: destaques viram carrossel horizontal < 600 px (a lista ganha foco para rolar pelo teclado).
+- e2e: `e2e/dashboards-a11y.spec.js` (varre todo texto visível do dashboard nas três paletas — `lowContrastTexts`).
+
 ### Biblioteca de arrasto (spike 3.1, 2026-10-11): `@dnd-kit/core` 6.3.1 + `@dnd-kit/sortable` 10.0.0
 
 Spike numa grade de 12 colunas com tamanhos mistos (4/8/6/6/4/4/4/12), `KeyboardSensor`, Chromium:

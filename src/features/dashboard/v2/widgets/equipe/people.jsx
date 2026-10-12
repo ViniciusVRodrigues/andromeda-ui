@@ -36,7 +36,7 @@ const MEMBER_COLUMNS = [
       <div className="flex items-center gap-3">
         <span className="mono w-12 shrink-0 text-right tabular-nums">
           {fmtInt(r.spDelivered)}
-          <span className="text-fg-dim font-normal">/{fmtInt(r.spPlanned)}</span>
+          <span className="text-fg-muted font-normal">/{fmtInt(r.spPlanned)}</span>
         </span>
         <div className="flex-1">
           <Meter

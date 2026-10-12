@@ -19,13 +19,13 @@ function ConnectionCard({ name, conn, extra, asOf }) {
       <dl className="m-0 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-[12px]">
         {conn.lastSuccessAt ? (
           <>
-            <dt className="mono text-fg-dim font-normal">Última chamada ok</dt>
+            <dt className="mono text-fg-muted font-normal">Última chamada ok</dt>
             <dd className="mono text-fg m-0 text-right">{fmtAgo(conn.lastSuccessAt, asOf)}</dd>
           </>
         ) : null}
         {conn.consecutiveFailures != null ? (
           <>
-            <dt className="mono text-fg-dim font-normal">Falhas seguidas</dt>
+            <dt className="mono text-fg-muted font-normal">Falhas seguidas</dt>
             <dd className="mono text-fg m-0 text-right">{conn.consecutiveFailures}</dd>
           </>
         ) : null}
@@ -34,7 +34,7 @@ function ConnectionCard({ name, conn, extra, asOf }) {
       {conn.lastError ? (
         <p className="mono text-fg-muted border-line m-0 mt-3 border-t pt-2 text-[11px] font-normal">
           Último erro{conn.lastError.at ? ` ${fmtAgo(conn.lastError.at, asOf)}` : ""}:{" "}
-          <span className="text-warn">{conn.lastError.code}</span>
+          <span className="text-warn-text">{conn.lastError.code}</span>
           {conn.lastError.message ? ` — ${conn.lastError.message}` : ""}
         </p>
       ) : null}
@@ -61,7 +61,7 @@ export function AiConnectorWidget({ data }) {
       conn={{ status: "CONNECTED", lastSuccessAt: ai.lastUploadAt }}
       extra={
         <>
-          <dt className="mono text-fg-dim font-normal">Tokens ativos na organização</dt>
+          <dt className="mono text-fg-muted font-normal">Tokens ativos na organização</dt>
           <dd className="mono text-fg m-0 text-right">{ai.activeTokens ?? "—"}</dd>
         </>
       }
@@ -141,7 +141,7 @@ export function SourcesWidget({ data }) {
             render: (r) => (
               <span>
                 <span className="mono">{r.azureProject}</span>
-                <span className="mono text-fg-dim block text-[11px] font-normal">
+                <span className="mono text-fg-muted block text-[11px] font-normal">
                   sync {fmtAgo(r.azureLastSyncAt, asOf)}
                 </span>
               </span>
@@ -156,7 +156,9 @@ export function SourcesWidget({ data }) {
                   <span key={b.repo} className="mono text-[12px]">
                     {b.repo}{" "}
                     <span
-                      className={"font-normal " + (b.syncEnabled ? "text-fg-dim" : "text-warn")}
+                      className={
+                        "font-normal " + (b.syncEnabled ? "text-fg-muted" : "text-warn-text")
+                      }
                     >
                       {b.syncEnabled ? `· ${fmtAgo(b.lastSyncAt, asOf)}` : "· sync desligado"}
                     </span>

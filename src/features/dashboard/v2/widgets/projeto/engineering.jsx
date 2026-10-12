@@ -101,7 +101,7 @@ export function ReposWidget({ data }) {
                 <span
                   className={
                     "mono block text-[11px] font-normal " +
-                    (r.syncEnabled ? "text-fg-dim" : "text-warn")
+                    (r.syncEnabled ? "text-fg-muted" : "text-warn-text")
                   }
                 >
                   {r.syncEnabled
@@ -128,7 +128,7 @@ export function ReposWidget({ data }) {
               <span>
                 {r.openPrs}
                 {r.stalePrs ? (
-                  <span className="text-warn">
+                  <span className="text-warn-text">
                     {" "}
                     ({r.stalePrs} parado{r.stalePrs > 1 ? "s" : ""})
                   </span>
