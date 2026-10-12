@@ -20,7 +20,7 @@ import { organizationHighlights } from "../highlights.js";
 import { layoutFor, useDashboardLayouts, useOrganizationDashboard } from "../hooks.js";
 import { Highlights } from "../kit/Panel.jsx";
 import { resolveLayout } from "../layout.js";
-import { FetchFrame } from "./shared.jsx";
+import { FetchFrame, ViewError, ViewRefresh } from "./shared.jsx";
 
 const VIEW_KEY = "org";
 
@@ -33,7 +33,9 @@ export const ORGANIZATION_SECTIONS = defaultNavSections(CATALOG, VIEW_KEY);
  *   `access.orgStrategic`); nenhum widget exige outro código (D3).
  */
 export function OrganizationView({ periodDays, onOpenProject, allowed = true }) {
-  const { data, isPending, isFetching } = useOrganizationDashboard({ periodDays });
+  const { data, isPending, isFetching, isError, error, refetch } = useOrganizationDashboard({
+    periodDays,
+  });
   const layouts = useDashboardLayouts();
   /* enquanto o layout salvo não chega, a silhueta segue o padrão do catálogo */
   const saved = layouts.isPending ? null : layoutFor(layouts.data, VIEW_KEY);
@@ -43,6 +45,7 @@ export function OrganizationView({ periodDays, onOpenProject, allowed = true }) 
   );
   const ctx = React.useMemo(() => ({ onOpenProject }), [onOpenProject]);
 
+  if (isError && !data) return <ViewError error={error} onRetry={refetch} />;
   if (isPending || !data || layouts.isPending) {
     return (
       <div className="mt-2">
@@ -54,6 +57,7 @@ export function OrganizationView({ periodDays, onOpenProject, allowed = true }) 
 
   return (
     <FetchFrame fetching={isFetching}>
+      <ViewRefresh freshness={data.dataFreshness} />
       <Highlights items={organizationHighlights(data)} />
       <DashboardGrid layout={layout} payload={data} ctx={ctx} />
     </FetchFrame>

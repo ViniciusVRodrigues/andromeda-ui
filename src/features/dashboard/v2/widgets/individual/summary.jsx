@@ -1,7 +1,15 @@
 /* Widgets da visão Individual — seção "Resumo da sprint" (faixa de KPIs). */
 
 import React from "react";
-import { fmtDuration, fmtInt, fmtPct, fmtTokensCompact, fmtTokensM, fmtUsd } from "../../format.js";
+import {
+  fmtDsSpread,
+  fmtDuration,
+  fmtInt,
+  fmtPct,
+  fmtTokensCompact,
+  fmtTokensM,
+  fmtUsd,
+} from "../../format.js";
 import { KpiRow, KpiTile } from "../../kit/Kpi.jsx";
 
 /** @param {{ data: ReturnType<typeof selectKpis> }} props */
@@ -23,9 +31,10 @@ export function KpisWidget({ data }) {
         hint={`${inProgress} em andamento`}
       />
       <KpiTile
-        label="Cycle time médio"
+        label="Cycle time (mediana)"
         value={fmtDuration(k.avgCycleTimeHours)}
-        hint="início → conclusão"
+        hint={fmtDsSpread(k.avgCycleTimeHoursDs) || "início → conclusão"}
+        title="Mediana (p50) do tempo entre o início e a conclusão dos seus itens concluídos na sprint"
         delta={{
           current: k.avgCycleTimeHours,
           previous: prev?.avgCycleTimeHours,
@@ -66,7 +75,7 @@ export function KpisWidget({ data }) {
 export const selectKpis = (d) => ({
   k: d.kpis,
   prev: d.previous,
-  isCurrent: d.sprint.timeFrame === "CURRENT",
+  isCurrent: d.sprint?.timeFrame === "CURRENT",
   vs: "sprint anterior",
   inProgress: d.items.filter((i) => i.status === "IN_PROGRESS").length,
 });

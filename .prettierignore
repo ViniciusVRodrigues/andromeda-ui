@@ -4,3 +4,5 @@ package-lock.json
 *.md
 playwright-report
 test-results
+# gerado por scripts/gen-dashboards-v2-fixtures.mjs
+e2e/fixtures/dashboards-v2

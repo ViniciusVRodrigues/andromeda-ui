@@ -1,44 +1,25 @@
 import { test, expect } from "@playwright/test";
+import { gotoDashboard, installDashboardsApi } from "./dashboards-v2-api.mjs";
 
 /* Modo de edição do Resumo (dashboards-customizaveis P3b) na visão Individual.
- * Sem backend: identidade por GET /v1/auth/me interceptado; layout no mock de
- * v2/api.js (localStorage `LAYOUTS_KEY`). Roda igual em live/record/replay. */
+ * Sem backend: o servidor falso de `dashboards-v2-api.mjs` responde no formato do
+ * contrato (fixtures) e guarda os layouts em memória com as regras do D6 — PUT com
+ * versão (409), DELETE idempotente, falha simulada por método. Fica no contexto do
+ * navegador: duas abas compartilham o mesmo "servidor". Roda igual em live/record/replay. */
 
-const SLUG = "orbital";
-const LAYOUTS_KEY = "andromeda.dashboards-v2.layouts";
-
-async function open(page, { query = "", heading = "Histórico" } = {}) {
-  await page.route("**/api/v1/**", (route) => {
-    if (route.request().url().includes("/v1/auth/me")) {
-      return route.fulfill({
-        json: {
-          userId: "u-1",
-          name: "Pessoa Teste",
-          email: "pessoa@example.test",
-          orgName: "Orbital",
-          orgSlug: SLUG,
-          permissions: ["DASHBOARD_INDIVIDUAL"],
-        },
-      });
-    }
-    return route.fulfill({ status: 404, json: {} });
-  });
-  await page.goto("/login");
-  await page.evaluate(() => localStorage.setItem("andromeda_token", "e2e-token"));
-  await page.goto(`/${SLUG}/dashboard${query}`);
+/**
+ * Abre o dashboard (Individual) com o servidor falso. Passe `api` para reaproveitar o
+ * servidor já instalado no contexto (segunda aba).
+ * @returns {Promise<Awaited<ReturnType<typeof installDashboardsApi>>>}
+ */
+async function open(page, { query = "", heading = "Histórico", layouts, api } = {}) {
+  const server =
+    api || (await installDashboardsApi(page, { permissions: ["DASHBOARD_INDIVIDUAL"], layouts }));
+  await gotoDashboard(page, query);
   await expect(page.getByRole("heading", { name: heading, level: 2 })).toBeVisible();
-}
-
-async function seedLayouts(page, items) {
-  await page.addInitScript(
-    ([key, value]) => {
-      if (!sessionStorage.getItem("seeded")) {
-        localStorage.setItem(key, value);
-        sessionStorage.setItem("seeded", "1");
-      }
-    },
-    [LAYOUTS_KEY, JSON.stringify({ items })],
-  );
+  /* Personalizar só habilita com o layout salvo carregado */
+  await expect(page.getByRole("button", { name: "Personalizar" })).toBeEnabled();
+  return server;
 }
 
 const announcer = (page) => page.locator("[data-edit-announcer]");
@@ -68,6 +49,10 @@ test("só teclado: entrar, pegar, mover, soltar e cancelar com Esc", async ({ pa
   await page.getByRole("button", { name: "Personalizar" }).focus();
   await page.keyboard.press("Enter");
   await expect(page.getByRole("heading", { name: "Personalizando o painel" })).toBeFocused();
+  /* a grade de edição já desenhou a ordem padrão (a posição anunciada vem dela) */
+  await expect
+    .poll(() => order(page, "ind-codigo"))
+    .toEqual(["individual.prs", "individual.reviews", "individual.commits-dia"]);
 
   await tabTo(page, "Mover Reviews que fiz");
   const handle = page.getByRole("button", { name: "Mover Reviews que fiz", exact: true });
@@ -207,7 +192,7 @@ test("tamanho: só os permitidos (tabela sem P) e a troca reflete na grade", asy
 });
 
 test("menu ⋯ move, Ctrl+Z desfaz e o layout persiste depois do reload", async ({ page }) => {
-  await open(page);
+  const api = await open(page);
   await enterEdit(page);
   await page.getByRole("button", { name: "Mais ações de Commits por dia" }).click();
   await page.getByRole("menuitem", { name: "Mover para o início" }).click();
@@ -231,13 +216,15 @@ test("menu ⋯ move, Ctrl+Z desfaz e o layout persiste depois do reload", async 
   );
 
   await page.getByRole("button", { name: "Concluir" }).click();
-  await page.waitForFunction((key) => {
-    const item = JSON.parse(localStorage.getItem(key) || "{}").items?.[0];
-    const code = item?.sections?.find((s) => s.id === "codigo");
-    return (
-      item?.sections?.[0]?.id === "resumo" && code?.widgets?.[0]?.id === "individual.commits-dia"
-    );
-  }, LAYOUTS_KEY);
+  await expect
+    .poll(() => {
+      const item = api.saved();
+      const code = item?.sections?.find((x) => x.id === "codigo");
+      return (
+        item?.sections?.[0]?.id === "resumo" && code?.widgets?.[0]?.id === "individual.commits-dia"
+      );
+    })
+    .toBe(true);
   await page.reload();
   await expect(page.getByRole("heading", { name: "Histórico", level: 2 })).toBeVisible();
   const ids = await page
@@ -247,7 +234,7 @@ test("menu ⋯ move, Ctrl+Z desfaz e o layout persiste depois do reload", async 
 });
 
 test("restaurar padrão: DELETE na hora e toast com Desfazer", async ({ page }) => {
-  await open(page);
+  const api = await open(page);
   await enterEdit(page);
   await page.getByRole("button", { name: "Ocultar Reviews que fiz" }).click();
   await page.getByRole("button", { name: "Mais ações da personalização" }).click();
@@ -256,10 +243,7 @@ test("restaurar padrão: DELETE na hora e toast com Desfazer", async ({ page }) 
   await expect
     .poll(() => order(page, "ind-codigo"))
     .toEqual(["individual.prs", "individual.reviews", "individual.commits-dia"]);
-  await page.waitForFunction(
-    (key) => (JSON.parse(localStorage.getItem(key) || "{}").items || []).length === 0,
-    LAYOUTS_KEY,
-  );
+  await expect.poll(() => api.layouts().length).toBe(0);
   await page.locator("[data-edit-toast]").getByRole("button", { name: "Desfazer" }).click();
   await expect
     .poll(() => order(page, "ind-codigo"))
@@ -352,7 +336,7 @@ for (const width of [390, 1440]) {
 test("painel vazio oferece Adicionar e Restaurar; widget novo ganha selo e aviso único", async ({
   page,
 }) => {
-  await seedLayouts(page, [
+  const layouts = [
     {
       viewKey: "individual",
       sections: [
@@ -378,24 +362,9 @@ test("painel vazio oferece Adicionar e Restaurar; widget novo ganha selo e aviso
       version: 1,
       updatedAt: "2026-10-11T12:00:00Z",
     },
-  ]);
-  await page.route("**/api/v1/**", (route) =>
-    route.request().url().includes("/v1/auth/me")
-      ? route.fulfill({
-          json: {
-            userId: "u-1",
-            name: "Pessoa Teste",
-            email: "pessoa@example.test",
-            orgName: "Orbital",
-            orgSlug: SLUG,
-            permissions: ["DASHBOARD_INDIVIDUAL"],
-          },
-        })
-      : route.fulfill({ status: 404, json: {} }),
-  );
-  await page.goto("/login");
-  await page.evaluate(() => localStorage.setItem("andromeda_token", "e2e-token"));
-  await page.goto(`/${SLUG}/dashboard`);
+  ];
+  await installDashboardsApi(page, { permissions: ["DASHBOARD_INDIVIDUAL"], layouts });
+  await gotoDashboard(page);
   await expect(page.getByText("Seu painel está vazio")).toBeVisible();
 
   await page.getByRole("button", { name: "Adicionar widgets" }).click();
@@ -434,26 +403,20 @@ test("dica de primeiro uso: some ao dispensar e não volta", async ({ page }) =>
 
 /* ── Correções do QA (P3b): erros do servidor, conflito entre abas, contraste ── */
 
-const FAULTS_KEY = "andromeda.dashboards-v2.layouts-fail";
 const REBASE_MSG = "O painel foi alterado em outra aba; recarregamos a versão mais recente.";
-const savedLayout = (page) =>
-  page.evaluate(
-    (key) => JSON.parse(localStorage.getItem(key) || "{}").items?.[0] ?? null,
-    LAYOUTS_KEY,
-  );
-/** Espera o layout salvo (mock em localStorage) satisfazer `check(item)`. */
-async function waitSaved(page, check) {
-  await expect.poll(async () => check(await savedLayout(page)), { timeout: 8000 }).toBe(true);
+/** Espera o layout salvo no servidor falso satisfazer `check(item)`. */
+async function waitSaved(api, check) {
+  await expect.poll(() => check(api.saved()), { timeout: 8000 }).toBe(true);
 }
 
 test("restaurar padrão com DELETE falhando: toast de erro e nada falso na pilha", async ({
   page,
 }) => {
-  await open(page);
+  const api = await open(page);
   await enterEdit(page);
   await page.getByRole("button", { name: "Ocultar Reviews que fiz" }).click();
-  await waitSaved(page, (item) => !!item?.hidden?.includes("individual.reviews"));
-  await page.evaluate((key) => localStorage.setItem(key, JSON.stringify(["DELETE"])), FAULTS_KEY);
+  await waitSaved(api, (item) => !!item?.hidden?.includes("individual.reviews"));
+  api.failLayouts(["DELETE"]);
 
   await page.getByRole("button", { name: "Mais ações da personalização" }).click();
   await page.getByRole("menuitem", { name: "Restaurar padrão" }).click();
@@ -467,37 +430,37 @@ test("restaurar padrão com DELETE falhando: toast de erro e nada falso na pilha
     .toEqual(["individual.prs", "individual.commits-dia"]);
   /* a pilha só tem o Ocultar (um registro falso do Restaurar repetiria o layout salvo):
    * Desfazer — um DELETE, já sem a falha — traz Reviews de volta */
-  await page.evaluate((key) => localStorage.removeItem(key), FAULTS_KEY);
+  api.failLayouts([]);
   await page.keyboard.press("Control+z");
   await expect
     .poll(() => order(page, "ind-codigo"))
     .toEqual(["individual.prs", "individual.reviews", "individual.commits-dia"]);
 
-  await waitSaved(page, (item) => item === null);
+  await waitSaved(api, (item) => item === null);
 
   /* falha de novo; sem ela, Tentar de novo restaura */
   await page.getByRole("button", { name: "Ocultar Reviews que fiz" }).click();
-  await waitSaved(page, (item) => !!item?.hidden?.includes("individual.reviews"));
-  await page.evaluate((key) => localStorage.setItem(key, JSON.stringify(["DELETE"])), FAULTS_KEY);
+  await waitSaved(api, (item) => !!item?.hidden?.includes("individual.reviews"));
+  api.failLayouts(["DELETE"]);
   await page.getByRole("button", { name: "Mais ações da personalização" }).click();
   await page.getByRole("menuitem", { name: "Restaurar padrão" }).click();
   await expect(toast).toContainText("Não foi possível restaurar o padrão");
-  await page.evaluate((key) => localStorage.removeItem(key), FAULTS_KEY);
+  api.failLayouts([]);
   await toast.getByRole("button", { name: "Tentar de novo" }).click();
   await expect(toast).toContainText("Painel restaurado ao padrão");
-  await waitSaved(page, (item) => item === null);
+  await waitSaved(api, (item) => item === null);
 });
 
 test("PUT falhando: toast de erro com Tentar de novo reenvia a alteração", async ({ page }) => {
-  await open(page);
+  const api = await open(page);
   await enterEdit(page);
-  await page.evaluate((key) => localStorage.setItem(key, JSON.stringify(["PUT"])), FAULTS_KEY);
+  api.failLayouts(["PUT"]);
   await page.getByRole("button", { name: "Ocultar Reviews que fiz" }).click();
   const toast = page.locator("[data-edit-toast]");
   await expect(toast).toContainText("Não foi possível salvar o painel");
-  await page.evaluate((key) => localStorage.removeItem(key), FAULTS_KEY);
+  api.failLayouts([]);
   await toast.getByRole("button", { name: "Tentar de novo" }).click();
-  await waitSaved(page, (item) => !!item?.hidden?.includes("individual.reviews"));
+  await waitSaved(api, (item) => !!item?.hidden?.includes("individual.reviews"));
   await expect
     .poll(() => order(page, "ind-codigo"))
     .toEqual(["individual.prs", "individual.commits-dia"]);
@@ -508,20 +471,20 @@ test("409 nos dois lados: reaplica a operação na versão relida; Desfazer e De
 }) => {
   const a = page;
   const b = await page.context().newPage();
-  await open(a);
-  await open(b);
+  const api = await open(a);
+  await open(b, { api });
 
   /* B salva primeiro (v1) */
   await enterEdit(b);
   await b.getByRole("button", { name: "Ocultar Burndown pessoal" }).click();
   await b.getByRole("button", { name: "Concluir" }).click();
-  await waitSaved(a, (item) => item?.version === 1);
+  await waitSaved(api, (item) => item?.version === 0);
 
   /* A, com o cache velho, oculta outro widget: 409 → relê e reaplica o Ocultar */
   await enterEdit(a);
   await a.getByRole("button", { name: "Ocultar Reviews que fiz" }).click();
-  await waitSaved(a, (item) => item?.version === 2);
-  let saved = await savedLayout(a);
+  await waitSaved(api, (item) => item?.version === 1);
+  let saved = api.saved();
   expect(saved.hidden).toEqual(
     expect.arrayContaining(["individual.burndown", "individual.reviews"]),
   );
@@ -530,16 +493,16 @@ test("409 nos dois lados: reaplica a operação na versão relida; Desfazer e De
 
   /* Ctrl+Z em A volta à versão relida (com a mudança de B), nunca ao padrão */
   await a.keyboard.press("Control+z");
-  await waitSaved(a, (item) => item?.version === 3);
-  saved = await savedLayout(a);
+  await waitSaved(api, (item) => item?.version === 2);
+  saved = api.saved();
   expect(saved.hidden).toContain("individual.burndown");
   expect(saved.hidden).not.toContain("individual.reviews");
 
   /* B, agora com o cache velho (v1), oculta Commits: o mesmo do outro lado */
   await enterEdit(b);
   await b.getByRole("button", { name: "Ocultar Commits por dia" }).click();
-  await waitSaved(b, (item) => item?.version === 4);
-  saved = await savedLayout(b);
+  await waitSaved(api, (item) => item?.version === 3);
+  saved = api.saved();
   expect(saved.hidden).toEqual(
     expect.arrayContaining(["individual.burndown", "individual.commits-dia"]),
   );
@@ -550,8 +513,8 @@ test("409 nos dois lados: reaplica a operação na versão relida; Desfazer e De
   await b.getByRole("button", { name: "Mais ações da personalização" }).click();
   await b.getByRole("menuitem", { name: "Descartar alterações" }).click();
   await b.getByRole("dialog").getByRole("button", { name: "Descartar" }).click();
-  await waitSaved(b, (item) => item?.version === 5);
-  saved = await savedLayout(b);
+  await waitSaved(api, (item) => item?.version === 4);
+  saved = api.saved();
   expect(saved.hidden).toContain("individual.burndown");
   expect(saved.hidden).not.toContain("individual.commits-dia");
   await b.close();
@@ -560,22 +523,22 @@ test("409 nos dois lados: reaplica a operação na versão relida; Desfazer e De
 test("Desfazer até o padrão (DELETE) não apaga a mudança feita em outra aba", async ({ page }) => {
   const a = page;
   const b = await page.context().newPage();
-  await open(a);
-  await open(b);
+  const api = await open(a);
+  await open(b, { api });
   await enterEdit(a);
   await a.getByRole("button", { name: "Ocultar Reviews que fiz" }).click();
-  await waitSaved(a, (item) => item?.version === 1);
+  await waitSaved(api, (item) => item?.version === 0);
 
   /* B não sabia da v1: 409, reaplica e grava v2 */
   await enterEdit(b);
   await b.getByRole("button", { name: "Ocultar Burndown pessoal" }).click();
-  await waitSaved(b, (item) => item?.version === 2);
+  await waitSaved(api, (item) => item?.version === 1);
 
   /* o Desfazer de A seria um DELETE (entrada = padrão): confere a versão e rebaseia */
   await a.keyboard.press("Control+z");
   await expect(announcer(a)).toContainText(REBASE_MSG);
   await a.waitForTimeout(800);
-  const saved = await savedLayout(a);
+  const saved = api.saved();
   expect(saved).not.toBeNull();
   expect(saved.hidden).toContain("individual.burndown");
   await b.close();
@@ -693,7 +656,7 @@ test("contraste: textos novos ≥ 4,5:1 e bordas de controle ≥ 3:1 nas três p
   page,
 }) => {
   /* Fluência em IA fora de widgets e hidden = "nova" (para o aviso "Ver no catálogo") */
-  await seedLayouts(page, [
+  const layouts = [
     {
       viewKey: "individual",
       sections: [
@@ -703,8 +666,8 @@ test("contraste: textos novos ≥ 4,5:1 e bordas de controle ≥ 3:1 nas três p
       version: 1,
       updatedAt: "2026-10-11T12:00:00Z",
     },
-  ]);
-  await open(page, { heading: "Código" });
+  ];
+  await open(page, { heading: "Código", layouts });
   const report = {};
   for (const palette of ["default", "light", "mono"]) {
     await page.evaluate((p) => document.documentElement.setAttribute("data-palette", p), palette);
@@ -772,4 +735,26 @@ test("perto de 600 px a barra fixa e a grade usam a mesma referência de largura
     });
     expect(state.barFixed, `largura ${width}`).toBe(state.gridNarrow);
   }
+});
+
+test("Personalizar fica desabilitado até o layout salvo chegar e funciona no primeiro clique", async ({
+  page,
+}) => {
+  let release;
+  const gate = new Promise((r) => (release = r));
+  await installDashboardsApi(page, { permissions: ["DASHBOARD_INDIVIDUAL"] });
+  /* segura o GET dos layouts (a rota da página vem antes da do contexto) */
+  await page.route("**/api/v1/dashboards/layouts", async (route) => {
+    if (route.request().method() === "GET") await gate;
+    return route.fallback();
+  });
+  await gotoDashboard(page);
+  const button = page.getByRole("button", { name: "Personalizar" });
+  await expect(button).toBeVisible();
+  await expect(button).toBeDisabled();
+  release();
+  await expect(button).toBeEnabled();
+  await button.click();
+  await expect(page.getByRole("heading", { name: "Personalizando o painel" })).toBeFocused();
+  await expect(page.locator("[data-edit-item]").first()).toBeVisible();
 });

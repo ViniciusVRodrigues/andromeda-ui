@@ -75,7 +75,10 @@ export function fmtTokensCompact(v) {
 
 export function fmtDate(isoOrMs) {
   if (isoOrMs == null) return "—";
-  const d = typeof isoOrMs === "number" ? new Date(isoOrMs) : new Date(`${isoOrMs}T12:00:00Z`);
+  const d =
+    typeof isoOrMs === "number" || /T/.test(isoOrMs)
+      ? new Date(isoOrMs)
+      : new Date(`${isoOrMs}T12:00:00Z`);
   return d.toLocaleDateString("pt-BR", { day: "2-digit", month: "short", timeZone: "UTC" });
 }
 
@@ -115,3 +118,15 @@ export const TYPE_LABEL = {
 export const STATUS_LABEL = { TODO: "A fazer", IN_PROGRESS: "Em andamento", DONE: "Concluído" };
 export const PR_STATUS_LABEL = { OPEN: "Aberto", MERGED: "Mergeado", CLOSED: "Fechado" };
 export const FLUENCY_STAGE_LABEL = ["Iniciante", "Básico", "Avançado", "Expert"];
+
+/**
+ * Complemento de uma duração DS `{p50, p90, n}` (o p50 é o valor mostrado):
+ * "p90 3,2 d · 14 itens". Vazio quando não há amostra.
+ * @param {{ p50: number|null, p90: number|null, n: number } | null | undefined} ds
+ * @param {[string, string]} [noun] o que foi medido, singular e plural
+ */
+export function fmtDsSpread(ds, noun = ["item", "itens"]) {
+  if (!ds || !ds.n) return "";
+  const p90 = isNum(ds.p90) ? `p90 ${fmtDuration(ds.p90)}` : "";
+  return [p90, `${fmtInt(ds.n)} ${ds.n === 1 ? noun[0] : noun[1]}`].filter(Boolean).join(" · ");
+}

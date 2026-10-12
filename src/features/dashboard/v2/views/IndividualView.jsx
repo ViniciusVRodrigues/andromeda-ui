@@ -13,13 +13,14 @@
  */
 
 import React from "react";
+import { useIdentity } from "../../../../core/auth/IdentityContext.jsx";
 import { CATALOG, catalogSections } from "../catalog.js";
 import { DashboardGrid } from "../DashboardGrid.jsx";
 import { individualHighlights } from "../highlights.js";
 import { layoutFor, useDashboardLayouts, useIndividualDashboard } from "../hooks.js";
 import { Highlights } from "../kit/Panel.jsx";
 import { resolveLayout } from "../layout.js";
-import { FetchFrame, SprintStrip } from "./shared.jsx";
+import { FetchFrame, SprintStrip, ViewError, ViewRefresh } from "./shared.jsx";
 
 const VIEW_KEY = "individual";
 
@@ -33,8 +34,16 @@ export const INDIVIDUAL_SECTIONS = catalogSections(VIEW_KEY).map((s) => ({
  * widget daqui exige outro código (D3): todo widget do catálogo é visível. */
 const canSeeWidget = () => true;
 
-export function IndividualView({ projectId, sprintId, onNavigate }) {
-  const { data, isPending, isFetching } = useIndividualDashboard({ projectId, sprintId });
+/**
+ * @param {{ projectId: string, sprintId: string, onNavigate?: (tab: string) => void,
+ *   onReviewAi?: (() => void) | null }} props  `onReviewAi`: "Revisar" da alocação de IA
+ *   (Uso de IA com a casca, painel de alocação no modo só-dashboard).
+ */
+export function IndividualView({ projectId, sprintId, onNavigate, onReviewAi = null }) {
+  const { data, isPending, isFetching, isError, error, refetch } = useIndividualDashboard({
+    projectId,
+    sprintId,
+  });
   const layouts = useDashboardLayouts();
   /* enquanto o layout salvo não chega, a silhueta segue o padrão do catálogo */
   const saved = layouts.isPending ? null : layoutFor(layouts.data, VIEW_KEY);
@@ -42,8 +51,19 @@ export function IndividualView({ projectId, sprintId, onNavigate }) {
     () => resolveLayout(CATALOG, VIEW_KEY, saved, canSeeWidget),
     [saved],
   );
-  const ctx = React.useMemo(() => ({ onNavigate }), [onNavigate]);
+  const ident = useIdentity();
+  /* "Editar no backlog": a edição de esforço/complexidade é lá (sem edição inline aqui) */
+  const canBacklog = !!onNavigate && !!ident.can?.("backlog");
+  const ctx = React.useMemo(
+    () => ({
+      onNavigate,
+      onReviewAi,
+      onOpenBacklog: canBacklog ? () => onNavigate("backlog") : null,
+    }),
+    [onNavigate, onReviewAi, canBacklog],
+  );
 
+  if (isError && !data) return <ViewError error={error} onRetry={refetch} />;
   if (isPending || !data || layouts.isPending) {
     return (
       <div className="mt-2">
@@ -55,6 +75,7 @@ export function IndividualView({ projectId, sprintId, onNavigate }) {
 
   return (
     <FetchFrame fetching={isFetching}>
+      <ViewRefresh projectId={projectId} freshness={data.dataFreshness} />
       <Highlights items={individualHighlights(data)} />
       <div className="mt-2">
         <SprintStrip sprint={data.sprint} />

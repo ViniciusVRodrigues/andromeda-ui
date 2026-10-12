@@ -28,7 +28,7 @@ import {
 } from "../hooks.js";
 import { Highlights } from "../kit/Panel.jsx";
 import { resolveLayout } from "../layout.js";
-import { FetchFrame } from "./shared.jsx";
+import { FetchFrame, ViewError, ViewRefresh } from "./shared.jsx";
 
 const VIEW_KEY = "projeto";
 
@@ -61,6 +61,8 @@ export function ProjectView({ projectId, periodDays, allowed = true }) {
     [roadmap, quality],
   );
 
+  if (overview.isError && !overview.data)
+    return <ViewError error={overview.error} onRetry={overview.refetch} />;
   if (overview.isPending || !overview.data || layouts.isPending) {
     return (
       <div className="mt-2">
@@ -77,6 +79,7 @@ export function ProjectView({ projectId, periodDays, allowed = true }) {
     (needsQuality && quality.isFetching && quality.data != null);
   return (
     <FetchFrame fetching={fetching}>
+      <ViewRefresh projectId={projectId} freshness={overview.data.dataFreshness} />
       <Highlights items={projectHighlights(overview.data)} />
       <DashboardGrid
         layout={layout}

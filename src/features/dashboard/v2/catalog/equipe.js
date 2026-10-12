@@ -4,8 +4,9 @@
  * Reúne os widgets do Resumo (`buildTeam`) e da sub-aba Fluxo e qualidade
  * (`buildTeamFlow`); Práticas de IA fica fora. O payload do grid é composto:
  * `{ resumo, fluxo }` — `fluxo` só é buscado quando o layout tem widget com
- * `source: "fluxo"` (nenhum está no padrão). `collect: true` = requer coleta nova
- * (nunca no padrão).
+ * `source: "fluxo"` (nenhum está no padrão). Painéis que dependem de coleta nova
+ * (quadro, horas restantes, escopo, severidade, fila por revisor) ficam fora até a
+ * coleta existir (decisão da pessoa, dashboards-customizaveis).
  *
  * Padrão = o Resumo fixo anterior traduzido: 7/5 com gráfico no lado largo → M+M;
  * 7/5 com tabela no lado largo → G+P; 8/4 → G+P (a coluna empilhada vira o 2º ao
@@ -16,31 +17,21 @@ import { withSource } from "./SourceGate.jsx";
 import { KpisWidget, selectKpis } from "../widgets/equipe/summary.jsx";
 import {
   AgingWidget,
-  BoardWidget,
   BurndownWidget,
   CumulativeFlowWidget,
   StateTimesWidget,
   StatusByTypeWidget,
   selectAging,
-  selectBoard,
   selectBurndown,
   selectCumulativeFlow,
   selectStateTimes,
   selectStatusByType,
 } from "../widgets/equipe/flow.jsx";
-import {
-  HandoffsWidget,
-  MembersWidget,
-  RemainingWorkWidget,
-  selectHandoffs,
-  selectMembers,
-  selectRemainingWork,
-} from "../widgets/equipe/people.jsx";
+import { MembersWidget, selectMembers } from "../widgets/equipe/people.jsx";
 import {
   CommitsWidget,
   OpenPrsWidget,
   ReposWidget,
-  ReviewQueueWidget,
   ReviewersWidget,
   StalePrsWidget,
   selectCommits,
@@ -63,20 +54,7 @@ import {
   PredictabilityWidget,
   selectHistory,
 } from "../widgets/equipe/history.jsx";
-import {
-  ScopeChangesWidget,
-  ScopeHistoryWidget,
-  ScopeKpisWidget,
-  selectScope,
-  selectScopeChanges,
-  selectScopeHistory,
-} from "../widgets/equipe/scope.jsx";
-import {
-  BugsBySeverityWidget,
-  ReworkWidget,
-  selectBugsBySeverity,
-  selectRework,
-} from "../widgets/equipe/quality.jsx";
+import { ReworkWidget, selectRework } from "../widgets/equipe/quality.jsx";
 
 const VIEW_KEY = "equipe";
 const ALL = ["P", "M", "G", "I"];
@@ -132,22 +110,14 @@ export const sections = [
     title: "Histórico",
     question: "O time está ficando mais previsível?",
   },
-  /* seções só com widgets da sub-aba Fluxo e qualidade (vazias no padrão) */
-  {
-    viewKey: VIEW_KEY,
-    id: "escopo",
-    domId: "eq-escopo",
-    nav: "Escopo",
-    title: "Escopo da sprint",
-    question: "O que foi comprometido mudou no meio do caminho?",
-  },
+  /* seção só com widgets da sub-aba Fluxo e qualidade (vazia no padrão) */
   {
     viewKey: VIEW_KEY,
     id: "qualidade",
     domId: "eq-qualidade",
     nav: "Qualidade",
     title: "Qualidade na sprint",
-    question: "Quantos bugs graves estão abertos e quanto voltou?",
+    question: "Quanto do que foi concluído voltou?",
   },
 ];
 
@@ -158,7 +128,7 @@ const fromResumo = (select) => (p) => select(p.resumo);
 
 /**
  * @param {string} name @param {string} section @param {string} title
- * @param {{ sizes: string[], size: string, default?: boolean, collect?: boolean,
+ * @param {{ sizes: string[], size: string, default?: boolean,
  *   height: number, source?: "resumo"|"fluxo", select: Function, Component: Function }} o
  */
 const widget = (name, section, title, o) => {
@@ -181,7 +151,6 @@ const widget = (name, section, title, o) => {
     sizes: o.sizes,
     defaultSize: o.size,
     default: !!o.default,
-    ...(o.collect ? { collect: true } : {}),
     skeletonHeight: o.height,
     aliases: [],
     source,
@@ -330,86 +299,13 @@ export const widgets = [
     select: selectStateTimes,
     Component: StateTimesWidget,
   }),
-  widget("quadro-coluna", "fluxo", "Quadro por coluna", {
-    sizes: ALL,
-    size: "P",
-    collect: true,
-    source: "fluxo",
-    height: 300,
-    select: selectBoard,
-    Component: BoardWidget,
-  }),
-  widget("horas-restantes", "pessoas", "Horas restantes nos itens abertos", {
-    sizes: ALL,
-    size: "M",
-    collect: true,
-    source: "fluxo",
-    height: 320,
-    select: selectRemainingWork,
-    Component: RemainingWorkWidget,
-  }),
-  widget("trocas-responsavel", "pessoas", "Trocas de responsável", {
-    sizes: TABLE,
-    size: "G",
-    collect: true,
-    source: "fluxo",
-    height: 320,
-    select: selectHandoffs,
-    Component: HandoffsWidget,
-  }),
-  widget("reviews-pedidas", "codigo", "Reviews pedidas e ainda não feitas", {
-    sizes: ALL,
-    size: "M",
-    collect: true,
-    source: "fluxo",
-    height: 280,
-    select: selectReviewQueue,
-    Component: ReviewQueueWidget,
-  }),
   widget("prs-abertos", "codigo", "Rascunhos, destino e labels", {
     sizes: ALL,
     size: "M",
-    collect: true,
     source: "fluxo",
     height: 280,
     select: selectReviewQueue,
     Component: OpenPrsWidget,
-  }),
-  widget("escopo-kpis", "escopo", "Mudanças de escopo", {
-    sizes: ["I"],
-    size: "I",
-    collect: true,
-    source: "fluxo",
-    height: 112,
-    select: selectScope,
-    Component: ScopeKpisWidget,
-  }),
-  widget("escopo-historico", "escopo", "Comprometido, entradas, saídas e transbordo", {
-    sizes: ALL,
-    size: "M",
-    collect: true,
-    source: "fluxo",
-    height: 350,
-    select: selectScopeHistory,
-    Component: ScopeHistoryWidget,
-  }),
-  widget("escopo-mudancas", "escopo", "Mudanças registradas", {
-    sizes: TABLE,
-    size: "G",
-    collect: true,
-    source: "fluxo",
-    height: 350,
-    select: selectScopeChanges,
-    Component: ScopeChangesWidget,
-  }),
-  widget("bugs-severidade", "qualidade", "Bugs da sprint por severidade", {
-    sizes: ALL,
-    size: "P",
-    collect: true,
-    source: "fluxo",
-    height: 300,
-    select: selectBugsBySeverity,
-    Component: BugsBySeverityWidget,
   }),
   widget("reabertos", "qualidade", "Itens reabertos", {
     sizes: TABLE,

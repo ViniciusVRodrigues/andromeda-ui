@@ -16,18 +16,16 @@ export function layoutSources(layout) {
 }
 
 /**
- * Seções para a `SectionNav` da página: as que têm widget no padrão (`default &&
- * !collect`), com o rótulo curto `nav` (ou o título). Seção sem widget no padrão
+ * Seções para a `SectionNav` da página: as que têm widget no padrão (`default`),
+ * com o rótulo curto `nav` (ou o título). Seção sem widget no padrão
  * fica de fora — o botão apontaria para um id que não está no DOM.
  * @param {{ sections: Array<{ viewKey: string, id: string, domId: string, title: string, nav?: string }>,
- *   widgets: Array<{ viewKey: string, section: string, default: boolean, collect?: boolean }> }} catalog
+ *   widgets: Array<{ viewKey: string, section: string, default: boolean }> }} catalog
  * @param {string} viewKey
  */
 export function defaultNavSections(catalog, viewKey) {
   const withDefault = new Set(
-    catalog.widgets
-      .filter((w) => w.viewKey === viewKey && w.default && !w.collect)
-      .map((w) => w.section),
+    catalog.widgets.filter((w) => w.viewKey === viewKey && w.default).map((w) => w.section),
   );
   return catalog.sections
     .filter((s) => s.viewKey === viewKey && withDefault.has(s.id))

@@ -1,5 +1,5 @@
 /**
- * DashboardsPage — dashboards v2 (PRÉVIA, dados fictícios).
+ * DashboardsPage — dashboards v2, ligados aos endpoints /v1/dashboards/* (api.js).
  *
  * As permissões montam a tela (gating no front é só UX — o backend valida com
  * @PreAuthorize nos mesmos códigos):
@@ -9,11 +9,11 @@
  *                            projetos com a visão estratégica (aba Projeto).
  * As permissões se somam: quem tem as três vê tudo.
  *
- * Cada visão tem sub-abas (`aba`): Individual → Resumo | Práticas de IA; Equipe →
- * Resumo | Fluxo e qualidade | Práticas de IA; Projeto → Resumo | Roadmap e backlog |
- * Qualidade; Organização → Visão geral | Práticas de IA | Integrações e identidades
- * (esta só para admin ou AZURE_CONFIGURE/REPOS_CONFIGURE). Práticas de IA de outras
- * pessoas aparecem só agregadas.
+ * Cada visão tem sub-abas (`aba`): Individual → Resumo; Equipe → Resumo | Fluxo e
+ * qualidade; Projeto → Resumo | Roadmap e backlog | Qualidade; Organização → Visão
+ * geral | Integrações e identidades (esta só para admin ou
+ * AZURE_CONFIGURE/REPOS_CONFIGURE/USER_MANAGE). As abas de Práticas de IA ficam
+ * escondidas até existir a coleta (dashboards-customizaveis, decisão 4).
  *
  * Estado na URL (deep-link/refresh): ?escopo=org|<projectId>&visao=individual|equipe|projeto
  * &aba=<sub-aba>&sprint=<id>&periodo=30|90|180|365.
@@ -24,12 +24,14 @@ import { useSearchParams } from "react-router-dom";
 import Combobox from "../../../core/ui/Combobox.jsx";
 import { useIdentity } from "../../../core/auth/IdentityContext.jsx";
 import { fmtDate } from "./format.js";
-import { useDashboardProjects, useProjectSprints } from "./hooks.js";
+import { useDashboardProjects, usePendingAllocations, useProjectSprints } from "./hooks.js";
+import { useQueryClient } from "@tanstack/react-query";
+import PendingAllocationsBanner from "../../../components/PendingAllocationsBanner.jsx";
+import AllocationPanel from "../../ai-usage/AllocationPanel.jsx";
 import { IndividualView, INDIVIDUAL_SECTIONS } from "./views/IndividualView.jsx";
 import { TeamView, TEAM_SECTIONS } from "./views/TeamView.jsx";
 import { ProjectView, PROJECT_SECTIONS } from "./views/ProjectView.jsx";
 import { OrganizationView, ORGANIZATION_SECTIONS } from "./views/OrganizationView.jsx";
-import { PracticesView, PRACTICES_SECTIONS } from "./views/PracticesView.jsx";
 import { TeamFlowView, FLOW_SECTIONS } from "./views/TeamFlowView.jsx";
 import { RoadmapView, ROADMAP_SECTIONS } from "./views/RoadmapView.jsx";
 import { QualityView, QUALITY_SECTIONS } from "./views/QualityView.jsx";
@@ -48,10 +50,10 @@ const PERIODS = [
 const VIEW_LABEL = { individual: "Individual", equipe: "Equipe", projeto: "Projeto" };
 
 const RESUMO = { value: "resumo", label: "Resumo" };
-const PRATICAS = { value: "praticas-ia", label: "Práticas de IA" };
+/* Práticas de IA fica fora até existir a coleta (decisão da pessoa): sem aba */
 const SUBTABS = {
-  individual: [RESUMO, PRATICAS],
-  equipe: [RESUMO, { value: "fluxo", label: "Fluxo e qualidade" }, PRATICAS],
+  individual: [RESUMO],
+  equipe: [RESUMO, { value: "fluxo", label: "Fluxo e qualidade" }],
   projeto: [
     RESUMO,
     { value: "roadmap", label: "Roadmap e backlog" },
@@ -59,7 +61,6 @@ const SUBTABS = {
   ],
   org: [
     { value: "geral", label: "Visão geral" },
-    PRATICAS,
     { value: "integracoes", label: "Integrações e identidades", requires: "integrations" },
   ],
 };
@@ -69,86 +70,33 @@ const SUMMARY_TAB = { individual: "resumo", equipe: "resumo", projeto: "resumo",
 
 const SECTIONS = {
   "individual/resumo": INDIVIDUAL_SECTIONS,
-  "individual/praticas-ia": PRACTICES_SECTIONS,
   "equipe/resumo": TEAM_SECTIONS,
   "equipe/fluxo": FLOW_SECTIONS,
-  "equipe/praticas-ia": PRACTICES_SECTIONS,
   "projeto/resumo": PROJECT_SECTIONS,
   "projeto/roadmap": ROADMAP_SECTIONS,
   "projeto/qualidade": QUALITY_SECTIONS,
   "org/geral": ORGANIZATION_SECTIONS,
-  "org/praticas-ia": PRACTICES_SECTIONS,
   "org/integracoes": INTEGRATIONS_SECTIONS,
 };
 
-/* Simulação de perfil — só em desenvolvimento, para revisar as três telas sem
- * trocar de login. Não existe no build de produção. */
-const SIMULATIONS = [
-  { value: "real", label: "Minhas permissões" },
-  { value: "individual", label: "Tela 1 · só individual" },
-  { value: "equipe", label: "Tela 2 · individual + equipe" },
-  { value: "estrategico", label: "Tela 3 · estratégico" },
-  { value: "admin", label: "Tela 3 · estratégico + admin" },
-];
 /**
  * Modelo de acesso (project-scoped-permissions). `individual` e `orgStrategic` são
- * da organização; Equipe/Projeto valem por projeto (`team(p)`, `strategic(p)`).
- * Projetos reais: o mapa do /me decide (`canOnProject`). Projetos da prévia são
- * fictícios — não estão no mapa —, então para eles o código vale se a pessoa o tem
- * em algum projeto e é membro (ou tem PROJECT_ACCESS_ALL); estratégico da
- * organização enxerga todos. Gating é só UX: o backend valida com @perm.onProject.
+ * da organização; Equipe/Projeto valem por projeto (`team(p)`, `strategic(p)`) pelo
+ * mapa do /me (`canOnProject`). Gating é só UX: o backend valida com @perm.onProject.
  */
-function accessModel(sim, ident) {
-  const none = () => false;
-  if (sim === "individual")
-    return {
-      individual: true,
-      orgStrategic: false,
-      team: none,
-      strategic: none,
-      integrations: false,
-    };
-  if (sim === "equipe")
-    return {
-      individual: true,
-      orgStrategic: false,
-      team: (p) => !!p.member,
-      strategic: none,
-      integrations: false,
-    };
-  if (sim === "estrategico")
-    return {
-      individual: false,
-      orgStrategic: true,
-      team: none,
-      strategic: () => true,
-      integrations: false,
-    };
-  if (sim === "admin")
-    return {
-      individual: true,
-      orgStrategic: true,
-      team: (p) => !!p.member,
-      strategic: () => true,
-      integrations: true,
-    };
-  const onProject = (p, code) =>
-    p.fictional
-      ? ident.holdsAnywhere(code) &&
-        (p.member ||
-          ident.hasOrg("PROJECT_ACCESS_ALL") ||
-          (code === "DASHBOARD_STRATEGIC" && ident.hasOrg(code)))
-      : ident.canOnProject(p.id, code);
+function accessModel(ident) {
   return {
     individual: ident.hasOrg("DASHBOARD_INDIVIDUAL"),
-    orgStrategic: ident.hasOrg("DASHBOARD_STRATEGIC"),
-    team: (p) => onProject(p, "DASHBOARD_TEAM"),
-    strategic: (p) => onProject(p, "DASHBOARD_STRATEGIC"),
-    /* mostra e-mails e tokens das pessoas: só quem administra as integrações */
+    /* o servidor libera a visão da organização com o código em algum projeto */
+    orgStrategic: ident.holdsAnywhere("DASHBOARD_STRATEGIC"),
+    team: (p) => ident.canOnProject(p.id, "DASHBOARD_TEAM"),
+    strategic: (p) => ident.canOnProject(p.id, "DASHBOARD_STRATEGIC"),
+    /* mostra e-mails e tokens das pessoas: mesma regra do GET /dashboards/integrations */
     integrations:
       !!ident.identity?.isAdmin ||
       ident.hasOrg("AZURE_CONFIGURE") ||
-      ident.hasOrg("REPOS_CONFIGURE"),
+      ident.hasOrg("REPOS_CONFIGURE") ||
+      ident.hasOrg("USER_MANAGE"),
   };
 }
 
@@ -235,15 +183,25 @@ function SectionNav({ sections }) {
 }
 
 export function DashboardsPage({ onLogout, onNavigate, onShowLegacy, standalone = false }) {
-  /* fora da casca (modo só-dashboard ou prévia sem login) a página rola na
+  /* fora da casca (modo só-dashboard ou a rota /previa/dashboard, que sai no P5) a página rola na
    * .page-layer, sem o padding de .admin-main: muda o respiro e o topo fixo */
   const bare = standalone || !!onLogout;
   const ident = useIdentity();
   const [params, setParams] = useSearchParams();
-  const [sim, setSim] = React.useState("real");
-  const access = accessModel(import.meta.env.DEV ? sim : "real", ident);
+  const access = accessModel(ident);
 
-  const projects = useDashboardProjects();
+  const projects = useDashboardProjects(ident.identity?.userId ?? null);
+  /* Aviso de alocação de IA pendente (paridade com o dashboard antigo). Com a casca,
+   * "Revisar" leva ao Uso de IA; no modo só-dashboard (sem navegação) abre o painel de
+   * alocação aqui mesmo, como o DashboardPage antigo. */
+  const qc = useQueryClient();
+  const canReviewAi = access.individual && (!onNavigate || !!ident.can?.("uso-ia"));
+  const pending = usePendingAllocations(canReviewAi);
+  const [allocationOpen, setAllocationOpen] = React.useState(false);
+  const reviewAi = React.useCallback(
+    () => (onNavigate ? onNavigate("uso-ia") : setAllocationOpen(true)),
+    [onNavigate],
+  );
   const scopeProjects = (projects.data || []).filter(
     (p) => (access.individual && p.member) || access.team(p) || access.strategic(p),
   );
@@ -300,24 +258,20 @@ export function DashboardsPage({ onLogout, onNavigate, onShowLegacy, standalone 
 
   const scopeOptions = [
     ...(access.orgStrategic ? [{ value: "org", label: "Organização · visão geral" }] : []),
-    ...scopeProjects.map((p) => ({ value: p.id, label: p.name, hint: p.team })),
+    ...scopeProjects.map((p) => ({ value: p.id, label: p.name })),
   ];
 
   const sections = SECTIONS[`${view}/${tab}`] || [];
 
+  const teamName = project?.team || "time";
   const subtitle = {
     "individual/resumo": `Seu trabalho, seu código e seu uso de IA em ${project?.name}.`,
-    "individual/praticas-ia":
-      "Como você usa a IA: modos, contexto, ferramentas e código produzido. Só você vê estes dados.",
-    "equipe/resumo": `Entrega, fluxo, revisão e custo do ${project?.team} em ${project?.name}.`,
-    "equipe/fluxo": `Por onde o trabalho do ${project?.team} passa, quanto o escopo mudou e onde a revisão espera.`,
-    "equipe/praticas-ia": `Práticas de IA do ${project?.team}, sempre agregadas — sem números por pessoa.`,
+    "equipe/resumo": `Entrega, fluxo, revisão e custo do ${teamName} em ${project?.name}.`,
+    "equipe/fluxo": `Por onde o trabalho do ${teamName} passa, onde a revisão espera e quanto do concluído volta.`,
     "projeto/resumo": `Saúde, entrega e investimento de ${project?.name} ao longo do tempo.`,
     "projeto/roadmap": `O que ${project?.name} está construindo, quando termina e como está o backlog.`,
     "projeto/qualidade": `Bugs, correção e retrabalho em ${project?.name}.`,
     "org/geral": "Todos os projetos da organização lado a lado, com IA e a saúde das integrações.",
-    "org/praticas-ia":
-      "Como a organização usa a IA, agregada por projeto e em contagem de pessoas.",
     "org/integracoes":
       "Conexões, vínculos de cada pessoa, sincronização e a configuração que afeta os números.",
   }[`${view}/${tab}`];
@@ -330,7 +284,9 @@ export function DashboardsPage({ onLogout, onNavigate, onShowLegacy, standalone 
     (bare ? "top-0" : "top-[-32px]");
 
   const loadingScopes = projects.isPending;
-  const noAccess = !loadingScopes && !access.orgStrategic && scopeProjects.length === 0;
+  const noAccess =
+    !loadingScopes && !projects.isError && !access.orgStrategic && scopeProjects.length === 0;
+  const pendingCount = Array.isArray(pending.data) ? pending.data.length : 0;
 
   return (
     <DashboardEditProvider viewKey={editViewKey} userId={ident.identity?.userId ?? null}>
@@ -339,25 +295,7 @@ export function DashboardsPage({ onLogout, onNavigate, onShowLegacy, standalone 
           <div className="flex flex-wrap items-center gap-3">
             <h1 className="serif text-fg m-0 text-[34px] leading-tight">Dashboard</h1>
             {scope ? <CustomizeButton /> : null}
-            <span
-              className="mono border-warn text-warn rounded-full border px-2.5 py-0.5 text-[11px] tracking-[0.1em] uppercase"
-              title="Esta versão usa dados inventados para validar o desenho dos dashboards antes da ligação com o backend."
-            >
-              Prévia · dados fictícios
-            </span>
             <div className="ml-auto flex flex-wrap items-center gap-2">
-              {import.meta.env.DEV ? (
-                <label className="mono text-fg-dim inline-flex max-w-full flex-wrap items-center gap-2 text-[11px]">
-                  simular
-                  <Combobox
-                    value={sim}
-                    onValueChange={setSim}
-                    options={SIMULATIONS}
-                    aria-label="Simular perfil de permissões (somente desenvolvimento)"
-                    className="w-[230px] max-w-full"
-                  />
-                </label>
-              ) : null}
               {onShowLegacy ? (
                 <button type="button" className="btn btn-ghost btn-xs" onClick={onShowLegacy}>
                   Ver versão atual
@@ -375,7 +313,29 @@ export function DashboardsPage({ onLogout, onNavigate, onShowLegacy, standalone 
           ) : null}
         </header>
 
-        {noAccess ? (
+        {canReviewAi ? <PendingAllocationsBanner count={pendingCount} onReview={reviewAi} /> : null}
+        {allocationOpen && pendingCount ? (
+          <AllocationPanel
+            pendingDays={pending.data}
+            onClose={() => setAllocationOpen(false)}
+            onSaved={() => {
+              qc.invalidateQueries({ queryKey: ["dashboards-v2"] });
+            }}
+          />
+        ) : null}
+
+        {projects.isError && !access.orgStrategic ? (
+          <div role="alert" className="flex flex-col items-start gap-3">
+            <p className="text-fg-muted m-0">Não foi possível carregar os projetos.</p>
+            <button
+              type="button"
+              className="btn btn-ghost btn-xs"
+              onClick={() => projects.refetch()}
+            >
+              Tentar de novo
+            </button>
+          </div>
+        ) : noAccess ? (
           <p className="text-fg-muted">Seu cargo não tem permissão de dashboard.</p>
         ) : loadingScopes ? (
           <ViewSkeleton />
@@ -404,7 +364,7 @@ export function DashboardsPage({ onLogout, onNavigate, onShowLegacy, standalone 
                   ) : null}
                   <div className="ml-auto flex items-center gap-3">
                     {sprintFilter ? (
-                      <div className="w-[300px] max-w-full">
+                      <div className="w-full max-w-[300px] min-w-0">
                         <Combobox
                           value={sprintId}
                           onValueChange={(v) => update({ sprint: v })}
@@ -442,19 +402,18 @@ export function DashboardsPage({ onLogout, onNavigate, onShowLegacy, standalone 
             </FiltersOrEditBar>
 
             {view === "individual" && sprintId && tab === "resumo" ? (
-              <IndividualView projectId={scope} sprintId={sprintId} onNavigate={onNavigate} />
-            ) : null}
-            {view === "individual" && sprintId && tab === "praticas-ia" ? (
-              <PracticesView scope="individual" projectId={scope} sprintId={sprintId} />
+              <IndividualView
+                projectId={scope}
+                sprintId={sprintId}
+                onNavigate={onNavigate}
+                onReviewAi={canReviewAi ? reviewAi : null}
+              />
             ) : null}
             {view === "equipe" && sprintId && tab === "resumo" ? (
               <TeamView projectId={scope} sprintId={sprintId} allowed={access.team(project)} />
             ) : null}
             {view === "equipe" && sprintId && tab === "fluxo" ? (
               <TeamFlowView projectId={scope} sprintId={sprintId} />
-            ) : null}
-            {view === "equipe" && sprintId && tab === "praticas-ia" ? (
-              <PracticesView scope="team" projectId={scope} sprintId={sprintId} />
             ) : null}
             {view === "projeto" && tab === "resumo" ? (
               <ProjectView
@@ -478,11 +437,23 @@ export function DashboardsPage({ onLogout, onNavigate, onShowLegacy, standalone 
                 }
               />
             ) : null}
-            {view === "org" && tab === "praticas-ia" ? (
-              <PracticesView scope="org" periodDays={periodDays} />
-            ) : null}
             {view === "org" && tab === "integracoes" ? <IntegrationsView /> : null}
-            {(view === "individual" || view === "equipe") && !sprintId && !sprints.isPending ? (
+            {(view === "individual" || view === "equipe") && !sprintId && sprints.isError ? (
+              <div role="alert" className="flex flex-col items-start gap-3">
+                <p className="text-fg-muted m-0">Não foi possível carregar as sprints.</p>
+                <button
+                  type="button"
+                  className="btn btn-ghost btn-xs"
+                  onClick={() => sprints.refetch()}
+                >
+                  Tentar de novo
+                </button>
+              </div>
+            ) : null}
+            {(view === "individual" || view === "equipe") &&
+            !sprintId &&
+            !sprints.isPending &&
+            !sprints.isError ? (
               <p className="text-fg-muted">Este projeto ainda não tem sprints sincronizadas.</p>
             ) : null}
             {!view ? (

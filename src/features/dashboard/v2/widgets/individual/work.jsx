@@ -11,7 +11,7 @@ import { ItemCell } from "../../views/shared.jsx";
 export const selectBurndown = (d) => ({
   burndown: d.burndown,
   todayLabel:
-    d.sprint.timeFrame === "CURRENT"
+    d.sprint?.timeFrame === "CURRENT"
       ? d.burndown.filter((p) => p.remaining != null).at(-1)?.label
       : undefined,
 });
@@ -86,12 +86,24 @@ const ITEM_COLUMNS = [
   },
 ];
 
-export function ItemsWidget({ data: items }) {
+/** @param {{ data: Array<object>, ctx?: { onOpenBacklog?: (() => void) | null } }} props */
+export function ItemsWidget({ data: items, ctx }) {
   return (
     <Panel
       eyebrow="composição"
       title="Meus itens da sprint"
       sources={["azure", "github", "ia"]}
+      actions={
+        ctx?.onOpenBacklog ? (
+          <button
+            type="button"
+            onClick={ctx.onOpenBacklog}
+            className="mono text-accent-text inline-flex min-h-[44px] cursor-pointer items-center border-0 bg-transparent p-0 text-[12px] hover:underline"
+          >
+            Editar no backlog →
+          </button>
+        ) : null
+      }
       info="Work items atribuídos a você na sprint. Tempo = cycle time dos concluídos ou há quanto tempo o item está em andamento. IA = custo do uso de IA que você alocou ao item (alocações validadas) e tokens por SP."
     >
       {items.length ? (

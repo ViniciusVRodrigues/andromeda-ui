@@ -43,6 +43,8 @@ export function CustomizeButton() {
         ref={edit.buttonRef}
         type="button"
         onClick={edit.enter}
+        disabled={!edit.ready}
+        aria-busy={!edit.ready || undefined}
         className={BTN_GHOST}
         aria-describedby={edit.tipVisible ? "dash-edit-tip" : undefined}
       >

@@ -96,7 +96,11 @@ export function AiIndicatorsWidget({ data }) {
       <KpiTile
         label="Consumo × assinatura"
         value={fmtUsd(sub.consumptionUsd)}
-        hint={`assinatura equivalente: ${fmtUsd(sub.subscriptionUsd)} (${fmtUsd(sub.perUserMonthUsd)}/pessoa/mês × ${adoption.members} × ${fmtNum(months)} meses)`}
+        hint={
+          sub.subscriptionUsd == null
+            ? "custo de assinatura não configurado na organização"
+            : `assinatura equivalente: ${fmtUsd(sub.subscriptionUsd)} (${fmtUsd(sub.perUserMonthUsd)}/pessoa/mês × ${adoption.members} × ${fmtNum(months)} meses)`
+        }
         title="Custo do uso por token dos membros comparado ao custo fixo de assinatura configurado na organização"
       />
     </div>

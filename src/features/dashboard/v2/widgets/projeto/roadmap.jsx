@@ -1,5 +1,5 @@
 /* Widgets da visão Projeto vindos da sub-aba "Roadmap e backlog" (payload
- * `mock/roadmap.js`): épicos e features, saúde do backlog, temas e estimativas. */
+ * `GET .../projects/{id}/roadmap`): épicos e features, saúde do backlog, temas e estimativas. */
 
 import React from "react";
 import { axisDays, fmtDate, fmtDuration, fmtInt, fmtNum, fmtPct, nItems } from "../../format.js";
@@ -215,7 +215,11 @@ export function BacklogPriorityWidget({ data: b }) {
         rowKey={(r) => r.priority}
         rows={b.byPriority}
         columns={[
-          { key: "priority", label: "Prioridade", render: (r) => `P${r.priority}` },
+          {
+            key: "priority",
+            label: "Prioridade",
+            render: (r) => (r.priority == null ? "—" : `P${r.priority}`),
+          },
           { key: "count", label: "Itens", align: "right" },
           {
             key: "stale",
@@ -248,7 +252,12 @@ export function BacklogForgottenWidget({ data: b }) {
             label: "Item",
             render: (r) => <ItemCell type={r.type} externalId={r.externalId} title={r.title} />,
           },
-          { key: "priority", label: "Prior.", align: "right", render: (r) => `P${r.priority}` },
+          {
+            key: "priority",
+            label: "Prior.",
+            align: "right",
+            render: (r) => (r.priority == null ? "—" : `P${r.priority}`),
+          },
           { key: "effort", label: "SP", align: "right", format: fmtInt },
           {
             key: "daysWithoutChange",
@@ -295,29 +304,6 @@ export function DeliveredByTagWidget({ data: rows }) {
   );
 }
 
-export const selectDeliveredByArea = (r) => r.deliveredByArea;
-
-export function DeliveredByAreaWidget({ data: rows }) {
-  return (
-    <Panel
-      eyebrow="entregue no período"
-      title="Por área"
-      sources={["azure"]}
-      collect="gravar System.AreaPath dos work items (hoje só usado como filtro opcional do sync)."
-    >
-      <BarList
-        rows={rows.map((a) => ({
-          key: a.area,
-          label: a.area,
-          value: a.sp,
-          display: `${fmtInt(a.sp)} SP`,
-          sub: nItems(a.count),
-        }))}
-      />
-    </Panel>
-  );
-}
-
 export function BacklogByTagWidget({ data: b }) {
   return (
     <Panel eyebrow="por vir" title="Backlog por tag" sources={["azure"]}>
@@ -349,7 +335,7 @@ export function CycleByEffortWidget({ data }) {
       eyebrow="esforço × tempo"
       title="Cycle time por tamanho"
       sources={["azure"]}
-      info={`Cycle time médio dos itens concluídos no período por esforço estimado (campo ${data.config.effortField}). Tempo crescendo junto com o tamanho = estimativa consistente.`}
+      info={`Cycle time mediano dos itens concluídos no período por esforço estimado (campo ${data.config?.effortField ?? "de esforço"}). Tempo crescendo junto com o tamanho = estimativa consistente.`}
       table={{
         columns: [
           { key: "label", label: "Esforço" },
@@ -363,7 +349,7 @@ export function CycleByEffortWidget({ data }) {
         data={rows}
         height={200}
         yWidth={34}
-        series={[{ key: "cycleDays", label: "Cycle time médio", color: "var(--accent)" }]}
+        series={[{ key: "cycleDays", label: "Cycle time mediano", color: "var(--accent)" }]}
         yFormat={axisDays}
         valueFormat={(v) => fmtDuration(v * 24)}
         extra={(row) => nItems(row.count)}
@@ -394,7 +380,7 @@ export function CycleByComplexityWidget({ data }) {
         data={rows}
         height={200}
         yWidth={34}
-        series={[{ key: "cycleDays", label: "Cycle time médio", color: "var(--accent)" }]}
+        series={[{ key: "cycleDays", label: "Cycle time mediano", color: "var(--accent)" }]}
         yFormat={axisDays}
         valueFormat={(v) => fmtDuration(v * 24)}
         extra={(row) => `${nItems(row.count)} · esforço médio ${fmtNum(row.avgEffort)} SP`}

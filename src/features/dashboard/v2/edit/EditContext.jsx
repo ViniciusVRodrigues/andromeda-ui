@@ -382,14 +382,19 @@ export function DashboardEditProvider({ viewKey, userId = null, canSee = ALL, ch
     setPrefs(readPrefs(userId));
   }, [userId]);
 
+  /* o layout salvo precisa ter chegado: entrar antes tiraria o retrato de entrada do
+   * padrão e a grade de edição ainda não existiria (cliques nos primeiros ~500 ms) */
+  const ready = customizable && !layouts.isPending;
+
   const enter = React.useCallback(() => {
+    if (!ready) return;
     entry.current = savedNow();
     stack.current = [];
     setUndoCount(0);
     pendingFocus.current = { heading: true };
     setEditing(true);
     if (!prefs.tipDismissed) dismissTip();
-  }, [savedNow, prefs.tipDismissed, dismissTip]);
+  }, [ready, savedNow, prefs.tipDismissed, dismissTip]);
 
   const exit = React.useCallback(() => {
     setDrawerOpen(false);
@@ -503,10 +508,7 @@ export function DashboardEditProvider({ viewKey, userId = null, canSee = ALL, ch
   }, [editing, drawerOpen, confirmOpen]);
 
   /* widgets novos (D5): aviso único por pessoa e visão */
-  const novos = React.useMemo(
-    () => (layout?.novos || []).filter((id) => !entryOf(id)?.collect),
-    [layout],
-  );
+  const novos = React.useMemo(() => layout?.novos || [], [layout]);
   const seen = prefs.seenNovos?.[viewKey] || [];
   const unseenNovos = novos.filter((id) => !seen.includes(id));
   const dismissNovos = React.useCallback(() => {
@@ -524,6 +526,7 @@ export function DashboardEditProvider({ viewKey, userId = null, canSee = ALL, ch
         setNarrow,
         barHeight,
         setBarHeight,
+        ready,
         enter,
         exit,
         undo,

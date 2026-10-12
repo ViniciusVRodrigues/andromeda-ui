@@ -16,7 +16,7 @@ import { ItemCell } from "../../views/shared.jsx";
 export const selectBurndown = (d) => ({
   burndown: d.burndown,
   todayLabel:
-    d.sprint.timeFrame === "CURRENT"
+    d.sprint?.timeFrame === "CURRENT"
       ? d.burndown.filter((p) => p.remaining != null).at(-1)?.label
       : undefined,
 });
@@ -192,7 +192,7 @@ const CATEGORY_SERIES = [
   { key: "Completed", label: "Concluído", color: "var(--accent)" },
 ];
 
-const hasResolvedState = (f) => f.states.some((s) => s.category === "Resolved");
+const hasResolvedState = (f) => (f.states || []).some((s) => s.category === "Resolved");
 
 export const selectCumulativeFlow = (f) => ({
   cfd: f.cfd,
@@ -206,7 +206,7 @@ export function CumulativeFlowWidget({ data }) {
       eyebrow="fluxo cumulativo"
       title="Itens por estado, dia a dia"
       sources={["azure"]}
-      info={`Quantos itens da sprint estavam em cada categoria de estado no fim de cada dia útil (modelo de processo ${data.processTemplate}). Faixa de "Em andamento" engordando = trabalho começando mais rápido do que termina. Mudanças entre dois syncs não aparecem.`}
+      info={`Quantos itens da sprint estavam em cada categoria de estado (a fazer, em andamento, concluído) no fim de cada dia útil${data.processTemplate ? ` (modelo de processo ${data.processTemplate})` : ""}. Um item só conta a partir do dia em que foi criado. Faixa de "Em andamento" engordando = trabalho começando mais rápido do que termina. Mudanças entre dois syncs não aparecem.`}
       table={{
         columns: [
           { key: "label", label: "Dia" },
@@ -221,8 +221,8 @@ export function CumulativeFlowWidget({ data }) {
 }
 
 export const selectStateTimes = (f) => ({
-  current: f.stateTimes.current,
-  history: f.stateTimes.history,
+  current: f.stateTimes?.current ?? {},
+  history: f.stateTimes?.history ?? [],
   hasResolved: hasResolvedState(f),
 });
 
@@ -233,7 +233,7 @@ export function StateTimesWidget({ data }) {
       eyebrow="tempo por etapa"
       title="Onde os itens concluídos passaram o tempo"
       sources={["azure"]}
-      info="Média, nos itens concluídos da sprint: fila = da entrada na sprint até começar; em andamento = tempo em estados ativos; resolvido = esperando validação/fechamento (só em processos com estado Resolved)."
+      info="Mediana (p50), nos itens concluídos da sprint: fila = da entrada na sprint (ou da criação) até começar; em andamento = tempo em estados ativos até a primeira conclusão."
       table={{
         columns: [
           { key: "label", label: "Sprint" },
@@ -271,44 +271,6 @@ export function StateTimesWidget({ data }) {
             : []),
         ]}
       />
-    </Panel>
-  );
-}
-
-export const selectBoard = (f) => f.board;
-
-export function BoardWidget({ data: board }) {
-  return (
-    <Panel
-      eyebrow="agora"
-      title="Quadro por coluna"
-      sources={["azure"]}
-      collect="gravar o campo System.BoardColumn de cada work item (hoje recebido e ignorado)."
-      info="Itens em andamento agora, pela coluna do board no Azure, com a idade média desde o início."
-    >
-      {board ? (
-        <DataTable
-          dense
-          rowKey={(r) => r.column}
-          rows={[
-            { column: "A fazer", count: board.todo, avgAgeDays: null },
-            ...board.columns,
-            { column: "Pronto", count: board.done, avgAgeDays: null },
-          ]}
-          columns={[
-            { key: "column", label: "Coluna" },
-            { key: "count", label: "Itens", align: "right" },
-            {
-              key: "avgAgeDays",
-              label: "Idade média",
-              align: "right",
-              render: (r) => (r.avgAgeDays == null ? "—" : fmtDuration(r.avgAgeDays * 24)),
-            },
-          ]}
-        />
-      ) : (
-        <Empty>O quadro é um retrato de agora — selecione a sprint atual.</Empty>
-      )}
     </Panel>
   );
 }

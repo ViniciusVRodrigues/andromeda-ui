@@ -23,7 +23,7 @@ import { teamHighlights } from "../highlights.js";
 import { layoutFor, useDashboardLayouts, useTeamDashboard, useTeamFlow } from "../hooks.js";
 import { Highlights } from "../kit/Panel.jsx";
 import { resolveLayout } from "../layout.js";
-import { FetchFrame, SprintStrip } from "./shared.jsx";
+import { FetchFrame, SprintStrip, ViewError, ViewRefresh } from "./shared.jsx";
 
 const VIEW_KEY = "equipe";
 
@@ -49,6 +49,7 @@ export function TeamView({ projectId, sprintId, allowed = true }) {
   /* o grid não espera o fluxo: cada widget dele mostra o próprio esqueleto ou erro */
   const ctx = React.useMemo(() => ({ sources: { fluxo: sourceState(flow) } }), [flow]);
 
+  if (team.isError && !team.data) return <ViewError error={team.error} onRetry={team.refetch} />;
   if (team.isPending || !team.data || layouts.isPending) {
     return (
       <div className="mt-2">
@@ -62,13 +63,14 @@ export function TeamView({ projectId, sprintId, allowed = true }) {
   /* fonte secundária só esmaece a tela num refetch com dado; na 1ª carga o cartão tem esqueleto */
   return (
     <FetchFrame fetching={team.isFetching || (needsFlow && flow.isFetching && flow.data != null)}>
+      <ViewRefresh projectId={projectId} freshness={d.dataFreshness} />
       <Highlights items={teamHighlights(d)} />
       <div className="mt-2">
         <SprintStrip
           sprint={d.sprint}
           extra={
             <span className="mono text-fg-muted text-[12px] font-normal">
-              {d.team.memberCount} pessoas
+              {d.team?.memberCount ?? "—"} pessoas
             </span>
           }
         />
