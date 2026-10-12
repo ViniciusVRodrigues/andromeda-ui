@@ -56,7 +56,7 @@ export function InfoTip({ label, children }) {
       >
         <span
           aria-hidden="true"
-          className="mono border-line-strong text-fg-muted group-hover/tip:text-fg group-focus-visible/tip:text-fg group-focus-visible/tip:outline-accent inline-flex h-[18px] w-[18px] items-center justify-center rounded-full border text-[11px] leading-none group-focus-visible/tip:outline-2 group-focus-visible/tip:outline-offset-2"
+          className="mono border-fg-muted text-fg-muted group-hover/tip:text-fg group-focus-visible/tip:text-fg group-focus-visible/tip:outline-accent inline-flex h-[18px] w-[18px] items-center justify-center rounded-full border text-[11px] leading-none group-focus-visible/tip:outline-2 group-focus-visible/tip:outline-offset-2"
         >
           ?
         </span>
@@ -137,7 +137,7 @@ export function Panel({
           {actions}
           {table ? (
             <div
-              className="border-line inline-flex rounded-full border p-0.5"
+              className="border-fg-muted inline-flex rounded-full border p-0.5"
               role="group"
               aria-label="Formato"
             >

@@ -51,6 +51,19 @@
   --font-mono: "JetBrains Mono", "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
+/* Borda do combobox no dashboard v2 ≥ 3:1 (D8): `--fg-muted`, como as outras bordas de
+ * controle. Só aqui dentro — o `.cmb-trigger` global (legacy.css) fica como está. */
+@layer utilities {
+  [data-dashboard-v2] .cmb-trigger,
+  :root[data-palette="light"] [data-dashboard-v2] .cmb-trigger {
+    border-color: var(--fg-muted);
+  }
+  /* a camada utilities vence a do legado: repõe o foco (accent como borda, ≥ 3:1) */
+  [data-dashboard-v2] .cmb-trigger:focus-visible {
+    border-color: var(--accent-text);
+  }
+}
+
 /* Dashboard v2 com prefers-reduced-motion: nada de rolagem suave, transição ou animação
  * (inclui o Drawer de filtros, que usa as animações do legado). dashboards-customizaveis D8. */
 @media (prefers-reduced-motion: reduce) {

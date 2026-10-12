@@ -39,6 +39,17 @@ export function useElementWidth(ref) {
   return width;
 }
 
+/** Foca o item e o traz à vista dentro da faixa que rola na horizontal (celular). */
+function focusIntoView(el) {
+  if (!el) return;
+  el.focus({ preventScroll: true });
+  el.scrollIntoView({
+    behavior: reducedMotion() ? "auto" : "smooth",
+    inline: "nearest",
+    block: "nearest",
+  });
+}
+
 /** Move o foco entre `items` com as setas (roving tabindex); devolve o índice novo ou -1. */
 function nextIndex(key, index, count) {
   if (key === "ArrowRight" || key === "ArrowDown") return (index + 1) % count;
@@ -54,6 +65,15 @@ function nextIndex(key, index, count) {
  */
 export function SubTabs({ value, options, onChange, className = "" }) {
   const refs = React.useRef([]);
+  const active = options.findIndex((o) => o.value === value);
+  /* a aba ativa (também por deep-link ou clique) fica à vista na faixa rolável */
+  React.useEffect(() => {
+    refs.current[active]?.scrollIntoView({
+      behavior: reducedMotion() ? "auto" : "smooth",
+      inline: "nearest",
+      block: "nearest",
+    });
+  }, [active]);
   const onKeyDown = (e, i) => {
     const n = nextIndex(
       e.key === "ArrowUp" || e.key === "ArrowDown" ? "" : e.key,
@@ -62,7 +82,7 @@ export function SubTabs({ value, options, onChange, className = "" }) {
     );
     if (n < 0) return;
     e.preventDefault();
-    refs.current[n]?.focus();
+    focusIntoView(refs.current[n]);
     onChange(options[n].value);
   };
   return (
@@ -112,14 +132,14 @@ export function Segmented({ value, options, onChange, label }) {
     const n = nextIndex(e.key, i, options.length);
     if (n < 0) return;
     e.preventDefault();
-    refs.current[n]?.focus();
+    focusIntoView(refs.current[n]);
     onChange(options[n].value);
   };
   return (
     <div
       role="radiogroup"
       aria-label={label}
-      className="border-line-strong inline-flex shrink-0 items-center rounded-full border p-[2px]"
+      className="border-fg-muted inline-flex shrink-0 items-center rounded-full border p-[2px]"
     >
       {options.map((o, i) => {
         const active = o.value === value;
@@ -171,9 +191,9 @@ export function SectionNav({ sections, onPick = goToSection, wrap = false }) {
           key={s.id}
           type="button"
           onClick={() => onPick(s.id)}
-          className="group/chip inline-flex min-h-[44px] shrink-0 cursor-pointer items-center border-0 bg-transparent p-0 focus-visible:outline-none"
+          className="group/chip inline-flex min-h-[44px] min-w-[44px] shrink-0 cursor-pointer items-center justify-center border-0 bg-transparent p-0 focus-visible:outline-none"
         >
-          <span className="mono border-line text-fg-muted group-hover/chip:border-line-strong group-hover/chip:text-fg group-focus-visible/chip:outline-accent rounded-full border px-[10px] py-[4px] text-[11px] tracking-[0.04em] whitespace-nowrap group-focus-visible/chip:outline-2 group-focus-visible/chip:outline-offset-2">
+          <span className="mono border-fg-muted text-fg-muted group-hover/chip:border-fg group-hover/chip:text-fg group-focus-visible/chip:outline-accent rounded-full border px-[10px] py-[4px] text-[11px] tracking-[0.04em] whitespace-nowrap group-focus-visible/chip:outline-2 group-focus-visible/chip:outline-offset-2">
             {s.label}
           </span>
         </button>
