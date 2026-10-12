@@ -258,28 +258,32 @@ const BAR_CONTROLS =
   "[data-dash-filters] [role=tab], [data-dash-filters] [role=radio], [data-dash-filters] nav button, [data-dash-filters] .cmb-trigger, [data-dash-filters] [data-filters-button]";
 const PANEL_CONTROLS = "[aria-label=Formato] button, button[aria-label^='Como ler']";
 
-for (const width of [390, 820, 1440]) {
-  test(`alvos ≥ 44 px e ≥ 8 px entre eles em ${width}px (barra, Gráfico/Tabela, ?)`, async ({
-    page,
-  }) => {
-    await page.setViewportSize({ width, height: 900 });
-    await openAs(page, ALL, PROJETO);
-    expect(await targetProblems(page, BAR_CONTROLS)).toEqual([]);
-    /* Gráfico/Tabela e "?" de cada cartão, rolando até eles */
-    const panels = page.locator("[aria-label=Formato]");
-    const count = await panels.count();
-    expect(count).toBeGreaterThan(0);
-    for (let i = 0; i < Math.min(count, 4); i++) {
-      await panels.nth(i).scrollIntoViewIfNeeded();
+for (const [where, perms, query] of [
+  ["Projeto", ALL, PROJETO],
+  ["Organização", ["DASHBOARD_STRATEGIC"], ""],
+])
+  for (const width of [390, 820, 1440]) {
+    test(`alvos ≥ 44 px e ≥ 8 px entre eles em ${width}px — ${where} (barra, Gráfico/Tabela, ?)`, async ({
+      page,
+    }) => {
+      await page.setViewportSize({ width, height: 900 });
+      await openAs(page, perms, query);
+      expect(await targetProblems(page, BAR_CONTROLS)).toEqual([]);
+      /* Gráfico/Tabela e "?" de cada cartão, rolando até eles */
+      const panels = page.locator("[aria-label=Formato]");
+      const count = await panels.count();
+      expect(count).toBeGreaterThan(0);
+      for (let i = 0; i < Math.min(count, 4); i++) {
+        await panels.nth(i).scrollIntoViewIfNeeded();
+        expect(await targetProblems(page, PANEL_CONTROLS)).toEqual([]);
+      }
+      await page
+        .getByRole("button", { name: /^Como ler/ })
+        .first()
+        .scrollIntoViewIfNeeded();
       expect(await targetProblems(page, PANEL_CONTROLS)).toEqual([]);
-    }
-    await page
-      .getByRole("button", { name: /^Como ler/ })
-      .first()
-      .scrollIntoViewIfNeeded();
-    expect(await targetProblems(page, PANEL_CONTROLS)).toEqual([]);
-  });
-}
+    });
+  }
 
 test("alvos ≥ 44 px dentro do Drawer de filtros (390) e na Equipe em 820", async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 844 });
@@ -297,6 +301,61 @@ test("alvos ≥ 44 px dentro do Drawer de filtros (390) e na Equipe em 820", asy
   await page.setViewportSize({ width: 820, height: 1180 });
   await page.waitForTimeout(100);
   expect(await targetProblems(page, BAR_CONTROLS)).toEqual([]);
+});
+
+/** Razão de contraste da borda de `locator` contra o fundo efetivo do pai. */
+function borderContrast(locator) {
+  return locator.evaluate((el) => {
+    const parse = (c) => {
+      const n = c.match(/[\d.]+/g).map(Number);
+      return [n[0], n[1], n[2], n[3] ?? 1];
+    };
+    const over = (top, base) => [0, 1, 2].map((i) => top[i] * top[3] + base[i] * (1 - top[3]));
+    const layers = [];
+    for (let e = el.parentElement; e; e = e.parentElement) {
+      const c = parse(getComputedStyle(e).backgroundColor);
+      if (c[3] > 0) layers.push(c);
+      if (c[3] >= 1) break;
+    }
+    let bg = parse(getComputedStyle(document.body).backgroundColor).slice(0, 3);
+    for (const l of layers.reverse()) bg = over(l, bg);
+    const fg = over(parse(getComputedStyle(el).borderTopColor), bg);
+    const lum = (rgb) => {
+      const [r, g, b] = rgb.map((v) => {
+        v /= 255;
+        return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+      });
+      return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+    };
+    const [x, y] = [lum(fg), lum(bg)].sort((p, q) => q - p);
+    return Math.round(((x + 0.05) / (y + 0.05)) * 100) / 100;
+  });
+}
+
+test("bordas de controle ≥ 3:1 nas três paletas (combobox, segmentado, Gráfico/Tabela, ?, chips)", async ({
+  page,
+}) => {
+  await openAs(page, ALL, PROJETO);
+  const bar = page.locator("[data-dash-filters]");
+  const targets = {
+    combobox: bar.locator(".cmb-trigger").first(),
+    segmentado: page.getByRole("radiogroup", { name: "Período" }),
+    graficoTabela: page.locator("[aria-label=Formato]").first(),
+    ajuda: page.locator("button[aria-label^='Como ler'] > span").first(),
+    chip: bar
+      .getByRole("navigation", { name: "Seções do dashboard" })
+      .locator("button > span")
+      .first(),
+  };
+  const report = {};
+  for (const palette of ["default", "light", "mono"]) {
+    await setPalette(page, palette);
+    report[palette] = {};
+    for (const [k, loc] of Object.entries(targets)) report[palette][k] = await borderContrast(loc);
+  }
+  console.log("bordas", JSON.stringify(report));
+  for (const r of Object.values(report))
+    for (const [k, v] of Object.entries(r)) expect(v, k).toBeGreaterThanOrEqual(3);
 });
 
 /* ── Teclado ────────────────────────────────────────────────────────────────── */
@@ -342,6 +401,73 @@ test("sub-abas: setas, Home/End, roving tabindex e aria-controls → tabpanel", 
   /* Tab sai da lista de abas (um único ponto de parada) */
   await page.keyboard.press("Tab");
   expect(await page.evaluate(() => document.activeElement?.getAttribute("role"))).not.toBe("tab");
+});
+
+/** A aba focada cabe inteira na faixa que rola (e na tela). */
+function tabVisible(page) {
+  return page.evaluate(() => {
+    const t = document.activeElement;
+    const strip = t?.closest("[role=tablist]")?.parentElement;
+    if (!t || t.getAttribute("role") !== "tab" || !strip) return "sem aba focada";
+    const r = t.getBoundingClientRect();
+    const s = strip.getBoundingClientRect();
+    const right = Math.min(s.right, innerWidth);
+    return r.left >= s.left - 1 && r.right <= right + 1
+      ? "visível"
+      : `${t.textContent} em x=${Math.round(r.left)}–${Math.round(r.right)}, faixa ${Math.round(s.left)}–${Math.round(right)}`;
+  });
+}
+
+for (const width of [360, 390]) {
+  for (const reduced of [true, false]) {
+    test(`sub-abas em ${width}px${reduced ? " (reduced motion)" : ""}: setas, Home e End trazem a aba à vista`, async ({
+      page,
+    }) => {
+      if (reduced) await page.emulateMedia({ reducedMotion: "reduce" });
+      await page.setViewportSize({ width, height: 800 });
+      await openAs(page, ALL, PROJETO);
+      const tablist = page.getByRole("tablist", { name: "Sub-abas do dashboard" });
+      await tablist.getByRole("tab", { name: "Resumo" }).focus();
+      await page.keyboard.press("End");
+      await expect(tablist.getByRole("tab", { name: "Qualidade" })).toBeFocused();
+      await expect.poll(() => tabVisible(page)).toBe("visível");
+      await page.keyboard.press("Home");
+      await expect.poll(() => tabVisible(page)).toBe("visível");
+      await page.keyboard.press("ArrowLeft");
+      await expect(tablist.getByRole("tab", { name: "Qualidade" })).toBeFocused();
+      await expect.poll(() => tabVisible(page)).toBe("visível");
+      await page.keyboard.press("ArrowRight");
+      await page.keyboard.press("ArrowRight");
+      await expect(tablist.getByRole("tab", { name: "Roadmap e backlog" })).toBeFocused();
+      await expect.poll(() => tabVisible(page)).toBe("visível");
+
+      /* Organização: "Integrações e identidades" */
+      await installDashboardsApi(page, { permissions: ["DASHBOARD_STRATEGIC", "USER_MANAGE"] });
+      await gotoDashboard(page);
+      const orgTabs = page.getByRole("tablist", { name: "Sub-abas do dashboard" });
+      await orgTabs.getByRole("tab", { name: "Visão geral" }).focus();
+      await page.keyboard.press("ArrowRight");
+      await expect(orgTabs.getByRole("tab", { name: "Integrações e identidades" })).toBeFocused();
+      await expect.poll(() => tabVisible(page)).toBe("visível");
+    });
+  }
+}
+
+test("deep-link para a última sub-aba no celular: a aba ativa já aparece inteira", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 360, height: 800 });
+  await openAs(page, ALL, `${PROJETO}&aba=qualidade`);
+  const tab = page.getByRole("tab", { name: "Qualidade" });
+  await expect
+    .poll(() =>
+      tab.evaluate((t) => {
+        const r = t.getBoundingClientRect();
+        const s = t.closest("[role=tablist]").parentElement.getBoundingClientRect();
+        return r.left >= s.left - 1 && r.right <= Math.min(s.right, innerWidth) + 1;
+      }),
+    )
+    .toBe(true);
 });
 
 test("segmentado: roving tabindex e setas no Período e na Visão", async ({ page }) => {
