@@ -61,7 +61,7 @@ const MEMBER_COLUMNS = [
     key: "prs",
     label: "PRs (merge)",
     align: "right",
-    render: (r) => (r.prsOpened == null ? "—" : `${r.prsOpened} (${r.prsMerged})`),
+    render: (r) => (r.prsOpened == null ? "—" : `${r.prsOpened} (${r.prsMerged ?? "—"})`),
   },
   { key: "reviewsGiven", label: "Reviews", align: "right", format: fmtInt },
   { key: "aiCostUsd", label: "Custo IA", align: "right", format: fmtUsd },

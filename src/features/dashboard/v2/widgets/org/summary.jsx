@@ -71,7 +71,8 @@ const PORTFOLIO_COLUMNS = [
           <span className="text-fg">{r.name}</span>
         </span>
         <span className="mono text-fg-muted block text-[11px] font-normal">
-          {r.team} · {r.memberCount} pessoas
+          {r.team ? `${r.team} · ` : ""}
+          {r.memberCount} pessoas
         </span>
       </div>
     ),

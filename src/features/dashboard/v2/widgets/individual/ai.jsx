@@ -169,9 +169,16 @@ export function AllocationWidget({ data, ctx }) {
                 </div>
                 <div
                   className="mono text-fg-muted truncate font-normal"
-                  title={p.splits.map((s) => `#${s.externalId} ${s.title}`).join(" · ")}
+                  title={p.splits
+                    .map((s) => `${s.externalId ? `#${s.externalId} ` : ""}${s.title ?? "—"}`)
+                    .join(" · ")}
                 >
-                  {p.splits.map((s) => `#${s.externalId} ${Math.round(s.pct)}%`).join(" · ")}
+                  {p.splits
+                    .map(
+                      (s) =>
+                        `${s.externalId ? `#${s.externalId}` : (s.title ?? "—")} ${Math.round(s.pct)}%`,
+                    )
+                    .join(" · ")}
                 </div>
               </li>
             ))}
