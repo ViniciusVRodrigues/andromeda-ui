@@ -480,8 +480,10 @@ export function DashboardEditProvider({ viewKey, userId = null, canSee = ALL, ch
   });
 
   /* Esc sai e Ctrl+Z desfaz — só no modo, fora de campos, diálogos, menus e arrasto.
-   * As ações vão por ref: o listener não pode ser recriado a cada render (ficaria
-   * depois do listener do dnd-kit, que cancela o arrasto no mesmo Esc). */
+   * O listener fica no window (fase de bolha): roda DEPOIS do KeyboardSensor do dnd-kit,
+   * que escuta no document e faz preventDefault nas teclas que consome (Esc que cancela,
+   * Espaço que solta, setas). Assim `defaultPrevented` diz que aquele Esc já cancelou o
+   * arrasto, sem depender de ordem de registro nem de setTimeout. */
   const keyActions = React.useRef({ exit, undo });
   keyActions.current = { exit, undo };
   React.useEffect(() => {
@@ -503,8 +505,8 @@ export function DashboardEditProvider({ viewKey, userId = null, canSee = ALL, ch
         actions.current.undo();
       }
     };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
   }, [editing, drawerOpen, confirmOpen]);
 
   /* widgets novos (D5): aviso único por pessoa e visão */

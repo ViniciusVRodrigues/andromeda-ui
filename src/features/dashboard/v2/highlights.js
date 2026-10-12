@@ -181,7 +181,10 @@ export function organizationHighlights(d) {
     });
   }
   const unalloc = (d.ai.costByProject || []).find((c) => c.projectId == null);
-  const unallocPct = unalloc && d.kpis.aiCostUsd ? (unalloc.costUsd / d.kpis.aiCostUsd) * 100 : 0;
+  /* aiCostUsd é só o alocado; o total é alocado + não alocado (a linha só vem para quem vê tudo) */
+  const unallocCost = unalloc?.costUsd ?? 0;
+  const aiTotal = (d.kpis.aiCostUsd ?? 0) + unallocCost;
+  const unallocPct = aiTotal > 0 ? (unallocCost / aiTotal) * 100 : 0;
   if (unallocPct >= T.unallocatedAiPct) {
     out.push({
       tone: "warn",

@@ -157,6 +157,11 @@ vale para toda visão que tiver seções no catálogo e desenhar o Resumo com `D
   antigo). Alça/↑↓ trocam por `@min-[600px]` (o `display: none` também tira do Tab). Alvos com `min-h-[44px]` — **não
   use `min-h-11`**: o `html` tem 13 px, então `11` = 36 px. `motion-reduce:transition-none` sozinho mantém a duração;
   junte `motion-reduce:duration-0`. Descartar alterações volta ao estado de entrada **e sai** do modo de edição.
+- **Teclado × dnd-kit**: o `KeyboardSensor` escuta no `document`, chama o `onDragStart` de dentro do `attach()` e só
+  liga as setas num `setTimeout` logo depois; ele faz `preventDefault` no Esc que cancela, no Espaço que solta e
+  nas setas. Por isso o Esc/Ctrl+Z do modo escuta no **window** (roda depois e respeita `defaultPrevented`), o
+  `dragging` zera na hora em `onDragEnd`/`onDragCancel`, e "Pegou…" é anunciado depois de dois timers (só
+  quando as setas já funcionam; um anúncio de arrasto que já terminou é descartado pela geração).
 - **Conflito entre abas (409)**: cada `save(body, op)` leva a operação de `ops.js` (via `reapply` da sessão); no
   409 o hook relê o servidor e reaplica as operações do envio (e as da fila) sobre a versão relida — nunca reenvia o
   corpo calculado sobre o cache velho. `save` sem operação (Desfazer/Descartar repõem um retrato) não é reaplicado:

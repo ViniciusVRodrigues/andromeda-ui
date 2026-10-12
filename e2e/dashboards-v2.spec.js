@@ -735,3 +735,27 @@ test("fonte do Fluxo com erro: só o widget mostra o erro e Tentar de novo recup
   });
   expect(errors).toEqual([]);
 });
+
+test("destaque de IA não alocada usa o total (alocado + não alocado) e nunca passa de 100%", async ({
+  page,
+}) => {
+  const { readFixture } = await import("./dashboards-v2-api.mjs");
+  const org = readFixture("organization__90");
+  /* mais custo sem alocação do que alocado: antes virava "251%" (não alocado ÷ alocado) */
+  org.kpis.aiCostUsd = 6.5;
+  org.ai.costByProject = org.ai.costByProject.map((c) =>
+    c.projectId == null ? { ...c, costUsd: 16.3 } : c,
+  );
+  await installDashboardsApi(page, { permissions: ["DASHBOARD_STRATEGIC"] });
+  await page
+    .context()
+    .route("**/api/v1/dashboards/organization*", (route) =>
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(org) }),
+    );
+  await gotoDashboard(page, "?escopo=org&periodo=90");
+  const alert = page.getByText(/do custo de IA .* não está alocado/);
+  await expect(alert).toBeVisible();
+  /* 16,30 ÷ (6,50 + 16,30) = 71% */
+  await expect(alert).toContainText("71");
+  await expect(page.getByText(/\b(1\d\d|[2-9]\d\d)\s?% do custo de IA/)).toHaveCount(0);
+});

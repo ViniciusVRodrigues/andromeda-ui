@@ -201,8 +201,11 @@ export function DashboardsPage({ onLogout, onNavigate }) {
   const periodFilter = (view === "projeto" || view === "org") && tab !== "integracoes";
 
   const editViewKey = view && SUMMARY_TAB[view] === tab ? view : null;
+  /* margem e respiro laterais em px inteiros: com o html em 13 px, -mx-1/px-1 davam ±3,25 px e
+   * a barra fixa (camada própria) caía em x fracionário — o texto arredondava 1 px para um lado
+   * ou para o outro conforme a execução (baselines instáveis) */
   const stickyBar =
-    "border-line bg-bg sticky z-20 -mx-1 mb-6 border-b px-1 pt-3 pb-3 " +
+    "border-line bg-bg sticky z-20 -mx-[4px] mb-6 border-b px-[4px] pt-3 pb-3 " +
     (bare ? "top-0" : "top-[-32px]");
 
   const loadingScopes = projects.isPending;
