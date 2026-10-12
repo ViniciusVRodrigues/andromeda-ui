@@ -51,7 +51,7 @@ export function BarList({ rows, max }) {
             <span className="text-fg min-w-0 truncate text-[13px]">{r.label}</span>
             <span className="mono text-fg shrink-0 text-[13px] tabular-nums">
               {r.display}
-              {r.sub ? <span className="text-fg-dim ml-2 font-normal">{r.sub}</span> : null}
+              {r.sub ? <span className="text-fg-muted ml-2 font-normal">{r.sub}</span> : null}
             </span>
           </div>
           <div className="bg-line h-2 w-full overflow-hidden rounded-full" aria-hidden="true">
@@ -109,7 +109,7 @@ export function SegmentBar({ segments, total, height = 12, showLegend = true, ar
               <span className="mono text-fg-muted font-normal">{s.label}</span>
               <span className="mono text-fg tabular-nums">{s.display ?? fmtInt(s.value)}</span>
               {sumAll > 0 ? (
-                <span className="mono text-fg-dim font-normal tabular-nums">
+                <span className="mono text-fg-muted font-normal tabular-nums">
                   {Math.round((s.value / sumAll) * 100)}%
                 </span>
               ) : null}

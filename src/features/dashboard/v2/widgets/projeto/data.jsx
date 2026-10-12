@@ -15,7 +15,7 @@ export function CoverageRow({ label, pct, detail, info }) {
         <span className="text-fg text-[13px]">{label}</span>
         <span className="mono text-fg text-[13px] tabular-nums">
           {fmtPct(pct)}
-          {detail ? <span className="text-fg-dim ml-2 font-normal">{detail}</span> : null}
+          {detail ? <span className="text-fg-muted ml-2 font-normal">{detail}</span> : null}
         </span>
       </div>
       <Meter value={pct ?? 0} tone={tone} height={6} label={label} />

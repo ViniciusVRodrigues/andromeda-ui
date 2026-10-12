@@ -218,7 +218,7 @@ export function ReposByFailureWidget({ data: repos }) {
                 <span
                   className={
                     "mono w-10 shrink-0 text-right tabular-nums " +
-                    (r.cfrPct > 15 ? "text-bad" : "")
+                    (r.cfrPct > 15 ? "text-bad-text" : "")
                   }
                 >
                   {fmtPct(r.cfrPct)}
@@ -243,7 +243,7 @@ export function ReposByFailureWidget({ data: repos }) {
             key: "stalePrs",
             label: "Parados",
             align: "right",
-            render: (r) => <span className={r.stalePrs ? "text-warn" : ""}>{r.stalePrs}</span>,
+            render: (r) => <span className={r.stalePrs ? "text-warn-text" : ""}>{r.stalePrs}</span>,
           },
         ]}
       />

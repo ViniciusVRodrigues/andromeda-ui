@@ -24,6 +24,7 @@ import {
   YAxis,
 } from "recharts";
 import { Legend } from "./Bars.jsx";
+import { burndownSummary, columnSummary, trendSummary, useChartLabel } from "./chartSummary.js";
 
 const AXIS_TICK = {
   fill: "var(--fg-muted)",
@@ -55,7 +56,7 @@ function ChartTooltip({ active, payload, label, series, valueFormat, extra }) {
             style={{ borderTop: `2px ${s.dashed ? "dashed" : "solid"} ${s.color}` }}
           />
           <span className="mono text-fg text-[13px] tabular-nums">{valueFormat(v, s)}</span>
-          <span className="mono text-fg-dim text-[11px] font-normal">{s.label}</span>
+          <span className="mono text-fg-muted text-[11px] font-normal">{s.label}</span>
         </div>
       ))}
       {extra ? (
@@ -70,7 +71,7 @@ function ChartTooltip({ active, payload, label, series, valueFormat, extra }) {
  * @param {{ data: object[], series: Array<{ key: string, label: string, color: string }>,
  *   xKey?: string, stacked?: boolean, height?: number, yFormat?: (v) => string,
  *   valueFormat?: (v) => string, emphasis?: (row) => boolean, extra?: (row) => React.ReactNode,
- *   reference?: { y: number, label: string }, yWidth?: number, legend?: boolean }} props
+ *   reference?: { y: number, label: string }, yWidth?: number, legend?: boolean, summary?: string }} props
  *   `emphasis` (uma série): colunas que não casam ficam no cinza de contexto.
  */
 export function ColumnChart({
@@ -86,9 +87,13 @@ export function ColumnChart({
   reference,
   yWidth = 40,
   legend,
+  summary,
 }) {
   const fmt = valueFormat || yFormat;
   const showLegend = legend ?? series.length > 1;
+  const { labelledBy, svgProps } = useChartLabel(
+    summary ?? columnSummary({ data, series, xKey, stacked, fmt }),
+  );
   /* empilhado: o total do intervalo é a leitura que falta no tooltip */
   const tooltipExtra =
     extra ??
@@ -96,12 +101,13 @@ export function ColumnChart({
       ? (row) => `total ${fmt(series.reduce((s, x) => s + (Number(row[x.key]) || 0), 0))}`
       : undefined);
   return (
-    <div>
+    <figure className="m-0" aria-labelledby={labelledBy}>
       {showLegend ? (
         <Legend className="mb-2" items={series.map((s) => ({ label: s.label, color: s.color }))} />
       ) : null}
       <ResponsiveContainer width="100%" height={height}>
         <BarChart
+          {...svgProps}
           data={data}
           margin={{ top: 8, right: 4, bottom: 0, left: 0 }}
           barCategoryGap="24%"
@@ -163,7 +169,7 @@ export function ColumnChart({
           ))}
         </BarChart>
       </ResponsiveContainer>
-    </div>
+    </figure>
   );
 }
 
@@ -173,7 +179,8 @@ export function ColumnChart({
  * @param {{ data: object[], series: Array<{ key: string, label: string, color: string, dashed?: boolean }>,
  *   xKey?: string, height?: number, yFormat?: (v) => string, valueFormat?: (v) => string,
  *   reference?: { y?: number, x?: string, label: string }, yDomain?: [any, any], yWidth?: number,
- *   extra?: (row) => React.ReactNode, legend?: boolean }} props
+ *   extra?: (row) => React.ReactNode, legend?: boolean, summary?: string }} props
+ *   `summary` substitui o resumo numérico gerado (aria-label do SVG, D8).
  */
 export function TrendChart({
   data,
@@ -187,12 +194,16 @@ export function TrendChart({
   yWidth = 40,
   extra,
   legend,
+  summary,
 }) {
   const fmt = valueFormat || yFormat;
   const showLegend = legend ?? series.length > 1;
   const single = series.length === 1;
+  const { labelledBy, svgProps } = useChartLabel(
+    summary ?? trendSummary({ data, series, xKey, fmt }),
+  );
   return (
-    <div>
+    <figure className="m-0" aria-labelledby={labelledBy}>
       {showLegend ? (
         <Legend
           className="mb-2"
@@ -205,7 +216,7 @@ export function TrendChart({
         />
       ) : null}
       <ResponsiveContainer width="100%" height={height}>
-        <ComposedChart data={data} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
+        <ComposedChart {...svgProps} data={data} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
           <CartesianGrid vertical={false} stroke="var(--line)" />
           <XAxis
             dataKey={xKey}
@@ -283,12 +294,13 @@ export function TrendChart({
           ))}
         </ComposedChart>
       </ResponsiveContainer>
-    </div>
+    </figure>
   );
 }
 
 /** Burndown da sprint: pontos restantes × linha ideal, com marcador de hoje. */
 export function BurndownChart({ data, todayLabel, height = 220 }) {
+  /* o resumo diz quanto falta no dia de hoje — a leitura que o gráfico existe para dar */
   return (
     <TrendChart
       data={data}
@@ -300,6 +312,7 @@ export function BurndownChart({ data, todayLabel, height = 220 }) {
       ]}
       valueFormat={(v) => `${Math.round(v * 10) / 10} SP`}
       reference={todayLabel ? { x: todayLabel, label: "hoje" } : undefined}
+      summary={burndownSummary({ data, todayLabel })}
     />
   );
 }

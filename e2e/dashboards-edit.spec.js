@@ -73,7 +73,11 @@ test("só teclado: entrar, pegar, mover, soltar e cancelar com Esc", async ({ pa
 
   /* Esc durante o arrasto cancela (e não sai do modo de edição) */
   await page.keyboard.press("Space");
-  await expect(announcer(page)).toContainText("posição 3 de 3");
+  /* o texto inteiro: "posição 3 de 3" sozinho já estava no anúncio do solto anterior, e a
+   * seta saía antes de o arrasto começar. "Pegou…" só é anunciado com as setas ligadas. */
+  await expect(announcer(page)).toContainText(
+    "Pegou Reviews que fiz, posição 3 de 3 na seção Código. Setas movem, Espaço solta, Esc cancela.",
+  );
   await page.keyboard.press("ArrowLeft");
   await expect(announcer(page)).toContainText("Posição 2 de 3.");
   await page.keyboard.press("Escape");
@@ -85,9 +89,12 @@ test("só teclado: entrar, pegar, mover, soltar e cancelar com Esc", async ({ pa
     .toEqual(["individual.prs", "individual.commits-dia", "individual.reviews"]);
   await expect(page.getByRole("heading", { name: "Personalizando o painel" })).toBeVisible();
 
-  /* Esc fora do arrasto sai e devolve o foco ao Personalizar */
+  /* Esc fora do arrasto sai e devolve o foco ao Personalizar (logo depois do cancelamento:
+   * o Esc que cancelou foi consumido pelo dnd-kit, este é do modo) */
   await page.keyboard.press("Escape");
-  await expect(page.getByRole("heading", { name: "Personalizando o painel" })).toHaveCount(0);
+  await expect
+    .poll(() => page.getByRole("heading", { name: "Personalizando o painel" }).count())
+    .toBe(0);
   await expect(page.getByRole("button", { name: "Personalizar" })).toBeFocused();
 });
 

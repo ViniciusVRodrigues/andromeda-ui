@@ -49,7 +49,7 @@ const integrationLabel = (i) => (i === "GITHUB" ? "GitHub" : "Azure");
 function Row({ k, children }) {
   return (
     <>
-      <dt className="mono text-fg-dim font-normal">{k}</dt>
+      <dt className="mono text-fg-muted font-normal">{k}</dt>
       <dd className="mono text-fg m-0 text-right">{children}</dd>
     </>
   );
@@ -98,7 +98,7 @@ export function IntegrationsView() {
             footer={
               az.lastError ? (
                 <p className="border-line mono text-fg-muted m-0 mt-3 border-t pt-2 text-[11px] font-normal">
-                  Último erro: <span className="text-warn">{az.lastError.code}</span>
+                  Último erro: <span className="text-warn-text">{az.lastError.code}</span>
                   {az.lastError.message ? ` — ${az.lastError.message}` : ""}
                 </p>
               ) : null
@@ -125,7 +125,7 @@ export function IntegrationsView() {
             <Row k="Falhas seguidas">{gh.consecutiveFailures ?? "—"}</Row>
             {gh.lastError ? (
               <Row k="Último erro">
-                <span className="text-warn">{gh.lastError.code}</span>
+                <span className="text-warn-text">{gh.lastError.code}</span>
               </Row>
             ) : null}
           </ConnectionCard>
@@ -161,7 +161,7 @@ export function IntegrationsView() {
                   r.azure ? (
                     <span className="mono text-[12px]">{r.azure.email}</span>
                   ) : (
-                    <span className="text-warn">não vinculado</span>
+                    <span className="text-warn-text">não vinculado</span>
                   ),
               },
               {
@@ -171,13 +171,13 @@ export function IntegrationsView() {
                   r.github ? (
                     <div>
                       <span className="mono text-[12px]">@{r.github.login}</span>
-                      <span className="mono text-fg-dim block text-[11px] font-normal">
+                      <span className="mono text-fg-muted block text-[11px] font-normal">
                         {(r.github.scopes || []).join(" · ")} · vinculado{" "}
                         {fmtDate(r.github.linkedAt)}
                       </span>
                     </div>
                   ) : (
-                    <span className="text-warn">não vinculado</span>
+                    <span className="text-warn-text">não vinculado</span>
                   ),
               },
               {
@@ -189,7 +189,7 @@ export function IntegrationsView() {
                       <span className="mono text-[12px]">
                         {(r.connector.labels || []).join(", ")}
                       </span>
-                      <span className="mono text-fg-dim block text-[11px] font-normal">
+                      <span className="mono text-fg-muted block text-[11px] font-normal">
                         último envio {fmtAgo(r.connector.lastUploadAt, now)}
                         {r.connector.revokedTokens
                           ? ` · ${r.connector.revokedTokens} revogado`
@@ -197,7 +197,7 @@ export function IntegrationsView() {
                       </span>
                     </div>
                   ) : (
-                    <span className="text-fg-dim">sem token</span>
+                    <span className="text-fg-muted">sem token</span>
                   ),
               },
               {
@@ -213,7 +213,7 @@ export function IntegrationsView() {
                       ))}
                     </div>
                   ) : (
-                    <span className="text-good">✓</span>
+                    <span className="text-good-text">✓</span>
                   ),
               },
             ]}
@@ -252,11 +252,11 @@ export function IntegrationsView() {
                   label: "Sync",
                   render: (r) =>
                     r.project == null ? (
-                      <span className="text-fg-dim">—</span>
+                      <span className="text-fg-muted">—</span>
                     ) : r.syncEnabled ? (
                       <span className="mono text-[12px]">{fmtAgo(r.lastSyncAt, now)}</span>
                     ) : (
-                      <span className="text-warn">desligado</span>
+                      <span className="text-warn-text">desligado</span>
                     ),
                 },
               ]}
@@ -361,7 +361,7 @@ export function IntegrationsView() {
                       <span>
                         {integrationLabel(r.integration)} ·{" "}
                         {OPERATION_LABEL[r.operation] ?? r.operation}
-                        <span className="text-fg-dim block text-[11px] font-normal">
+                        <span className="text-fg-muted block text-[11px] font-normal">
                           {TRIGGER_LABEL[r.trigger]}
                         </span>
                       </span>
@@ -371,9 +371,9 @@ export function IntegrationsView() {
                     key: "status",
                     label: "Resultado",
                     render: (r) => (
-                      <span className={r.status === "FAILED" ? "text-bad" : "text-warn"}>
+                      <span className={r.status === "FAILED" ? "text-bad-text" : "text-warn-text"}>
                         {r.status === "FAILED" ? "▲ falhou" : "! parcial"}
-                        <span className="text-fg-dim block text-[11px] font-normal">
+                        <span className="text-fg-muted block text-[11px] font-normal">
                           {r.itemsFailed}/{r.itemsProcessed} itens
                         </span>
                       </span>
@@ -386,7 +386,7 @@ export function IntegrationsView() {
                       <span className="mono text-[12px]">
                         {r.error?.code ?? "—"}
                         {r.error?.httpStatus ? (
-                          <span className="text-fg-dim block text-[11px] font-normal">
+                          <span className="text-fg-muted block text-[11px] font-normal">
                             HTTP {r.error.httpStatus}
                           </span>
                         ) : null}

@@ -43,7 +43,7 @@ export function ReworkWidget({ data: rework }) {
                 r.pr ? (
                   <PrPill status={r.pr.status} stale={r.pr.stale} />
                 ) : (
-                  <span className="text-fg-dim">—</span>
+                  <span className="text-fg-muted">—</span>
                 ),
             },
           ]}

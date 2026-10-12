@@ -1,139 +1,115 @@
 import { test, expect } from "@playwright/test";
 import { loginAsAdmin, gotoSection } from "./auth.mjs";
 import {
-  DEVELOPER_FIXTURE,
-  TEAM_FIXTURE,
-  STRATEGIC_ORG_FIXTURE,
-  STRATEGIC_PROJECT_FIXTURE,
-  STRATEGIC_MEMBER_FIXTURE,
+  DASH_NOW,
+  gotoDashboard,
+  installDashboardsApi,
+  readFixture,
+} from "./dashboards-v2-api.mjs";
+import {
   REPOS_FIXTURE,
   REPO_PRS_FIXTURE,
   METRIC_SETTINGS_FIXTURE,
 } from "./fixtures/dashboard-rich.mjs";
 
-/* metrics-correctness (grupo 12): o estratégico lê o contrato real, as
- * durações aparecem como mediana (p90 · n no detalhe), as métricas de entrega
- * dizem de onde vieram (`method`), o review ganha card próprio e a org edita
- * as regras de remediação. A org seed da baseline é vazia, então as respostas
- * de métricas são interceptadas com payloads ricos (fixtures/dashboard-rich.mjs);
- * login/me/projetos seguem pelo replay. */
+/* metrics-correctness (grupo 12): as durações aparecem como mediana (p90 · n no
+ * detalhe), as métricas de entrega dizem de onde vieram (`method`), a taxa de falha
+ * já vem em %, o custo de IA não alocado não é somado ao do projeto e a org edita as
+ * regras de remediação. A org seed da baseline é vazia: Repositórios usa payloads
+ * ricos (fixtures/dashboard-rich.mjs) e o dashboard, o servidor falso dos dashboards. */
 
 function json(route, body, status = 200) {
   return route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
 }
 
-async function routeStrategic(page) {
-  const calls = [];
-  await page.route("**/api/v1/dashboard/strategic**", (route) => {
-    const url = new URL(route.request().url());
-    calls.push(Object.fromEntries(url.searchParams));
-    if (url.searchParams.get("memberId")) return json(route, STRATEGIC_MEMBER_FIXTURE);
-    if (url.searchParams.get("projectId")) return json(route, STRATEGIC_PROJECT_FIXTURE);
-    return json(route, STRATEGIC_ORG_FIXTURE);
-  });
-  // A aba inicial do admin é a individual: sem isto ela iria ao replay vazio.
-  await page.route("**/api/v1/dashboard/developer**", (route) => json(route, DEVELOPER_FIXTURE));
-  return calls;
-}
+/* Dashboard (migrado para o dashboard novo na troca, dashboards-customizaveis P5): as
+ * respostas vêm do servidor falso de dashboards-v2-api.mjs (fixtures no formato do
+ * contrato); um teste troca só o campo que quer provar via page.route. */
 
-async function openStrategic(page, orgSlug) {
-  await page.goto(`/${orgSlug}/dashboard?versao=atual`);
-  await page.waitForLoadState("networkidle");
-  await page.getByRole("tab", { name: "Estratégico" }).click();
-  await page.waitForLoadState("networkidle");
-}
+const STRATEGIC = ["DASHBOARD_STRATEGIC", "PROJECT_MANAGE"];
 
-test("estratégico / organização: KPIs, entrega com origem e cards por projeto", async ({
+test("organização: KPIs do período, taxa de falha em % e portfólio por projeto", async ({
   page,
 }) => {
-  const { orgSlug } = await loginAsAdmin(page);
-  await routeStrategic(page);
-  await openStrategic(page, orgSlug);
+  await page.clock.setFixedTime(DASH_NOW);
+  await installDashboardsApi(page, { permissions: STRATEGIC });
+  await gotoDashboard(page);
 
-  const chips = page.getByRole("list", { name: "Métricas da organização" });
-  await expect(chips).toContainText("3"); // projetos
-  await expect(chips).toContainText("59"); // Σ work items
-  await expect(chips).toContainText("76"); // Σ SP
-  await expect(chips).toContainText("16.7%"); // CFR da união, já em %
+  const kpis = page.locator("[data-widget-id='org.kpis']");
+  await expect(kpis).toContainText("459");
+  await expect(kpis).toContainText("1.431 SP em 5 projetos");
+  /* CFR já em % (nunca ×100) */
+  await expect(kpis.getByRole("listitem").filter({ hasText: "Taxa de falha" })).toContainText("9%");
 
-  const delivery = page.getByTestId("delivery-metrics").first();
-  await expect(delivery).toContainText("16.7");
-  await expect(delivery).toContainText("3 de 18 PRs são remediação");
-  await expect(delivery).toContainText("p90 72.5 h · n 12");
+  const portfolio = page.locator("[data-widget-id='org.portfolio']");
+  for (const name of ["Portal do Cliente", "App Mobile", "Pagamentos", "Infraestrutura"])
+    await expect(portfolio.getByRole("row", { name: new RegExp(name) })).toBeVisible();
+  await expect(portfolio.getByRole("row", { name: /Pagamentos/ })).toContainText("Em risco");
 
-  // cada projeto diz de onde vêm as métricas de entrega
-  await expect(page.getByText("estimado a partir de PRs").first()).toBeVisible();
-  await expect(page.getByText("estimado a partir de work items")).toBeVisible();
-  await expect(page.getByText("sem dados", { exact: true })).toBeVisible();
-  await expect(page.getByText("Portal do Cliente")).toBeVisible();
-
-  await expect(page).toHaveScreenshot("dashboard-strategic-org.png", {
-    fullPage: true,
-    maxDiffPixelRatio: 0.02,
-  });
+  await page.waitForLoadState("networkidle");
+  await expect(page).toHaveScreenshot("dashboard-org.png");
 });
 
-test("estratégico / projeto e membro: projectDetail e memberDetail", async ({ page }) => {
-  const { orgSlug } = await loginAsAdmin(page);
-  const calls = await routeStrategic(page);
-  await openStrategic(page, orgSlug);
-
-  await page.getByLabel("Escopo").selectOption({ label: "Projeto Baseline" });
-  await page.waitForLoadState("networkidle");
-  await expect(page.getByRole("heading", { name: /Projeto\s+Dashboard/ })).toBeVisible();
-  const table = page.getByRole("table");
-  await expect(table).toContainText("Ana Souza");
-  await expect(table).toContainText("11.5");
-  await expect(table).toContainText("(sem Azure)");
-  await expect(page.getByTestId("delivery-method").first()).toHaveText("estimado a partir de PRs");
-  await expect(page).toHaveScreenshot("dashboard-strategic-project.png", {
-    fullPage: true,
-    maxDiffPixelRatio: 0.02,
+test("projeto: DORA diz de onde vem o número (method) e a taxa de falha já vem em %", async ({
+  page,
+}) => {
+  await page.clock.setFixedTime(DASH_NOW);
+  let method = "VCS_PROXY";
+  await page.route("**/api/v1/dashboards/projects/p-portal/overview**", (route) => {
+    const body = readFixture("overview__p-portal__90");
+    body.dora.method = method;
+    return json(route, body);
   });
+  await installDashboardsApi(page, { permissions: STRATEGIC });
+  await gotoDashboard(page, "?escopo=p-portal");
 
-  await page.getByLabel("Membro").fill("u-1");
-  await page.getByLabel("Membro").press("Enter");
+  const lead = page.locator("[data-widget-id='projeto.dora-lead-time']");
+  const freq = page.locator("[data-widget-id='projeto.dora-frequencia']");
+  const cfr = page.locator("[data-widget-id='projeto.dora-falha']");
+  await expect(lead).toContainText("pelos merges na branch padrão dos repositórios vinculados");
+  await expect(freq).toContainText("estimado");
+  await expect(cfr).toContainText("5%");
+
   await page.waitForLoadState("networkidle");
-  await expect.poll(() => calls.at(-1)).toMatchObject({ memberId: "u-1" });
-  await expect(page.getByRole("heading", { name: /Individual\s+Dashboard/ })).toBeVisible();
-  const chips = page.getByRole("list", { name: "Métricas do membro" });
-  await expect(chips).toContainText("mediana");
-  await expect(chips).toContainText("p90 21.0 h · n 2");
-  const review = page.getByTestId("review-stats");
-  await expect(review).toContainText("2.5");
-  await expect(review).toContainText("80");
-  await expect(page).toHaveScreenshot("dashboard-strategic-member.png", {
-    fullPage: true,
-    maxDiffPixelRatio: 0.02,
-  });
+  await expect(page).toHaveScreenshot("dashboard-project.png");
+
+  method = "BOARDS_PROXY";
+  await page.reload();
+  await expect(lead).toContainText("pelos work items concluídos (sem repositório vinculado)");
+
+  method = "UNAVAILABLE";
+  await page.reload();
+  await expect(lead).toContainText("Sem dado de entrega no período para calcular.");
 });
 
-test("equipe: durações em mediana, card de review e IA não alocada à parte", async ({ page }) => {
-  const { orgSlug } = await loginAsAdmin(page);
-  await page.route("**/api/v1/dashboard/developer**", (route) => json(route, DEVELOPER_FIXTURE));
-  await page.route("**/api/v1/dashboard/team**", (route) => json(route, TEAM_FIXTURE));
+test("equipe: durações em mediana com p90 e IA só com o custo alocado ao projeto", async ({
+  page,
+}) => {
+  await page.clock.setFixedTime(DASH_NOW);
+  /* custo não alocado na resposta: não pode ser somado ao custo do time */
+  await page.route("**/api/v1/dashboards/team?*", (route) => {
+    const body = readFixture("team__p-portal__p-portal-s27");
+    body.kpis.unallocatedAiCostUsd = 12.34;
+    return json(route, body);
+  });
+  await installDashboardsApi(page, {
+    permissions: ["DASHBOARD_INDIVIDUAL", "DASHBOARD_TEAM", "PROJECT_MANAGE"],
+  });
+  await gotoDashboard(page, "?visao=equipe");
 
-  await page.goto(`/${orgSlug}/dashboard?versao=atual`);
-  await page.waitForLoadState("networkidle");
-  await page.getByRole("tab", { name: "Equipe" }).click();
-  await page.waitForLoadState("networkidle");
+  const kpis = page.locator("[data-widget-id='equipe.kpis']");
+  const cycle = kpis.getByRole("listitem").filter({ hasText: "Cycle time (mediana)" });
+  await expect(cycle).toContainText("1,7 d");
+  await expect(cycle).toContainText("p90 3 d · 6 itens");
+  const ai = kpis.getByRole("listitem").filter({ hasText: "Custo de IA" });
+  await expect(ai).toContainText("US$ 89,56");
+  await expect(kpis).not.toContainText("US$ 101,90");
 
-  const chips = page.getByRole("list", { name: "Métricas do time" });
-  await expect(chips).toContainText("12.8");
-  await expect(chips).toContainText("p90 26.4 h · n 7");
-  await expect(chips).toContainText("Custo IA do projeto");
-  await expect(chips).toContainText("$2.10");
-  await expect(chips).toContainText("IA não alocada");
-  await expect(chips).toContainText("$0.64");
-
-  const review = page.getByTestId("review-stats");
-  await expect(review).toContainText("3.4");
-  await expect(review).toContainText("82");
-  await expect(review).toContainText("11 PRs elegíveis");
-
-  await review.scrollIntoViewIfNeeded();
-  await page.waitForTimeout(300);
-  await expect(page).toHaveScreenshot("dashboard-team-review.png", { maxDiffPixelRatio: 0.02 });
+  /* revisão: PRs parados e quem revisa */
+  await expect(kpis.getByRole("listitem").filter({ hasText: "PRs parados" })).toContainText(
+    "1ª review em 6,6 h",
+  );
+  await expect(page.locator("[data-widget-id='equipe.quem-revisa']")).toContainText("Bruno Lima");
 });
 
 test("repositórios: janela de datas, review e entrega do repositório", async ({ page }) => {

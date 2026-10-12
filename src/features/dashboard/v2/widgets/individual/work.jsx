@@ -64,11 +64,11 @@ const ITEM_COLUMNS = [
     render: (r) =>
       r.pr ? (
         <span className="inline-flex items-center gap-2">
-          <span className="mono text-fg-dim text-[11px]">#{r.pr.number}</span>
+          <span className="mono text-fg-muted text-[11px]">#{r.pr.number}</span>
           <PrPill status={r.pr.status} stale={r.pr.stale} />
         </span>
       ) : (
-        <span className="text-fg-dim">—</span>
+        <span className="text-fg-muted">—</span>
       ),
   },
   {
@@ -78,7 +78,7 @@ const ITEM_COLUMNS = [
     render: (r) => (
       <span>
         {fmtUsd(r.aiCostUsd)}
-        <span className="text-fg-dim block text-[11px] font-normal">
+        <span className="text-fg-muted block text-[11px] font-normal">
           {r.tokensPerSp ? `${fmtTokensCompact(r.tokensPerSp)} T/SP` : ""}
         </span>
       </span>

@@ -114,7 +114,11 @@ export function AgingWidget({ data }) {
               key: "assignee",
               label: "Responsável",
               render: (r) =>
-                r.assignee ? r.assignee.name : <span className="text-fg-dim">sem responsável</span>,
+                r.assignee ? (
+                  r.assignee.name
+                ) : (
+                  <span className="text-fg-muted">sem responsável</span>
+                ),
             },
             { key: "effort", label: "SP", align: "right", format: fmtInt },
             {
@@ -128,7 +132,8 @@ export function AgingWidget({ data }) {
                   <div className="flex items-center gap-3">
                     <span
                       className={
-                        "mono w-14 shrink-0 text-right tabular-nums " + (over ? "text-warn" : "")
+                        "mono w-14 shrink-0 text-right tabular-nums " +
+                        (over ? "text-warn-text" : "")
                       }
                     >
                       {fmtDuration(hours)}
@@ -154,11 +159,11 @@ export function AgingWidget({ data }) {
               render: (r) =>
                 r.pr ? (
                   <span className="inline-flex items-center gap-2">
-                    <span className="mono text-fg-dim text-[11px]">#{r.pr.number}</span>
+                    <span className="mono text-fg-muted text-[11px]">#{r.pr.number}</span>
                     <PrPill status={r.pr.status} stale={r.pr.stale} />
                   </span>
                 ) : (
-                  <span className="text-fg-dim">sem PR</span>
+                  <span className="text-fg-muted">sem PR</span>
                 ),
             },
           ]}

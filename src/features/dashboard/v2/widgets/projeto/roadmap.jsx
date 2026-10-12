@@ -104,7 +104,7 @@ export function EpicsWidget({ data: epics }) {
             label: "Sem estimativa",
             align: "right",
             render: (r) => (
-              <span className={r.unestimated && r.status !== "DONE" ? "text-warn" : ""}>
+              <span className={r.unestimated && r.status !== "DONE" ? "text-warn-text" : ""}>
                 {r.unestimated}
               </span>
             ),
@@ -226,7 +226,7 @@ export function BacklogPriorityWidget({ data: b }) {
             label: "Parados 60+ d",
             align: "right",
             render: (r) => (
-              <span className={r.stale && r.priority <= 2 ? "text-warn" : ""}>{r.stale}</span>
+              <span className={r.stale && r.priority <= 2 ? "text-warn-text" : ""}>{r.stale}</span>
             ),
           },
         ]}
@@ -264,7 +264,7 @@ export function BacklogForgottenWidget({ data: b }) {
             label: "Sem alteração",
             align: "right",
             render: (r) => (
-              <span className={r.daysWithoutChange > 90 ? "text-warn" : ""}>
+              <span className={r.daysWithoutChange > 90 ? "text-warn-text" : ""}>
                 {fmtDuration(r.daysWithoutChange * 24)}
               </span>
             ),

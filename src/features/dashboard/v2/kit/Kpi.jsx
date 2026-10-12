@@ -20,7 +20,7 @@ export function DeltaBadge({ current, previous, goodWhen = "up", vs = "anterior"
       ? null
       : (d.direction === "up") === (goodWhen === "up");
   const arrow = d.direction === "up" ? "▲" : d.direction === "down" ? "▼" : "■";
-  const tone = good == null ? "text-fg-dim" : good ? "text-good" : "text-bad";
+  const tone = good == null ? "text-fg-muted" : good ? "text-good-text" : "text-bad-text";
   const text = d.direction === "flat" ? "estável" : `${Math.abs(d.pct).toFixed(0)}%`;
   return (
     <span
@@ -29,7 +29,7 @@ export function DeltaBadge({ current, previous, goodWhen = "up", vs = "anterior"
     >
       <span aria-hidden="true">{arrow}</span>
       {text}
-      <span className="text-fg-dim font-normal whitespace-nowrap">vs {vs}</span>
+      <span className="text-fg-muted font-normal whitespace-nowrap">vs {vs}</span>
       <span className="sr-only">{good == null ? "" : good ? ", melhora" : ", piora"}</span>
     </span>
   );
@@ -54,11 +54,11 @@ export function KpiTile({ label, value, unit, hint, delta, trend, tone, title })
           className={
             "serif text-[30px] leading-none " +
             (empty
-              ? "text-fg-dim"
+              ? "text-fg-muted"
               : tone === "bad"
-                ? "text-bad"
+                ? "text-bad-text"
                 : tone === "warn"
-                  ? "text-warn"
+                  ? "text-warn-text"
                   : "text-fg")
           }
         >
@@ -71,7 +71,7 @@ export function KpiTile({ label, value, unit, hint, delta, trend, tone, title })
           </span>
         ) : null}
       </div>
-      {hint ? <span className="mono text-fg-dim text-[12px] font-normal">{hint}</span> : null}
+      {hint ? <span className="mono text-fg-muted text-[12px] font-normal">{hint}</span> : null}
       {delta ? <DeltaBadge {...delta} /> : null}
     </div>
   );

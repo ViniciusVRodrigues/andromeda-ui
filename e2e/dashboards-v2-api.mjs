@@ -10,7 +10,11 @@ import path from "node:path";
  * abas compartilham o mesmo "servidor" (testes de 409) e o estado sobrevive a reload.
  *
  * `page.route` registrado depois tem prioridade sobre este (o Playwright consulta as
- * rotas da página antes das do contexto). */
+ * rotas da página antes das do contexto).
+ *
+ * `passthrough: true` (casca do admin no replay, ex. `screenshots.spec.js`): o /me e
+ * as rotas que este servidor não conhece seguem para a camada registrada antes
+ * (`installApiLayer` do `loginAsAdmin`) em vez de 404. */
 
 const DIR = path.join(process.cwd(), "e2e", "fixtures", "dashboards-v2");
 const cache = new Map();
@@ -24,6 +28,11 @@ function fixture(name) {
 
 export const E2E_USER_ID = "u-1";
 export const SLUG = "orbital";
+
+/* "Agora" das fixtures (MOCK_NOW de scripts/dashboards-v2-sim/world.js). Teste com
+ * screenshot congela o relógio nele antes de navegar: senão "Atualizado há…" e o dia
+ * da sprint mudam com a data em que a suíte roda. */
+export const DASH_NOW = new Date("2026-09-30T15:00:00.000Z");
 
 const VIEW_KEYS = ["individual", "equipe", "projeto", "org"];
 const WIDGET_ID = /^[a-z0-9-]+\.[a-z0-9-]+$/;
@@ -46,10 +55,18 @@ function validBody(body) {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
+/** Fixture do servidor falso já parseada (para um teste montar a sua variação). */
+export function readFixture(name) {
+  const text = fixture(name);
+  if (text == null) throw new Error(`fixture dashboards-v2/${name}.json não existe`);
+  return JSON.parse(text);
+}
+
 /**
  * Instala o servidor falso no contexto da página.
  * @param {import("@playwright/test").Page} page
- * @param {{ permissions?: string[], layouts?: object[], me?: object, pending?: object[] }} [opts]
+ * @param {{ permissions?: string[], layouts?: object[], me?: object, pending?: object[],
+ *   passthrough?: boolean }} [opts]
  * @returns {Promise<{
  *   layouts: () => object[], saved: (viewKey?: string) => object | null,
  *   failLayouts: (methods: string[]) => void,
@@ -96,7 +113,7 @@ export async function installDashboardsApi(page, opts = {}) {
     const method = req.method();
     state.requests.push(`${method} ${p}${url.search}`);
 
-    if (p === "/v1/auth/me") return json(route, me);
+    if (p === "/v1/auth/me") return opts.passthrough ? route.fallback() : json(route, me);
     if (p === "/v1/projects") return raw(route, fixture("projects"));
     if (p === "/v1/ai/allocations/pending-batches") return json(route, opts.pending || []);
 
@@ -172,6 +189,7 @@ export async function installDashboardsApi(page, opts = {}) {
         return json(route, saved);
       }
     }
+    if (opts.passthrough) return route.fallback();
     return json(route, { code: "NOT_FOUND" }, 404);
   });
 

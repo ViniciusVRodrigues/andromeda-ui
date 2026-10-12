@@ -39,7 +39,7 @@ export function ItemCell({ type, externalId, title, sub }) {
     <div className="min-w-0">
       <div className="flex items-center gap-2">
         {type ? <TypeBadge type={type} /> : null}
-        {externalId ? <span className="mono text-fg-dim text-[11px]">#{externalId}</span> : null}
+        {externalId ? <span className="mono text-fg-muted text-[11px]">#{externalId}</span> : null}
       </div>
       <div
         className="text-fg mt-0.5 line-clamp-2 max-w-[360px] min-w-[180px] text-[13px] leading-snug"
@@ -47,7 +47,7 @@ export function ItemCell({ type, externalId, title, sub }) {
       >
         {title}
       </div>
-      {sub ? <div className="mono text-fg-dim mt-0.5 text-[11px] font-normal">{sub}</div> : null}
+      {sub ? <div className="mono text-fg-muted mt-0.5 text-[11px] font-normal">{sub}</div> : null}
     </div>
   );
 }

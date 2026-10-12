@@ -25,7 +25,7 @@ export function DataTable({ columns, rows, dense, rowKey, onRowClick, highlight,
                 title={c.hint}
                 style={c.width ? { width: c.width } : undefined}
                 className={
-                  "mono border-line text-fg-dim border-b px-2 pb-2 text-[11px] tracking-[0.08em] whitespace-nowrap uppercase " +
+                  "mono border-line text-fg-muted border-b px-2 pb-2 text-[11px] tracking-[0.08em] whitespace-nowrap uppercase " +
                   (c.align === "right" ? "text-right" : c.align === "center" ? "text-center" : "")
                 }
               >

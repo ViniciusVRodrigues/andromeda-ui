@@ -119,15 +119,19 @@ function useSortableGroup({ ids, titleOf, where, noun, dropped, onMove }) {
     }),
   );
 
+  /* geração do arrasto: um anúncio atrasado de um arrasto que já terminou não sai */
+  const dragGen = React.useRef(0);
+
   const finish = () => {
+    dragGen.current += 1;
     viaKeyboard.current = false;
     cursor.current = null;
     setActiveId(null);
     setOverId(null);
-    /* todos os listeners deste mesmo keydown ainda veem o arrasto ativo (o Esc do modo) */
-    setTimeout(() => {
-      edit.dragging.current = false;
-    }, 0);
+    /* Zera na hora: o Esc que cancelou já chega ao handler do modo com defaultPrevented
+     * (o KeyboardSensor faz preventDefault e o handler do modo escuta no window, depois
+     * dele), então o próximo Esc sai do modo sem janela de tempo. */
+    edit.dragging.current = false;
   };
 
   /* cada seta: marcador e anúncio pela posição lógica */
@@ -147,8 +151,16 @@ function useSortableGroup({ ids, titleOf, where, noun, dropped, onMove }) {
       setActiveId(active.id);
       lastOver.current = active.id;
       start.current = pos(active.id);
-      edit.announce(
-        `Pegou ${noun(titleOf(active.id))}, posição ${start.current} de ${n}${where}. Setas movem, Espaço solta, Esc cancela.`,
+      const gen = ++dragGen.current;
+      const text = `Pegou ${noun(titleOf(active.id))}, posição ${start.current} de ${n}${where}. Setas movem, Espaço solta, Esc cancela.`;
+      /* O KeyboardSensor chama este onDragStart de dentro do attach() e só liga as setas
+       * num setTimeout logo depois. Dois timers em fila garantem que "Pegou…" só é
+       * anunciado quando as setas já funcionam (antes, uma seta rápida se perdia). No
+       * ponteiro o anúncio vem igual. */
+      setTimeout(() =>
+        setTimeout(() => {
+          if (dragGen.current === gen) edit.announce(text);
+        }),
       );
     },
     onDragOver: ({ over }) => {
