@@ -3,13 +3,14 @@
  *
  *   node scripts/gen-dashboards-v2-fixtures.mjs
  *
- * Roda os agregadores do mundo simulado (`src/features/dashboard/v2/mock/`) e
+ * Roda os agregadores do mundo simulado (`scripts/dashboards-v2-sim/`) e
  * converte cada payload para o FORMATO DO SERVIDOR descrito em
  * `openspec/changes/dashboards-customizaveis/contracts.md` (P1a, P1b, P1c, P1d):
  * durações `{p50, p90, n}` em horas, timestamps ISO, mapas `byModel{}`/`byProject{}`,
  * notas DORA `ELITE/HIGH/MEDIUM/LOW`, `AZURE_DEVOPS`, `byLogin`, sem os campos que
  * dependem de coleta nova. Assim os e2e exercitam o adaptador de `v2/api.js` com as
- * respostas que o backend real manda, e sobrevivem à remoção de `v2/mock/` (P5).
+ * respostas que o backend real manda. O mundo simulado saiu de `src/` na troca (P5):
+ * só este script o usa, para regenerar as fixtures quando um teste precisar de outro dado.
  *
  * Saída: `e2e/fixtures/dashboards-v2/*.json` (servidas por `e2e/dashboards-v2-api.mjs`).
  * Os dados são determinísticos (semente e "agora" fixos no mock): rodar de novo só
@@ -21,7 +22,7 @@ import path from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const MOCK = path.join(ROOT, "src", "features", "dashboard", "v2", "mock");
+const MOCK = path.join(ROOT, "scripts", "dashboards-v2-sim");
 const OUT = path.join(ROOT, "e2e", "fixtures", "dashboards-v2");
 const load = (f) => import(pathToFileURL(path.join(MOCK, f)).href);
 

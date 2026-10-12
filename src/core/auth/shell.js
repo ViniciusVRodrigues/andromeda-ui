@@ -158,16 +158,6 @@ export function hasManage(identity) {
   );
 }
 
-export function dashAccess(identity) {
-  const p = identity.permissions;
-  return {
-    projects: identity.projects || [],
-    individual: p.includes("DASHBOARD_INDIVIDUAL"),
-    equipe: holdsAnywhere(identity, "DASHBOARD_TEAM"),
-    org: holdsAnywhere(identity, "DASHBOARD_STRATEGIC"),
-  };
-}
-
 /* Perfil no shape que o conteúdo legacy consome, a partir do /me. */
 export function buildProfile(meData) {
   return {

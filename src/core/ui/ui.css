@@ -324,32 +324,6 @@ textarea.ui-field-input {
   z-index: 1;
 }
 
-/* KPIs da dashboard individual: um bloco unico com divisorias internas, no
- * lugar de cinco caixas com borda e hover proprios. Metricas relacionadas
- * pertencem ao mesmo objeto — a borda por tile as separava sem motivo, e o
- * hover prometia uma interacao que nao existe. */
-.dev-dash-metrics {
-  gap: 0;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-  background: var(--bg-elev);
-  overflow: hidden;
-}
-.dev-dash-metrics .dev-dash-metric-tile {
-  background: transparent;
-  border: 0;
-  border-left: 1px solid var(--line);
-  border-radius: 0;
-  transition: none;
-}
-.dev-dash-metrics .dev-dash-metric-tile:first-child {
-  border-left: 0;
-}
-.dev-dash-metrics .dev-dash-metric-tile:hover {
-  border-color: var(--line);
-  transform: none;
-}
-
 /* Rotulo empilhado sobre o controle. .ui-field-input nao declara display,
  * entao dentro de um <label> ele fluia AO LADO do texto do rotulo em vez de
  * abaixo. Escopo no wrapper: o primitivo e usado em todo o app. */

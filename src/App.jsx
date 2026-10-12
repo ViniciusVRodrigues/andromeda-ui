@@ -28,7 +28,6 @@ import { LoginScreen } from "./features/auth/LoginScreen.jsx";
 import { ForgotPasswordScreen } from "./features/auth/ForgotPasswordScreen.jsx";
 import { ResetPasswordScreen } from "./features/auth/ResetPasswordScreen.jsx";
 import { OnboardingScreen } from "./features/onboarding/OnboardingScreen.jsx";
-import { DashboardPage } from "./features/dashboard/DashboardPage.jsx";
 import { DashboardsPage } from "./features/dashboard/v2/DashboardsPage.jsx";
 import { BacklogPage } from "./features/backlog/BacklogPage.jsx";
 import { ReposPage } from "./features/repos/ReposPage.jsx";
@@ -217,10 +216,6 @@ function AppShell() {
               element={<LoginScreenWrapper enterApp={enterApp} onHome={() => navigate("/")} />}
             />
             <Route path="/esqueci-senha" element={<ForgotPasswordScreen />} />
-            {/* prévia dos dashboards v2 sem login — só existe em `npm run dev` */}
-            {import.meta.env.DEV ? (
-              <Route path="/previa/dashboard" element={<DashboardPreviewRoute />} />
-            ) : null}
             <Route path="/redefinir-senha" element={<ResetPasswordScreen />} />
             <Route
               path="/onboard"
@@ -341,7 +336,7 @@ function ShellGate({ identity, profile }) {
       return <Navigate to={orgRoute(sessionSlug, "dashboard")} replace />;
     return (
       <div className="dash-only overflow-x-clip">
-        <DashboardPageWithLogout />
+        <DashboardOnly />
       </div>
     );
   }
@@ -447,35 +442,14 @@ function SectionContent() {
   );
 }
 
-/* Dashboards v2 (prévia com dados fictícios) são o padrão da rota; `?versao=atual`
- * mantém o dashboard ligado à API real acessível para comparação até a v2 ser
- * conectada ao backend. O modo legado renderiza exatamente como antes (os specs
- * e2e dele navegam com ?versao=atual); o item "Dashboard" da barra lateral volta
- * para a prévia. */
-const LEGACY_DASHBOARD_PARAM = "versao";
-
-function useLegacyDashboardToggle() {
-  const [searchParams, setSearchParams] = useSearchParams();
-  return {
-    legacy: searchParams.get(LEGACY_DASHBOARD_PARAM) === "atual",
-    showLegacy: () => setSearchParams({ [LEGACY_DASHBOARD_PARAM]: "atual" }),
-    showPreview: () => setSearchParams({}),
-  };
-}
-
-/* Rota do dashboard (admin): wrapper fino — dash/onNavigate do contexto+navegador. */
+/* Rota do dashboard (com a casca): wrapper fino — onNavigate do contexto+navegador. */
 function DashboardRoute() {
   const navigate = useNavigate();
-  const { dash, orgSlug } = useIdentity();
-  const { legacy, showLegacy } = useLegacyDashboardToggle();
+  const { orgSlug } = useIdentity();
   const onNavigate = (t) => navigate(orgRoute(orgSlug, TAB_TO_ROUTE[t]));
   return (
     <section className="admin-dash">
-      {legacy ? (
-        <DashboardPage dash={dash} onNavigate={onNavigate} />
-      ) : (
-        <DashboardsPage onNavigate={onNavigate} onShowLegacy={showLegacy} />
-      )}
+      <DashboardsPage onNavigate={onNavigate} />
     </section>
   );
 }
@@ -500,52 +474,10 @@ function BacklogRoute() {
   );
 }
 
-/* Prévia dos dashboards v2 sem backend nem login (somente em desenvolvimento): uma
- * identidade local com as três permissões de dashboard (+ configuração das
- * integrações, que libera a sub-aba "Integrações e identidades") libera tudo — o
- * seletor "simular" da página restringe para Tela 1/2/3. Os dados da v2 são
- * fictícios e gerados no front, então nada aqui toca a API. */
-const PREVIEW_PERMISSIONS = [
-  "DASHBOARD_INDIVIDUAL",
-  "DASHBOARD_TEAM",
-  "DASHBOARD_STRATEGIC",
-  "AZURE_CONFIGURE",
-  "REPOS_CONFIGURE",
-];
-
-function DashboardPreviewRoute() {
-  const { palette, setPalette } = useIdentity();
-  const navigate = useNavigate();
-  const identity = React.useMemo(() => buildIdentity(PREVIEW_PERMISSIONS), []);
-  return (
-    <IdentityProvider
-      identity={identity}
-      profile={null}
-      palette={palette}
-      setPalette={setPalette}
-      onLogout={() => navigate("/")}
-    >
-      <div className="dash-only overflow-x-clip">
-        <DashboardsPage standalone />
-      </div>
-    </IdentityProvider>
-  );
-}
-
-/* dash-only: DashboardPage precisa de `dash` e do logout — ambos do contexto. Sem
- * barra lateral, o modo legado ganha um atalho de volta para a prévia. */
-function DashboardPageWithLogout() {
-  const { dash, onLogout } = useIdentity();
-  const { legacy, showLegacy, showPreview } = useLegacyDashboardToggle();
-  if (!legacy) return <DashboardsPage onLogout={onLogout} onShowLegacy={showLegacy} />;
-  return (
-    <>
-      <button type="button" className="btn btn-ghost btn-xs m-4" onClick={showPreview}>
-        ← Voltar à prévia dos novos dashboards
-      </button>
-      <DashboardPage dash={dash} onLogout={onLogout} />
-    </>
-  );
+/* Modo só-dashboard (sem a casca): a página ganha o botão de Sair do contexto. */
+function DashboardOnly() {
+  const { onLogout } = useIdentity();
+  return <DashboardsPage onLogout={onLogout} />;
 }
 
 /* URLs da casca sem prefixo de organização (/backlog, /uso-ia/precificacao) — o formato

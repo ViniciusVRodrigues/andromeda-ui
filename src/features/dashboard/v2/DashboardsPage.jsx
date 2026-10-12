@@ -100,18 +100,22 @@ function accessModel(ident) {
   };
 }
 
-export function DashboardsPage({ onLogout, onNavigate, onShowLegacy, standalone = false }) {
-  /* fora da casca (modo só-dashboard ou a rota /previa/dashboard, que sai no P5) a página rola na
-   * .page-layer, sem o padding de .admin-main: muda o respiro e o topo fixo */
-  const bare = standalone || !!onLogout;
+/**
+ * @param {{ onLogout?: () => void, onNavigate?: (tab: string) => void }} props
+ *   `onLogout` = modo só-dashboard (sem a casca: botão Sair, sem navegação);
+ *   `onNavigate` = com a casca (leva a outras telas, ex. Uso de IA e Backlog).
+ */
+export function DashboardsPage({ onLogout, onNavigate }) {
+  /* fora da casca (modo só-dashboard) a página rola na .page-layer, sem o padding de
+   * .admin-main: muda o respiro e o topo fixo */
+  const bare = !!onLogout;
   const ident = useIdentity();
   const [params, setParams] = useSearchParams();
   const access = accessModel(ident);
 
   const projects = useDashboardProjects(ident.identity?.userId ?? null);
-  /* Aviso de alocação de IA pendente (paridade com o dashboard antigo). Com a casca,
-   * "Revisar" leva ao Uso de IA; no modo só-dashboard (sem navegação) abre o painel de
-   * alocação aqui mesmo, como o DashboardPage antigo. */
+  /* Aviso de alocação de IA pendente. Com a casca, "Revisar" leva ao Uso de IA; no modo
+   * só-dashboard (sem navegação) abre o painel de alocação aqui mesmo. */
   const qc = useQueryClient();
   const canReviewAi = access.individual && (!onNavigate || !!ident.can?.("uso-ia"));
   const pending = usePendingAllocations(canReviewAi);
@@ -214,11 +218,6 @@ export function DashboardsPage({ onLogout, onNavigate, onShowLegacy, standalone 
             <h1 className="serif text-fg m-0 text-[34px] leading-tight">Dashboard</h1>
             {scope ? <CustomizeButton /> : null}
             <div className="ml-auto flex flex-wrap items-center gap-2">
-              {onShowLegacy ? (
-                <button type="button" className="btn btn-ghost btn-xs" onClick={onShowLegacy}>
-                  Ver versão atual
-                </button>
-              ) : null}
               {onLogout ? (
                 <button type="button" className="btn btn-ghost btn-xs" onClick={onLogout}>
                   Sair

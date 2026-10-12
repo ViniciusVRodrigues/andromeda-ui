@@ -1,7 +1,7 @@
 /**
  * CommitActivityChart — Recharts BarChart da atividade de commits de um repositório.
  *
- * Segue o mesmo desenho do BurndownChart: eixos e grade nos tokens do tema,
+ * Eixos e grade nos tokens do tema,
  * tooltip próprio no lugar do padrão do Recharts (que traz fundo branco e
  * ignora a paleta), e mensagem própria quando não há o que mostrar.
  *

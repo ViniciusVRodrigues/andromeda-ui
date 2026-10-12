@@ -215,6 +215,35 @@ test("modo só-dashboard (sem a casca): Revisar abre o painel de alocação aqui
   await expect(page).toHaveURL(/\/dashboard/);
 });
 
+/* A troca (dashboards-customizaveis P5): o dashboard novo é O dashboard. O antigo, o
+ * parâmetro `?versao=atual`, os botões de alternar e a rota de prévia saíram. */
+for (const [mode, permissions] of [
+  ["com a casca", ["DASHBOARD_INDIVIDUAL", "PROJECT_MANAGE"]],
+  ["modo só-dashboard", ["DASHBOARD_INDIVIDUAL"]],
+]) {
+  test(`${mode}: ?versao=atual abre o mesmo dashboard, sem alternar para o antigo`, async ({
+    page,
+  }) => {
+    await openAs(page, permissions, "?versao=atual");
+    await expect(page.locator("[data-dashboard-v2]")).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Resumo da sprint" })).toBeVisible();
+    await expect(page.getByRole("button", { name: "Ver versão atual" })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: /Voltar à prévia/ })).toHaveCount(0);
+    /* marcas do dashboard antigo */
+    await expect(page.getByRole("tablist", { name: "Tipo de dashboard" })).toHaveCount(0);
+    await expect(page.getByText("Prévia · dados fictícios")).toHaveCount(0);
+  });
+}
+
+test("a rota de prévia sem login não existe mais: /previa/dashboard pede sessão", async ({
+  page,
+}) => {
+  /* sem a rota própria, cai em /:orgSlug/:section como qualquer seção sem login → início */
+  await page.goto("/previa/dashboard");
+  await expect(page).toHaveURL(/\/$/);
+  await expect(page.locator("[data-dashboard-v2]")).toHaveCount(0);
+});
+
 test("itens de trabalho: link Editar no backlog (sem edição inline)", async ({ page }) => {
   await openAs(page, ["DASHBOARD_INDIVIDUAL", "DASHBOARD_TEAM", "PROJECT_MANAGE"]);
   const link = page.getByRole("button", { name: "Editar no backlog →" });

@@ -5,7 +5,6 @@
 import React from "react";
 import {
   canSee,
-  dashAccess,
   firstAllowedRoute,
   hasOnProject,
   hasOrg,
@@ -17,7 +16,7 @@ const IdentityContext = React.createContext(null);
 
 /**
  * @param {{ value: { identity, profile, palette, setPalette, onLogout, refreshIdentity } }} props
- *   `can`, `dash` e `firstAllowed` são derivados do mesmo identity — expostos
+ *   `can` e `firstAllowed` são derivados do mesmo identity — expostos
  *   prontos para os consumidores não reinventarem predicado. Os predicados de
  *   escopo (`hasOrg`, `canOnProject`, `holdsAnywhere`, `projectsWith`) avaliam
  *   `orgPermissions`/`projectPermissions` do /me (project-scoped-permissions).
@@ -47,7 +46,6 @@ export function IdentityProvider({
       canOnProject: (projectId, code) => hasOnProject(identity, projectId, code),
       holdsAnywhere: (code) => holdsAnywhere(identity, code),
       projectsWith: (projects, code) => projectsWith(identity, projects, code),
-      dash: identity ? dashAccess(identity) : null,
       firstAllowed: () => firstAllowedRoute(identity, profile?.org?.slug),
     }),
     [identity, profile, palette, setPalette, onLogout, refreshIdentity],

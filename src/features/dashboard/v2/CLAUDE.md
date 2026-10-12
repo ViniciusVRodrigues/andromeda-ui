@@ -1,10 +1,10 @@
-# features/dashboard/v2 — dashboards por permissão (ligados aos endpoints /v1/dashboards/*)
+# features/dashboard/v2 — o dashboard (por permissão, ligado aos endpoints /v1/dashboards/*)
 
-Redesenho da tela de dashboard em três telas montadas pelas permissões, cada uma com sub-abas. Os dados vêm
-dos endpoints do andromeda-ms (change `dashboards-customizaveis`, contratos em
-`openspec/changes/dashboards-customizaveis/contracts.md`). A rota `dashboard` mostra a v2 por padrão;
-`?versao=atual` abre o dashboard antigo (`../DashboardPage.jsx`, `/v1/dashboard/*`) até o P5 trocar e remover —
-os specs e2e antigos navegam assim.
+A tela de dashboard em três telas montadas pelas permissões, cada uma com sub-abas. Os dados vêm dos endpoints
+do andromeda-ms (change `dashboards-customizaveis`, contratos em
+`openspec/changes/dashboards-customizaveis/contracts.md`). É o único dashboard: a rota `dashboard` e o modo
+só-dashboard renderizam `DashboardsPage` (o antigo saiu no P5 — ver `../CLAUDE.md`). Props: `onNavigate` (com a
+casca) ou `onLogout` (modo só-dashboard: botão Sair, página rola na `.page-layer`).
 
 ## Permissões → telas e sub-abas (`DashboardsPage.jsx`)
 
@@ -23,7 +23,6 @@ organização usa `holdsAnywhere` (o servidor libera com `@perm.onAnyProject`); 
 pessoa. Uma visão com uma sub-aba só não mostra a barra de abas.
 
 Estado na URL: `?escopo=org|<projectId>&visao=individual|equipe|projeto&aba=&sprint=&periodo=30|90|180|365`.
-A rota `/previa/dashboard` (só em dev, sem login) não tem mais dado para mostrar — sai no P5 com o resto.
 
 ## Estrutura
 
@@ -37,8 +36,6 @@ A rota `/previa/dashboard` (só em dev, sem login) não tem mais dado para mostr
   sprints: `GET /v1/projects/{id}/sprints` (`finishDate → endDate`, sem FUTURE, mais recente primeiro).
 - `hooks.js` — React Query, `keepPreviousData` (troca de filtro esmaece a tela em vez de piscar esqueleto);
   `usePendingAllocations` (`GET /v1/ai/allocations/pending-batches`) para o aviso de alocação.
-- `mock/` — o mundo simulado da prévia. **Nenhum import em `src/`**: só o `scripts/gen-dashboards-v2-fixtures.mjs`
-  o usa para gerar as fixtures dos e2e. Sai no P5.
 - `highlights.js` — leituras automáticas do topo de cada visão/sub-aba (funções puras, limiares nomeados).
 - `kit/` — `Panel` (eyebrow, título, `?` com "como ler", fonte, **Gráfico/Tabela**, `note`, `experimental`),
   `Section`, `KpiTile`/`DeltaBadge`, `BarList`/`SegmentBar`/`Meter`/`Legend`, `DataTable`, selos (`GradeBadge`
@@ -49,7 +46,7 @@ A rota `/previa/dashboard` (só em dev, sem login) não tem mais dado para mostr
   catálogo na grade fixa delas), `IntegrationsView`. Cada visão trata erro (`ViewError`: 403/404 explicam, o resto
   tem "Tentar de novo") e mostra o `ViewRefresh` (`RefreshControl` com o `dataFreshness` da resposta + Atualizar
   do projeto; na organização/integrações só a data).
-- Paridade com o dashboard antigo (decisão 3): **Atualizar** (`ViewRefresh`; ao concluir invalida
+- Herdado do dashboard antigo (decisão 3): **Atualizar** (`ViewRefresh`; ao concluir invalida
   `["dashboards-v2"]`), **aviso de alocação de IA pendente** (`components/PendingAllocationsBanner.jsx`, na
   página, para quem vê o próprio Uso de IA e tem a casca) e o link **"Editar no backlog →"** nos itens da
   Individual (a edição inline de esforço/complexidade não veio — decisão da pessoa).
@@ -232,11 +229,15 @@ Spike numa grade de 12 colunas com tamanhos mistos (4/8/6/6/4/4/4/12), `Keyboard
 ## Verificação
 
 Os e2e rodam contra **respostas no formato do servidor**: `e2e/dashboards-v2-api.mjs` instala (no contexto do
-navegador) um servidor falso que serve as fixtures de `e2e/fixtures/dashboards-v2/` — geradas uma vez a partir do
-mock por `node scripts/gen-dashboards-v2-fixtures.mjs` (que converte para o contrato: DS, ISO, mapas, notas,
-`byLogin`, sem campos de coleta) — e guarda os layouts em memória com as regras do D6 (409, 422, DELETE
-idempotente; `failLayouts`, `delaySource`/`failSource` para os casos de erro). Duas abas do mesmo contexto
-dividem o servidor (testes de 409). Para mudar dado de teste: altere o mock ou a conversão e rode o script.
+navegador) um servidor falso que serve as fixtures de `e2e/fixtures/dashboards-v2/` — geradas a partir do mundo
+simulado em `scripts/dashboards-v2-sim/` por `node scripts/gen-dashboards-v2-fixtures.mjs` (que converte para o
+contrato: DS, ISO, mapas, notas, `byLogin`, sem campos de coleta; rodar de novo sem mudar nada dá arquivos
+idênticos) — e guarda os layouts em memória com as regras do D6 (409, 422, DELETE idempotente; `failLayouts`,
+`delaySource`/`failSource` para os casos de erro). Duas abas do mesmo contexto dividem o servidor (testes de 409).
+Para mudar dado de teste: altere o mundo simulado ou a conversão e rode o script; para um caso pontual, um
+`page.route` com `readFixture(nome)` alterado vence o servidor falso. `passthrough: true` deixa o `/me` e as rotas
+desconhecidas com o replay (casca do admin em `screenshots.spec.js`). Teste com screenshot congela o relógio em
+`DASH_NOW` (o "agora" das fixtures) antes de navegar.
 
 `e2e/dashboards-v2.spec.js`: as três telas por permissão, sub-abas (sem Práticas de IA; integrações por
 permissão), adaptador (p90 ao lado do p50, notas DORA, `byModel` em colunas, `byLogin`, `AZURE_DEVOPS`,
@@ -249,6 +250,19 @@ não geométrica — ver `indexCoordinates` em `edit/EditGrid.jsx`), ocultar + d
 Ctrl+Z + persistência no reload, restaurar, descartar, celular 390, reduced motion, alvos ≥ 44 px, painel vazio,
 widget novo e dica de primeiro uso; DELETE e PUT falhando, 409 com duas páginas, região do Drawer, widget sozinho
 sem menu, toast e fim da página em 360, atalho de teclado no celular, contraste nas três paletas, a mesma
-referência de largura em 600–700 px e o Personalizar desabilitado até o layout salvo chegar. Os specs do dashboard
-antigo (e o screenshot `shell-dashboard.png` de `screenshots.spec.js`) navegam com `?versao=atual`, então os
-baselines dele não mudam. A v2 ainda não tem baseline visual — gerar com `npm run e2e:docker:update` (só no Docker).
+referência de largura em 600–700 px e o Personalizar desabilitado até o layout salvo chegar.
+`e2e/dashboards-a11y.spec.js`: contraste, alvos, teclado, gráficos acessíveis, barra fixa e reduced motion.
+
+Specs migrados do dashboard antigo na troca (P5), todos contra o servidor falso: `dashboard-rework.spec.js`
+(destaques com números, KPI com p90 e variação, item com tipo/#id, histórico entre sprints),
+`dashboard-effort-ai.spec.js` (tokens em milhões, alocação do dia por item, comprometido × entregue da Equipe),
+`metrics-correctness.spec.js` (KPIs da organização e portfólio, `method` do DORA, CFR em %, custo não alocado
+fora do custo do time), `on-demand-refresh.spec.js` (Atualizar: progresso, parcial, 429),
+`individual-work-insights.spec.js` (PR → item ligado e 1ª review, reviews feitas),
+`project-scoped-permissions.spec.js` (Equipe some no projeto sem `DASHBOARD_TEAM`) e `dashboards-v2.spec.js` (a
+troca: o antigo parâmetro de versão não muda nada, sem botões de alternar, a antiga rota de demonstração pede
+sessão).
+Baselines (só no Docker: `E2E_PORT=<porta> npm run e2e:docker`): `dashboard-individual.png`,
+`dashboard-individual-ai.png`, `dashboard-individual-prs.png`, `dashboard-team.png`, `dashboard-org.png`,
+`dashboard-project.png`, `refresh-control-running.png` e `shell-dashboard.png` (casca do admin, visão geral da
+organização).
