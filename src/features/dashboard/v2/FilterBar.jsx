@@ -39,15 +39,41 @@ export function useElementWidth(ref) {
   return width;
 }
 
+/** Primeiro ancestral que rola na horizontal (a faixa de sub-abas e seções). */
+function scrollParentX(el) {
+  for (let p = el?.parentElement; p; p = p.parentElement) {
+    const ox = getComputedStyle(p).overflowX;
+    if (ox === "auto" || ox === "scroll") return p;
+  }
+  return null;
+}
+
+/**
+ * Traz `el` inteiro à vista na faixa horizontal, com `scrollLeft` calculado a partir dos
+ * retângulos e sem animação. Não usa `scrollIntoView` suave: trocar de sub-aba muda o
+ * cabeçalho, os filtros e o painel no mesmo instante, e o navegador cancelava ou
+ * redirecionava a rolagem suave em curso — a aba focada ficava fora da faixa.
+ */
+function revealInStrip(el) {
+  const strip = scrollParentX(el);
+  if (!el || !strip) return;
+  const r = el.getBoundingClientRect();
+  const s = strip.getBoundingClientRect();
+  const left = s.left + REVEAL_PAD;
+  const right = Math.min(s.right, window.innerWidth) - REVEAL_PAD;
+  let delta = 0;
+  if (r.left < left) delta = r.left - left;
+  else if (r.right > right) delta = Math.min(r.right - right, r.left - left);
+  if (delta) strip.scrollTo({ left: strip.scrollLeft + delta, behavior: "instant" });
+}
+/* folga para o anel de foco (a faixa tem px-[4px]) */
+const REVEAL_PAD = 4;
+
 /** Foca o item e o traz à vista dentro da faixa que rola na horizontal (celular). */
 function focusIntoView(el) {
   if (!el) return;
   el.focus({ preventScroll: true });
-  el.scrollIntoView({
-    behavior: reducedMotion() ? "auto" : "smooth",
-    inline: "nearest",
-    block: "nearest",
-  });
+  revealInStrip(el);
 }
 
 /** Move o foco entre `items` com as setas (roving tabindex); devolve o índice novo ou -1. */
@@ -65,15 +91,32 @@ function nextIndex(key, index, count) {
  */
 export function SubTabs({ value, options, onChange, className = "" }) {
   const refs = React.useRef([]);
+  const listRef = React.useRef(null);
   const active = options.findIndex((o) => o.value === value);
-  /* a aba ativa (também por deep-link ou clique) fica à vista na faixa rolável */
-  React.useEffect(() => {
-    refs.current[active]?.scrollIntoView({
-      behavior: reducedMotion() ? "auto" : "smooth",
-      inline: "nearest",
-      block: "nearest",
-    });
-  }, [active]);
+  /* A aba ativa (também por deep-link ou clique) fica à vista na faixa rolável: logo
+   * depois do commit, de novo no quadro seguinte (o resto da página acabou de trocar) e
+   * sempre que uma aba ou a faixa mudar de tamanho. As abas são observadas uma a uma: a
+   * lista tem a largura da faixa (as abas transbordam dela), então a troca da fonte de
+   * reserva pela fonte da web alargava as abas sem mudar o tamanho da lista nem da faixa —
+   * e a aba focada, já revelada com a largura antiga, ficava fora da faixa. */
+  React.useLayoutEffect(() => {
+    const reveal = () => revealInStrip(refs.current[active]);
+    reveal();
+    const frame = requestAnimationFrame(reveal);
+    const strip = scrollParentX(listRef.current);
+    let ro = null;
+    if (typeof ResizeObserver !== "undefined") {
+      ro = new ResizeObserver(reveal);
+      for (const el of refs.current.slice(0, options.length)) if (el) ro.observe(el);
+      if (strip) ro.observe(strip);
+    }
+    document.fonts?.addEventListener?.("loadingdone", reveal);
+    return () => {
+      cancelAnimationFrame(frame);
+      ro?.disconnect();
+      document.fonts?.removeEventListener?.("loadingdone", reveal);
+    };
+  }, [active, options.length]);
   const onKeyDown = (e, i) => {
     const n = nextIndex(
       e.key === "ArrowUp" || e.key === "ArrowDown" ? "" : e.key,
@@ -87,6 +130,7 @@ export function SubTabs({ value, options, onChange, className = "" }) {
   };
   return (
     <div
+      ref={listRef}
       role="tablist"
       aria-label="Sub-abas do dashboard"
       className={"flex shrink-0 gap-x-[8px] " + className}

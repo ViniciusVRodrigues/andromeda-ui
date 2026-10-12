@@ -192,6 +192,12 @@ vale para toda visão que tiver seções no catálogo e desenhar o Resumo com `D
 - **Teclado**: `SubTabs` (APG, ativação automática) com ←/→, Home/End, um ponto de Tab, `aria-controls` →
   `role="tabpanel"` (`dash-tabpanel`, só com > 1 sub-aba). `Segmented` com roving tabindex e setas (mudam a
   escolha, como radio).
+- **Aba à vista na faixa que rola** (`revealInStrip` em `FilterBar.jsx`): `scrollLeft` calculado pelos retângulos,
+  sem animação, logo depois do commit, no quadro seguinte, a cada mudança de tamanho **de cada aba** e no
+  `document.fonts` `loadingdone`. Não volte para `scrollIntoView` suave: trocar de sub-aba muda o cabeçalho,
+  os filtros e o painel ao mesmo tempo, e a lista tem a largura da faixa (as abas transbordam), então só
+  observar a lista ou a faixa perde o alargamento das abas quando a fonte troca (era o flake de
+  `dashboards-a11y.spec.js` "sub-abas em 360/390px").
 - **Gráficos** (`kit/chartSummary.js`): o `Panel` dá id ao `h3` e um contexto; cada gráfico é `<figure
   aria-labelledby>` e o SVG do Recharts recebe `role="img"` + `aria-label` "Título: resumo" gerado do dado
   (`trendSummary`, `columnSummary`, `burndownSummary` — "restam X de Y SP no dia N de M; ideal Z"). Prop
