@@ -319,6 +319,9 @@ function HomeScreen({ onLogin, onSignup }) {
         <div className="home-foot-meta mono">
           <span>v0.1 · build 2026.05.15</span>
           <span>TCC · BES</span>
+          <a href="/privacidade" className="hover:text-fg text-inherit underline">
+            Privacidade
+          </a>
           <span>© 2026 Andrômeda</span>
         </div>
       </footer>

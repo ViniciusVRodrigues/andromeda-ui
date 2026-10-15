@@ -14,6 +14,7 @@ import { OrbitWizard } from "../../components/OrbitWizard.jsx";
 import { Field } from "../../components/Field.jsx";
 import { OAuthPopup } from "../../components/OAuthPopup.jsx";
 import { PROVIDERS } from "../../data/providers.jsx";
+import { UsageNotice } from "../../components/UsageNotice.jsx";
 import api, { setToken } from "../../core/api/client.js";
 
 const ONBOARDING_STEPS = [
@@ -152,6 +153,7 @@ function StepWelcome() {
           <div style={{ fontSize: 11, color: "var(--fg-muted)", lineHeight: 1.5 }}>{f.desc}</div>
         </div>
       ))}
+      <UsageNotice />
     </div>
   );
 }

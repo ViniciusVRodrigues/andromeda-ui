@@ -50,6 +50,8 @@ import {
 } from "./components/tweaks/TweaksPanel.jsx";
 import { IdentityProvider, useIdentity } from "./core/auth/IdentityContext.jsx";
 import { RequireTab } from "./core/auth/RequireTab.jsx";
+import { ErrorBoundary } from "./core/ui/ErrorBoundary.jsx";
+import { PrivacyPage } from "./features/privacidade/PrivacyPage.jsx";
 import { ShellLayout } from "./app/ShellLayout.jsx";
 import {
   buildIdentity,
@@ -215,6 +217,7 @@ function AppShell() {
               path="/login"
               element={<LoginScreenWrapper enterApp={enterApp} onHome={() => navigate("/")} />}
             />
+            <Route path="/privacidade" element={<PrivacyPage />} />
             <Route path="/esqueci-senha" element={<ForgotPasswordScreen />} />
             <Route path="/redefinir-senha" element={<ResetPasswordScreen />} />
             <Route
@@ -477,7 +480,11 @@ function BacklogRoute() {
 /* Modo só-dashboard (sem a casca): a página ganha o botão de Sair do contexto. */
 function DashboardOnly() {
   const { onLogout } = useIdentity();
-  return <DashboardsPage onLogout={onLogout} />;
+  return (
+    <ErrorBoundary variant="dash" onLogout={onLogout}>
+      <DashboardsPage onLogout={onLogout} />
+    </ErrorBoundary>
+  );
 }
 
 /* URLs da casca sem prefixo de organização (/backlog, /uso-ia/precificacao) — o formato

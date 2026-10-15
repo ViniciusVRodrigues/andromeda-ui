@@ -11,6 +11,7 @@ import api from "../../core/api/client.js";
 import { ALWAYS_ON_PERMISSIONS } from "../../core/auth/permissionLabels.js";
 import { orgUrlLabel } from "../../lib/appUrl.js";
 import { useAvailability } from "./useAvailability.js";
+import { PrivacyLink, UsageNotice } from "../../components/UsageNotice.jsx";
 
 const ADMIN_ROLE = "Administrador";
 
@@ -384,6 +385,7 @@ function StepPersonal({ v, onChange, availability }) {
           Este e-mail já está vinculado a uma organização no Andrômeda.
         </p>
       )}
+      <UsageNotice />
     </div>
   );
 }
@@ -944,15 +946,7 @@ function StepConfirm({
           {accept ? "✓" : ""}
         </span>
         <span>
-          Li e aceito os{" "}
-          <a href="#" onClick={(e) => e.preventDefault()}>
-            Termos de Uso
-          </a>{" "}
-          e a{" "}
-          <a href="#" onClick={(e) => e.preventDefault()}>
-            Política de Privacidade
-          </a>
-          .
+          Li e concordo com a <PrivacyLink>Política de Privacidade</PrivacyLink>.
         </span>
       </label>
     </div>

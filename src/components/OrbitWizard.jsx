@@ -189,13 +189,13 @@ function OrbitWizard({
   }, [step]);
 
   // Enter avança para a próxima etapa sempre que o botão estiver desbloqueado.
-  // Ignora: textarea (Enter = quebra de linha), botões (o clique nativo já
+  // Ignora: textarea (Enter = quebra de linha), links e botões (o clique nativo já
   // navega) e eventos já tratados por um filho (ex.: adicionar chip/convite,
   // que chamam preventDefault). next()/finish() já respeitam canAdvance.
   const onKeyDownAdvance = (e) => {
     if (e.key !== "Enter" || e.defaultPrevented) return;
     const tag = e.target.tagName;
-    if (tag === "TEXTAREA" || tag === "BUTTON") return;
+    if (tag === "TEXTAREA" || tag === "BUTTON" || tag === "A") return; // link: Enter abre o link
     if (meta.noContinue) return; // etapa sem botão de avançar (ex.: verificação)
     e.preventDefault();
     if (step < total - 1) next();
