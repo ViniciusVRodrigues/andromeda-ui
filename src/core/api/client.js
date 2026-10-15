@@ -34,6 +34,22 @@ export function onAuthExpired(callback) {
   _authExpiredCallback = callback;
 }
 
+let _apiErrorListener = null;
+
+/** Telemetria (telemetria-validacao, D12): recebe (status, code) de toda resposta
+ * não-ok, exceto 401, AbortError e chamadas com `{ telemetry: false }`. */
+export function setApiErrorListener(listener) {
+  _apiErrorListener = listener;
+}
+
+function notifyApiError(status, code) {
+  try {
+    _apiErrorListener?.(status, code);
+  } catch (_) {
+    /* a telemetria nunca afeta a chamada */
+  }
+}
+
 export function setToken(token) {
   localStorage.setItem(TOKEN_KEY, token);
 }
@@ -69,18 +85,24 @@ function parseRetryAfter(value) {
   return Number.isFinite(seconds) && seconds >= 0 ? Math.ceil(seconds) : null;
 }
 
-async function request(path, { method = "GET", body, headers, ...rest } = {}) {
+async function request(path, { method = "GET", body, headers, telemetry, ...rest } = {}) {
   const token = getToken();
-  const res = await fetch(`${BASE_URL}${path}`, {
-    method,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...headers,
-    },
-    body: body != null ? JSON.stringify(body) : undefined,
-    ...rest,
-  });
+  let res;
+  try {
+    res = await fetch(`${BASE_URL}${path}`, {
+      method,
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...headers,
+      },
+      body: body != null ? JSON.stringify(body) : undefined,
+      ...rest,
+    });
+  } catch (e) {
+    if (telemetry !== false && e?.name !== "AbortError") notifyApiError(0, "NETWORK_ERROR");
+    throw e;
+  }
 
   if (res.status === 401) {
     clearToken();
@@ -102,6 +124,10 @@ async function request(path, { method = "GET", body, headers, ...rest } = {}) {
       err.body = detail ? JSON.parse(detail) : null;
     } catch (_) {
       err.body = null;
+    }
+    if (telemetry !== false) {
+      const code = typeof err.body?.code === "string" ? err.body.code : `HTTP_${res.status}`;
+      notifyApiError(res.status, code);
     }
     throw err;
   }

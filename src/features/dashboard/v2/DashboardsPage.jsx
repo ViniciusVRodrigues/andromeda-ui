@@ -22,6 +22,7 @@
 import React from "react";
 import { useSearchParams } from "react-router-dom";
 import { useIdentity } from "../../../core/auth/IdentityContext.jsx";
+import { useTelemetryDetail } from "../../../core/telemetry/useTelemetryDetail.js";
 import { fmtDate } from "./format.js";
 import { useDashboardProjects, usePendingAllocations, useProjectSprints } from "./hooks.js";
 import { useQueryClient } from "@tanstack/react-query";
@@ -168,6 +169,8 @@ export function DashboardsPage({ onLogout, onNavigate }) {
 
   const tabs = view ? SUBTABS[view].filter((t) => !t.requires || access[t.requires]) : [];
   const tab = tabs.some((t) => t.value === params.get("aba")) ? params.get("aba") : tabs[0]?.value;
+
+  useTelemetryDetail(view, tab);
 
   const sprints = useProjectSprints(view === "individual" || view === "equipe" ? scope : null);
   const sprintList = sprints.data || [];

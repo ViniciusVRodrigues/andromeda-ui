@@ -41,6 +41,8 @@ import { UsoIaLayout } from "./features/ai-usage/UsoIaLayout.jsx";
 import { NotFoundScreen } from "./features/not-found/NotFoundScreen.jsx";
 import { ThemePickerModal } from "./components/ThemePickerModal.jsx";
 import api, { clearToken, getToken, onAuthExpired, setToken } from "./core/api/client.js";
+import { UsageTracker } from "./core/telemetry/UsageTracker.jsx";
+import { discardTelemetry, flushTelemetry } from "./core/telemetry/index.js";
 import { orgRoute, splitOrgPath } from "./lib/orgRoutes.js";
 import {
   useTweaks,
@@ -116,6 +118,7 @@ function AppShell() {
   // register 401 handler so any API call expiring the session logs out cleanly
   React.useEffect(() => {
     onAuthExpired(() => {
+      discardTelemetry();
       setIdentity(null);
       setProfile(null);
       setAuthStatus("unauthenticated");
@@ -145,6 +148,7 @@ function AppShell() {
     setIdentity(null);
     setProfile(null);
     setAuthStatus("unauthenticated");
+    flushTelemetry(); // antes do clearToken: o envio final precisa do token
     clearToken();
     navigate("/");
   };
@@ -196,6 +200,7 @@ function AppShell() {
       refreshIdentity={refreshIdentity}
     >
       <div className="app-shell">
+        {identity && <UsageTracker />}
         <div className="page-layer" data-screen-label={`page-${keyBase}`} key={keyBase}>
           <Routes>
             <Route
