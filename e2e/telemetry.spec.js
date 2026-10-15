@@ -334,6 +334,29 @@ test.describe("clickTarget: botão simples x cartão (privacidade)", () => {
     ).toBe("Remover-membro");
   });
 
+  test("label que envolve select ou checkbox não leva o texto das opções (QA B1-c)", async ({
+    page,
+  }) => {
+    expect(
+      await labelOf(
+        page,
+        "<main><label><span>Projeto</span><div><select id=t><option>Selecione um projeto</option><option>Projeto Segredo</option></select><span>▾</span></div></label></main>",
+      ),
+    ).toBe("Projeto");
+    expect(
+      await labelOf(
+        page,
+        "<main><label for=t>Copiar permissões de</label><select id=t><option>CARGO SECRETO</option></select></main>",
+      ),
+    ).toBe("Copiar permissões de");
+    expect(
+      await labelOf(
+        page,
+        "<main><label><input id=t type=checkbox> Receber alertas <svg><text>x</text></svg></label></main>",
+      ),
+    ).toBe("Receber alertas");
+  });
+
   test("aria-label com nome fora de lista não vaza (QA B1)", async ({ page }) => {
     expect(
       await labelOf(

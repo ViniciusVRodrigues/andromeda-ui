@@ -42,11 +42,21 @@ function elementKind(el) {
   return tag; // button | summary | select
 }
 
+/* Só o texto próprio do <label>: um label que envolve o controle traria junto as <option>
+ * (nomes de projeto, cargos) e o caret "▾". */
+const LABEL_NOISE = "select, option, input, textarea, button, svg, [aria-hidden=true]";
+
+function labelOwnText(label) {
+  const copy = label.cloneNode(true);
+  copy.querySelectorAll(LABEL_NOISE).forEach((n) => n.remove());
+  return copy.textContent.replace(/[^\p{L}\p{N}\s.,:;!?'"()#-]/gu, " ");
+}
+
 function associatedLabelText(el) {
   const labels = el.labels;
-  if (labels && labels.length) return labels[0].textContent;
+  if (labels && labels.length) return labelOwnText(labels[0]);
   const wrap = el.closest?.("label");
-  return wrap ? wrap.textContent : "";
+  return wrap ? labelOwnText(wrap) : "";
 }
 
 /* Texto de um "botão simples": só vale se vier de UM único elemento com texto próprio
