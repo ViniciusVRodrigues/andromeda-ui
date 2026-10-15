@@ -49,6 +49,27 @@ function associatedLabelText(el) {
   return wrap ? wrap.textContent : "";
 }
 
+/* Texto de um "botão simples": só vale se vier de UM único elemento com texto próprio
+ * (ignorando svg e aria-hidden). Cartões e botões de usuário têm dois ou mais blocos
+ * (nome + org, nome + descrição) e carregam dado digitado: viram [item]. */
+function simpleButtonText(el) {
+  const blocks = new Map();
+  const walk = (node) => {
+    for (const child of node.childNodes) {
+      if (child.nodeType === 3) {
+        const t = child.textContent.trim();
+        if (t) blocks.set(node, (blocks.get(node) || "") + " " + t);
+      } else if (child.nodeType === 1) {
+        if (child.tagName.toLowerCase() === "svg" || child.getAttribute("aria-hidden") === "true")
+          continue;
+        walk(child);
+      }
+    }
+  };
+  walk(el);
+  return blocks.size === 1 ? [...blocks.values()][0] : "";
+}
+
 function areaOf(el) {
   const marked = el.closest("[data-track-area]")?.getAttribute("data-track-area");
   if (marked && AREA_RE.test(marked)) return marked;
@@ -70,14 +91,14 @@ export function describeClick(target) {
 
   const element = elementKind(el);
   const tracked = el.getAttribute("data-track");
+  const aria = el.getAttribute("aria-label");
   let raw;
   if (tracked) raw = tracked;
+  // em lista, aria-label costuma levar o nome do item ("Remover Maria do projeto"): só data-track vence
   else if (element === "option" || el.closest(ITEM_CONTEXT)) raw = "[item]";
-  else
-    raw =
-      el.getAttribute("aria-label") ||
-      associatedLabelText(el) ||
-      (element === "select" ? "" : el.textContent);
+  else if (aria) raw = aria;
+  else if (element === "select") raw = associatedLabelText(el);
+  else raw = associatedLabelText(el) || simpleButtonText(el) || "[item]";
 
   const label = raw === "[item]" ? raw : sanitizeLabel(raw);
   return { element, label: label || null, area: areaOf(el), node: el };

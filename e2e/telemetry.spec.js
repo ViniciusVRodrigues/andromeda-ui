@@ -238,6 +238,124 @@ test.describe("clickTarget (fragmentos de DOM)", () => {
   });
 });
 
+test.describe("clickTarget: botão simples x cartão (privacidade)", () => {
+  async function labelOf(page, html) {
+    await page.goto("/login");
+    return page.evaluate(async (markup) => {
+      const { describeClick } = await import("/src/core/telemetry/clickTarget.js");
+      document.body.innerHTML = markup;
+      const r = describeClick(document.querySelector("#t"));
+      return r ? r.label : null;
+    }, html);
+  }
+
+  test("cartão de projeto (vários spans) vira [item]", async ({ page }) => {
+    const l = await labelOf(
+      page,
+      `<main><button id=t><span>ativo</span><span>Pd Secreto</span><span>descrição digitada</span>
+       <span>GitHub</span><span>Azure DevOps</span><span>editar →</span></button></main>`,
+    );
+    expect(l).toBe("[item]");
+  });
+
+  test("botão de usuário da sidebar (nome + org) vira [item]", async ({ page }) => {
+    const l = await labelOf(
+      page,
+      "<aside><button id=t><span class=av>Ad</span><div><b>Ana Souza</b><small>orga</small></div></button></aside>",
+    );
+    expect(l).toBe("[item]");
+  });
+
+  test("cartão de pessoa (nome com espaço + e-mail + cargo) vira [item]", async ({ page }) => {
+    const l = await labelOf(
+      page,
+      "<main><button id=t><div>Maria da Silva</div><div>maria@x.com</div><div>Dev</div></button></main>",
+    );
+    expect(l).toBe("[item]");
+  });
+
+  test("botão simples, ícone + span, link de nav, texto com seta mantêm o nome", async ({
+    page,
+  }) => {
+    expect(await labelOf(page, "<main><button id=t>Salvar</button></main>")).toBe("Salvar");
+    expect(await labelOf(page, "<main><button id=t>Continuar →</button></main>")).toBe(
+      "Continuar →",
+    );
+    expect(
+      await labelOf(
+        page,
+        "<main><button id=t><svg><title>x</title></svg><span>Atualizar</span></button></main>",
+      ),
+    ).toBe("Atualizar");
+    expect(
+      await labelOf(
+        page,
+        "<main><button id=t><span aria-hidden=true>★</span><span>Favoritar</span></button></main>",
+      ),
+    ).toBe("Favoritar");
+    expect(
+      await labelOf(page, "<nav><a id=t href='/x/projetos'><svg></svg>Projetos</a></nav>"),
+    ).toBe("Projetos");
+    expect(
+      await labelOf(page, "<nav><a id=t href='/x/pessoas'><span>Pessoas</span></a></nav>"),
+    ).toBe("Pessoas");
+  });
+
+  test("aria-label e data-track vencem o cartão", async ({ page }) => {
+    const card = "<span>Nome</span><span>Org</span>";
+    expect(
+      await labelOf(page, `<main><button id=t aria-label="Abrir menu">${card}</button></main>`),
+    ).toBe("Abrir menu");
+    expect(
+      await labelOf(
+        page,
+        `<main><button id=t data-track=Abrir-projeto aria-label=Outro>${card}</button></main>`,
+      ),
+    ).toBe("Abrir-projeto");
+  });
+
+  test("em lista, aria-label com nome do item vira [item]; data-track ainda vence", async ({
+    page,
+  }) => {
+    expect(
+      await labelOf(
+        page,
+        "<main><ul><li><button id=t aria-label='Remover Maria Souza do projeto'>x</button></li></ul></main>",
+      ),
+    ).toBe("[item]");
+    expect(
+      await labelOf(
+        page,
+        "<main><ul><li><button id=t data-track=Remover-membro aria-label='Remover Maria'>x</button></li></ul></main>",
+      ),
+    ).toBe("Remover-membro");
+  });
+});
+
+test.describe("ERROR: 404 de integração ausente", () => {
+  function started() {
+    const h = harness();
+    h.tracker.setScreen("backlog");
+    h.advance(1000);
+    h.tracker.tick();
+    return h;
+  }
+
+  test("AZURE_CONNECTION_NOT_FOUND não gera ERROR; USER_NOT_FOUND gera", () => {
+    const h = started();
+    h.tracker.error({ origin: "api", status: 404, code: "AZURE_CONNECTION_NOT_FOUND" });
+    h.tracker.error({ origin: "api", status: 404, code: "GITHUB_CONNECTION_NOT_FOUND" });
+    h.tracker.error({ origin: "api", status: 404, code: "USER_NOT_FOUND" });
+    h.tracker.error({ origin: "api", status: 500, code: "AZURE_CONNECTION_NOT_FOUND" });
+    h.tracker.leave();
+    const errs = h.all().filter((e) => e.type === "ERROR");
+    expect(errs.map((e) => [e.status, e.code])).toEqual([
+      [404, "USER_NOT_FOUND"],
+      [500, "AZURE_CONNECTION_NOT_FOUND"],
+    ]);
+  });
+});
+
 /* Relógio falso + transporte que acumula os lotes. */
 function harness(opts = {}) {
   let t = Date.UTC(2026, 9, 20, 13, 0, 0);

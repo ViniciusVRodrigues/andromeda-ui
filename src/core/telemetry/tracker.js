@@ -224,6 +224,9 @@ export function createTracker({
       if (!enabled || !ORIGINS.includes(origin)) return;
       if (origin === "api") {
         if (!Number.isInteger(status) || status < 0 || status > 599 || status === 401) return;
+        /* org sem integração gera isso em quase toda tela: ruído, não erro de uso */
+        if (status === 404 && typeof code === "string" && code.endsWith("_CONNECTION_NOT_FOUND"))
+          return;
       }
       const safeCode =
         typeof code === "string" && CODE_RE.test(code)
