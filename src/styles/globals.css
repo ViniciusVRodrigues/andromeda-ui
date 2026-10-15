@@ -64,6 +64,15 @@
   }
 }
 
+/* Aceite da etapa 10 do cadastro: o input é invisível, então o foco do teclado aparece na
+ * caixa desenhada (outline de 2 px em --accent). */
+@layer utilities {
+  .signup-orbit-accept input:focus-visible + .signup-orbit-accept-box {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+}
+
 /* Dashboard v2 com prefers-reduced-motion: nada de rolagem suave, transição ou animação
  * (inclui o Drawer de filtros, que usa as animações do legado). dashboards-customizaveis D8. */
 @media (prefers-reduced-motion: reduce) {

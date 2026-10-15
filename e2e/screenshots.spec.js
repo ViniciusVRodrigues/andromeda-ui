@@ -27,6 +27,12 @@ test.describe("público", () => {
     await page.waitForLoadState("networkidle");
     await shot(page, "public-signup");
   });
+
+  test("privacidade", async ({ page }) => {
+    await page.goto("/privacidade");
+    await page.waitForLoadState("networkidle");
+    await shot(page, "public-privacidade");
+  });
 });
 
 const SECTIONS = [
