@@ -18,6 +18,7 @@
  *   finalLabel    string     — rótulo do botão da última etapa (default "Concluir →")
  *   onComplete   () => void   — chamado ao concluir a última etapa
  *   onCancel     () => void   — opcional; se presente, mostra o "voltar ao início"
+ *   onStepChange (index) => void — opcional; chamado quando a etapa muda (não na montagem)
  *   versionmark  string       — opcional; marca de versão no rodapé
  */
 
@@ -65,6 +66,7 @@ function OrbitWizard({
   finalLabel = "Concluir →",
   onComplete,
   onCancel,
+  onStepChange,
   versionmark,
   shiftY = "0px", // deslocamento vertical da órbita+card (default: centralizado)
 }) {
@@ -175,6 +177,18 @@ function OrbitWizard({
   const finish = () => {
     if (canAdvance && onComplete) onComplete();
   };
+
+  // Avisa a troca de etapa (funil de telemetria); não dispara na montagem.
+  const onStepChangeRef = React.useRef(onStepChange);
+  onStepChangeRef.current = onStepChange;
+  const mountedRef = React.useRef(false);
+  React.useEffect(() => {
+    if (!mountedRef.current) {
+      mountedRef.current = true;
+      return;
+    }
+    onStepChangeRef.current?.(step);
+  }, [step]);
 
   // Foca o primeiro campo ao entrar em cada etapa — o usuário preenche o
   // formulário inteiro sem tocar no mouse. O corpo remonta a cada etapa

@@ -3,6 +3,12 @@ import { loginAsAdmin, gotoSection } from "./auth.mjs";
 import { installDashboardsApi } from "./dashboards-v2-api.mjs";
 import { normalizeScreen, DASHBOARD_DETAILS } from "../src/core/telemetry/normalize.js";
 import { createTracker } from "../src/core/telemetry/tracker.js";
+import {
+  createFunnel,
+  submitErrorValue,
+  SIGNUP_STEP_IDS,
+  INVITE_STEP_IDS,
+} from "../src/core/telemetry/funnel.js";
 
 // Rastreador de uso (telemetria-validacao P3). Núcleo puro testado em Node (normalize,
 // tracker com relógio falso); o que precisa de DOM ou do client.js roda no navegador,
@@ -634,5 +640,271 @@ test.describe("fontes de ERROR no navegador", () => {
     expect(wire).not.toContain("joao");
     expect(wire).not.toContain("segredo");
     expect(wire).not.toContain("x@y.com");
+  });
+});
+
+// ─── Funil anônimo (telemetria-validacao P5-ui) ──────────────────────────────
+
+const CONTRACT_SIGNUP = [
+  "pessoal",
+  "verificar",
+  "senha",
+  "org",
+  "projeto",
+  "senioridade",
+  "cargos",
+  "permissoes",
+  "equipe",
+  "confirmar",
+];
+const CONTRACT_INVITE = ["bem-vindo", "conta", "ia", "pronto"];
+
+test.describe("funil: replay não gera tráfego nem campo novo", () => {
+  test("cadastro: zero requisições ao funil e POST sem funnelId", async ({ page }) => {
+    const hits = [];
+    page.on("request", (r) => {
+      if (r.url().includes("/usage-events/public")) hits.push(r.url());
+    });
+    let body = null;
+    await page.route("**/api/v1/organizations", (route) => {
+      if (route.request().method() === "POST") {
+        body = route.request().postDataJSON();
+        return route.fulfill({ status: 500, body: "" });
+      }
+      return route.continue();
+    });
+    await page.route("**/api/v1/users/email-availability**", (r) =>
+      r.fulfill({ json: { available: true } }),
+    );
+    await page.route("**/api/v1/organizations/name-availability**", (r) =>
+      r.fulfill({ json: { available: true } }),
+    );
+    await page.route("**/api/v1/auth/email-verification**", (r) => r.fulfill({ json: {} }));
+
+    await page.goto("/signup");
+    await page.getByPlaceholder("ex.: Maria Andrade").fill("Maria Andrade");
+    await page.getByPlaceholder("voce@empresa.com").fill("maria@example.test");
+    await page.getByRole("button", { name: /Continuar/ }).click();
+    await page.getByLabel("dígito 1").focus();
+    await page.keyboard.type("123456");
+    await page.getByPlaceholder("mínimo 6 caracteres").fill("Senha#123");
+    await page.getByPlaceholder("repita a senha").fill("Senha#123");
+    await page.getByRole("button", { name: /Continuar/ }).click();
+    await page.getByPlaceholder("ex.: Squad Orion Tech").fill("Squad Teste");
+    await page.getByRole("button", { name: /Continuar/ }).click();
+    await page.getByPlaceholder("ex.: Plataforma Andrômeda").fill("Projeto Teste");
+    await page
+      .getByPlaceholder("O que esse projeto entrega? Quem é o time?")
+      .fill("Um projeto de teste");
+    for (let i = 0; i < 5; i++) await page.getByRole("button", { name: /Continuar/ }).click();
+    await page.locator(".signup-orbit-accept input").check({ force: true });
+    await page.getByRole("button", { name: /Criar organização/ }).click();
+    await expect.poll(() => body).not.toBeNull();
+    expect(JSON.stringify(body)).not.toContain("funnelId");
+    const keys = await page.evaluate(() => Object.keys(sessionStorage).join(","));
+    expect(keys).not.toContain("funnel");
+    expect(hits).toEqual([]);
+  });
+
+  test("convite: zero requisições ao funil e complete sem funnelId", async ({ page }) => {
+    const hits = [];
+    page.on("request", (r) => {
+      if (r.url().includes("/usage-events/public")) hits.push(r.url());
+    });
+    let body = null;
+    await page.route("**/api/v1/auth/invite/complete", (route) => {
+      body = route.request().postDataJSON();
+      return route.fulfill({ status: 400, json: { code: "INVITE_INVALID" } });
+    });
+    await page.goto("/onboard?token=abc");
+    await page.getByRole("button", { name: /Continuar/ }).click();
+    await page.getByPlaceholder("ex.: João da Silva").fill("Maria Andrade");
+    await page.getByPlaceholder("mínimo 6 caracteres").fill("Senha#123");
+    await page.getByPlaceholder("repita a senha").fill("Senha#123");
+    await page.getByRole("button", { name: /Continuar/ }).click();
+    await page.getByRole("button", { name: /Continuar/ }).click();
+    await page.getByRole("button", { name: /Entrar no dashboard/ }).click();
+    await expect.poll(() => body).not.toBeNull();
+    expect(JSON.stringify(body)).not.toContain("funnelId");
+    expect(hits).toEqual([]);
+  });
+
+  test("ids das etapas no código batem com o contrato", async ({ page }) => {
+    expect(SIGNUP_STEP_IDS).toEqual(CONTRACT_SIGNUP);
+    expect(INVITE_STEP_IDS).toEqual(CONTRACT_INVITE);
+    await page.goto("/signup");
+    const ids = await page.evaluate(async () => {
+      const a = await import("/src/features/auth/SignupScreen.jsx");
+      const b = await import("/src/features/onboarding/OnboardingScreen.jsx");
+      return {
+        signup: a.SIGNUP_STEPS.map((s) => s.id),
+        invite: b.ONBOARDING_STEPS.map((s) => s.id),
+      };
+    });
+    expect(ids.signup).toEqual(CONTRACT_SIGNUP);
+    expect(ids.invite).toEqual(CONTRACT_INVITE);
+  });
+});
+
+test.describe("createFunnel", () => {
+  function memStorage() {
+    const m = new Map();
+    return {
+      m,
+      getItem: (k) => (m.has(k) ? m.get(k) : null),
+      setItem: (k, v) => m.set(k, String(v)),
+      removeItem: (k) => m.delete(k),
+    };
+  }
+  function harness(extra = {}) {
+    let t = Date.parse("2026-10-20T12:00:00Z");
+    const sent = [];
+    const timers = [];
+    const storage = memStorage();
+    const funnel = createFunnel({
+      flow: "signup",
+      transport: (p) => sent.push(p),
+      now: () => t,
+      storage,
+      viewport: () => "lg",
+      setTimer: (fn, ms) => timers.push({ fn, ms }) - 1,
+      clearTimer: () => {},
+      ...extra,
+    });
+    return {
+      funnel,
+      sent,
+      storage,
+      timers,
+      advance: (ms) => (t += ms),
+      events: () => sent.flatMap((p) => p.events),
+    };
+  }
+
+  test("desligado: nada é enviado nem gravado", () => {
+    const h = harness({ enabled: false });
+    h.funnel.start("pessoal");
+    h.funnel.engage();
+    h.funnel.enterStep("senha");
+    h.funnel.complete();
+    expect(h.funnel.enabled).toBe(false);
+    expect(h.funnel.funnelId()).toBeNull();
+    expect(h.timers).toEqual([]);
+    expect(h.sent).toEqual([]);
+    expect(h.storage.m.size).toBe(0);
+  });
+
+  test("funnelId UUID v4 por fluxo, reaproveitado e apagado ao concluir", () => {
+    const h = harness();
+    const id = h.funnel.funnelId();
+    expect(id).toMatch(SESSION_ID);
+    expect(h.storage.getItem("andromeda_funnel_signup")).toBe(id);
+    expect(h.funnel.funnelId()).toBe(id);
+    h.funnel.start("pessoal");
+    h.funnel.complete();
+    expect(h.storage.m.size).toBe(0);
+    expect(h.events().every((e) => e.stage !== "COMPLETE")).toBe(true);
+  });
+
+  test("OPEN, STEP_ENTER, ENGAGE uma vez; envio agrupado por 2 s", () => {
+    const h = harness();
+    h.funnel.start("pessoal");
+    h.funnel.engage();
+    h.funnel.engage();
+    expect(h.sent).toEqual([]);
+    expect(h.timers).toHaveLength(1);
+    expect(h.timers[0].ms).toBe(2000);
+    h.timers[0].fn();
+    const ev = h.events();
+    expect(ev.map((e) => e.stage)).toEqual(["OPEN", "STEP_ENTER", "ENGAGE"]);
+    expect(ev[0].viewport).toBe("lg");
+    expect(ev[1].step).toBe("pessoal");
+    expect(h.sent[0].flow).toBe("signup");
+    expect(h.sent[0].funnelId).toMatch(SESSION_ID);
+  });
+
+  test("STEP_TIME soma só tempo visível", () => {
+    const h = harness();
+    h.funnel.start("pessoal");
+    h.advance(10_000);
+    h.funnel.setVisible(false);
+    expect(h.events().find((e) => e.stage === "STEP_TIME")).toMatchObject({
+      step: "pessoal",
+      visibleMs: 10_000,
+    });
+    h.advance(600_000); // aba oculta não soma
+    h.funnel.setVisible(true);
+    h.advance(5_000);
+    h.funnel.enterStep("verificar");
+    h.funnel.flush();
+    const times = h.events().filter((e) => e.stage === "STEP_TIME");
+    expect(times.map((e) => e.visibleMs)).toEqual([10_000, 5_000]);
+    expect(h.events().at(-1)).toMatchObject({ stage: "STEP_ENTER", step: "verificar" });
+  });
+
+  test("troca de etapa com a aba oculta não acumula", () => {
+    const h = harness();
+    h.funnel.start("pessoal");
+    h.funnel.setVisible(false);
+    h.advance(300_000);
+    h.funnel.enterStep("verificar");
+    h.advance(300_000);
+    h.funnel.setVisible(true);
+    h.advance(1_000);
+    h.funnel.leave();
+    const t = h.events().filter((e) => e.stage === "STEP_TIME" && e.step === "verificar");
+    expect(t.map((e) => e.visibleMs)).toEqual([1_000]);
+  });
+
+  test("lote nunca passa de 20 e vai sem Authorization", () => {
+    const h = harness();
+    h.funnel.start("pessoal");
+    for (let i = 0; i < 70; i++) h.funnel.verifyResend();
+    h.funnel.flush();
+    expect(h.sent.length).toBeGreaterThan(1);
+    for (const p of h.sent) expect(p.events.length).toBeLessThanOrEqual(20);
+    expect(h.events()).toHaveLength(72);
+    expect(JSON.stringify(h.sent)).not.toMatch(/authorization|bearer/i);
+  });
+
+  test("SUBMIT, SUBMIT_ERROR, VERIFY_*, CANCEL; nunca COMPLETE", () => {
+    const h = harness();
+    h.funnel.start("pessoal");
+    h.funnel.enterStep("verificar");
+    h.funnel.verifyFail();
+    h.funnel.verifyResend();
+    h.funnel.enterStep("confirmar");
+    h.funnel.submit();
+    h.funnel.submitError("conflito-org");
+    h.funnel.cancel();
+    const ev = h.events();
+    expect(ev.find((e) => e.stage === "SUBMIT_ERROR")).toMatchObject({
+      step: "confirmar",
+      value: "conflito-org",
+    });
+    expect(ev.find((e) => e.stage === "VERIFY_FAIL").step).toBe("verificar");
+    expect(ev.find((e) => e.stage === "CANCEL").step).toBe("confirmar");
+    expect(ev.some((e) => e.stage === "COMPLETE")).toBe(false);
+  });
+
+  test("falha do transporte descarta sem lançar", () => {
+    const h = harness({
+      transport: () => {
+        throw new Error("rede");
+      },
+    });
+    h.funnel.start("pessoal");
+    expect(() => h.funnel.flush()).not.toThrow();
+  });
+
+  test("submitErrorValue mapeia status e código", () => {
+    expect(submitErrorValue({ status: 409, body: { code: "USER_DUPLICATE_EMAIL" } })).toBe(
+      "conflito-email",
+    );
+    expect(submitErrorValue({ status: 409, body: { code: "ORGANIZATION_DUPLICATE_SLUG" } })).toBe(
+      "conflito-org",
+    );
+    expect(submitErrorValue({ status: 500, body: { code: "INTERNAL" } })).toBe("erro");
+    expect(submitErrorValue(new Error("x"))).toBe("erro");
   });
 });
