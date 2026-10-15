@@ -111,19 +111,22 @@ test.describe("clickTarget (fragmentos de DOM)", () => {
     expect(r).toEqual({ element: "button", label: "Personalizar", area: "header" });
   });
 
-  test("precedência: data-track > aria-label > label > texto", async ({ page }) => {
+  test("precedência: data-track > label > texto; aria-label nunca vira rótulo", async ({
+    page,
+  }) => {
     const tracked = await describeAll(
       page,
       "<main><button id=t data-track=Salvar-layout aria-label=Outro>Texto</button></main>",
       "#t",
     );
     expect(tracked.label).toBe("Salvar-layout");
+    // aria-label costuma interpolar nome de pessoa/item ("Remover Maria"): botão de ícone sem data-track é [item]
     const aria = await describeAll(
       page,
-      "<main><button id=t aria-label='Fechar painel'>x</button></main>",
+      "<main><button id=t aria-label='Fechar painel'><svg></svg></button></main>",
       "#t",
     );
-    expect(aria).toEqual({ element: "button", label: "Fechar painel", area: "main" });
+    expect(aria).toEqual({ element: "button", label: "[item]", area: "main" });
     const labelled = await describeAll(
       page,
       "<main><label>Receber alertas <input id=t type=checkbox></label></main>",
@@ -301,11 +304,11 @@ test.describe("clickTarget: botão simples x cartão (privacidade)", () => {
     ).toBe("Pessoas");
   });
 
-  test("aria-label e data-track vencem o cartão", async ({ page }) => {
+  test("só data-track vence o cartão", async ({ page }) => {
     const card = "<span>Nome</span><span>Org</span>";
     expect(
       await labelOf(page, `<main><button id=t aria-label="Abrir menu">${card}</button></main>`),
-    ).toBe("Abrir menu");
+    ).toBe("[item]");
     expect(
       await labelOf(
         page,
@@ -329,6 +332,27 @@ test.describe("clickTarget: botão simples x cartão (privacidade)", () => {
         "<main><ul><li><button id=t data-track=Remover-membro aria-label='Remover Maria'>x</button></li></ul></main>",
       ),
     ).toBe("Remover-membro");
+  });
+
+  test("aria-label com nome fora de lista não vaza (QA B1)", async ({ page }) => {
+    expect(
+      await labelOf(
+        page,
+        "<div role=dialog><div class=row><button id=t aria-label='Remover Maria Souza'>×</button></div></div>",
+      ),
+    ).toBe("×");
+    expect(
+      await labelOf(
+        page,
+        "<main><button id=t aria-label='Abrir perfil de Maria Souza'><svg></svg></button></main>",
+      ),
+    ).toBe("[item]");
+    expect(
+      await labelOf(
+        page,
+        "<div role=dialog><button id=t aria-label='Adicionar Tarefa secreta'>Adicionar</button></div>",
+      ),
+    ).toBe("Adicionar");
   });
 });
 

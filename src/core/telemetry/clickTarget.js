@@ -91,12 +91,11 @@ export function describeClick(target) {
 
   const element = elementKind(el);
   const tracked = el.getAttribute("data-track");
-  const aria = el.getAttribute("aria-label");
   let raw;
+  // aria-label nunca vira rótulo: costuma interpolar o nome do item ("Remover Maria Souza").
+  // Botão de ícone só ganha nome com data-track.
   if (tracked) raw = tracked;
-  // em lista, aria-label costuma levar o nome do item ("Remover Maria do projeto"): só data-track vence
   else if (element === "option" || el.closest(ITEM_CONTEXT)) raw = "[item]";
-  else if (aria) raw = aria;
   else if (element === "select") raw = associatedLabelText(el);
   else raw = associatedLabelText(el) || simpleButtonText(el) || "[item]";
 

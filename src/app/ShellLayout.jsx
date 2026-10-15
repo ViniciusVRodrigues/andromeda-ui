@@ -201,6 +201,7 @@ export function ShellLayout() {
           <div className="admin-side-foot">
             <button
               className="admin-side-item"
+              data-track="Perfil"
               onClick={() => onNavigate("perfil")}
               title={profile?.personal?.fullName || "Perfil"}
             >
