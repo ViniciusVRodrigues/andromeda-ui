@@ -25,6 +25,8 @@ export default defineConfig({
     baseURL: BASE_URL,
     viewport: { width: 1440, height: 900 },
     deviceScaleFactor: 1,
+    // as baselines são do tema escuro; o app agora segue o sistema (cadastro-celular D5)
+    colorScheme: "dark",
   },
   projects: [
     {

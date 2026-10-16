@@ -256,8 +256,7 @@ export function createTracker({
     error({ origin, status, code, screen: fallbackScreen }) {
       if (!enabled || !ORIGINS.includes(origin)) return false;
       if (origin === "api") {
-        if (!Number.isInteger(status) || status < 0 || status > 599 || status === 401)
-          return false;
+        if (!Number.isInteger(status) || status < 0 || status > 599 || status === 401) return false;
         /* org sem integração gera isso em quase toda tela: ruído, não erro de uso */
         if (status === 404 && typeof code === "string" && code.endsWith("_CONNECTION_NOT_FOUND"))
           return false;

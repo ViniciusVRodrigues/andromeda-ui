@@ -73,6 +73,176 @@
   }
 }
 
+/* Variante `compact` (cadastro-celular D1): celular em pé (< 768 px) OU deitado / com zoom
+ * (< 540 px de altura). Mesma consulta que o OrbitWizard usa em JS (COMPACT_QUERY). */
+@custom-variant compact {
+  @media (max-width: 47.99rem), (max-height: 33.75rem) {
+    @slot;
+  }
+}
+
+/* Assistente orbital (/signup e /onboard) — cadastro-celular. O legacy.css está congelado:
+ * tudo daqui vence por vir na camada utilities, e fica escopado em .signup-stage--orbital. */
+@layer utilities {
+  /* D4: rótulos, dicas e `dt` do Resumo em --fg-muted (≥ 4,5:1); bordas de campo ≥ 3:1. */
+  .signup-stage--orbital .signup-orbit-eyebrow,
+  .signup-stage--orbital .signup-field label,
+  .signup-stage--orbital .signup-hint,
+  .signup-stage--orbital .signup-verify-hint,
+  .signup-stage--orbital .signup-orbit-summary-row dt {
+    color: var(--fg-muted);
+  }
+  .signup-stage--orbital .signup-field input,
+  .signup-stage--orbital .signup-select select,
+  .signup-stage--orbital .signup-textarea,
+  .signup-stage--orbital .signup-code-input input,
+  .signup-stage--orbital .signup-chips-input input,
+  .signup-stage--orbital .signup-invites-form input,
+  .signup-stage--orbital .signup-invites-form select {
+    border-color: var(--fg-muted);
+  }
+  .signup-stage--orbital .signup-field input:focus,
+  .signup-stage--orbital .signup-select select:focus,
+  .signup-stage--orbital .signup-textarea:focus,
+  .signup-stage--orbital .signup-code-input input:focus,
+  .signup-stage--orbital .signup-chips-input input:focus,
+  .signup-stage--orbital .signup-invites-form input:focus,
+  .signup-stage--orbital .signup-invites-form select:focus {
+    border-color: var(--accent);
+  }
+
+  /* D3: rodapé fixo do card (aceite da Política), fora da área rolável. */
+  .signup-stage--orbital .signup-orbit-footer {
+    margin-top: 14px;
+  }
+  .signup-stage--orbital .signup-orbit-footer:empty {
+    display: none;
+  }
+  .signup-stage--orbital .signup-orbit-progress {
+    margin-bottom: 16px;
+  }
+
+  /* D2: layout compacto — a página rola, o card é um bloco comum, a régua some. */
+  @variant compact {
+    .page-layer:has(.signup-stage--orbital) {
+      overflow: auto;
+    }
+    .signup-stage.signup-stage--orbital {
+      display: block;
+      height: auto;
+      min-height: 100dvh;
+      padding: 16px;
+      overflow: visible;
+    }
+    .signup-stage--orbital .signup-orbit-scene {
+      height: auto;
+      max-width: 640px;
+      margin-inline: auto;
+    }
+    .signup-stage--orbital .signup-orbit-rail,
+    .signup-stage--orbital .signup-orbit-eyebrow {
+      display: none;
+    }
+    .signup-stage--orbital .signup-orbit-exit {
+      position: relative;
+      top: auto;
+      left: auto;
+      min-height: 44px;
+      margin-bottom: 8px;
+    }
+    .signup-stage--orbital .signup-orbit-versionmark {
+      position: static;
+      display: block;
+      margin-top: 12px;
+      text-align: right;
+    }
+    .signup-stage--orbital .signup-orbit-card {
+      position: static;
+      transform: none;
+      width: 100%;
+      max-height: none;
+      padding: 24px 20px;
+      border-radius: 18px;
+      overflow: visible;
+    }
+    .signup-stage--orbital .signup-orbit-body {
+      flex: none;
+      overflow: visible;
+      margin: 0 -6px;
+      padding: 6px;
+    }
+
+    /* conteúdo em coluna única */
+    .signup-stage--orbital .signup-orbit-fields {
+      grid-template-columns: minmax(0, 1fr);
+    }
+    .signup-stage--orbital .signup-orbit-fields > *,
+    .signup-stage--orbital .signup-invites-form > * {
+      min-width: 0;
+    }
+    .signup-stage--orbital .signup-chips-input input {
+      min-width: 0;
+    }
+    .signup-stage--orbital .signup-invite-email {
+      overflow-wrap: anywhere;
+    }
+    .signup-stage--orbital .signup-code-input {
+      width: 100%;
+      gap: 8px;
+    }
+    .signup-stage--orbital .signup-code-input input {
+      flex: 1 1 0;
+      width: auto;
+      min-width: 0;
+      max-width: 46px;
+      height: 52px;
+    }
+    .signup-stage--orbital .signup-orbit-summary-row {
+      grid-template-columns: minmax(0, 1fr);
+      gap: 4px;
+      padding: 10px 14px;
+    }
+    .signup-stage--orbital .signup-orbit-summary-row dd {
+      font-size: 16px;
+      overflow-wrap: anywhere;
+    }
+
+    /* ações: Voltar | CTA; na etapa 0 o Voltar sai do layout e o CTA ocupa a linha */
+    .signup-stage--orbital .signup-orbit-actions {
+      display: grid;
+      grid-template-columns: auto minmax(0, 1fr);
+      gap: 12px;
+      margin-top: 18px;
+      padding-top: 16px;
+    }
+    .signup-stage--orbital .signup-orbit-back {
+      min-height: 44px;
+    }
+    .signup-stage--orbital .signup-orbit-back.is-first {
+      display: none;
+    }
+    .signup-stage--orbital .signup-orbit-cta {
+      grid-column: 2;
+      min-height: 48px;
+      white-space: nowrap;
+      letter-spacing: 0.12em;
+    }
+    .signup-stage--orbital .signup-orbit-back.is-first ~ .signup-orbit-cta {
+      grid-column: 1 / -1;
+    }
+  }
+
+  /* movimento reduzido: sem animação de corpo nem pulso do marcador (a mola da órbita
+   * é curto-circuitada em JS). */
+  @media (prefers-reduced-motion: reduce) {
+    .signup-stage--orbital .signup-orbit-body.sd-fwd,
+    .signup-stage--orbital .signup-orbit-body.sd-back,
+    .signup-stage--orbital .signup-orbit-marker-core {
+      animation: none;
+    }
+  }
+}
+
 /* Dashboard v2 com prefers-reduced-motion: nada de rolagem suave, transição ou animação
  * (inclui o Drawer de filtros, que usa as animações do legado). dashboards-customizaveis D8. */
 @media (prefers-reduced-motion: reduce) {

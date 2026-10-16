@@ -14,6 +14,7 @@ import { ALWAYS_ON_PERMISSIONS } from "../../core/auth/permissionLabels.js";
 import { orgUrlLabel } from "../../lib/appUrl.js";
 import { useAvailability } from "./useAvailability.js";
 import { PrivacyLink, UsageNotice } from "../../components/UsageNotice.jsx";
+import { isRateLimited, waitText } from "../../core/api/rateLimit.js";
 
 const ADMIN_ROLE = "Administrador";
 
@@ -286,6 +287,11 @@ function SignupScreen({ onCancel, onDone }) {
       }}
       onStepChange={onStepChange}
       shiftY="3vh"
+      renderFooter={(step) =>
+        step === SIGNUP_STEPS.length - 1 ? (
+          <AcceptPolicy accept={accept} setAccept={setAccept} />
+        ) : null
+      }
       renderStep={(step, nav) => {
         // All role labels available for invites (defaults are immutable, custom are editable)
         const allRoleLabels = [...DEFAULT_ROLES.map((r) => r.label), ...cargos];
@@ -347,8 +353,6 @@ function SignupScreen({ onCancel, onDone }) {
                 senioridade={senioridade}
                 permissions={permissions}
                 invites={invites}
-                accept={accept}
-                setAccept={setAccept}
               />
             )}
           </>
@@ -404,21 +408,54 @@ function StepPersonal({ v, onChange, availability }) {
   );
 }
 
+const mmss = (total) => `${Math.floor(total / 60)}:${String(total % 60).padStart(2, "0")}`;
+
 function StepVerify({ v, setV, email, funnel, onPass }) {
   const otpSent = React.useRef(false);
+  // aviso de limite/falha: { kind: "send-429" | "send-fail" | "confirm-429", seconds }
+  const [notice, setNotice] = React.useState(null);
+  const [cooldown, setCooldown] = React.useState(0); // segundos até poder reenviar
+  const [focusKey, setFocusKey] = React.useState(0); // muda → foco no 1º campo
+
+  // envia o código; devolve true quando o backend aceitou
+  const sendCode = () =>
+    api
+      .post("/v1/auth/email-verification", { email })
+      .then(() => {
+        setNotice(null);
+        return true;
+      })
+      .catch((err) => {
+        if (isRateLimited(err)) {
+          setNotice({ kind: "send-429", seconds: err.retryAfter ?? null });
+          if (err.retryAfter > 0) setCooldown(err.retryAfter);
+        } else {
+          setNotice({ kind: "send-fail", seconds: null });
+        }
+        return false;
+      });
+
   // ao entrar no passo, zera o código e envia o OTP via API (guard evita duplo-envio em Strict Mode)
   React.useEffect(() => {
     setV((s) => ({ ...s, code: "", verified: false }));
     if (email && !otpSent.current) {
       otpSent.current = true;
-      api.post("/v1/auth/email-verification", { email }).catch(() => {});
+      sendCode();
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // contagem regressiva do "Reenviar código"
+  React.useEffect(() => {
+    if (cooldown <= 0) return undefined;
+    const t = setTimeout(() => setCooldown((c) => c - 1), 1000);
+    return () => clearTimeout(t);
+  }, [cooldown]);
+
   // dispara assim que o campo completa 6 dígitos
   React.useEffect(() => {
     if (v.code.length !== 6) return;
+    setNotice((n) => (n?.kind === "confirm-429" ? null : n));
 
     api
       .post("/v1/auth/email-verification/confirm", { email, code: v.code })
@@ -426,53 +463,104 @@ function StepVerify({ v, setV, email, funnel, onPass }) {
         setV((s) => ({ ...s, verified: true }));
         setTimeout(() => onPass(), 320);
       })
-      .catch(() => {
+      .catch((err) => {
+        if (isRateLimited(err)) {
+          // limite de tentativas não é código errado: sem VERIFY_FAIL e sem contar tentativa
+          setNotice({ kind: "confirm-429", seconds: err.retryAfter ?? null });
+          setV((s) => ({ ...s, code: "" }));
+          setFocusKey((k) => k + 1);
+          return;
+        }
         funnel?.verifyFail();
-        setTimeout(
-          () => setV((s) => ({ ...s, code: "", attempts: s.attempts + 1, resent: false })),
-          320,
-        );
+        setTimeout(() => {
+          setV((s) => ({ ...s, code: "", attempts: s.attempts + 1, resent: false }));
+          setFocusKey((k) => k + 1);
+        }, 320);
       });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [v.code]);
 
-  const resend = () => {
+  const resend = async () => {
     funnel?.verifyResend();
-    setV({ code: "", attempts: 0, resent: true, verified: false });
-    api.post("/v1/auth/email-verification", { email }).catch(() => {});
+    setV({ code: "", attempts: 0, resent: false, verified: false });
+    setNotice(null);
+    const ok = await sendCode();
+    if (ok) setV((s) => ({ ...s, resent: true }));
   };
+
   const wrong = v.attempts >= 1;
+  const sendFailed = notice?.kind === "send-429" || notice?.kind === "send-fail";
+  const showResend = wrong || sendFailed || cooldown > 0;
+
+  let message = null;
+  if (notice?.kind === "send-429") {
+    message = `Muitas tentativas de envio. Aguarde ${waitText(notice.seconds)} e toque em Reenviar código.`;
+  } else if (notice?.kind === "confirm-429") {
+    message = `Muitas tentativas. Aguarde ${waitText(notice.seconds)} e tente de novo.`;
+  } else if (notice?.kind === "send-fail") {
+    message = "Não foi possível enviar o código agora. Tente reenviar em instantes.";
+  }
+  const hasError = !!message || wrong;
 
   return (
     <div className="signup-verify">
       <div className="signup-verify-target mono">
-        enviado para <span className="accent">{email || "—"}</span>
+        {sendFailed ? "não foi possível enviar para " : "enviado para "}
+        <span className="accent">{email || "—"}</span>
+        {sendFailed ? " agora" : ""}
       </div>
-      <CodeInput value={v.code} onChange={(c) => setV((s) => ({ ...s, code: c }))} autoFocus />
-      <div className="signup-verify-feedback">
-        {wrong && (
+      <CodeInput
+        value={v.code}
+        onChange={(c) => setV((s) => ({ ...s, code: c }))}
+        autoFocus
+        focusKey={focusKey}
+        invalid={hasError}
+        describedBy="signup-verify-feedback"
+      />
+      <div
+        id="signup-verify-feedback"
+        className="signup-verify-feedback"
+        aria-live="polite"
+        aria-atomic="true"
+      >
+        {message && (
+          <span className="text-bad-text text-[12px] leading-snug tracking-normal normal-case">
+            {message}
+          </span>
+        )}
+        {!message && wrong && (
           <span className="signup-verify-error mono">código incorreto · tente de novo</span>
         )}
-        {v.resent && !wrong && (
+        {!message && v.resent && !wrong && (
           <span className="signup-verify-resent mono">novo código enviado</span>
         )}
       </div>
-      {wrong && (
-        <button type="button" className="btn-ghost btn signup-verify-resend" onClick={resend}>
-          Reenviar código
+      {showResend && (
+        <button
+          type="button"
+          className="btn-ghost btn signup-verify-resend"
+          data-track="Reenviar código"
+          onClick={resend}
+          disabled={cooldown > 0}
+        >
+          {cooldown > 0 ? `Reenviar em ${mmss(cooldown)}` : "Reenviar código"}
         </button>
       )}
     </div>
   );
 }
 
-function CodeInput({ value, onChange, length = 6, autoFocus }) {
+function CodeInput({ value, onChange, length = 6, autoFocus, focusKey, invalid, describedBy }) {
   const refs = React.useRef([]);
   const cells = Array.from({ length }, (_, i) => value[i] || "");
 
   React.useEffect(() => {
     if (autoFocus) refs.current[0]?.focus();
   }, [autoFocus]);
+  // depois de erro ou limite, o foco volta ao 1º campo (os campos nunca ficam desligados)
+  React.useEffect(() => {
+    if (focusKey) refs.current[0]?.focus();
+  }, [focusKey]);
 
   const setAt = (i, ch) => {
     ch = (ch || "").replace(/\D/g, "").slice(-1);
@@ -498,7 +586,12 @@ function CodeInput({ value, onChange, length = 6, autoFocus }) {
   };
 
   return (
-    <div className="signup-code-input" onPaste={onPaste}>
+    <div
+      className="signup-code-input"
+      onPaste={onPaste}
+      role="group"
+      aria-label="Código de verificação"
+    >
       {cells.map((c, i) => (
         <input
           key={i}
@@ -511,6 +604,8 @@ function CodeInput({ value, onChange, length = 6, autoFocus }) {
           autoComplete="one-time-code"
           maxLength={1}
           aria-label={`dígito ${i + 1}`}
+          aria-invalid={invalid || undefined}
+          aria-describedby={invalid ? describedBy : undefined}
         />
       ))}
     </div>
@@ -769,7 +864,12 @@ function StepPermissoes({ customCargos, permissions, setPermissions }) {
 
   return (
     <div className="signup-perms">
-      <div className="signup-perms-scroll">
+      <div
+        className="signup-perms-scroll"
+        tabIndex={0}
+        role="region"
+        aria-label="Matriz de permissões"
+      >
         <div className="signup-perms-grid" style={{ gridTemplateColumns: gridCols }}>
           <div className="signup-perms-head is-corner mono">Cargos</div>
           {features.map((f) => (
@@ -922,17 +1022,7 @@ function StepConvidar({ invites, setInvites, cargos, senioridade }) {
   );
 }
 
-function StepConfirm({
-  personal,
-  org,
-  project,
-  customCargos,
-  senioridade,
-  permissions,
-  invites,
-  accept,
-  setAccept,
-}) {
+function StepConfirm({ personal, org, project, customCargos, senioridade, permissions, invites }) {
   const totalPerms = Object.values(permissions).reduce(
     (acc, codes) => acc + Object.values(codes).filter(Boolean).length,
     0,
@@ -956,16 +1046,22 @@ function StepConfirm({
           v={invites.length ? `${invites.length} pessoa${invites.length > 1 ? "s" : ""}` : "nenhum"}
         />
       </dl>
-      <label className="signup-orbit-accept">
-        <input type="checkbox" checked={accept} onChange={(e) => setAccept(e.target.checked)} />
-        <span className="signup-orbit-accept-box" aria-hidden="true">
-          {accept ? "✓" : ""}
-        </span>
-        <span>
-          Li e concordo com a <PrivacyLink>Política de Privacidade</PrivacyLink>.
-        </span>
-      </label>
     </div>
+  );
+}
+
+/* Aceite da Política (D3): fora da área rolável, logo acima das ações. */
+function AcceptPolicy({ accept, setAccept }) {
+  return (
+    <label className="signup-orbit-accept">
+      <input type="checkbox" checked={accept} onChange={(e) => setAccept(e.target.checked)} />
+      <span className="signup-orbit-accept-box" aria-hidden="true">
+        {accept ? "✓" : ""}
+      </span>
+      <span>
+        Li e concordo com a <PrivacyLink>Política de Privacidade</PrivacyLink>.
+      </span>
+    </label>
   );
 }
 
