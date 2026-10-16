@@ -6,11 +6,14 @@
 
 import React from "react";
 import { OrbitWizard } from "../../components/OrbitWizard.jsx";
+import { useFunnel } from "../../core/telemetry/useFunnel.js";
+import { submitErrorValue } from "../../core/telemetry/funnel.js";
 import { Field, SelectField } from "../../components/Field.jsx";
 import api from "../../core/api/client.js";
 import { ALWAYS_ON_PERMISSIONS } from "../../core/auth/permissionLabels.js";
 import { orgUrlLabel } from "../../lib/appUrl.js";
 import { useAvailability } from "./useAvailability.js";
+import { PrivacyLink, UsageNotice } from "../../components/UsageNotice.jsx";
 
 const ADMIN_ROLE = "Administrador";
 
@@ -50,7 +53,7 @@ const DEFAULT_ROLE_PERMISSIONS = {
   DEVELOPER: { DASHBOARD_INDIVIDUAL: true, AI_READ_OWN: true, CONNECTOR_TOKEN_MANAGE_OWN: true },
 };
 
-const SIGNUP_STEPS = [
+export const SIGNUP_STEPS = [
   {
     id: "pessoal",
     label: "Pessoal",
@@ -134,7 +137,10 @@ function defaultPermissionsFor(cargos) {
 
 const DEFAULT_SENIORIDADES = ["Junior", "Pleno", "Sênior"];
 
+const SIGNUP_STEP_IDS = SIGNUP_STEPS.map((s) => s.id);
+
 function SignupScreen({ onCancel, onDone }) {
+  const { funnel, onStepChange } = useFunnel("signup", SIGNUP_STEP_IDS);
   const [personal, setPersonal] = React.useState({ fullName: "", email: "" });
   const [verify, setVerify] = React.useState({
     code: "",
@@ -221,6 +227,7 @@ function SignupScreen({ onCancel, onDone }) {
 
   const handleComplete = async () => {
     setSubmitError(null);
+    funnel.submit();
     try {
       await onDone({
         org: {
@@ -251,8 +258,11 @@ function SignupScreen({ onCancel, onDone }) {
           roleName: inv.cargo,
           seniority: inv.seniority || null,
         })),
+        ...(funnel.enabled ? { funnelId: funnel.funnelId() } : {}),
       });
+      funnel.complete();
     } catch (err) {
+      funnel.submitError(submitErrorValue(err));
       const msg = err?.message || "";
       if (msg.includes("SLUG") || msg.includes("409")) {
         setSubmitError("Já existe uma organização com esse identificador. Tente outro.");
@@ -270,7 +280,11 @@ function SignupScreen({ onCancel, onDone }) {
       validity={valid}
       finalLabel="Criar organização →"
       onComplete={handleComplete}
-      onCancel={onCancel}
+      onCancel={() => {
+        funnel.cancel();
+        onCancel?.();
+      }}
+      onStepChange={onStepChange}
       shiftY="3vh"
       renderStep={(step, nav) => {
         // All role labels available for invites (defaults are immutable, custom are editable)
@@ -290,6 +304,7 @@ function SignupScreen({ onCancel, onDone }) {
                 v={verify}
                 setV={setVerify}
                 email={personal.email}
+                funnel={funnel}
                 onPass={() => nav.goTo(step + 1)}
               />
             )}
@@ -384,11 +399,12 @@ function StepPersonal({ v, onChange, availability }) {
           Este e-mail já está vinculado a uma organização no Andrômeda.
         </p>
       )}
+      <UsageNotice />
     </div>
   );
 }
 
-function StepVerify({ v, setV, email, onPass }) {
+function StepVerify({ v, setV, email, funnel, onPass }) {
   const otpSent = React.useRef(false);
   // ao entrar no passo, zera o código e envia o OTP via API (guard evita duplo-envio em Strict Mode)
   React.useEffect(() => {
@@ -411,6 +427,7 @@ function StepVerify({ v, setV, email, onPass }) {
         setTimeout(() => onPass(), 320);
       })
       .catch(() => {
+        funnel?.verifyFail();
         setTimeout(
           () => setV((s) => ({ ...s, code: "", attempts: s.attempts + 1, resent: false })),
           320,
@@ -420,6 +437,7 @@ function StepVerify({ v, setV, email, onPass }) {
   }, [v.code]);
 
   const resend = () => {
+    funnel?.verifyResend();
     setV({ code: "", attempts: 0, resent: true, verified: false });
     api.post("/v1/auth/email-verification", { email }).catch(() => {});
   };
@@ -944,15 +962,7 @@ function StepConfirm({
           {accept ? "✓" : ""}
         </span>
         <span>
-          Li e aceito os{" "}
-          <a href="#" onClick={(e) => e.preventDefault()}>
-            Termos de Uso
-          </a>{" "}
-          e a{" "}
-          <a href="#" onClick={(e) => e.preventDefault()}>
-            Política de Privacidade
-          </a>
-          .
+          Li e concordo com a <PrivacyLink>Política de Privacidade</PrivacyLink>.
         </span>
       </label>
     </div>

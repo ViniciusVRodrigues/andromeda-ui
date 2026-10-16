@@ -5498,7 +5498,7 @@
   border-color: var(--accent);
 }
 .signup-orbit-accept a {
-  color: var(--accent);
+  color: var(--accent-text);
   text-decoration: none;
   border-bottom: 1px solid currentColor;
 }

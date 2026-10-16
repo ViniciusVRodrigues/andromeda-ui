@@ -11,12 +11,15 @@
 import React from "react";
 import { useSearchParams } from "react-router-dom";
 import { OrbitWizard } from "../../components/OrbitWizard.jsx";
+import { useFunnel } from "../../core/telemetry/useFunnel.js";
+import { submitErrorValue } from "../../core/telemetry/funnel.js";
 import { Field } from "../../components/Field.jsx";
 import { OAuthPopup } from "../../components/OAuthPopup.jsx";
 import { PROVIDERS } from "../../data/providers.jsx";
+import { UsageNotice } from "../../components/UsageNotice.jsx";
 import api, { setToken } from "../../core/api/client.js";
 
-const ONBOARDING_STEPS = [
+export const ONBOARDING_STEPS = [
   {
     id: "bem-vindo",
     label: "Início",
@@ -47,7 +50,10 @@ const ONBOARDING_STEPS = [
   },
 ];
 
+const INVITE_STEP_IDS = ONBOARDING_STEPS.map((s) => s.id);
+
 function OnboardingScreen({ onDone }) {
+  const { funnel, onStepChange } = useFunnel("invite", INVITE_STEP_IDS);
   const [searchParams] = useSearchParams();
   const inviteToken = searchParams.get("token") || "";
 
@@ -72,15 +78,19 @@ function OnboardingScreen({ onDone }) {
 
   const handleComplete = async () => {
     setError(null);
+    funnel.submit();
     try {
       const resp = await api.post("/v1/auth/invite/complete", {
         token: inviteToken,
         name: account.fullName.trim(),
         password: account.password,
+        ...(funnel.enabled ? { funnelId: funnel.funnelId() } : {}),
       });
+      funnel.complete();
       setToken(resp.accessToken);
       await onDone();
     } catch (err) {
+      funnel.submitError(submitErrorValue(err));
       setError("Link inválido ou expirado. Peça um novo convite ao administrador.");
       console.error("[onboarding] invite/complete failed:", err);
     }
@@ -105,6 +115,7 @@ function OnboardingScreen({ onDone }) {
         validity={valid}
         finalLabel="Entrar no dashboard →"
         onComplete={handleComplete}
+        onStepChange={onStepChange}
         renderStep={(step) => (
           <>
             {step === 0 && <StepWelcome />}
@@ -152,6 +163,7 @@ function StepWelcome() {
           <div style={{ fontSize: 11, color: "var(--fg-muted)", lineHeight: 1.5 }}>{f.desc}</div>
         </div>
       ))}
+      <UsageNotice />
     </div>
   );
 }

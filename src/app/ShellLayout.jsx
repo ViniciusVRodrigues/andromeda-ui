@@ -6,8 +6,9 @@
  * Integrações. Identidade/permissões/paleta via useIdentity (D2). */
 
 import React from "react";
-import { Outlet, useNavigate, useParams } from "react-router-dom";
+import { Outlet, useLocation, useNavigate, useParams } from "react-router-dom";
 import { Wordmark } from "../components/Wordmark.jsx";
+import { ErrorBoundary } from "../core/ui/ErrorBoundary.jsx";
 import { useIdentity } from "../core/auth/IdentityContext.jsx";
 import { TAB_TO_ROUTE, resolveRoute } from "../core/auth/shell.js";
 import { orgRoute } from "../lib/orgRoutes.js";
@@ -127,6 +128,7 @@ const THEME_OPTS = [
 export function ShellLayout() {
   const { identity, profile, can, palette, setPalette, onLogout, orgSlug } = useIdentity();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [collapsed, setCollapsed] = React.useState(false);
   const [bannerDismissed, setBannerDismissed] = React.useState(
@@ -199,6 +201,7 @@ export function ShellLayout() {
           <div className="admin-side-foot">
             <button
               className="admin-side-item"
+              data-track="Perfil"
               onClick={() => onNavigate("perfil")}
               title={profile?.personal?.fullName || "Perfil"}
             >
@@ -260,7 +263,10 @@ export function ShellLayout() {
               </button>
             </div>
           )}
-          <Outlet />
+          {/* key na rota: trocar de seção zera o erro e a barra lateral continua viva */}
+          <ErrorBoundary key={location.pathname} variant="shell">
+            <Outlet />
+          </ErrorBoundary>
         </main>
       </div>
     </div>

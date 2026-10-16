@@ -18,6 +18,7 @@
  *   finalLabel    string     — rótulo do botão da última etapa (default "Concluir →")
  *   onComplete   () => void   — chamado ao concluir a última etapa
  *   onCancel     () => void   — opcional; se presente, mostra o "voltar ao início"
+ *   onStepChange (index) => void — opcional; chamado quando a etapa muda (não na montagem)
  *   versionmark  string       — opcional; marca de versão no rodapé
  */
 
@@ -65,6 +66,7 @@ function OrbitWizard({
   finalLabel = "Concluir →",
   onComplete,
   onCancel,
+  onStepChange,
   versionmark,
   shiftY = "0px", // deslocamento vertical da órbita+card (default: centralizado)
 }) {
@@ -176,6 +178,18 @@ function OrbitWizard({
     if (canAdvance && onComplete) onComplete();
   };
 
+  // Avisa a troca de etapa (funil de telemetria); não dispara na montagem.
+  const onStepChangeRef = React.useRef(onStepChange);
+  onStepChangeRef.current = onStepChange;
+  const mountedRef = React.useRef(false);
+  React.useEffect(() => {
+    if (!mountedRef.current) {
+      mountedRef.current = true;
+      return;
+    }
+    onStepChangeRef.current?.(step);
+  }, [step]);
+
   // Foca o primeiro campo ao entrar em cada etapa — o usuário preenche o
   // formulário inteiro sem tocar no mouse. O corpo remonta a cada etapa
   // (key={step}), então o ref já aponta para o nó recém-montado.
@@ -189,13 +203,13 @@ function OrbitWizard({
   }, [step]);
 
   // Enter avança para a próxima etapa sempre que o botão estiver desbloqueado.
-  // Ignora: textarea (Enter = quebra de linha), botões (o clique nativo já
+  // Ignora: textarea (Enter = quebra de linha), links e botões (o clique nativo já
   // navega) e eventos já tratados por um filho (ex.: adicionar chip/convite,
   // que chamam preventDefault). next()/finish() já respeitam canAdvance.
   const onKeyDownAdvance = (e) => {
     if (e.key !== "Enter" || e.defaultPrevented) return;
     const tag = e.target.tagName;
-    if (tag === "TEXTAREA" || tag === "BUTTON") return;
+    if (tag === "TEXTAREA" || tag === "BUTTON" || tag === "A") return; // link: Enter abre o link
     if (meta.noContinue) return; // etapa sem botão de avançar (ex.: verificação)
     e.preventDefault();
     if (step < total - 1) next();

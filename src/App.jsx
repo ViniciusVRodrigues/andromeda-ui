@@ -41,6 +41,8 @@ import { UsoIaLayout } from "./features/ai-usage/UsoIaLayout.jsx";
 import { NotFoundScreen } from "./features/not-found/NotFoundScreen.jsx";
 import { ThemePickerModal } from "./components/ThemePickerModal.jsx";
 import api, { clearToken, getToken, onAuthExpired, setToken } from "./core/api/client.js";
+import { UsageTracker } from "./core/telemetry/UsageTracker.jsx";
+import { discardTelemetry, flushTelemetry } from "./core/telemetry/index.js";
 import { orgRoute, splitOrgPath } from "./lib/orgRoutes.js";
 import {
   useTweaks,
@@ -50,6 +52,8 @@ import {
 } from "./components/tweaks/TweaksPanel.jsx";
 import { IdentityProvider, useIdentity } from "./core/auth/IdentityContext.jsx";
 import { RequireTab } from "./core/auth/RequireTab.jsx";
+import { ErrorBoundary } from "./core/ui/ErrorBoundary.jsx";
+import { PrivacyPage } from "./features/privacidade/PrivacyPage.jsx";
 import { ShellLayout } from "./app/ShellLayout.jsx";
 import {
   buildIdentity,
@@ -116,6 +120,7 @@ function AppShell() {
   // register 401 handler so any API call expiring the session logs out cleanly
   React.useEffect(() => {
     onAuthExpired(() => {
+      discardTelemetry();
       setIdentity(null);
       setProfile(null);
       setAuthStatus("unauthenticated");
@@ -145,6 +150,7 @@ function AppShell() {
     setIdentity(null);
     setProfile(null);
     setAuthStatus("unauthenticated");
+    flushTelemetry(); // antes do clearToken: o envio final precisa do token
     clearToken();
     navigate("/");
   };
@@ -196,6 +202,7 @@ function AppShell() {
       refreshIdentity={refreshIdentity}
     >
       <div className="app-shell">
+        {identity && <UsageTracker />}
         <div className="page-layer" data-screen-label={`page-${keyBase}`} key={keyBase}>
           <Routes>
             <Route
@@ -215,6 +222,7 @@ function AppShell() {
               path="/login"
               element={<LoginScreenWrapper enterApp={enterApp} onHome={() => navigate("/")} />}
             />
+            <Route path="/privacidade" element={<PrivacyPage />} />
             <Route path="/esqueci-senha" element={<ForgotPasswordScreen />} />
             <Route path="/redefinir-senha" element={<ResetPasswordScreen />} />
             <Route
@@ -477,7 +485,11 @@ function BacklogRoute() {
 /* Modo só-dashboard (sem a casca): a página ganha o botão de Sair do contexto. */
 function DashboardOnly() {
   const { onLogout } = useIdentity();
-  return <DashboardsPage onLogout={onLogout} />;
+  return (
+    <ErrorBoundary variant="dash" onLogout={onLogout}>
+      <DashboardsPage onLogout={onLogout} />
+    </ErrorBoundary>
+  );
 }
 
 /* URLs da casca sem prefixo de organização (/backlog, /uso-ia/precificacao) — o formato
