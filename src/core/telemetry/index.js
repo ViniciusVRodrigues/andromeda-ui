@@ -45,6 +45,11 @@ export function getTracker() {
   return instance;
 }
 
+/** Ação nomeada (VAL4). No-op com a telemetria desligada. */
+export function trackAction(name, value) {
+  getTracker()?.action(name, value);
+}
+
 /** Logout: envia o que restou ANTES de apagar o token (chame antes do clearToken). */
 export function flushTelemetry() {
   const t = getTracker();

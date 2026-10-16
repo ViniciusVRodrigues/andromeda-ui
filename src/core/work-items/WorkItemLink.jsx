@@ -3,6 +3,8 @@ import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../api/client.js";
 import { useIdentity } from "../auth/IdentityContext.jsx";
 import Modal from "../ui/Modal.jsx";
+import { trackAction } from "../telemetry/index.js";
+import { ACTIONS } from "../telemetry/actions.js";
 
 const display = (value) => (value == null || value === "" ? "Não informado" : value);
 const date = (value) => (value ? new Date(value).toLocaleDateString("pt-BR") : "Não informado");
@@ -23,6 +25,7 @@ function FieldEditor({ itemId, field, detail, editable, onUpdated }) {
     mutationFn: (body) =>
       api.patch(`/v1/work-items/${encodeURIComponent(itemId)}/manual-fields`, body),
     onSuccess: async (updated) => {
+      trackAction(ACTIONS.WORK_ITEM_EDIT, field);
       onUpdated?.(updated);
       await Promise.all(
         ["work-items", "dashboard", "projects", "backlog", "ai-usage"].map((key) =>
@@ -209,6 +212,7 @@ export function WorkItemLink({ id, children, className = "", onChanged }) {
         onClick={(e) => {
           e.stopPropagation();
           setOpen(true);
+          trackAction(ACTIONS.WORK_ITEM_OPEN);
         }}
       >
         {children}

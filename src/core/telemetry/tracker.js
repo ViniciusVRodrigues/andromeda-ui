@@ -16,6 +16,10 @@ const SESSION_KEY = "andromeda_usage_session";
 const MAX_VISIBLE_MS = 86_400_000;
 
 const CODE_RE = /^[A-Z][A-Z0-9_]{1,63}$/;
+const ACTION_RE = /^[A-Z][A-Z_]{2,40}$/;
+const VALUE_RE = /^[a-z0-9-]{1,16}$/;
+const ACTION_DEDUPE_MS = 300;
+const ACTION_CAP_PER_MIN = 120;
 const ORIGINS = ["api", "runtime", "render"];
 
 function uuid() {
@@ -51,6 +55,8 @@ export function createTracker({
   let lastClick = { node: null, at: 0 };
   let clickTimes = [];
   let errorTimes = [];
+  let actionTimes = [];
+  let lastAction = { key: null, at: 0 };
   const errorSeen = new Map();
 
   function session() {
@@ -216,6 +222,30 @@ export function createTracker({
         element: info.element,
         ...(info.label ? { label: info.label } : {}),
         area: info.area,
+      });
+    },
+
+    /** Ação nomeada (VAL4): nome fixo do código e, opcional, um valor curto e não pessoal
+     * (`90`, `sprint`). Valor fora do formato é omitido; nome fora do formato descarta. */
+    action(name, value) {
+      if (!enabled || !view || typeof name !== "string" || !ACTION_RE.test(name)) return;
+      const v = value == null ? null : String(value).toLowerCase();
+      const safeValue = v && VALUE_RE.test(v) ? v : null;
+      const t = now();
+      const key = `${name}|${safeValue ?? ""}`;
+      if (lastAction.key === key && t - lastAction.at < ACTION_DEDUPE_MS) return;
+      lastAction = { key, at: t };
+      actionTimes = actionTimes.filter((x) => t - x < 60_000);
+      if (actionTimes.length >= ACTION_CAP_PER_MIN) return;
+      actionTimes.push(t);
+      push({
+        type: "ACTION",
+        occurredAt: stamp(),
+        sessionId: session(),
+        viewId: view.id,
+        screen: view.screen,
+        action: name,
+        ...(safeValue ? { value: safeValue } : {}),
       });
     },
 

@@ -23,6 +23,8 @@ import React from "react";
 import { useSearchParams } from "react-router-dom";
 import { useIdentity } from "../../../core/auth/IdentityContext.jsx";
 import { useTelemetryDetail } from "../../../core/telemetry/useTelemetryDetail.js";
+import { trackAction } from "../../../core/telemetry/index.js";
+import { dashboardFilterAction } from "../../../core/telemetry/actions.js";
 import { fmtDate } from "./format.js";
 import { useDashboardProjects, usePendingAllocations, useProjectSprints } from "./hooks.js";
 import { useQueryClient } from "@tanstack/react-query";
@@ -130,7 +132,9 @@ export function DashboardsPage({ onLogout, onNavigate }) {
   );
 
   const update = React.useCallback(
-    (patch) =>
+    (patch) => {
+      const action = dashboardFilterAction(patch);
+      if (action) trackAction(...action);
       setParams(
         (prev) => {
           const n = new URLSearchParams(prev);
@@ -141,7 +145,8 @@ export function DashboardsPage({ onLogout, onNavigate }) {
           return n;
         },
         { replace: true },
-      ),
+      );
+    },
     [setParams],
   );
 
