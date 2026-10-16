@@ -539,10 +539,13 @@ function LoginScreenWrapper({ enterApp, onHome }) {
       const meData = await api.get("/v1/auth/me");
       enterApp(meData);
     } catch (err) {
+      const msg = err?.message || "";
       setLoginError(
-        err.message?.includes("401")
-          ? "E-mail ou senha incorretos."
-          : "Erro ao conectar. Tente novamente.",
+        /\(429\)|TOO_MANY/.test(msg)
+          ? "Muitas tentativas. Aguarde alguns minutos e tente de novo."
+          : msg.includes("401")
+            ? "E-mail ou senha incorretos."
+            : "Erro ao conectar. Tente novamente.",
       );
     }
   };
