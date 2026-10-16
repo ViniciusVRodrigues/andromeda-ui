@@ -728,6 +728,37 @@ test.describe("createTracker: ACTION (VAL4)", () => {
   });
 });
 
+test.describe("createTracker: RENDER_ERROR na carga inicial (VAL4)", () => {
+  test("sem tela ainda, usa a tela de reserva; reserva inválida descarta", () => {
+    const h = harness();
+    expect(h.tracker.error({ origin: "render", code: "RENDER_ERROR" })).toBe(false);
+    expect(
+      h.tracker.error({ origin: "render", code: "RENDER_ERROR", screen: "665f1c2e/Ana" }),
+    ).toBe(false);
+    expect(h.tracker.error({ origin: "render", code: "RENDER_ERROR", screen: "backlog" })).toBe(
+      true,
+    );
+    // o mesmo erro logo depois (ouvinte + caminho direto) não duplica
+    expect(h.tracker.error({ origin: "render", code: "RENDER_ERROR", screen: "backlog" })).toBe(
+      false,
+    );
+    h.tracker.flush();
+    const errs = h.all().filter((e) => e.type === "ERROR");
+    expect(errs).toHaveLength(1);
+    expect(errs[0]).toMatchObject({ screen: "backlog", origin: "render", code: "RENDER_ERROR" });
+  });
+
+  test("com tela conhecida, a reserva é ignorada", () => {
+    const h = harness();
+    h.tracker.setScreen("projetos");
+    h.advance(1000);
+    h.tracker.tick();
+    h.tracker.error({ origin: "render", code: "RENDER_ERROR", screen: "backlog" });
+    h.tracker.leave();
+    expect(h.all().find((e) => e.type === "ERROR").screen).toBe("projetos");
+  });
+});
+
 test.describe("createTracker: ERROR", () => {
   function started() {
     const h = harness();

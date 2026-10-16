@@ -5,6 +5,7 @@
 import { BASE_URL, getToken } from "../api/client.js";
 import { isTelemetryEnabled } from "./enabled.js";
 import { createTracker } from "./tracker.js";
+import { normalizeScreen } from "./normalize.js";
 
 export { isTelemetryEnabled } from "./enabled.js";
 
@@ -48,6 +49,17 @@ export function getTracker() {
 /** Ação nomeada (VAL4). No-op com a telemetria desligada. */
 export function trackAction(name, value) {
   getTracker()?.action(name, value);
+}
+
+/** Erro de renderização que nenhum ouvinte registrou: carga inicial (o UsageTracker ainda
+ * não ligou os ouvintes nem definiu a tela) ou a casca inteira caiu. Usa a tela da URL e
+ * envia na hora, porque o relógio do rastreador pode ter desmontado junto. */
+export function reportRenderError(pathname) {
+  const t = getTracker();
+  if (!t) return;
+  if (t.error({ origin: "render", code: "RENDER_ERROR", screen: normalizeScreen(pathname) })) {
+    t.flush();
+  }
 }
 
 /** Logout: envia o que restou ANTES de apagar o token (chame antes do clearToken). */
