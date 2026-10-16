@@ -1,5 +1,7 @@
 import React from "react";
 import * as RadixSelect from "@radix-ui/react-select";
+import { getTracker } from "../telemetry/index.js";
+import { describeClick } from "../telemetry/clickTarget.js";
 
 /**
  * Combobox — substitui o <select> nativo onde o menu do SO destoava do tema.
@@ -15,6 +17,8 @@ import * as RadixSelect from "@radix-ui/react-select";
  *   `disabled` mantém a opção visível (com o `hint` explicando o porquê) sem
  *   deixá-la ser escolhida.
  * @param {boolean} [searchable] exibe o campo de filtro (padrão: >8 opções)
+ * @param {string} [aria-label] texto FIXO (vira o rótulo do CLICK da telemetria): nunca
+ *   interpolar nome de pessoa, projeto ou item.
  */
 export default function Combobox({
   value,
@@ -29,6 +33,18 @@ export default function Combobox({
 }) {
   const [open, setOpen] = React.useState(false);
   const [query, setQuery] = React.useState("");
+  const triggerRef = React.useRef(null);
+
+  /* Telemetria: o Radix abre no pointerdown e desliga pointer-events do body, então o
+   * clique nunca chega ao gatilho e o listener global não o vê. A abertura conta como o
+   * CLICK do seletor (o nó vai junto para o dedupe de 300 ms do rastreador). */
+  const onOpenChange = React.useCallback((next) => {
+    setOpen(next);
+    if (!next) return;
+    const node = triggerRef.current;
+    const info = node && describeClick(node);
+    if (info) getTracker()?.click({ ...info, element: "select" }, node);
+  }, []);
 
   const showSearch = searchable ?? options.length > 8;
 
@@ -53,10 +69,12 @@ export default function Combobox({
       value={value ?? ""}
       onValueChange={onValueChange}
       open={open}
-      onOpenChange={setOpen}
+      onOpenChange={onOpenChange}
       disabled={disabled}
     >
       <RadixSelect.Trigger
+        ref={triggerRef}
+        data-track={ariaLabel || undefined}
         className={"cmb-trigger" + (className ? " " + className : "")}
         aria-label={ariaLabel}
       >

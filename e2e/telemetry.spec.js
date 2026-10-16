@@ -185,6 +185,17 @@ test.describe("clickTarget (fragmentos de DOM)", () => {
     expect(r.label).toBe("Abrir-detalhe");
   });
 
+  test("gatilho do Combobox: rótulo é o aria-label fixo (data-track), nunca o valor escolhido", async ({
+    page,
+  }) => {
+    const r = await describeAll(
+      page,
+      '<main><button role=combobox id=t data-track="Filtrar por autor"><span>Ana Souza</span><span aria-hidden=true>▾</span></button></main>',
+      "#t",
+    );
+    expect(r.label).toBe("Filtrar por autor");
+  });
+
   test("data-track-ignore e campo de texto não geram evento", async ({ page }) => {
     expect(
       await describeAll(
