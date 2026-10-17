@@ -44,6 +44,7 @@ import api, { clearToken, getToken, onAuthExpired, setToken } from "./core/api/c
 import { UsageTracker } from "./core/telemetry/UsageTracker.jsx";
 import { discardTelemetry, flushTelemetry } from "./core/telemetry/index.js";
 import { orgRoute, splitOrgPath } from "./lib/orgRoutes.js";
+import { readPalette, savePalette } from "./lib/palette.js";
 import {
   useTweaks,
   TweaksPanel,
@@ -86,13 +87,17 @@ function AppShell() {
   const [profile, setProfile] = React.useState(null);
   const [themePickerOpen, setThemePickerOpen] = React.useState(false);
 
+  // paleta: escolha salva > sistema (prefers-color-scheme) > "default"
   const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/ {
-    palette: "default",
+    palette: readPalette(),
   }; /*EDITMODE-END*/
 
   const [tweaks, setTweak] = useTweaks(TWEAK_DEFAULTS);
   const palette = tweaks.palette || "default";
-  const setPalette = (v) => setTweak("palette", v);
+  const setPalette = (v) => {
+    savePalette(v);
+    setTweak("palette", v);
+  };
 
   // apply palette to root
   React.useEffect(() => {

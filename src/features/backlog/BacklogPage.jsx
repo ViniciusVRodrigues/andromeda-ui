@@ -25,6 +25,10 @@ import PageHeader from "../../core/ui/PageHeader.jsx";
 import RefreshControl from "../../core/ui/RefreshControl.jsx";
 import { useProjectRefresh } from "../projects/hooks.js";
 import { useIdentity } from "../../core/auth/IdentityContext.jsx";
+import { trackAction } from "../../core/telemetry/index.js";
+import { ACTIONS } from "../../core/telemetry/actions.js";
+
+const trackFilter = (name) => trackAction(ACTIONS.BACKLOG_FILTER, name);
 
 const PAGE_SIZE = 20;
 
@@ -464,6 +468,11 @@ export function BacklogPage({ onOpenHierarchyWizard }) {
     return () => clearTimeout(t);
   }, [search]);
 
+  /* uma ação por busca assentada (depois do debounce); nunca o texto digitado */
+  React.useEffect(() => {
+    if (debouncedSearch) trackFilter("search");
+  }, [debouncedSearch]);
+
   /* Sob filtro o backend achata a hierarquia numa lista única (servida por /roots) e
    * devolve orphans vazio; a UI espelha isso escondendo a seção de órfãos e os
    * controles de expandir/recolher, que não fazem sentido numa lista plana. */
@@ -788,7 +797,10 @@ export function BacklogPage({ onOpenHierarchyWizard }) {
           <div className="backlog-filter">
             <Combobox
               value={sprintFilter || ALL_SPRINTS}
-              onValueChange={(v) => setSprintFilter(v === ALL_SPRINTS ? "" : v)}
+              onValueChange={(v) => {
+                setSprintFilter(v === ALL_SPRINTS ? "" : v);
+                trackFilter("sprint");
+              }}
               options={[
                 { value: ALL_SPRINTS, label: "Todas as sprints" },
                 ...sprints.filter((s) => s.id).map((s) => ({ value: s.id, label: s.name })),
@@ -799,7 +811,10 @@ export function BacklogPage({ onOpenHierarchyWizard }) {
           <div className="backlog-filter">
             <Combobox
               value={assigneeFilter || ALL_ASSIGNEES}
-              onValueChange={(v) => setAssigneeFilter(v === ALL_ASSIGNEES ? "" : v)}
+              onValueChange={(v) => {
+                setAssigneeFilter(v === ALL_ASSIGNEES ? "" : v);
+                trackFilter("assignee");
+              }}
               options={[
                 { value: ALL_ASSIGNEES, label: "Todos os responsáveis" },
                 /* Sem id não dá para filtrar; sem rótulo a opção apareceria em branco. */
@@ -813,7 +828,10 @@ export function BacklogPage({ onOpenHierarchyWizard }) {
           <div className="backlog-filter">
             <Combobox
               value={typeFilter || ALL_TYPES}
-              onValueChange={(v) => setTypeFilter(v === ALL_TYPES ? "" : v)}
+              onValueChange={(v) => {
+                setTypeFilter(v === ALL_TYPES ? "" : v);
+                trackFilter("type");
+              }}
               options={[
                 { value: ALL_TYPES, label: "Todos os tipos" },
                 ...TYPE_OPTIONS.map((t) => ({ value: t, label: t })),
@@ -824,7 +842,10 @@ export function BacklogPage({ onOpenHierarchyWizard }) {
           <div className="backlog-filter">
             <Combobox
               value={statusFilter || ALL_STATUSES}
-              onValueChange={(v) => setStatusFilter(v === ALL_STATUSES ? "" : v)}
+              onValueChange={(v) => {
+                setStatusFilter(v === ALL_STATUSES ? "" : v);
+                trackFilter("status");
+              }}
               options={[
                 { value: ALL_STATUSES, label: "Todos os status" },
                 ...STATUS_OPTIONS.map((s) => ({ value: s, label: s })),
@@ -842,6 +863,7 @@ export function BacklogPage({ onOpenHierarchyWizard }) {
                 setAssigneeFilter("");
                 setTypeFilter("");
                 setStatusFilter("");
+                trackFilter("clear");
               }}
             >
               limpar filtros

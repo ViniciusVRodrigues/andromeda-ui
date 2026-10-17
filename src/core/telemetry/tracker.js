@@ -16,7 +16,12 @@ const SESSION_KEY = "andromeda_usage_session";
 const MAX_VISIBLE_MS = 86_400_000;
 
 const CODE_RE = /^[A-Z][A-Z0-9_]{1,63}$/;
+const ACTION_RE = /^[A-Z][A-Z_]{2,40}$/;
+const VALUE_RE = /^[a-z0-9-]{1,16}$/;
+const ACTION_DEDUPE_MS = 300;
+const ACTION_CAP_PER_MIN = 120;
 const ORIGINS = ["api", "runtime", "render"];
+const SCREEN_RE = /^[a-z]+(-[a-z]+)*(\/[a-z]+(-[a-z]+)*){0,3}$/;
 
 function uuid() {
   if (globalThis.crypto?.randomUUID) return globalThis.crypto.randomUUID();
@@ -51,6 +56,8 @@ export function createTracker({
   let lastClick = { node: null, at: 0 };
   let clickTimes = [];
   let errorTimes = [];
+  let actionTimes = [];
+  let lastAction = { key: null, at: 0 };
   const errorSeen = new Map();
 
   function session() {
@@ -219,14 +226,40 @@ export function createTracker({
       });
     },
 
-    /** Erro visto pelo usuário. Só origem, status e código: nada de mensagem. */
-    error({ origin, status, code }) {
-      if (!enabled || !ORIGINS.includes(origin)) return;
+    /** Ação nomeada (VAL4): nome fixo do código e, opcional, um valor curto e não pessoal
+     * (`90`, `sprint`). Valor fora do formato é omitido; nome fora do formato descarta. */
+    action(name, value) {
+      if (!enabled || !view || typeof name !== "string" || !ACTION_RE.test(name)) return;
+      const v = value == null ? null : String(value).toLowerCase();
+      const safeValue = v && VALUE_RE.test(v) ? v : null;
+      const t = now();
+      const key = `${name}|${safeValue ?? ""}`;
+      if (lastAction.key === key && t - lastAction.at < ACTION_DEDUPE_MS) return;
+      lastAction = { key, at: t };
+      actionTimes = actionTimes.filter((x) => t - x < 60_000);
+      if (actionTimes.length >= ACTION_CAP_PER_MIN) return;
+      actionTimes.push(t);
+      push({
+        type: "ACTION",
+        occurredAt: stamp(),
+        sessionId: session(),
+        viewId: view.id,
+        screen: view.screen,
+        action: name,
+        ...(safeValue ? { value: safeValue } : {}),
+      });
+    },
+
+    /** Erro visto pelo usuário. Só origem, status e código: nada de mensagem.
+     * `screen` é a tela de reserva para quando o rastreador ainda não tem uma (erro na
+     * carga inicial). Devolve true se o evento entrou na fila. */
+    error({ origin, status, code, screen: fallbackScreen }) {
+      if (!enabled || !ORIGINS.includes(origin)) return false;
       if (origin === "api") {
-        if (!Number.isInteger(status) || status < 0 || status > 599 || status === 401) return;
+        if (!Number.isInteger(status) || status < 0 || status > 599 || status === 401) return false;
         /* org sem integração gera isso em quase toda tela: ruído, não erro de uso */
         if (status === 404 && typeof code === "string" && code.endsWith("_CONNECTION_NOT_FOUND"))
-          return;
+          return false;
       }
       const safeCode =
         typeof code === "string" && CODE_RE.test(code)
@@ -234,16 +267,22 @@ export function createTracker({
           : origin === "api"
             ? `HTTP_${status}`
             : null;
-      if (!safeCode) return;
-      const screen = view?.screen ?? pending?.screen ?? lastScreen;
-      if (!screen) return;
+      if (!safeCode) return false;
+      const screen =
+        view?.screen ??
+        pending?.screen ??
+        lastScreen ??
+        (typeof fallbackScreen === "string" && SCREEN_RE.test(fallbackScreen)
+          ? fallbackScreen
+          : null);
+      if (!screen) return false;
       const t = now();
       const key = `${screen}|${origin}|${origin === "api" ? status : ""}|${safeCode}`;
       const seen = errorSeen.get(key);
-      if (seen != null && t - seen < ERROR_DEDUPE_MS) return;
+      if (seen != null && t - seen < ERROR_DEDUPE_MS) return false;
       for (const [k, at] of errorSeen) if (t - at >= ERROR_DEDUPE_MS) errorSeen.delete(k);
       errorTimes = errorTimes.filter((x) => t - x < 60_000);
-      if (errorTimes.length >= ERROR_CAP_PER_MIN) return;
+      if (errorTimes.length >= ERROR_CAP_PER_MIN) return false;
       errorSeen.set(key, t);
       errorTimes.push(t);
       push({
@@ -256,6 +295,7 @@ export function createTracker({
         ...(origin === "api" ? { status } : {}),
         code: safeCode,
       });
+      return true;
     },
 
     /** Fecha o tempo acumulado e envia (aba oculta, pagehide, logout). */

@@ -3,6 +3,7 @@ import { loginAsAdmin, gotoSection } from "./auth.mjs";
 import { installDashboardsApi } from "./dashboards-v2-api.mjs";
 import { normalizeScreen, DASHBOARD_DETAILS } from "../src/core/telemetry/normalize.js";
 import { createTracker } from "../src/core/telemetry/tracker.js";
+import { ACTIONS, dashboardFilterAction } from "../src/core/telemetry/actions.js";
 import {
   createFunnel,
   submitErrorValue,
@@ -182,6 +183,17 @@ test.describe("clickTarget (fragmentos de DOM)", () => {
       "#t",
     );
     expect(r.label).toBe("Abrir-detalhe");
+  });
+
+  test("gatilho do Combobox: rótulo é o aria-label fixo (data-track), nunca o valor escolhido", async ({
+    page,
+  }) => {
+    const r = await describeAll(
+      page,
+      '<main><button role=combobox id=t data-track="Filtrar por autor"><span>Ana Souza</span><span aria-hidden=true>▾</span></button></main>',
+      "#t",
+    );
+    expect(r.label).toBe("Filtrar por autor");
   });
 
   test("data-track-ignore e campo de texto não geram evento", async ({ page }) => {
@@ -619,6 +631,131 @@ test.describe("createTracker", () => {
     expect(c).toMatchObject({ screen: "backlog", element: "select", area: "main" });
     expect("label" in c).toBe(false);
     expect(c.viewId).toMatch(SESSION_ID);
+  });
+});
+
+test.describe("createTracker: ACTION (VAL4)", () => {
+  const ACTION_RE = /^[A-Z][A-Z_]{2,40}$/;
+  const VALUE_RE = /^[a-z0-9-]{1,16}$/;
+
+  function onScreen(screen = "dashboard/equipe/resumo") {
+    const h = harness();
+    h.tracker.setScreen(screen);
+    h.advance(1000);
+    h.tracker.tick();
+    return h;
+  }
+
+  test("sai com nome, valor, tela e viewId da visita", () => {
+    const h = onScreen();
+    h.tracker.action("DASHBOARD_PERIOD", "90");
+    h.tracker.leave();
+    const view = h.all().find((e) => e.type === "PAGE_VIEW");
+    const [a] = h.all().filter((e) => e.type === "ACTION");
+    expect(a).toMatchObject({
+      action: "DASHBOARD_PERIOD",
+      value: "90",
+      screen: "dashboard/equipe/resumo",
+      viewId: view.viewId,
+      sessionId: view.sessionId,
+    });
+  });
+
+  test("valor fora do formato é omitido; nome fora do formato descarta", () => {
+    const h = onScreen();
+    h.tracker.action("WORK_ITEM_OPEN", "665f1c2e9b1e8a0012345678"); // id: nunca
+    h.advance(400);
+    h.tracker.action("WORK_ITEM_EDIT", "ana@example.com");
+    h.advance(400);
+    h.tracker.action("dashboard_period", "90");
+    h.tracker.action("X", null);
+    h.tracker.leave();
+    const actions = h.all().filter((e) => e.type === "ACTION");
+    expect(actions.map((a) => a.action)).toEqual(["WORK_ITEM_OPEN", "WORK_ITEM_EDIT"]);
+    for (const a of actions) expect(a).not.toHaveProperty("value");
+  });
+
+  test("sem tela estável não emite; repetição em 300 ms conta uma vez", () => {
+    const h = harness();
+    h.tracker.action("DASHBOARD_TAB", "fluxo");
+    h.tracker.setScreen("dashboard");
+    h.advance(1000);
+    h.tracker.tick();
+    h.tracker.action("DASHBOARD_TAB", "fluxo");
+    h.advance(100);
+    h.tracker.action("DASHBOARD_TAB", "fluxo");
+    h.advance(400);
+    h.tracker.action("DASHBOARD_TAB", "fluxo");
+    h.tracker.leave();
+    expect(h.all().filter((e) => e.type === "ACTION")).toHaveLength(2);
+  });
+
+  test("desligado não emite nada", () => {
+    const h = harness({ enabled: false });
+    h.tracker.setScreen("dashboard");
+    h.advance(1000);
+    h.tracker.tick();
+    h.tracker.action("DASHBOARD_TAB", "fluxo");
+    h.tracker.leave();
+    expect(h.all()).toEqual([]);
+  });
+
+  test("todo nome da lista fechada casa com o contrato", () => {
+    for (const name of Object.values(ACTIONS)) expect(name).toMatch(ACTION_RE);
+  });
+
+  test("filtros do dashboard: só a primeira chave, sem id de projeto ou sprint", () => {
+    const cases = [
+      [{ escopo: "org" }, ["DASHBOARD_SCOPE", "org"]],
+      [{ escopo: "665f1c2e9b1e8a0012345678", sprint: null }, ["DASHBOARD_SCOPE", "projeto"]],
+      [{ visao: "equipe", aba: null }, ["DASHBOARD_VIEW", "equipe"]],
+      [{ aba: "integracoes" }, ["DASHBOARD_TAB", "integracoes"]],
+      [{ sprint: "665f1c2e9b1e8a0012345678" }, ["DASHBOARD_SPRINT", "anterior"]],
+      [{ sprint: null }, ["DASHBOARD_SPRINT", "atual"]],
+      [{ periodo: 365 }, ["DASHBOARD_PERIOD", "365"]],
+      [
+        { escopo: "665f1c2e9b1e8a0012345678", visao: "projeto", aba: null, sprint: null },
+        ["DASHBOARD_SCOPE", "projeto"],
+      ],
+      [{ outra: "x" }, null],
+      [{}, null],
+    ];
+    for (const [patch, expected] of cases) {
+      const got = dashboardFilterAction(patch);
+      expect(got, JSON.stringify(patch)).toEqual(expected);
+      if (got) expect(got[1]).toMatch(VALUE_RE);
+    }
+  });
+});
+
+test.describe("createTracker: RENDER_ERROR na carga inicial (VAL4)", () => {
+  test("sem tela ainda, usa a tela de reserva; reserva inválida descarta", () => {
+    const h = harness();
+    expect(h.tracker.error({ origin: "render", code: "RENDER_ERROR" })).toBe(false);
+    expect(
+      h.tracker.error({ origin: "render", code: "RENDER_ERROR", screen: "665f1c2e/Ana" }),
+    ).toBe(false);
+    expect(h.tracker.error({ origin: "render", code: "RENDER_ERROR", screen: "backlog" })).toBe(
+      true,
+    );
+    // o mesmo erro logo depois (ouvinte + caminho direto) não duplica
+    expect(h.tracker.error({ origin: "render", code: "RENDER_ERROR", screen: "backlog" })).toBe(
+      false,
+    );
+    h.tracker.flush();
+    const errs = h.all().filter((e) => e.type === "ERROR");
+    expect(errs).toHaveLength(1);
+    expect(errs[0]).toMatchObject({ screen: "backlog", origin: "render", code: "RENDER_ERROR" });
+  });
+
+  test("com tela conhecida, a reserva é ignorada", () => {
+    const h = harness();
+    h.tracker.setScreen("projetos");
+    h.advance(1000);
+    h.tracker.tick();
+    h.tracker.error({ origin: "render", code: "RENDER_ERROR", screen: "backlog" });
+    h.tracker.leave();
+    expect(h.all().find((e) => e.type === "ERROR").screen).toBe("projetos");
   });
 });
 

@@ -20,7 +20,12 @@
  *   onCancel     () => void   — opcional; se presente, mostra o "voltar ao início"
  *   onStepChange (index) => void — opcional; chamado quando a etapa muda (não na montagem)
  *   versionmark  string       — opcional; marca de versão no rodapé
- */
+ *   renderFooter (i) => Node  — opcional; rodapé FIXO do card (fora da área rolável),
+ *                logo acima das ações (ex.: aceite da Política na última etapa do cadastro)
+ *
+ * No compacto (< 768 px de largura ou < 540 px de altura) a régua some, a página rola e
+ * um cabeçalho "ETAPA NN / 10 · RÓTULO" com uma barra de segmentos mostra o progresso
+ * (variante `compact` em styles/globals.css). */
 
 import React from "react";
 import { Wordmark } from "./Wordmark.jsx";
@@ -47,6 +52,11 @@ const END_SNAP = 0.12; // y%: tolerância p/ assentar no meio
 const VEL_SNAP = 0.004; // y%/ms: velocidade baixa o bastante p/ parar
 const EPS = 1e-3;
 
+/* Mesma consulta da variante `compact` de globals.css. */
+const COMPACT_QUERY = "(max-width: 47.99rem), (max-height: 33.75rem)";
+const REDUCED_QUERY = "(prefers-reduced-motion: reduce)";
+const matches = (q) => typeof window !== "undefined" && !!window.matchMedia?.(q).matches;
+
 /* Passo analítico (exato p/ qualquer dt) de uma mola criticamente amortecida:
    x(t) = alvo + (c1 + c2·t)·e^(−ω·t). Retorna [nova posição, nova velocidade]. */
 function springStep(x, v, target, dt, omega) {
@@ -68,10 +78,12 @@ function OrbitWizard({
   onCancel,
   onStepChange,
   versionmark,
+  renderFooter,
   shiftY = "0px", // deslocamento vertical da órbita+card (default: centralizado)
 }) {
   const [step, setStep] = React.useState(0);
   const [direction, setDir] = React.useState(1);
+  const [announce, setAnnounce] = React.useState("");
 
   const total = steps.length;
   const meta = steps[step];
@@ -160,6 +172,18 @@ function OrbitWizard({
     setDir(s >= cur ? 1 : -1);
     setStep(s); // conteúdo troca imediato
     goalRef.current = s;
+    if (matches(REDUCED_QUERY)) {
+      // movimento reduzido: a órbita vai direto ao fim, sem mola
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = 0;
+      phaseRef.current = "idle";
+      posRef.current = s;
+      glowRef.current = ORBIT_MIDDLE_Y;
+      velRef.current = 0;
+      setOrbitPos(s);
+      setGlowY(ORBIT_MIDDLE_Y);
+      return;
+    }
     frozenRef.current = posRef.current; // congela pos p/ a fase reach
     phaseRef.current = "reach"; // sempre realcança o alvo
     runOrbit(); // velocidade é preservada
@@ -188,13 +212,22 @@ function OrbitWizard({
       return;
     }
     onStepChangeRef.current?.(step);
+    setAnnounce(`Etapa ${step + 1} de ${total}: ${steps[step].label}`);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [step]);
 
   // Foca o primeiro campo ao entrar em cada etapa — o usuário preenche o
   // formulário inteiro sem tocar no mouse. O corpo remonta a cada etapa
   // (key={step}), então o ref já aponta para o nó recém-montado.
   const bodyRef = React.useRef(null);
+  const sceneRef = React.useRef(null);
   React.useEffect(() => {
+    // no compacto a página rola (não o card): volta ao topo antes do foco
+    if (matches(COMPACT_QUERY)) {
+      const top = { top: 0, left: 0, behavior: "auto" };
+      window.scrollTo(top);
+      sceneRef.current?.closest(".page-layer")?.scrollTo(top);
+    }
     const first = bodyRef.current?.querySelector(
       'input:not([type="checkbox"]):not([type="radio"]):not([readonly]):not([disabled]),' +
         " select:not([disabled]), textarea:not([disabled])",
@@ -231,8 +264,31 @@ function OrbitWizard({
       )}
       {versionmark && <span className="signup-orbit-versionmark mono">{versionmark}</span>}
 
-      <div className="signup-orbit-scene" style={{ "--orbit-shift-y": shiftY }}>
+      <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+        {announce}
+      </div>
+
+      <div ref={sceneRef} className="signup-orbit-scene" style={{ "--orbit-shift-y": shiftY }}>
         <OrbitFrame steps={steps} step={step} orbitPos={orbitPos} glowY={glowY} onJump={jump} />
+
+        {/* progresso do compacto (a régua orbital some): rótulo + um segmento por etapa */}
+        <div className="signup-orbit-progress compact:block hidden">
+          <div className="text-fg-muted mono mb-2.5 text-[11px] tracking-[0.2em] uppercase">
+            ETAPA {String(step + 1).padStart(2, "0")} / {String(total).padStart(2, "0")} ·{" "}
+            {meta.label}
+          </div>
+          <div className="flex gap-1.5" aria-hidden="true">
+            {steps.map((s, i) => (
+              <span
+                key={s.id}
+                data-on={i <= step ? "1" : "0"}
+                className={
+                  "h-1 flex-1 rounded-full " + (i <= step ? "bg-accent" : "bg-line-strong")
+                }
+              />
+            ))}
+          </div>
+        </div>
 
         <div className="signup-orbit-card">
           <div className="signup-orbit-eyebrow mono">
@@ -252,9 +308,11 @@ function OrbitWizard({
             {renderStep(step, { next, back, goTo })}
           </div>
 
+          {renderFooter && <div className="signup-orbit-footer">{renderFooter(step)}</div>}
+
           <div className="signup-orbit-actions">
             <button
-              className="btn-ghost btn signup-orbit-back"
+              className={"btn-ghost btn signup-orbit-back" + (step === 0 ? " is-first" : "")}
               onClick={back}
               type="button"
               style={{ visibility: step === 0 ? "hidden" : "visible" }}

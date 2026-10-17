@@ -17,7 +17,8 @@ export function bindErrorSources(win, tracker) {
   const onAppError = (e) => {
     const d = e?.detail;
     if (d && EVENT_CODES[d.origin]?.includes(d.code)) {
-      tracker.error({ origin: d.origin, code: d.code });
+      /* avisa quem disparou: sem isso (tela ainda indefinida) o ErrorBoundary registra direto */
+      if (tracker.error({ origin: d.origin, code: d.code })) d.handled = true;
     }
   };
   win.addEventListener("error", onError);

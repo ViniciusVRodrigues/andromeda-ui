@@ -1,5 +1,7 @@
 import React from "react";
 import { updateWorkItemManualFields } from "../features/projects/api.js";
+import { trackAction } from "../core/telemetry/index.js";
+import { ACTIONS } from "../core/telemetry/actions.js";
 
 /**
  * Inline editor for a work item's complexity/effort, with a source badge
@@ -60,6 +62,7 @@ export function WorkItemManualFieldsEditor({
     setError(null);
     try {
       const updated = await updateWorkItemManualFields(workItemId, { [field]: parsed });
+      trackAction(ACTIONS.WORK_ITEM_EDIT, field);
       onChanged(updated);
       setEditing(false);
     } catch (_) {
@@ -74,6 +77,7 @@ export function WorkItemManualFieldsEditor({
     setError(null);
     try {
       const updated = await updateWorkItemManualFields(workItemId, { [clearKey]: true });
+      trackAction(ACTIONS.WORK_ITEM_RESET, field);
       onChanged(updated);
     } catch (_) {
       setError("Não foi possível restaurar o valor do Azure.");

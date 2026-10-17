@@ -7,10 +7,12 @@
  *                     área de conteúdo e trocar de seção zera o erro;
  *   variant="dash"  — só-dashboard: "Recarregar" + "Sair" (onLogout).
  *
- * Nenhum texto do erro vai para a tela (pode ter dado pessoal). O boundary não importa nada
- * de telemetria: ele só emite o evento `andromeda:telemetry-error`, que o rastreador ouve. */
+ * Nenhum texto do erro vai para a tela (pode ter dado pessoal). O boundary emite o evento
+ * `andromeda:telemetry-error`, que o rastreador ouve; se ninguém o registrou (carga inicial,
+ * antes de o rastreador ter tela, ou a casca inteira caiu), chama `reportRenderError`. */
 
 import React from "react";
+import { reportRenderError } from "../telemetry/index.js";
 
 function ErrorFallback({ variant, onLogout }) {
   const titleRef = React.useRef(null);
@@ -81,11 +83,9 @@ class ErrorBoundary extends React.Component {
   }
 
   componentDidCatch() {
-    window.dispatchEvent(
-      new CustomEvent("andromeda:telemetry-error", {
-        detail: { origin: "render", code: "RENDER_ERROR" },
-      }),
-    );
+    const detail = { origin: "render", code: "RENDER_ERROR" };
+    window.dispatchEvent(new CustomEvent("andromeda:telemetry-error", { detail }));
+    if (!detail.handled) reportRenderError(window.location.pathname);
   }
 
   render() {

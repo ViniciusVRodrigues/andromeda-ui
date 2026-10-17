@@ -16,6 +16,8 @@
 
 import React from "react";
 import { useQueryClient } from "@tanstack/react-query";
+import { trackAction } from "../../../../core/telemetry/index.js";
+import { ACTIONS } from "../../../../core/telemetry/actions.js";
 import { CATALOG, catalogSections } from "../catalog.js";
 import {
   dashboardsKeys,
@@ -211,8 +213,9 @@ export function DashboardEditProvider({ viewKey, userId = null, canSee = ALL, ch
     [doReset, saver, qc, viewKey, rebase],
   );
 
+  /* `kind` = a operação para a telemetria (move, show, hide, resize) */
   const commit = React.useCallback(
-    (body, op) => {
+    (body, op, kind) => {
       const record = { snap: savedNow() };
       stack.current.push(record);
       setUndoCount(stack.current.length);
@@ -221,6 +224,7 @@ export function DashboardEditProvider({ viewKey, userId = null, canSee = ALL, ch
         /* com um DELETE em voo, espera ele antes de enfileirar o PUT */
         resetDone.current.then(() => saver.save(body, op));
       } else saver.save(body, op);
+      if (kind) trackAction(ACTIONS.DASHBOARD_CUSTOMIZE, kind);
       return record;
     },
     [saver, savedNow],
@@ -231,6 +235,7 @@ export function DashboardEditProvider({ viewKey, userId = null, canSee = ALL, ch
     const record = stack.current.pop();
     setUndoCount(stack.current.length);
     if (!record) return;
+    trackAction(ACTIONS.DASHBOARD_CUSTOMIZE, "undo");
     announce("Última alteração desfeita.");
     const result = await applySnapshot(record.snap);
     if (result === "error") {
@@ -259,6 +264,7 @@ export function DashboardEditProvider({ viewKey, userId = null, canSee = ALL, ch
       commit(
         moveWidget(layoutNow, id, target),
         reapply((l) => moveWidget(l, id, target)),
+        "move",
       );
       announce(
         `${loc.section.widgets[loc.index].entry.title}: posição ${target + 1} de ${loc.count}.`,
@@ -279,6 +285,7 @@ export function DashboardEditProvider({ viewKey, userId = null, canSee = ALL, ch
       commit(
         moveSection(layoutNow, id, target),
         reapply((l) => moveSection(l, id, target)),
+        "move-section",
       );
       announce(`Seção ${layoutNow.sections[from].title}: posição ${target + 1} de ${n}.`);
     },
@@ -292,6 +299,7 @@ export function DashboardEditProvider({ viewKey, userId = null, canSee = ALL, ch
       const record = commit(
         showWidget(current(), e, at, size),
         reapply((l) => showWidget(l, e, at, size)),
+        "show",
       );
       const section = catalogSections(viewKey).find((s) => s.id === e.section);
       announce(
@@ -313,6 +321,7 @@ export function DashboardEditProvider({ viewKey, userId = null, canSee = ALL, ch
       const record = commit(
         hideWidget(layoutNow, id),
         reapply((l) => hideWidget(l, id)),
+        "hide",
       );
       const title = placed.entry.title;
       if (withToast) {
@@ -339,6 +348,7 @@ export function DashboardEditProvider({ viewKey, userId = null, canSee = ALL, ch
       commit(
         resizeWidget(current(), e, size),
         reapply((l) => resizeWidget(l, e, size)),
+        "resize",
       );
       announce(`${e.title}: tamanho ${SIZE_LABEL[size]}.`);
     },
@@ -364,6 +374,7 @@ export function DashboardEditProvider({ viewKey, userId = null, canSee = ALL, ch
     const record = { snap };
     stack.current.push(record);
     setUndoCount(stack.current.length);
+    trackAction(ACTIONS.DASHBOARD_CUSTOMIZE, "restore");
     announce("Painel restaurado ao padrão. Para desfazer, use o botão Desfazer ou Ctrl+Z.");
     showToast({
       message: "Painel restaurado ao padrão",
@@ -393,6 +404,7 @@ export function DashboardEditProvider({ viewKey, userId = null, canSee = ALL, ch
     setUndoCount(0);
     pendingFocus.current = { heading: true };
     setEditing(true);
+    trackAction(ACTIONS.DASHBOARD_CUSTOMIZE, "enter");
     if (!prefs.tipDismissed) dismissTip();
   }, [ready, savedNow, prefs.tipDismissed, dismissTip]);
 
@@ -409,6 +421,7 @@ export function DashboardEditProvider({ viewKey, userId = null, canSee = ALL, ch
     const snap = entry.current;
     stack.current = [];
     setUndoCount(0);
+    trackAction(ACTIONS.DASHBOARD_CUSTOMIZE, "discard");
     announce("Alterações descartadas.");
     exit();
     const result = await applySnapshot(snap);
