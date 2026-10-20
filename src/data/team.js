@@ -52,10 +52,10 @@ const TEAM = [
     role: "Estudante de Eng. de Software",
     photo: pedroPhoto,
     links: {
-      linkedin: "",
-      github: "",
-      instagram: "",
-      email: "",
+      linkedin: "https://www.linkedin.com/in/phsilvacabral/",
+      github: "https://github.com/phsilvacabral",
+      instagram: "https://www.instagram.com/phsilvacabral/",
+      email: "phsilvacabral@gmail.com",
     },
   },
   {
