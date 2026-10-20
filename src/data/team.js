@@ -30,6 +30,8 @@
  */
 
 import viniciusPhoto from "../assets/team/vinicius.jpg";
+import pedroPhoto from "../assets/team/pedro.jpg";
+import nataliaPhoto from "../assets/team/natalia.jpg";
 
 const TEAM = [
   {
@@ -48,7 +50,7 @@ const TEAM = [
     id: "pedro",
     name: "Pedro Henrique Silva Cabral",
     role: "Estudante de Eng. de Software",
-    photo: null,
+    photo: pedroPhoto,
     links: {
       linkedin: "",
       github: "",
@@ -60,7 +62,7 @@ const TEAM = [
     id: "natalia",
     name: "Natália Molini Buffa",
     role: "Eng. de Software Júnior",
-    photo: null,
+    photo: nataliaPhoto,
     links: {
       linkedin: "",
       github: "",
