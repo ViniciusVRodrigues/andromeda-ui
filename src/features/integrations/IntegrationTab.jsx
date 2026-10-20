@@ -15,7 +15,6 @@ import {
   AzurePatSetupForm,
   AzureReposAccessNotice,
 } from "./AzureConnectionForms.jsx";
-import { AiConnectorCard } from "./AiConnectorCard.jsx";
 import { Icon } from "../../components/charts/Charts.jsx";
 import Drawer from "../../core/ui/Drawer.jsx";
 import { ConfirmDialog } from "../../core/ui/Modal.jsx";
@@ -1155,12 +1154,6 @@ export function IntegrationTab({
 
       {/* Some sozinho sem REPOS_READ/REPOS_CONFIGURE. */}
       <WorkItemLinkSettingsCard />
-
-      {/* Tokens do conector são ORG_ONLY: checagem por código na organização
-       * (`hasOrg`), nunca pelo `can` de aba — que cai em isAdmin para códigos. */}
-      {hasOrg &&
-        (hasOrg("CONNECTOR_TOKEN_MANAGE_OWN") || hasOrg("CONNECTOR_TOKEN_MANAGE_ALL")) &&
-        orgSlug && <AiConnectorCard orgSlug={orgSlug} hasOrg={hasOrg} />}
     </section>
   );
 }

@@ -121,7 +121,7 @@ export function AiConnectorCard({ orgSlug, hasOrg }) {
             />
           </svg>
         </div>
-        <span className="integration-card-name">AI Connector — AIEF</span>
+        <span className="integration-card-name">Extensão AI Engineering Fluency</span>
         <div className="integration-card-badges">
           {(uiState === "existing" || uiState === "generated") && (
             <span className="integration-status-badge is-connected">● URL gerada</span>
@@ -144,8 +144,10 @@ export function AiConnectorCard({ orgSlug, hasOrg }) {
 
       {uiState === "error" && (
         <>
-          <p className="mono integration-error">{error}</p>
-          <button className="btn" onClick={fetchTokens}>
+          <p className="mono integration-error" role="alert">
+            {error}
+          </p>
+          <button className="btn min-h-[44px] md:min-h-0" onClick={fetchTokens}>
             Tentar novamente
           </button>
         </>
@@ -154,7 +156,11 @@ export function AiConnectorCard({ orgSlug, hasOrg }) {
       {uiState === "empty" && (
         <>
           <div className="integration-actions">
-            <button className="btn" onClick={handleGenerate} disabled={working}>
+            <button
+              className="btn min-h-[44px] md:min-h-0"
+              onClick={handleGenerate}
+              disabled={working}
+            >
               {working ? "Gerando…" : "Gerar URL →"}
             </button>
           </div>
@@ -176,7 +182,11 @@ export function AiConnectorCard({ orgSlug, hasOrg }) {
               onFocus={(e) => e.target.select()}
               aria-label="URL do conector"
             />
-            <button className="btn" onClick={handleCopy} style={{ whiteSpace: "nowrap" }}>
+            <button
+              className="btn min-h-[44px] md:min-h-0"
+              onClick={handleCopy}
+              style={{ whiteSpace: "nowrap" }}
+            >
               {copied ? "Copiado!" : "Copiar"}
             </button>
           </div>
@@ -189,7 +199,11 @@ export function AiConnectorCard({ orgSlug, hasOrg }) {
       {uiState === "existing" && (
         <>
           <div className="integration-actions">
-            <button className="btn" onClick={() => setConfirmRegen(true)} disabled={working}>
+            <button
+              className="btn min-h-[44px] md:min-h-0"
+              onClick={() => setConfirmRegen(true)}
+              disabled={working}
+            >
               {working ? "Gerando…" : "Gerar novo token →"}
             </button>
           </div>
@@ -325,9 +339,16 @@ function CopyBlock({ text, label = "Copiar" }) {
       <pre className="text-fg-muted m-0 min-w-0 flex-1 overflow-x-auto font-mono text-xs whitespace-pre">
         {text}
       </pre>
-      <button type="button" className="btn btn-ghost shrink-0" onClick={copy}>
+      <button
+        type="button"
+        className="btn btn-ghost min-h-[44px] shrink-0 md:min-h-0"
+        onClick={copy}
+      >
         {copied ? "Copiado!" : label}
       </button>
+      <span role="status" aria-live="polite" className="sr-only">
+        {copied ? "Copiado!" : ""}
+      </span>
     </div>
   );
 }
