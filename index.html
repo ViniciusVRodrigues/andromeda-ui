@@ -6,14 +6,13 @@
     <title>Andrômeda · SEI Platform</title>
 
     <link rel="icon" type="image/png" href="/assets/icon.png" />
-    <!-- Tema antes da primeira pintura: escolha salva, senão o sistema (mesma regra de src/lib/palette.js) -->
+    <!-- Tema antes da primeira pintura: escolha salva, senão o escuro (mesma regra de src/lib/palette.js) -->
     <script>
       (function () {
         var p = "default";
         try {
           var s = localStorage.getItem("andromeda_palette");
           if (s === "default" || s === "mono" || s === "light") p = s;
-          else if (window.matchMedia("(prefers-color-scheme: light)").matches) p = "light";
         } catch (e) {}
         document.documentElement.setAttribute("data-palette", p);
       })();

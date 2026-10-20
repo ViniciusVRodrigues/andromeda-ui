@@ -376,14 +376,10 @@ test.describe("tema", () => {
     await expect(page.locator("html")).toHaveAttribute("data-palette", "light");
   });
 
-  test("sem escolha salva, segue o sistema", async ({ page }) => {
+  test("sem escolha salva, abre no escuro mesmo com o sistema claro", async ({ page }) => {
     await stubApi(page);
     await page.emulateMedia({ colorScheme: "light" });
     await page.goto("/signup");
-    await expect(page.locator("html")).toHaveAttribute("data-palette", "light");
-
-    await page.emulateMedia({ colorScheme: "dark" });
-    await page.reload();
     await expect(page.locator("html")).toHaveAttribute("data-palette", "default");
   });
 

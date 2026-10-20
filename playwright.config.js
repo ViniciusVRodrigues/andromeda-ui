@@ -25,7 +25,8 @@ export default defineConfig({
     baseURL: BASE_URL,
     viewport: { width: 1440, height: 900 },
     deviceScaleFactor: 1,
-    // as baselines são do tema escuro; o app agora segue o sistema (cadastro-celular D5)
+    // as baselines são do tema escuro (o padrão do app); o sistema escuro mantém
+    // também os controles nativos do Chromium iguais aos das baselines
     colorScheme: "dark",
   },
   projects: [
