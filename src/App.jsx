@@ -87,7 +87,7 @@ function AppShell() {
   const [profile, setProfile] = React.useState(null);
   const [themePickerOpen, setThemePickerOpen] = React.useState(false);
 
-  // paleta: escolha salva > sistema (prefers-color-scheme) > "default"
+  // paleta: escolha salva > "default" (escuro, independente do sistema)
   const TWEAK_DEFAULTS = /*EDITMODE-BEGIN*/ {
     palette: readPalette(),
   }; /*EDITMODE-END*/
