@@ -197,7 +197,7 @@ export function ReposByFailureWidget({ data: repos }) {
       eyebrow="repositórios"
       title="Repositórios por taxa de falha"
       sources={["github"]}
-      info="Taxa de falha de mudança = issues com label bug/hotfix criadas ÷ commits, na janela dos últimos 30 dias (issues 'not planned' e duplicadas não contam). Ordenado da maior para a menor."
+      info="Taxa de falha = issues de bug ou hotfix abertas ÷ commits, nos últimos 30 dias (issues 'not planned' e duplicadas não contam). Do repositório com mais falha para o com menos."
     >
       <DataTable
         rowKey={(r) => r.repo}

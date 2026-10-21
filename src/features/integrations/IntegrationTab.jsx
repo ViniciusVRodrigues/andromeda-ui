@@ -763,7 +763,7 @@ function AzureIntegrationCard({ onStatusChange }) {
         <ConfirmDialog
           open
           onOpenChange={setDisconnectConfirm}
-          eyebrow="desconectar integração"
+          eyebrow="Integração"
           title={
             <>
               Desconectar <span className="ital accent">Azure DevOps</span>?
@@ -825,10 +825,9 @@ function GithubPatSetupForm({ onSuccess, onCancel }) {
           <li>read:user — identificar o dono do token</li>
         </ul>
         <p className="text-fg-muted mt-2 font-mono text-xs">
-          Use um token <strong>clássico</strong> (Generate new token → classic) — os escopos acima
-          são de token clássico. Só leitura: nada é escrito no GitHub. Quando o token expira a
-          conexão passa a <strong>Token expirado</strong> e a sincronização para até você
-          reconectar.
+          Use um token <strong>clássico</strong> (Generate new token → classic). A Andrômeda só lê:
+          nada é escrito no GitHub. Quando o token expira, a conexão fica como{" "}
+          <strong>Token expirado</strong> e a sincronização para até você conectar de novo.
         </p>
         <a
           className="integration-pat-link"
@@ -1110,7 +1109,7 @@ function GithubIntegrationCard({ onStatusChange }) {
         <ConfirmDialog
           open
           onOpenChange={setDisconnectConfirm}
-          eyebrow="desconectar integração"
+          eyebrow="Integração"
           title={
             <>
               Desconectar <span className="ital accent">GitHub</span>?
@@ -1145,8 +1144,10 @@ export function IntegrationTab({
   return (
     <section>
       <div className="admin-section-head">
-        <h2 className="serif admin-section-title">Integrações</h2>
-        <p className="admin-section-sub">Configure as conexões externas da organização.</p>
+        <h1 className="serif admin-section-title">Integrações</h1>
+        <p className="admin-section-sub max-w-[72ch]">
+          Configure as conexões externas da organização.
+        </p>
       </div>
 
       <AzureIntegrationCard onStatusChange={onAzureStatusChange} />

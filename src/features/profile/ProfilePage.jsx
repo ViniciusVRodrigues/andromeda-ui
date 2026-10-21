@@ -7,6 +7,7 @@ import { ConnectedAccounts } from "../integrations/ConnectedAccounts.jsx";
 import { useIdentity } from "../../core/auth/IdentityContext.jsx";
 import { MyPermissions } from "./MyPermissions.jsx";
 import { AiConnectorCard } from "../integrations/AiConnectorCard.jsx";
+import SectionHeader from "../../core/ui/SectionHeader.jsx";
 
 export function ProfilePage() {
   const { profile, hasOrg, orgSlug } = useIdentity();
@@ -15,8 +16,8 @@ export function ProfilePage() {
   return (
     <section>
       <div className="admin-section-head">
-        <h2 className="serif admin-section-title">Perfil</h2>
-        <p className="admin-section-sub">Suas informações de conta.</p>
+        <h1 className="serif admin-section-title">Perfil</h1>
+        <p className="admin-section-sub max-w-[72ch]">Suas informações de conta.</p>
       </div>
       <div className="admin-fields">
         {[
@@ -40,14 +41,11 @@ export function ProfilePage() {
       {/* Token pessoal do conector: ORG_ONLY, checagem por código (hasOrg). */}
       {hasOrg && slug && hasOrg("CONNECTOR_TOKEN_MANAGE_OWN") ? (
         <section aria-labelledby="conector-ia-title">
-          <div className="admin-section-head">
-            <h3 id="conector-ia-title" className="serif admin-section-title">
-              Conector de IA
-            </h3>
-            <p className="admin-section-sub">
-              Seu token pessoal para a extensão AIEF enviar o seu uso de IA ao Andromeda.
-            </p>
-          </div>
+          <SectionHeader
+            id="conector-ia-title"
+            title="Conector de IA"
+            description="O token pessoal que a extensão AIEF usa para enviar o seu uso de IA à Andrômeda."
+          />
           <AiConnectorCard orgSlug={slug} hasOrg={hasOrg} />
         </section>
       ) : null}

@@ -57,7 +57,7 @@ function ClassTag({ cls }) {
   if (!meta) return null;
   return (
     <div
-      className="mt-1 font-mono text-[10px] tracking-[0.18em] uppercase"
+      className="mt-1 font-mono text-[11px] tracking-[0.18em] uppercase"
       style={{ color: meta.color }}
     >
       {meta.label}

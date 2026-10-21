@@ -50,7 +50,7 @@ export function CycleTimeHistoryWidget({ data }) {
       title="Cycle time mediano"
       note={data.note}
       sources={["azure"]}
-      info="Mediana (p50) do tempo entre o início efetivo (1ª transição para Em andamento) e a conclusão dos seus itens concluídos em cada sprint."
+      info="Tempo típico (mediana) entre começar e concluir os seus itens em cada sprint. Começar = a primeira vez que o item foi para Em andamento."
       table={{
         columns: [
           { key: "name", label: "Sprint" },

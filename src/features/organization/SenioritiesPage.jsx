@@ -5,6 +5,7 @@
 import React from "react";
 import { Modal } from "../../core/ui/Modal.jsx";
 import { useOrganization, useSaveSeniorities } from "./hooks.js";
+import SectionHeader from "../../core/ui/SectionHeader.jsx";
 
 export function SenioritiesPage() {
   const { data: orgData, isLoading, error, refetch } = useOrganization();
@@ -67,15 +68,15 @@ export function SenioritiesPage() {
 
   return (
     <>
-      <div className="admin-section-head admin-section-head--row">
-        <div>
-          <h3 className="serif admin-section-title">Senioridade</h3>
-          <p className="admin-section-sub">Defina os níveis de senioridade da organização.</p>
-        </div>
-        <button className="btn" onClick={openCreateSeniority}>
-          + Novo nível
-        </button>
-      </div>
+      <SectionHeader
+        title="Senioridade"
+        description="Os níveis de senioridade que aparecem no perfil de cada pessoa."
+        actions={
+          <button className="btn" onClick={openCreateSeniority}>
+            + Novo nível
+          </button>
+        }
+      />
 
       {isLoading ? (
         <div className="admin-placeholder mono">Carregando…</div>
@@ -103,7 +104,7 @@ export function SenioritiesPage() {
         <Modal
           open
           onOpenChange={(o) => !o && closeSeniority()}
-          eyebrow={editingSeniority.id ? "editar nível" : "novo nível"}
+          eyebrow="Senioridade"
           title={
             editingSeniority.id ? (
               <>

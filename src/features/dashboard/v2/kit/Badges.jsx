@@ -205,7 +205,7 @@ export function Tag({ children, tone = "neutral", title }) {
   return (
     <span
       title={title}
-      className={`mono rounded-full border px-1.5 py-px text-[10px] tracking-[0.06em] whitespace-nowrap uppercase ${cls}`}
+      className={`mono rounded-full border px-1.5 py-px text-[11px] tracking-[0.06em] whitespace-nowrap uppercase ${cls}`}
     >
       {children}
     </span>

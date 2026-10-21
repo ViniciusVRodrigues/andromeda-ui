@@ -15,7 +15,7 @@ export function TokensByDayWidget({ data: byDay }) {
       eyebrow="consumo diário"
       title="Tokens por dia"
       sources={["ia"]}
-      info="Totais diários enviados pelo conector (entrada = prompt + contexto; saída = gerado pelo modelo). O custo de cada dia sai da tabela de preços da organização e aparece no detalhe do dia."
+      info="Tokens que o conector enviou por dia: entrada (prompt e contexto) e saída (o que o modelo gerou). O custo de cada dia aparece no detalhe do dia."
       table={{
         columns: [
           { key: "label", label: "Dia" },
@@ -51,7 +51,7 @@ export function CostByModelWidget({ data: byModel }) {
       eyebrow="modelos"
       title="Custo por modelo"
       sources={["ia", "andromeda"]}
-      info="Custo = tokens de entrada × preço de entrada + tokens de saída × preço de saída, pela tabela de preços da organização. Modelos fora da tabela ficam sem custo."
+      info="Custo de cada modelo pela tabela de preços da organização (entrada e saída por milhão de tokens). Modelo sem preço na tabela aparece sem custo."
     >
       {byModel.length ? (
         <BarList
@@ -118,7 +118,7 @@ export function AllocationWidget({ data, ctx }) {
       eyebrow="alocação"
       title="Uso de IA distribuído nos itens"
       sources={["ia", "azure"]}
-      info="Cada dia de uso é dividido automaticamente entre os seus itens em andamento e fica pendente até você validar. Dias sem item em andamento ficam sem alocação — o custo deles não aparece em nenhum item."
+      info="Cada dia de uso é dividido sozinho entre os seus itens em andamento e espera você validar. Dia sem item em andamento fica sem divisão, e o custo dele não aparece em nenhum item."
       actions={
         ctx?.onReviewAi ? (
           <button
@@ -198,7 +198,7 @@ export function FluencyWidget({ data: fluency }) {
       eyebrow="maturidade"
       title="Fluência em IA"
       sources={["ia"]}
-      info="Score calculado pela extensão do conector e enviado junto com o uso. Só o último envio é guardado — não há histórico."
+      info="Nota calculada pela extensão do conector e enviada junto com o uso. Só a última nota fica guardada; não há histórico."
     >
       {fluency ? (
         <div>

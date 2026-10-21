@@ -32,7 +32,7 @@ export function CoverageWidget({ data }) {
       eyebrow="cobertura"
       title="O que está vinculado e o que fica de fora"
       sources={["azure", "github", "ia", "andromeda"]}
-      info="Métricas de pessoa e de custo só existem quando as identidades estão vinculadas, os itens estimados e os PRs citam o work item. Coberturas baixas fazem os números acima ficarem subestimados."
+      info="Métricas de pessoa e de custo dependem de contas ligadas, itens estimados e PRs que citam o work item. Cobertura baixa = números acima menores do que a realidade."
     >
       <div className="grid gap-x-10 md:grid-cols-2">
         <CoverageRow

@@ -84,7 +84,7 @@ export function LeadCycleWidget({ data }) {
       eyebrow={`tempo de fluxo por ${per}`}
       title="Lead time e cycle time"
       sources={["azure"]}
-      info="Lead time = criação → conclusão (inclui a espera no backlog). Cycle time = início efetivo → conclusão. Distância grande entre as linhas = trabalho esperando antes de começar."
+      info="Lead time = da criação até a conclusão (inclui a espera no backlog). Cycle time = do início até a conclusão. Linhas muito afastadas = trabalho esperando para começar."
       table={{
         columns: [
           { key: "label", label: per },

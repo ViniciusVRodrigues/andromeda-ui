@@ -9,6 +9,7 @@ import { useProjects } from "../projects/hooks.js";
 import { useRoles } from "../organization/hooks.js";
 import { EffectivePermissions } from "../users/permissions/EffectivePermissions.jsx";
 import { originOf } from "../users/permissions/resolve.js";
+import SectionHeader from "../../core/ui/SectionHeader.jsx";
 
 export function MyPermissions() {
   const { identity } = useIdentity();
@@ -48,19 +49,20 @@ export function MyPermissions() {
       className="border-line mt-8 mb-10 border-t pt-6"
       aria-labelledby="my-permissions-title"
     >
-      <h3 id="my-permissions-title" className="m-0 mb-1 font-serif text-2xl">
-        Minhas permissões
-      </h3>
-      <p className="text-fg-muted mt-0 mb-4 max-w-2xl">
-        {roleLabel ? (
-          <>
-            Cargo <strong>{roleLabel}</strong>, mais os ajustes individuais feitos por quem gerencia
-            pessoas. Somente leitura.
-          </>
-        ) : (
-          "O que você pode ver e fazer na Andrômeda. Somente leitura."
-        )}
-      </p>
+      <SectionHeader
+        id="my-permissions-title"
+        title="Minhas permissões"
+        description={
+          roleLabel ? (
+            <>
+              O que você pode ver e fazer: o padrão do cargo <strong>{roleLabel}</strong> mais os
+              ajustes feitos por quem gerencia pessoas. Só leitura.
+            </>
+          ) : (
+            "O que você pode ver e fazer na Andrômeda. Só leitura."
+          )
+        }
+      />
       {query.isPending ? (
         <p role="status" className="text-fg-muted font-mono">
           Carregando permissões…

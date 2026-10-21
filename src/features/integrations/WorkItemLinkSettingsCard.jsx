@@ -104,9 +104,9 @@ export function WorkItemLinkSettingsCard() {
       </div>
 
       <p className="integration-desc">
-        Vale para todos os repositórios, de qualquer provedor. Quando o provedor não traz o vínculo
-        nativo, o Andromeda procura uma referência com estes prefixos no branch, depois na descrição
-        e por fim no título do pull request — por exemplo <span className="mono">AB#123</span>.
+        Liga cada pull request ao work item que ele cita. Quando o provedor não faz isso sozinho, a
+        Andrômeda procura estes prefixos na branch, na descrição e no título do PR, nessa ordem (por
+        exemplo, <span className="mono">AB#123</span>). Vale para todos os repositórios.
       </p>
 
       {settingsQuery.isPending ? (

@@ -134,7 +134,7 @@ export function AiConnectorCard({ orgSlug, hasOrg }) {
 
       {/* ── Description ── */}
       <p className="integration-desc">
-        Gere uma URL para conectar a extensão AI Engineering Fluency (AIEF) ao Andromeda e registrar
+        Gere uma URL para conectar a extensão AI Engineering Fluency (AIEF) à Andrômeda e registrar
         métricas de uso de IA. Funciona no VS Code e em qualquer fork Chromium dele (Cursor,
         Windsurf, Trae, Kiro, Void).
       </p>
@@ -225,7 +225,7 @@ export function AiConnectorCard({ orgSlug, hasOrg }) {
         <ConfirmDialog
           open
           onOpenChange={setConfirmRegen}
-          eyebrow="regenerar token"
+          eyebrow="Conector de IA"
           title={
             <>
               Gerar um <span className="ital accent">novo token</span>?
@@ -415,7 +415,7 @@ function AiConnectorTutorial({ connectorUrl, healthUrl }) {
             <strong>pula o envio em silêncio</strong>, mesmo com tudo mais configurado.
           </p>
           <p className="integration-tutorial-step-desc">
-            O Andromeda não usa essa sessão para autenticar — quem identifica você é o token
+            A Andrômeda não usa essa sessão para autenticar — quem identifica você é o token
             embutido na URL. Ela só libera o envio na extensão.
           </p>
         </TutorialStep>
@@ -428,10 +428,9 @@ function AiConnectorTutorial({ connectorUrl, healthUrl }) {
           </p>
           <CopyBlock text={settingsSnippet} label="Copiar JSON" />
           <p className="text-warn mt-1 font-mono text-xs">
-            <code>backend.enabled</code> é obrigatório apesar do nome: é o switch global de envio da
-            extensão (herança do backend Azure Storage). Sem ele o perfil é inferido como{" "}
-            <code>off</code> e nada sai da máquina. O Andromeda não usa Azure Storage — nenhum dado
-            vai para a nuvem da Microsoft.
+            <code>backend.enabled</code> precisa estar ligado, apesar do nome: é a chave geral de
+            envio da extensão. Sem ela, nada sai da máquina. A Andrômeda não usa Azure Storage;
+            nenhum dado vai para a nuvem da Microsoft.
           </p>
         </TutorialStep>
 
@@ -485,11 +484,10 @@ function AiConnectorTutorial({ connectorUrl, healthUrl }) {
           Engineering Fluency”.
         </p>
         <p className="integration-tutorial-step-desc">
-          <strong>Sem suporte para o Andromeda:</strong> JetBrains (IntelliJ, Rider, PyCharm,
-          WebStorm…) e Visual Studio 2022 têm plugin próprio da AIEF, mas sem envio a um sharing
-          server documentado. O CLI (<code>npx @rajbos/ai-engineering-fluency</code>) só analisa
-          dados locais e não faz upload. Nesses ambientes, mantenha um editor da lista acima aberto
-          para a coleta acontecer.
+          <strong>Sem envio para a Andrômeda:</strong> JetBrains (IntelliJ, Rider, PyCharm,
+          WebStorm…) e Visual Studio 2022 têm plugin da AIEF, mas ele não envia para um servidor
+          externo, e o CLI (<code>npx @rajbos/ai-engineering-fluency</code>) só analisa dados
+          locais. Nesses casos, deixe um dos editores acima aberto para a coleta acontecer.
         </p>
       </TutorialDisclosure>
 
@@ -515,16 +513,14 @@ function AiConnectorTutorial({ connectorUrl, healthUrl }) {
           </li>
         </ul>
         <p className="integration-tutorial-step-desc">
-          Regras que costumam confundir: o fechamento é <strong>por dia (UTC)</strong>, então o dia
-          corrente só completa depois; e forks que não incluem o provedor de autenticação GitHub da
-          Microsoft (caso do VSCodium puro) não conseguem o token do passo 2 — use VS Code, Cursor
-          ou Windsurf.
+          Duas pegadinhas: o dia fecha em <strong>UTC</strong>, então o dia de hoje só aparece
+          completo depois; e forks sem o login do GitHub da Microsoft (como o VSCodium) não
+          conseguem o token do passo 2. Use VS Code, Cursor ou Windsurf.
         </p>
         <p className="integration-tutorial-step-desc">
-          Com <code>sharingProfile: teamAnonymized</code> o Andromeda recebe workspace e máquina
-          hasheados e sem nome. Para guardar os nomes, use <code>teamPseudonymous</code> junto de{" "}
-          <code>shareWorkspaceMachineNames: true</code> — só faça isso se a organização aceitar
-          receber nomes de máquina e de pasta de trabalho.
+          Com <code>sharingProfile: teamAnonymized</code>, a Andrômeda recebe workspace e máquina
+          sem nome (só um hash). Para receber os nomes, use <code>teamPseudonymous</code> com{" "}
+          <code>shareWorkspaceMachineNames: true</code>, e só se a organização aceitar esses dados.
         </p>
       </TutorialDisclosure>
     </div>

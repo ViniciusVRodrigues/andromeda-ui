@@ -208,8 +208,8 @@ export function TeamPage() {
     <section>
       <div className="admin-section-head admin-section-head--row">
         <div>
-          <h2 className="serif admin-section-title">Pessoas</h2>
-          <p className="admin-section-sub">
+          <h1 className="serif admin-section-title">Pessoas</h1>
+          <p className="admin-section-sub max-w-[72ch]">
             {membersLoading
               ? "Carregando…"
               : `${members.length} ${members.length === 1 ? "pessoa na organização" : "pessoas na organização"}.`}
@@ -306,7 +306,7 @@ export function TeamPage() {
         <Modal
           open
           onOpenChange={(o) => !o && closeInvite()}
-          eyebrow="novo convite"
+          eyebrow="Convite"
           title={
             <>
               Convidar <span className="ital accent">pessoa</span>
@@ -403,12 +403,12 @@ export function TeamPage() {
               onOpenChange={(o) => !o && closeMemberEdit()}
               eyebrow={
                 <>
-                  editar membro ·{" "}
+                  Pessoa ·{" "}
                   {editingMember.name == null
                     ? "convite pendente"
                     : editingMember.active === false
-                      ? "desativado"
-                      : "ativo"}
+                      ? "desativada"
+                      : "ativa"}
                 </>
               }
               title={

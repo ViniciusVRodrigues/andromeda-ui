@@ -50,7 +50,7 @@ export function PredictabilityWidget({ data }) {
       title="Previsibilidade"
       note={data.partialNote}
       sources={["azure"]}
-      info="SP entregue ÷ SP comprometido em cada sprint. A linha tracejada marca 80%, referência comum de previsibilidade."
+      info="Quanto do esforço comprometido em cada sprint foi entregue. A linha tracejada marca 80%, uma referência comum de time previsível."
       table={{
         columns: [
           { key: "name", label: "Sprint" },

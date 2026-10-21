@@ -97,8 +97,14 @@ export function MetricsHeader({ summary, loading, month, onMonthChange }) {
           ))
         ) : (
           <>
-            <StatCard label="Total de Tokens" value={fmtTokensM(totalTokens)} unit="tokens" />
-            <StatCard label="Custo estimado" value={`$${Number(totalCost).toFixed(2)}`} />
+            <StatCard label="Total de tokens" value={fmtTokensM(totalTokens)} unit="tokens" />
+            <StatCard
+              label="Custo estimado"
+              value={Number(totalCost).toLocaleString("pt-BR", {
+                style: "currency",
+                currency: "USD",
+              })}
+            />
             <StatCard
               label="Interações"
               value={totalInteractions.toLocaleString("pt-BR")}

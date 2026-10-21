@@ -2,6 +2,7 @@ import React from "react";
 import { getMyProviderAccounts, unlinkProviderAccount } from "../users/api.js";
 import { useOAuth } from "../../hooks/useOAuth.js";
 import { ConfirmDialog } from "../../core/ui/Modal.jsx";
+import SectionHeader from "../../core/ui/SectionHeader.jsx";
 
 /**
  * "Contas conectadas" block for the Perfil page.
@@ -81,10 +82,10 @@ export function ConnectedAccounts() {
 
   return (
     <section>
-      <div className="admin-section-head">
-        <h2 className="serif admin-section-title">Contas conectadas</h2>
-        <p className="admin-section-sub">Provedores externos vinculados à sua conta pessoal.</p>
-      </div>
+      <SectionHeader
+        title="Contas conectadas"
+        description="Suas contas em outros serviços. Com o GitHub conectado, seus commits e pull requests aparecem com o seu nome nos dashboards."
+      />
 
       {loading && <p className="mono admin-section-sub">Carregando…</p>}
       {error && <p className="mono admin-section-sub">{error}</p>}
@@ -130,7 +131,7 @@ export function ConnectedAccounts() {
         <ConfirmDialog
           open
           onOpenChange={setConfirmingUnlink}
-          eyebrow="desconectar github"
+          eyebrow="GitHub"
           title={
             <>
               Desconectar <span className="ital accent">GitHub</span>?

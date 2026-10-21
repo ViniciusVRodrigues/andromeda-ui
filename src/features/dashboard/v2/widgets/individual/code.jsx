@@ -47,7 +47,7 @@ export function PullRequestsWidget({ data }) {
       eyebrow="pull requests"
       title="Meus PRs na sprint"
       sources={["github", "azure"]}
-      info="PRs que você abriu ou fechou durante a sprint, mais os ainda abertos. Parado = aberto há mais de 24 h sem nenhuma review. 1ª review = tempo entre abrir o PR e a primeira review (qualquer resultado). Work item = referência AB# encontrada na branch, descrição ou título."
+      info="PRs que você abriu ou fechou na sprint, mais os ainda abertos. Parado = aberto há mais de 24 h sem review. 1ª review = tempo até a primeira review. Work item = o AB# citado na branch, no título ou na descrição."
     >
       {!data.linked ? (
         <Empty>{NOT_LINKED}</Empty>

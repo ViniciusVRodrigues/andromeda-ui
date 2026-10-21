@@ -278,8 +278,8 @@ export function ProjectsPage() {
     <section className="projects-section">
       <div className="admin-section-head admin-section-head--row">
         <div>
-          <h2 className="serif admin-section-title">Projetos</h2>
-          <p className="admin-section-sub">
+          <h1 className="serif admin-section-title">Projetos</h1>
+          <p className="admin-section-sub max-w-[72ch]">
             Gerencie as pessoas, descrição e integrações de cada projeto da organização.
           </p>
         </div>
@@ -468,8 +468,8 @@ export function ProjectsPage() {
             <div className="project-detail-content">
               <div className="project-detail-head">
                 <div className="project-head-top">
-                  <div className="admin-eyebrow mono">
-                    {editingProject.id ? "gerenciar projeto" : "novo projeto"}
+                  <div className="admin-eyebrow mono uppercase">
+                    {editingProject.id ? "Projeto" : "Novo projeto"}
                   </div>
                   {editingProject.id && canManageProjects && (
                     <div
@@ -771,7 +771,7 @@ export function ProjectsPage() {
           stacked
           size="confirm"
           onOpenChange={(o) => !o && setProjectAction(null)}
-          eyebrow="finalizar projeto"
+          eyebrow="Projeto"
           title={
             <>
               Finalizar <span className="ital accent">{editingProject.name || "projeto"}</span>?
@@ -803,7 +803,7 @@ export function ProjectsPage() {
           stacked
           size="confirm"
           onOpenChange={(o) => !o && setProjectAction(null)}
-          eyebrow="excluir projeto"
+          eyebrow="Projeto"
           title={
             <>
               Excluir <span className="ital accent">{editingProject.name || "projeto"}</span>?

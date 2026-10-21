@@ -771,7 +771,7 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
     <Modal
       open
       onOpenChange={(o) => !o && handleClose()}
-      eyebrow="onboarding azure devops"
+      eyebrow="Azure DevOps"
       title={
         <>
           Personalize a <span className="ital accent">integração</span>

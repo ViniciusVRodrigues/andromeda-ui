@@ -114,8 +114,8 @@ test("AI table filters, nested work item edit and allocation refresh", async ({ 
   await page.getByRole("button", { name: "Alocar consumo", exact: true }).click();
   /* modal de alocação: total do dia em milhões de tokens (o baseline dele vinha do
    * dashboard antigo; o modal vive no Uso de IA desde a troca dos dashboards) */
-  const allocation = page.getByRole("dialog").filter({ hasText: "Distribua os" });
-  await expect(allocation).toContainText("Distribua os 0,012M tokens deste dia");
+  const allocation = page.getByRole("dialog").filter({ hasText: "Divida os" });
+  await expect(allocation).toContainText("Divida os 0,012M tokens deste dia");
   await expect(allocation).toHaveScreenshot("allocation-modal.png");
   await page.getByRole("button", { name: "Confirmar alocação →" }).click();
   await expect(page.getByRole("dialog")).toContainText("Work items alocados");

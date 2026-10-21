@@ -6,6 +6,7 @@
 import React from "react";
 import { Routes, Route, useLocation, useNavigate } from "react-router-dom";
 import { SubTabs } from "../../components/SubTabs.jsx";
+import PageHeader from "../../core/ui/PageHeader.jsx";
 import { useIdentity } from "../../core/auth/IdentityContext.jsx";
 import { orgRoute } from "../../lib/orgRoutes.js";
 import { useOrganization } from "../organization/hooks.js";
@@ -29,6 +30,10 @@ export function UsoIaLayout() {
 
   return (
     <section>
+      <PageHeader
+        title="Uso de IA"
+        subtitle="Quanto de IA foi usado por dia, em quais work items e quanto isso custou."
+      />
       {can("uso-ia-pricing") && (
         <SubTabs
           tabs={USO_IA_SUB_TABS}

@@ -99,7 +99,7 @@ export function UserPermissionsModal({ member, onClose }) {
       open
       size="wide"
       onOpenChange={(o) => !o && onClose()}
-      eyebrow="permissões individuais"
+      eyebrow="Permissões individuais"
       title={
         <>
           Permissões de <span className="ital accent">{member.name || member.email}</span>

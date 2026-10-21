@@ -30,8 +30,8 @@ export function OrganizationLayout() {
   return (
     <section>
       <div className="admin-section-head">
-        <h2 className="serif admin-section-title">Organização</h2>
-        <p className="admin-section-sub">
+        <h1 className="serif admin-section-title">Organização</h1>
+        <p className="admin-section-sub max-w-[72ch]">
           Identidade visível para todos os membros, cargos e níveis de senioridade.
         </p>
       </div>

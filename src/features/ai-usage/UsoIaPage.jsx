@@ -93,16 +93,7 @@ export function UsoIaPage({ can }) {
     }
   }
   return (
-    <div className="dash-wrap space-y-6">
-      <header>
-        <p className="text-fg-muted font-mono text-sm">consumo individual</p>
-        <h1 className="text-fg font-serif text-4xl">
-          Uso de <span className="text-accent italic">IA</span>
-        </h1>
-        <p className="text-fg-muted mt-2">
-          Explore o consumo diário e entenda em quais work items ele foi utilizado.
-        </p>
-      </header>
+    <div className="space-y-6">
       {can("uso-ia-team") && (
         <div className="max-w-sm">
           <Combobox

@@ -49,6 +49,18 @@
 
   --font-serif: "DM Serif Display", "Times New Roman", serif;
   --font-mono: "JetBrains Mono", "IBM Plex Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+
+  /* Escala de texto em px: o html tem 13 px (--mono-base), então a escala padrão do
+   * Tailwind (em rem) encolhia tudo — text-xs dava 9,75 px e text-sm 11,4 px. Piso de
+   * 11 px para rótulos; 13 px é o corpo; 32 px é o título de página (h1). */
+  --text-xs: 11px;
+  --text-sm: 12px;
+  --text-base: 13px;
+  --text-lg: 15px;
+  --text-xl: 18px;
+  --text-2xl: 22px;
+  --text-3xl: 26px;
+  --text-4xl: 32px;
 }
 
 /* Borda do combobox no dashboard v2 ≥ 3:1 (D8): `--fg-muted`, como as outras bordas de

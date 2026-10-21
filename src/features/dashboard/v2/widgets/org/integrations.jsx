@@ -76,7 +76,7 @@ export function SyncRunsWidget({ data }) {
       eyebrow="sincronização · 14 dias"
       title="Execuções de sync por resultado"
       sources={["azure", "github"]}
-      info="Execuções agendadas (a cada 30 min), manuais e por webhook de Azure DevOps e GitHub, por resultado. Parcial = parte dos itens falhou."
+      info="Quantas sincronizações com o Azure DevOps e o GitHub deram certo, falharam ou ficaram parciais (parte dos itens falhou). Conta as agendadas, as manuais e as por webhook."
       table={{
         columns: [
           { key: "label", label: "Dia" },
@@ -109,7 +109,7 @@ export function CoverageWidget({ data }) {
       eyebrow="cobertura"
       title="Completude dos dados"
       sources={["azure", "github", "ia", "andromeda"]}
-      info="Sem vínculo de identidade, o trabalho da pessoa não é atribuído; sem estimativa, o item fica fora da velocity; sem AB# no PR, código e entrega não se ligam; sem alocação, o custo de IA não chega aos projetos."
+      info="O que falta ligar para os números ficarem completos: pessoa sem conta ligada não tem trabalho atribuído; item sem estimativa fica fora da velocity; PR sem AB# não se liga à entrega; uso sem divisão não chega aos projetos."
     >
       <CoverageRow label="Pessoas com Azure DevOps vinculado" pct={c.azureLinkedPct} />
       <CoverageRow label="Pessoas com GitHub vinculado" pct={c.githubLinkedPct} />
@@ -128,7 +128,7 @@ export function SourcesWidget({ data }) {
       eyebrow="vínculos"
       title="Projetos e fontes sincronizadas"
       sources={["azure", "github", "andromeda"]}
-      info="Projeto do Azure DevOps e repositórios do GitHub vinculados a cada projeto do Andrômeda, com o último sync. Repositório com sync desligado não atualiza commits nem PRs."
+      info="O projeto do Azure DevOps e os repositórios ligados a cada projeto da Andrômeda, com o último sync. Repositório com sync desligado não recebe commits nem PRs novos."
     >
       <DataTable
         rowKey={(r) => r.name}

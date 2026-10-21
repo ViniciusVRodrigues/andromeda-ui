@@ -152,7 +152,7 @@ export function ReopenedWidget({ data }) {
       eyebrow={`reabertura por ${per}`}
       title="Itens reabertos"
       sources={["azure"]}
-      info="Dos itens concluídos em cada intervalo, quantos depois voltaram para Em andamento (histórico de estados do Azure). Mudanças entre dois syncs não aparecem."
+      info="Dos itens concluídos em cada intervalo, quantos voltaram depois para Em andamento. Vem do histórico do Azure; idas e voltas entre dois syncs não aparecem."
       table={{
         columns: [
           { key: "label", label: per },
