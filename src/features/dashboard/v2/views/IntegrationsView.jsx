@@ -147,7 +147,7 @@ export function IntegrationsView() {
           eyebrow="identidades"
           title="Vínculos de cada pessoa"
           sources={["azure", "github", "ia", "andromeda"]}
-          info="Sem Azure vinculado, os work items da pessoa só são atribuídos pelo e-mail; sem GitHub, commits, PRs e reviews dela ficam sem dono; sem conector, o uso de IA dela não aparece. Escopo read:org é necessário para ler repositórios da organização."
+          info="Quais contas de cada pessoa estão ligadas. Sem Azure, os itens dela só são encontrados pelo e-mail; sem GitHub, commits, PRs e reviews ficam sem dono; sem conector, o uso de IA não aparece."
         >
           <DataTable
             rowKey={(r) => r.userId}
@@ -231,7 +231,7 @@ export function IntegrationsView() {
             eyebrow="vinculados"
             title="Repositórios e vínculos"
             sources={["github", "andromeda"]}
-            info="Repositórios vinculados a projetos e a situação do sync de cada um. Os que o token enxerga, mas ninguém vinculou, aparecem na tela Repositórios (consulta ao vivo)."
+            info="Repositórios ligados a projetos e como está o sync de cada um. Os que o token enxerga, mas ninguém ligou a um projeto, aparecem na tela Repositórios."
           >
             <DataTable
               rowKey={(r) => r.repositoryId ?? r.repo}
@@ -266,7 +266,7 @@ export function IntegrationsView() {
             eyebrow="últimos 30 dias"
             title="Commits sem usuário vinculado"
             sources={["github"]}
-            info="Commits cujo autor não tem conta vinculada a um usuário do Andrômeda, pelo login no provedor: pessoas sem vínculo e bots. Eles contam nas métricas do repositório, mas não nas de nenhuma pessoa. Login desconhecido = commit sem conta no provedor."
+            info="Commits cujo autor não está ligado a ninguém da Andrômeda (pessoas sem a conta conectada e bots), agrupados pelo login. Contam nas métricas do repositório, mas não nas de nenhuma pessoa."
           >
             <div className="mb-3 flex items-baseline gap-2">
               <span className="serif text-fg text-[30px] leading-none">

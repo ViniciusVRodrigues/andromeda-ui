@@ -94,7 +94,7 @@ export function ReposWidget({ data: repos }) {
       eyebrow="repositórios"
       title="Saúde dos repositórios"
       sources={["github"]}
-      info="Por repositório vinculado ao projeto: PRs abertos e parados agora; mergeados, cycle time de PR (abertura → merge) e tempo até a 1ª review dentro da sprint; commits no período."
+      info="Por repositório do projeto: PRs abertos e parados agora; PRs mergeados, tempo até o merge e até a 1ª review nesta sprint; commits no período."
     >
       <DataTable
         rowKey={(r) => r.repo}
@@ -164,7 +164,7 @@ export function OpenPrsWidget({ data: q }) {
       eyebrow="pull requests abertos"
       title="Rascunhos, destino e labels"
       sources={["github"]}
-      info="PRs abertos agora no projeto: rascunhos ainda não estão prontos para review e a branch de destino mostra PRs fora do fluxo principal (develop, release). Labels contam os PRs criados na sprint."
+      info="PRs abertos agora no projeto. Rascunhos ainda não pedem review; a branch de destino mostra PRs fora do fluxo principal (develop, release). As labels contam os PRs criados na sprint."
     >
       {q.open == null ? (
         <p className="text-fg-muted m-0 text-[13px] font-normal">

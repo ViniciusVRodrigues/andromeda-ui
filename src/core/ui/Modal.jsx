@@ -15,7 +15,9 @@ import "./ui.css";
  * @param {import("react").ReactNode} [props.subtitle]
  * @param {"default"|"wide"|"confirm"} [props.size]
  * @param {boolean} [props.stacked]  modal sobre outro modal (z-index +10)
- * @param {boolean} [props.showClose]  botão "fechar" no cabeçalho (wizard)
+ * @param {boolean} [props.showClose]  botão × no canto (padrão: sim, em todo modal). Vem
+ *   depois do conteúdo no DOM para o foco inicial cair no primeiro campo, não nele.
+ * @param {string} [props.closeLabel]  quando presente, o × se anuncia "Fechar sem salvar"
  * @param {boolean} [props.closeOnBackdrop]  padrão fecha no fundo; formulários
  *   de edição devem passar false para não perder edição em curso
  * @param {string} [props.className]  classe extra na caixa (pele específica da tela)
@@ -29,7 +31,7 @@ export function Modal({
   subtitle,
   size = "default",
   stacked = false,
-  showClose = false,
+  showClose = true,
   closeLabel,
   closeDisabled = false,
   closeOnBackdrop = true,
@@ -68,7 +70,7 @@ export function Modal({
         >
           <div className="ui-modal-head">
             <div>
-              {eyebrow ? <div className="admin-eyebrow mono">{eyebrow}</div> : null}
+              {eyebrow ? <div className="admin-eyebrow mono uppercase">{eyebrow}</div> : null}
               <Dialog.Title asChild>
                 <h3 className="serif ui-modal-title">{title}</h3>
               </Dialog.Title>
@@ -78,20 +80,21 @@ export function Modal({
                 </Dialog.Description>
               ) : null}
             </div>
-            {showClose ? (
-              <Dialog.Close
-                className="btn-ghost btn ui-modal-close mono"
-                disabled={closeDisabled}
-                aria-label={closeLabel ? "Fechar sem salvar" : "Fechar"}
-              >
-                {closeLabel || "fechar"}
-              </Dialog.Close>
-            ) : null}
           </div>
 
           <div className="ui-modal-body">{children}</div>
 
           {footer ? <div className="ui-modal-foot">{footer}</div> : null}
+
+          {showClose ? (
+            <Dialog.Close
+              className="ui-modal-x"
+              disabled={closeDisabled}
+              aria-label={closeLabel ? "Fechar sem salvar" : "Fechar"}
+            >
+              <span aria-hidden="true">×</span>
+            </Dialog.Close>
+          ) : null}
         </Dialog.Content>
       </Dialog.Portal>
     </Dialog.Root>
@@ -105,7 +108,7 @@ export function Modal({
 export function ConfirmDialog({
   open,
   onOpenChange,
-  eyebrow = "confirmar",
+  eyebrow = "Confirmar",
   title,
   message,
   confirmLabel = "Confirmar",

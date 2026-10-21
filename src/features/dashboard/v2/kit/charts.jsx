@@ -165,7 +165,7 @@ export function ColumnChart({
                 value: reference.label,
                 position: "insideTopRight",
                 fill: "var(--fg-muted)",
-                fontSize: 10,
+                fontSize: 11,
               }}
             />
           ) : null}
@@ -269,7 +269,7 @@ export function TrendChart({
                 value: reference.label,
                 position: "insideTopRight",
                 fill: "var(--fg-muted)",
-                fontSize: 10,
+                fontSize: 11,
               }}
             />
           ) : null}
@@ -281,7 +281,7 @@ export function TrendChart({
                 value: reference.label,
                 position: "insideTopLeft",
                 fill: "var(--fg-muted)",
-                fontSize: 10,
+                fontSize: 11,
               }}
             />
           ) : null}

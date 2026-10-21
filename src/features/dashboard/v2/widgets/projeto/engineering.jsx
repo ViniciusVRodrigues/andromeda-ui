@@ -86,7 +86,7 @@ export function ReposWidget({ data }) {
       eyebrow="repositórios"
       title="Saúde por repositório"
       sources={["github"]}
-      info="Commits, PRs mergeados, cycle time de PR e tempo até a 1ª review no período; PRs abertos/parados agora; taxa de falha na janela de 30 dias; situação do sync."
+      info="Por repositório: commits, PRs mergeados, tempo até o merge e até a 1ª review no período; PRs abertos e parados agora; taxa de falha nos últimos 30 dias; situação do sync."
     >
       <DataTable
         rowKey={(r) => r.repo}

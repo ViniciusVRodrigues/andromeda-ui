@@ -22,7 +22,7 @@ export function BurndownWidget({ data }) {
       eyebrow="execução"
       title="Burndown pessoal"
       sources={["azure"]}
-      info="Por dia útil, a soma do esforço (SP) dos seus itens da sprint que ainda não foram concluídos, comparada à linha ideal. Usa o escopo atual da sprint: itens que entraram ou saíram no meio não são registrados."
+      info="Quanto esforço (SP) dos seus itens ainda falta concluir em cada dia útil, frente ao ritmo ideal. Itens que entraram ou saíram no meio da sprint não aparecem como mudança."
       table={{
         columns: [
           { key: "label", label: "Dia" },

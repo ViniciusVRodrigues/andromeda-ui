@@ -207,16 +207,12 @@ export function AllocationModal({
     <Modal
       open
       onOpenChange={(o) => !o && onClose()}
-      eyebrow="alocar uso de IA"
-      title={
-        <>
-          Alocação · <span className="ital accent">{batch.day}</span>
-        </>
-      }
+      eyebrow="Uso de IA"
+      title={<>Alocação de {String(batch.day).split("-").reverse().join("/")}</>}
       subtitle={
         dayTokens > 0
-          ? `Distribua os ${fmtTokensM(dayTokens)} tokens deste dia entre os work items do sprint`
-          : "Distribua os tokens deste dia entre os work items do sprint"
+          ? `Divida os ${fmtTokensM(dayTokens)} tokens deste dia entre os work items da sprint.`
+          : "Divida os tokens deste dia entre os work items da sprint."
       }
       footer={
         <>

@@ -160,7 +160,7 @@ export function PortfolioWidget({ data: portfolio, ctx }) {
       eyebrow="comparação"
       title="Projetos lado a lado"
       sources={["azure", "github", "ia"]}
-      info="Sprint atual: SP entregue ÷ comprometido (a marca mostra quanto da sprint já passou). Demais colunas no período selecionado. Saúde: Atenção com 1 alerta, Em risco com 2 ou mais — previsibilidade da última sprint abaixo de 70%, sprint atual mais de 25 p.p. atrás do tempo corrido, 3+ PRs parados ou taxa de falha acima de 15%. Clique em um projeto para abrir a visão dele."
+      info="Sprint atual: SP entregues ÷ comprometidos; a marca mostra quanto do tempo já passou. As outras colunas usam o período escolhido. Saúde: Atenção com 1 alerta, Em risco com 2 ou mais. Alertas: previsibilidade abaixo de 70%, sprint 25 p.p. atrás do tempo, 3+ PRs parados ou taxa de falha acima de 15%. Clique num projeto para abrir a visão dele."
     >
       <DataTable
         rowKey={(r) => r.projectId}

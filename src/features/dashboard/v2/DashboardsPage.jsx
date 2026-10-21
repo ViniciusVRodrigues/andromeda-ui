@@ -228,7 +228,7 @@ export function DashboardsPage({ onLogout, onNavigate }) {
       <div data-dashboard-v2="" className={bare ? "mx-auto max-w-[1480px] px-6 py-6 md:px-9" : ""}>
         <header className="mb-5">
           <div className="flex flex-wrap items-center gap-3">
-            <h1 className="serif text-fg m-0 text-[34px] leading-tight">Dashboard</h1>
+            <h1 className="serif text-fg m-0 text-[32px] leading-tight">Dashboard</h1>
             {scope ? <CustomizeButton /> : null}
             <div className="ml-auto flex flex-wrap items-center gap-2">
               {onLogout ? (

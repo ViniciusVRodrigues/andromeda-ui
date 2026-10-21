@@ -158,7 +158,7 @@
   color: var(--fg);
 }
 .brand-tag {
-  font-size: 10px;
+  font-size: 11px;
   color: var(--fg-dim);
   letter-spacing: 0.22em;
   text-transform: uppercase;
@@ -305,7 +305,7 @@
 /* botão compacto: ações secundárias dentro de cards/linhas, onde o padding
  * padrão do .btn domina o bloco */
 .btn-xs {
-  font-size: 9px;
+  font-size: 11px;
   letter-spacing: 0.16em;
   padding: 7px 12px;
 }
@@ -338,7 +338,7 @@
 }
 
 .label {
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.22em;
   text-transform: uppercase;
   color: var(--fg-dim);
@@ -446,7 +446,7 @@
 }
 .field label {
   display: block;
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.22em;
   text-transform: uppercase;
   color: var(--fg-dim);
@@ -504,7 +504,7 @@
   align-items: center;
   gap: 12px;
   margin: 18px 0;
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.22em;
   text-transform: uppercase;
   color: var(--fg-dim);
@@ -551,7 +551,7 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.22em;
   text-transform: uppercase;
   color: var(--fg-dim);
@@ -632,7 +632,7 @@
   gap: 5px;
   padding: 3px 10px;
   border-radius: 20px;
-  font-size: 0.72rem;
+  font-size: 11px;
   font-family: var(--mono, monospace);
   letter-spacing: 0.04em;
   border: 1px solid transparent;
@@ -665,7 +665,7 @@
   align-items: center;
   padding: 3px 8px;
   border-radius: 20px;
-  font-size: 0.68rem;
+  font-size: 11px;
   font-family: var(--mono, monospace);
   letter-spacing: 0.06em;
   color: var(--fg-muted);
@@ -685,30 +685,30 @@
   display: flex;
   align-items: center;
   gap: 10px;
-  font-size: 0.8rem;
+  font-size: 12px;
   font-family: var(--mono, monospace);
   color: var(--fg-muted);
 }
 .integration-meta-row .meta-label {
   color: var(--fg-dim, var(--fg-muted));
-  font-size: 0.72rem;
+  font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   min-width: 120px;
 }
 .integration-desc {
-  font-size: 0.85rem;
+  font-size: 13px;
   color: var(--fg-muted);
   margin-bottom: var(--spacing-md, 16px);
   line-height: 1.5;
 }
 .integration-loading {
-  font-size: 0.82rem;
+  font-size: 12px;
   color: var(--fg-muted);
   margin-bottom: var(--spacing-sm, 8px);
 }
 .integration-error {
-  font-size: 0.82rem;
+  font-size: 12px;
   color: var(--bad, #eb5757);
   margin-bottom: var(--spacing-sm, 8px);
 }
@@ -737,7 +737,7 @@
   padding: 10px 14px;
   border-radius: 8px;
   margin-bottom: var(--spacing-md, 16px);
-  font-size: 0.8rem;
+  font-size: 12px;
   font-family: var(--mono, monospace);
 }
 .integration-alert.is-expired,
@@ -769,20 +769,20 @@
   padding: 12px 14px;
 }
 .integration-pat-scopes-title {
-  font-size: 0.72rem;
+  font-size: 11px;
   color: var(--fg-muted);
   text-transform: uppercase;
   letter-spacing: 0.08em;
   margin-bottom: 6px;
 }
 .integration-pat-scopes-list {
-  font-size: 0.8rem;
+  font-size: 12px;
   color: var(--fg-muted);
   padding-left: 16px;
   margin: 0 0 8px;
 }
 .integration-pat-link {
-  font-size: 0.8rem;
+  font-size: 12px;
   color: var(--accent);
 }
 
@@ -799,13 +799,13 @@
   border: 1px solid var(--line);
   border-radius: 6px;
   padding: 7px 10px;
-  font-size: 0.78rem;
+  font-size: 12px;
   font-family: var(--mono, monospace);
   color: var(--fg);
   min-width: 0;
 }
 .integration-url-warn {
-  font-size: 0.75rem;
+  font-size: 11px;
   font-family: var(--mono, monospace);
   color: var(--accent);
   margin-bottom: var(--spacing-md, 16px);
@@ -818,7 +818,7 @@
   border-top: 1px solid var(--line);
 }
 .integration-tutorial-heading {
-  font-size: 0.7rem;
+  font-size: 11px;
   font-family: var(--mono, monospace);
   color: var(--fg-muted);
   text-transform: uppercase;
@@ -843,7 +843,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 0.7rem;
+  font-size: 11px;
   font-family: var(--mono, monospace);
   color: var(--fg-muted);
   flex-shrink: 0;
@@ -853,14 +853,14 @@
   flex: 1;
 }
 .integration-tutorial-step-title {
-  font-size: 0.82rem;
+  font-size: 12px;
   font-family: var(--mono, monospace);
   font-weight: 600;
   color: var(--fg);
   margin-bottom: 2px;
 }
 .integration-tutorial-step-desc {
-  font-size: 0.8rem;
+  font-size: 12px;
   font-family: var(--mono, monospace);
   color: var(--fg-muted);
   line-height: 1.5;
@@ -887,7 +887,7 @@
   margin-bottom: 2px;
 }
 .integration-status {
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--fg-dim);
@@ -897,7 +897,7 @@
 }
 /* dots (legacy, kept for dotClass() helper) */
 .integration-dot {
-  font-size: 0.7rem;
+  font-size: 11px;
 }
 .integration-dot.is-connected {
   color: var(--good, #6fcf97);
@@ -971,7 +971,7 @@
 }
 .drawer-subtitle {
   margin-top: 4px;
-  font-size: 0.72rem;
+  font-size: 11px;
   letter-spacing: 0.04em;
   color: var(--fg-dim);
 }
@@ -1030,7 +1030,7 @@
   border-radius: 20px;
   background: transparent;
   color: var(--fg-muted);
-  font-size: 0.72rem;
+  font-size: 11px;
   letter-spacing: 0.04em;
   cursor: pointer;
   transition:
@@ -1048,7 +1048,7 @@
   background: rgba(198, 139, 102, 0.1);
 }
 .log-filter-count {
-  font-size: 0.66rem;
+  font-size: 11px;
   color: var(--fg-dim);
   padding-left: 5px;
   border-left: 1px solid var(--line);
@@ -1092,7 +1092,7 @@
 .drawer-loading,
 .drawer-empty {
   color: var(--fg-dim);
-  font-size: 0.8rem;
+  font-size: 12px;
   padding: 28px 0;
   text-align: center;
 }
@@ -1107,7 +1107,7 @@
   background: rgba(201, 122, 109, 0.08);
 }
 .drawer-error p {
-  font-size: 0.8rem;
+  font-size: 12px;
   color: var(--bad);
 }
 
@@ -1192,7 +1192,7 @@
   text-overflow: ellipsis;
 }
 .log-time {
-  font-size: 0.7rem;
+  font-size: 11px;
   color: var(--fg-dim);
   white-space: nowrap;
   cursor: help;
@@ -1205,7 +1205,7 @@
   padding: 3px 9px;
   border-radius: 20px;
   border: 1px solid transparent;
-  font-size: 0.68rem;
+  font-size: 11px;
   letter-spacing: 0.05em;
   white-space: nowrap;
 }
@@ -1254,14 +1254,14 @@
   align-items: center;
   flex-wrap: wrap;
   gap: 8px;
-  font-size: 0.72rem;
+  font-size: 11px;
   color: var(--fg-muted);
 }
 .log-chip {
   padding: 2px 8px;
   border: 1px solid var(--line);
   border-radius: 20px;
-  font-size: 0.66rem;
+  font-size: 11px;
   letter-spacing: 0.06em;
   color: var(--fg-dim);
 }
@@ -1305,7 +1305,7 @@
   border-radius: 4px;
   background: rgba(0, 0, 0, 0.3);
   border: 1px solid var(--line);
-  font-size: 0.64rem;
+  font-size: 11px;
   letter-spacing: 0.04em;
   color: var(--bad);
 }
@@ -1319,7 +1319,7 @@
   border-radius: 20px;
   background: transparent;
   color: var(--fg-muted);
-  font-size: 0.64rem;
+  font-size: 11px;
   letter-spacing: 0.04em;
   cursor: pointer;
   transition:
@@ -1331,7 +1331,7 @@
   border-color: var(--line-strong);
 }
 .log-error-msg {
-  font-size: 0.73rem;
+  font-size: 11px;
   line-height: 1.5;
   color: var(--fg-muted);
   overflow-wrap: anywhere;
@@ -1344,7 +1344,7 @@
   border-radius: 6px;
   background: var(--bg-deep);
   border: 1px solid var(--line);
-  font-size: 0.66rem;
+  font-size: 11px;
   line-height: 1.55;
   color: var(--fg-dim);
   white-space: pre-wrap;
@@ -1452,7 +1452,7 @@
   font-size: 20px;
 }
 .card-sub {
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.2em;
   text-transform: uppercase;
   color: var(--fg-dim);
@@ -1493,7 +1493,7 @@
 .table th {
   text-align: left;
   font-weight: 400;
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.2em;
   text-transform: uppercase;
   color: var(--fg-dim);
@@ -1521,7 +1521,7 @@
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.16em;
   text-transform: uppercase;
   padding: 3px 8px;
@@ -1650,7 +1650,7 @@
   padding: 4px 10px;
   border-radius: 999px;
   border: 1px solid var(--line);
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--fg-muted);
@@ -1668,14 +1668,14 @@
   align-items: center;
   gap: 8px;
   margin-bottom: 18px;
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.22em;
   text-transform: uppercase;
   color: var(--fg-dim);
 }
 .var-btn {
   font-family: inherit;
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.22em;
   text-transform: uppercase;
   padding: 6px 12px;
@@ -1738,7 +1738,7 @@
 }
 .role-switcher button {
   font-family: inherit;
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.22em;
   text-transform: uppercase;
   border: 0;
@@ -1802,7 +1802,7 @@
 }
 .theme-switch-opt {
   font-family: inherit;
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.2em;
   text-transform: uppercase;
   border: 0;
@@ -1974,7 +1974,7 @@
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.22em;
   text-transform: uppercase;
   color: var(--fg-muted);
@@ -2123,7 +2123,7 @@
 }
 .step-n {
   font-size: 12px;
-  letter-spacing: 0.25em;
+  letter-spacing: 0.18em;
   color: var(--accent);
   margin-bottom: 14px;
 }
@@ -2171,7 +2171,7 @@
 }
 .metric-cat {
   font-size: 11px;
-  letter-spacing: 0.3em;
+  letter-spacing: 0.18em;
   color: var(--accent);
   margin-bottom: 16px;
 }
@@ -2299,7 +2299,7 @@
   margin-top: 10px;
 }
 .team-link {
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--accent);
@@ -2365,7 +2365,7 @@
 .home-foot-meta {
   display: flex;
   gap: 24px;
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.22em;
   text-transform: uppercase;
   color: var(--fg-dim);
@@ -2472,7 +2472,7 @@
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.22em;
   text-transform: uppercase;
   color: var(--fg-dim);
@@ -2540,8 +2540,8 @@
   max-width: 980px;
 }
 .signup-eyebrow {
-  font-size: 10px;
-  letter-spacing: 0.3em;
+  font-size: 11px;
+  letter-spacing: 0.18em;
   color: var(--fg-dim);
   margin-bottom: 14px;
 }
@@ -2579,7 +2579,7 @@
   grid-column: 1 / -1;
 }
 .signup-field label {
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.22em;
   text-transform: uppercase;
   color: var(--fg-dim);
@@ -2676,17 +2676,15 @@
 
 .signup-hint,
 .signup-error {
-  font-size: 10px;
-  letter-spacing: 0.16em;
-  text-transform: lowercase;
+  font-size: 12px;
+  letter-spacing: 0.02em;
+  text-transform: none;
 }
 .signup-hint {
-  color: var(--fg-dim);
+  color: var(--fg-muted);
 }
 .signup-error {
   color: var(--bad);
-  text-transform: uppercase;
-  letter-spacing: 0.22em;
 }
 
 .signup-select {
@@ -2759,7 +2757,7 @@
   color: var(--accent);
 }
 .signup-size-sub {
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--fg-dim);
@@ -2820,7 +2818,7 @@
   line-height: 1.1;
 }
 .signup-plan-seats {
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.16em;
   color: var(--accent);
   margin-top: 4px;
@@ -2850,7 +2848,7 @@
   margin-top: 6px;
 }
 .signup-plan-period {
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--fg-dim);
@@ -2884,8 +2882,8 @@
 }
 .signup-summary-label {
   display: block;
-  font-size: 9px;
-  letter-spacing: 0.3em;
+  font-size: 11px;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--fg-dim);
   margin-bottom: 4px;
@@ -2929,8 +2927,8 @@
 }
 
 .admin-eyebrow {
-  font-size: 10px;
-  letter-spacing: 0.3em;
+  font-size: 11px;
+  letter-spacing: 0.18em;
   color: var(--accent);
   margin-bottom: 12px;
 }
@@ -3127,8 +3125,8 @@
   margin-top: 4px;
 }
 .admin-side-theme-label {
-  font-size: 9px;
-  letter-spacing: 0.24em;
+  font-size: 11px;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--fg-dim);
 }
@@ -3289,7 +3287,7 @@
   border-bottom: 0;
 }
 .admin-row-label {
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.22em;
   text-transform: uppercase;
   color: var(--fg-dim);
@@ -3307,7 +3305,7 @@
   border: 1px solid var(--line);
   color: var(--fg-muted);
   font-family: inherit;
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.2em;
   text-transform: uppercase;
   padding: 6px 12px;
@@ -3326,8 +3324,8 @@
   border: 1px dashed var(--line-strong);
   border-radius: 12px;
   font-size: 11px;
-  color: var(--fg-dim);
-  letter-spacing: 0.12em;
+  color: var(--fg-muted);
+  letter-spacing: 0.02em;
 }
 
 .admin-plan-card {
@@ -3531,7 +3529,7 @@
   line-height: 1.1;
 }
 .role-card-count {
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.22em;
   text-transform: uppercase;
   color: var(--fg-dim);
@@ -3653,7 +3651,7 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.02em;
   color: var(--fg-dim);
   border: 1px solid var(--line);
@@ -3695,12 +3693,12 @@
   background-image: none;
 }
 .project-card-no-members {
-  font-size: 10px;
+  font-size: 11px;
   color: var(--fg-dim);
 }
 
 .project-card-open {
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.04em;
   color: var(--fg-dim);
   transition: color 0.15s;
@@ -3959,7 +3957,7 @@
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  font-size: 9px;
+  font-size: 11px;
   letter-spacing: 0.2em;
   text-transform: uppercase;
   color: var(--fg-dim);
@@ -4009,7 +4007,7 @@
 }
 .role-perm-hint-label {
   display: block;
-  font-size: 9px;
+  font-size: 11px;
   letter-spacing: 0.22em;
   text-transform: uppercase;
   color: var(--accent);
@@ -4019,7 +4017,7 @@
 /* integrações uma ao lado da outra (duas colunas) */
 .project-links {
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: minmax(0, 1fr);
   gap: 10px;
 }
 .project-link {
@@ -4055,25 +4053,23 @@
   min-width: 0;
 }
 .project-link-label {
-  font-size: 9px;
-  letter-spacing: 0.22em;
+  font-size: 11px;
+  letter-spacing: 0.16em;
   text-transform: uppercase;
-  color: var(--fg-dim);
+  color: var(--fg-muted);
   margin-bottom: 4px;
 }
 .project-link-value {
   font-size: 12px;
   color: var(--fg);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  overflow-wrap: anywhere;
 }
 .project-link-status {
   flex-shrink: 0;
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 9px;
+  font-size: 11px;
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--good, #6fae5a);
@@ -4242,7 +4238,7 @@
 .cmb-item-hint {
   margin-left: auto;
   color: var(--fg-dim);
-  font-size: 10px;
+  font-size: 11px;
 }
 .cmb-item-check {
   color: var(--accent);
@@ -4298,14 +4294,14 @@
 }
 .cbx-indicator {
   color: var(--bg-deep);
-  font-size: 10px;
+  font-size: 11px;
   line-height: 1;
 }
 :root[data-palette="light"] .cbx-indicator {
   color: #fffbf1;
 }
 .cbx-label {
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--fg-muted);
@@ -4494,7 +4490,7 @@
 }
 .project-person-sen {
   justify-self: start;
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--fg-dim);
@@ -4508,11 +4504,11 @@
   border-top: 1px solid color-mix(in srgb, var(--line) 60%, transparent);
 }
 .project-person-azure-bound {
-  font-size: 0.78rem;
+  font-size: 12px;
   color: var(--fg-muted);
 }
 .project-person-azure-link {
-  font-size: 0.78rem;
+  font-size: 12px;
   color: var(--accent);
   background: none;
   border: none;
@@ -4542,7 +4538,7 @@
   grid-template-columns: 1.8fr 1.6fr 40px;
   gap: 0 12px;
   padding: 8px 14px;
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--fg-dim);
@@ -4574,20 +4570,20 @@
 }
 .project-members-name {
   color: var(--fg);
-  font-size: 0.88rem;
+  font-size: 13px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .project-members-email {
   color: var(--fg-muted);
-  font-size: 0.78rem;
+  font-size: 12px;
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 .project-members-azure {
-  font-size: 0.82rem;
+  font-size: 12px;
   min-width: 0;
 }
 .project-members-unbound {
@@ -4597,7 +4593,7 @@
 }
 .project-members-unbound-text {
   color: var(--fg-dim);
-  font-size: 0.78rem;
+  font-size: 12px;
 }
 .project-members-actions {
   display: flex;
@@ -4674,7 +4670,7 @@
   justify-self: end;
 }
 .edit-hint {
-  font-size: 9px;
+  font-size: 11px;
   letter-spacing: 0.2em;
   text-transform: uppercase;
   color: var(--fg-dim);
@@ -4694,7 +4690,7 @@
   border-bottom: 0;
 }
 .member-row--head {
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.22em;
   text-transform: uppercase;
   color: var(--fg-dim);
@@ -4742,7 +4738,7 @@
   gap: 8px;
   padding: 4px 12px;
   border-radius: 999px;
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.22em;
   text-transform: uppercase;
   font-family: "JetBrains Mono", monospace;
@@ -4956,8 +4952,8 @@
   position: absolute;
   bottom: 26px;
   right: 32px;
-  font-size: 10px;
-  letter-spacing: 0.3em;
+  font-size: 11px;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--fg-dim);
   z-index: 6;
@@ -5104,7 +5100,7 @@
 }
 
 .signup-orbit-pill .signup-orbit-pill-num {
-  font-size: 9px;
+  font-size: 11px;
   letter-spacing: 0.16em;
   color: var(--fg-dim);
   opacity: 0.8;
@@ -5220,8 +5216,8 @@
   display: inline-flex;
   align-items: center;
   gap: 10px;
-  font-size: 10px;
-  letter-spacing: 0.32em;
+  font-size: 11px;
+  letter-spacing: 0.18em;
   color: var(--fg-dim);
   margin-bottom: 12px;
   padding: 6px 12px;
@@ -5307,7 +5303,7 @@
 }
 .signup-orbit-back {
   padding: 10px 14px;
-  font-size: 10px;
+  font-size: 11px;
 }
 .signup-orbit-cta {
   padding: 12px 22px;
@@ -5363,7 +5359,7 @@
   margin-bottom: 4px;
 }
 .signup-orbit-plan-seats {
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.16em;
   color: var(--accent);
 }
@@ -5392,7 +5388,7 @@
   margin-top: 6px;
 }
 .signup-orbit-plan-period {
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--fg-dim);
@@ -5445,7 +5441,7 @@
   border-bottom: 0;
 }
 .signup-orbit-summary-row dt {
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.22em;
   text-transform: uppercase;
   color: var(--fg-dim);
@@ -5517,7 +5513,7 @@
   gap: 10px;
 }
 .signup-verify-target {
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.16em;
   color: var(--fg-muted);
 }
@@ -5562,23 +5558,23 @@
 }
 .signup-verify-error {
   color: var(--bad);
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.22em;
   text-transform: uppercase;
 }
 .signup-verify-resent {
   color: var(--accent);
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.22em;
   text-transform: uppercase;
 }
 .signup-verify-resend {
   padding: 9px 16px;
-  font-size: 10px;
+  font-size: 11px;
 }
 .signup-verify-hint {
-  font-size: 9px;
-  letter-spacing: 0.26em;
+  font-size: 11px;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--fg-dim);
   margin-top: 6px;
@@ -5646,7 +5642,7 @@
 }
 .signup-chips-input .btn {
   padding: 11px 16px;
-  font-size: 10px;
+  font-size: 11px;
 }
 
 .signup-chips-list {
@@ -5657,9 +5653,9 @@
   align-items: center;
 }
 .signup-chips-empty {
-  font-size: 10px;
-  letter-spacing: 0.18em;
-  color: var(--fg-dim);
+  font-size: 11px;
+  letter-spacing: 0.02em;
+  color: var(--fg-muted);
 }
 .signup-chip {
   display: inline-flex;
@@ -5702,11 +5698,11 @@
    e permissões — segue o padrão dos outros avisos pequenos (sem fundo). */
 .signup-step-footer {
   margin: 6px 0 0;
-  font-size: 10px;
+  font-size: 11px;
   line-height: 1.55;
-  letter-spacing: 0.16em;
-  color: var(--fg-dim);
-  text-transform: lowercase;
+  letter-spacing: 0.02em;
+  color: var(--fg-muted);
+  text-transform: none;
 }
 
 /* ─── Signup · matriz de permissões ─────────────────────────────────── */
@@ -5744,11 +5740,11 @@
 
 .signup-perms-head {
   min-height: 56px;
-  font-size: 10px;
+  font-size: 11px;
   line-height: 1.25;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-  color: var(--fg-dim);
+  letter-spacing: 0.02em;
+  text-transform: none;
+  color: var(--fg-muted);
   padding: 10px 10px;
   text-align: center;
   background: rgba(12, 16, 24, 0.92);
@@ -5756,8 +5752,8 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  word-break: break-word;
-  hyphens: auto;
+  overflow-wrap: normal; /* quebra entre palavras, nunca no meio */
+  hyphens: manual; /* auto depende do dicionário do SO: CI e local hifenizavam diferente */
 }
 :root[data-palette="light"] .signup-perms-head {
   background: rgba(248, 240, 222, 0.96);
@@ -5848,7 +5844,7 @@ button.signup-perms-cargo:hover {
 .signup-perms-cargo-count {
   min-width: 22px;
   text-align: center;
-  font-size: 10px;
+  font-size: 11px;
   color: var(--fg-dim);
   padding: 2px 7px;
   border: 1px solid var(--line);
@@ -5856,7 +5852,7 @@ button.signup-perms-cargo:hover {
 }
 .signup-perms-cargo-edit {
   flex: 0 0 auto;
-  font-size: 9px;
+  font-size: 11px;
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--fg-dim);
@@ -5995,7 +5991,7 @@ button.signup-perms-cargo:hover .signup-perms-cargo-edit {
   text-overflow: ellipsis;
 }
 .signup-invite-tag {
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--accent);
@@ -6077,7 +6073,7 @@ button.signup-perms-cargo:hover .signup-perms-cargo-edit {
   }
   .signup-orbit-pill {
     padding: 7px 14px 7px 12px;
-    font-size: 10px;
+    font-size: 11px;
     gap: 8px;
   }
 }
@@ -6151,7 +6147,7 @@ button.signup-perms-cargo:hover .signup-perms-cargo-edit {
   background: rgba(198, 139, 102, 0.08);
 }
 .onboard-provider-skip {
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.22em;
   text-transform: uppercase;
   color: var(--fg-dim);
@@ -6167,7 +6163,7 @@ button.signup-perms-cargo:hover .signup-perms-cargo-edit {
   width: min(320px, 92%);
 }
 .signup-provider-link-label {
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.22em;
   text-transform: uppercase;
   color: var(--fg-dim);
@@ -6309,7 +6305,7 @@ button.signup-perms-cargo:hover .signup-perms-cargo-edit {
 }
 .oauth-url {
   flex: 1;
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.06em;
   color: var(--fg-dim);
   text-align: center;
@@ -6405,8 +6401,8 @@ button.signup-perms-cargo:hover .signup-perms-cargo-edit {
 }
 
 .oauth-foot {
-  font-size: 9px;
-  letter-spacing: 0.26em;
+  font-size: 11px;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--fg-dim);
   margin-top: 4px;
@@ -6448,8 +6444,8 @@ button.signup-perms-cargo:hover .signup-perms-cargo-edit {
 }
 
 .theme-modal-eyebrow {
-  font-size: 10px;
-  letter-spacing: 0.32em;
+  font-size: 11px;
+  letter-spacing: 0.18em;
   color: var(--fg-dim);
   margin-bottom: 8px;
 }
@@ -6622,7 +6618,7 @@ button.signup-perms-cargo:hover .signup-perms-cargo-edit {
   line-height: 1;
 }
 .theme-card-desc {
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.22em;
   text-transform: uppercase;
   color: var(--fg-dim);
@@ -6748,7 +6744,7 @@ button.signup-perms-cargo:hover .signup-perms-cargo-edit {
   font-size: 20px;
 }
 .backlog-section-count {
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.18em;
   text-transform: uppercase;
   color: var(--fg-dim);
@@ -6979,7 +6975,7 @@ button.signup-perms-cargo:hover .signup-perms-cargo-edit {
 }
 .notfound-code {
   font-size: 11px;
-  letter-spacing: 0.32em;
+  letter-spacing: 0.18em;
   color: var(--fg-dim);
   border: 1px solid var(--line-strong);
   border-radius: 999px;
@@ -7071,7 +7067,7 @@ button.signup-perms-cargo:hover .signup-perms-cargo-edit {
   gap: 6px;
 }
 .wi-fields-rollup-tag {
-  font-size: 9px;
+  font-size: 11px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--fg-dim);
@@ -7082,7 +7078,7 @@ button.signup-perms-cargo:hover .signup-perms-cargo-edit {
   display: inline-flex;
   align-items: center;
   gap: 4px;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.08em;
   text-transform: uppercase;
@@ -7101,7 +7097,7 @@ button.signup-perms-cargo:hover .signup-perms-cargo-edit {
 
 .wi-fields-btn {
   font-family: inherit;
-  font-size: 10px;
+  font-size: 11px;
   text-transform: uppercase;
   letter-spacing: 0.1em;
   padding: 4px 11px;
@@ -7152,7 +7148,7 @@ button.signup-perms-cargo:hover .signup-perms-cargo-edit {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  font-size: 10px;
+  font-size: 11px;
   font-weight: 600;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -7221,7 +7217,7 @@ button.signup-perms-cargo:hover .signup-perms-cargo-edit {
 .backlog-status-pill {
   display: inline-flex;
   align-items: center;
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.08em;
   text-transform: uppercase;
   padding: 3px 10px;
@@ -7326,7 +7322,7 @@ button.signup-perms-cargo:hover .signup-perms-cargo-edit {
   gap: 4px;
 }
 .backlog-field-label {
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.16em;
   text-transform: uppercase;
   color: var(--fg-dim);
@@ -7342,7 +7338,7 @@ button.signup-perms-cargo:hover .signup-perms-cargo-edit {
   font-variant-numeric: tabular-nums;
 }
 .backlog-field-source {
-  font-size: 10px;
+  font-size: 11px;
   padding: 1px 7px;
   border-radius: 4px;
   border: 1px solid var(--line);
@@ -7586,7 +7582,7 @@ button.signup-perms-cargo:hover .signup-perms-cargo-edit {
   margin-bottom: 14px;
 }
 .ai-pricing-toolbar-hint {
-  font-size: 10px;
+  font-size: 11px;
   color: var(--fg-dim);
 }
 .ai-pricing-import-confirm {
@@ -7627,7 +7623,7 @@ button.signup-perms-cargo:hover .signup-perms-cargo-edit {
   border-color: rgba(34, 26, 16, 0.1);
 }
 .metric-card-label {
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.22em;
   text-transform: uppercase;
   color: var(--fg-dim);
@@ -7737,7 +7733,7 @@ button.signup-perms-cargo:hover .signup-perms-cargo-edit {
   min-width: 190px;
 }
 .filter-field-label {
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.22em;
   text-transform: uppercase;
   color: var(--fg-dim);
@@ -7799,7 +7795,7 @@ button.signup-perms-cargo:hover .signup-perms-cargo-edit {
 }
 .drawer-defs dt {
   color: var(--fg-dim);
-  font-size: 10px;
+  font-size: 11px;
   letter-spacing: 0.18em;
   text-transform: uppercase;
 }

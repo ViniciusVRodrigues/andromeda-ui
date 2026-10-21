@@ -94,7 +94,7 @@ export function IntegrationDataActions({
         <ConfirmDialog
           open
           onOpenChange={(v) => !ocupado && setConfirmando(v ? "reparar" : null)}
-          eyebrow="reparar dados"
+          eyebrow="Integração"
           title={
             <>
               Reparar dados do <span className="ital accent">{nome}</span>?
@@ -117,7 +117,7 @@ export function IntegrationDataActions({
         <ConfirmDialog
           open
           onOpenChange={(v) => !ocupado && setConfirmando(v ? "limpar" : null)}
-          eyebrow="ação irreversível"
+          eyebrow="Ação irreversível"
           title={
             <>
               Limpar os dados do <span className="ital accent">{nome}</span>?

@@ -37,7 +37,7 @@ export function AiCostByModelWidget({ data }) {
       eyebrow={`custo por ${per}`}
       title="Custo de IA por modelo"
       sources={["ia", "andromeda"]}
-      info="Todo o uso de IA da organização (tokens × tabela de preços), somado por modelo em cada intervalo."
+      info="Custo de todo o uso de IA da organização em cada intervalo, por modelo, pela tabela de preços. Passe o mouse numa coluna para ver os modelos que custaram a partir de US$ 1."
       table={{
         columns: [
           { key: "label", label: per },
@@ -73,7 +73,7 @@ export function AiCostByProjectWidget({ data }) {
       eyebrow="destino"
       title="Custo por projeto"
       sources={["ia", "azure"]}
-      info="O uso de IA não chega por projeto: ele é atribuído quando cada dia de uso é dividido entre work items. O que não foi dividido (dias sem item em andamento) aparece como não alocado."
+      info="O uso de IA chega por pessoa e por dia, não por projeto. Ele vai para um projeto quando o dia é dividido entre work items; o que não foi dividido aparece como não alocado."
     >
       <BarList
         rows={(rows || []).map((c) => ({
@@ -102,7 +102,7 @@ export function SubscriptionWidget({ data }) {
       eyebrow="custo"
       title="Consumo × assinatura"
       sources={["ia", "andromeda"]}
-      info="Custo do uso por token comparado ao custo fixo de assinatura configurado na organização, para o mesmo número de pessoas e meses."
+      info="O custo do uso por token ao lado do que a organização pagaria em assinaturas, para as mesmas pessoas e meses. Mostra qual forma de cobrança sai mais barata."
     >
       <BarList
         max={Math.max(sub.consumptionUsd, sub.subscriptionUsd)}
@@ -139,7 +139,7 @@ export function FluencyWidget({ data }) {
       eyebrow="maturidade"
       title="Fluência em IA"
       sources={["ia"]}
-      info="Estágio geral do último score de fluência enviado pela extensão de cada pessoa (1 a 4)."
+      info="Em que estágio (1 a 4) está cada pessoa, pela última nota de fluência que a extensão enviou."
     >
       <SegmentBar
         segments={fluency.map((f) => ({
@@ -180,7 +180,7 @@ export function TokensWidget({ data: tokens }) {
       eyebrow="tokens"
       title="Entrada × saída"
       sources={["ia"]}
-      info="Tokens de entrada (prompt + contexto enviado) e de saída (gerados). Entrada dominante é típica de uso agêntico, que envia muito contexto."
+      info="Tokens de entrada (prompt e contexto enviados) e de saída (o que o modelo gerou). Entrada muito maior que a saída é típica de agentes, que enviam muito contexto."
     >
       <SegmentBar
         segments={[

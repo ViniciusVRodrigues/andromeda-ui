@@ -11,6 +11,7 @@
 import React from "react";
 import { updateAiPrices } from "../api.js";
 import api from "../../../core/api/client.js";
+import Checkbox from "../../../core/ui/Checkbox.jsx";
 
 /* Presets = tabela oficial vigente por MILHÃO de tokens (unidade que os
  * provedores publicam), IDs validados contra o que a ingestão realmente
@@ -226,10 +227,10 @@ export function AiPricingTab({ initialEntries = [], initialSubscriptionCost = nu
       <div className="ai-pricing-card">
         <div className="ai-pricing-card-head">
           <div>
-            <h3 className="serif ai-pricing-card-title">Custo de assinatura por usuário</h3>
+            <h2 className="serif ai-pricing-card-title text-[18px]">Assinatura por pessoa</h2>
             <p className="mono ai-pricing-card-sub">
-              Quanto a organização paga de assinatura de IA por usuário/mês (ex: Claude.ai Pro =
-              $20). Usado para calcular o saldo: valor gerado em tokens − custo da assinatura.
+              Quanto a organização paga por pessoa, por mês, em assinaturas de IA (ex.: Claude Pro,
+              US$ 20). O dashboard compara esse valor com o custo do uso por token.
             </p>
           </div>
           <button
@@ -243,25 +244,20 @@ export function AiPricingTab({ initialEntries = [], initialSubscriptionCost = nu
         </div>
 
         <div className="ai-pricing-toggle-row">
-          <label className="ai-pricing-chip">
-            <input
-              type="checkbox"
-              checked={!hasSubscription}
-              onChange={(e) => {
-                setHasSubscription(!e.target.checked);
-                if (e.target.checked) setSubscriptionCost("");
-              }}
-              style={{ width: 14, height: 14 }}
-            />
-            <span className="mono" style={{ fontSize: 12 }}>
-              Sem assinatura ($0)
-            </span>
-          </label>
+          <Checkbox
+            checked={!hasSubscription}
+            onCheckedChange={(v) => {
+              const none = v === true;
+              setHasSubscription(!none);
+              if (none) setSubscriptionCost("");
+            }}
+            label="Sem assinatura"
+          />
 
           {hasSubscription && (
             <div className="ai-pricing-amount-field">
               <span className="mono" style={{ fontSize: 12, color: "var(--fg-muted)" }}>
-                $
+                US$
               </span>
               <input
                 type="number"
@@ -272,8 +268,8 @@ export function AiPricingTab({ initialEntries = [], initialSubscriptionCost = nu
                 aria-label="Custo de assinatura por usuário em dólares"
                 onChange={(e) => setSubscriptionCost(e.target.value)}
               />
-              <span className="mono" style={{ fontSize: 11, color: "var(--fg-muted)" }}>
-                USD / usuário / mês
+              <span className="mono" style={{ fontSize: 12, color: "var(--fg-muted)" }}>
+                por pessoa, por mês
               </span>
             </div>
           )}
@@ -282,7 +278,6 @@ export function AiPricingTab({ initialEntries = [], initialSubscriptionCost = nu
             <button
               type="button"
               className="btn-ghost btn"
-              style={{ fontSize: 12 }}
               onClick={() => setHasSubscription(true)}
             >
               + Definir valor
@@ -306,15 +301,10 @@ export function AiPricingTab({ initialEntries = [], initialSubscriptionCost = nu
       <div className="ai-pricing-card">
         <div className="ai-pricing-card-head">
           <div>
-            <h2
-              className="serif ai-pricing-card-title"
-              style={{ fontSize: "var(--serif-md, 20px)" }}
-            >
-              Precificação de IA
-            </h2>
+            <h2 className="serif ai-pricing-card-title text-[18px]">Preço por modelo</h2>
             <p className="mono ai-pricing-card-sub">
-              Defina o custo por milhão de tokens de input e output para cada modelo (a unidade em
-              que os provedores cobram). Usado no cálculo de custo do dashboard.
+              Preço de cada modelo por milhão de tokens de entrada e de saída, como os provedores
+              cobram. É a base de todo custo de IA mostrado nos dashboards.
             </p>
           </div>
           <button
@@ -328,12 +318,7 @@ export function AiPricingTab({ initialEntries = [], initialSubscriptionCost = nu
         </div>
 
         <div className="ai-pricing-toolbar">
-          <button
-            type="button"
-            className="btn-ghost btn"
-            onClick={handleImportPresets}
-            style={{ fontSize: 12 }}
-          >
+          <button type="button" className="btn-ghost btn" onClick={handleImportPresets}>
             Importar modelos comuns
           </button>
           <button
@@ -341,7 +326,6 @@ export function AiPricingTab({ initialEntries = [], initialSubscriptionCost = nu
             className="btn-ghost btn"
             onClick={handleRecalculate}
             disabled={recalcSaving}
-            style={{ fontSize: 12 }}
           >
             {recalcSaving ? "Recalculando…" : "Recalcular custos históricos →"}
           </button>
@@ -357,7 +341,7 @@ export function AiPricingTab({ initialEntries = [], initialSubscriptionCost = nu
             </span>
           )}
           <span className="mono ai-pricing-toolbar-hint">
-            Aplica a tabela de preços atual a todos os registros existentes
+            Recalcula o custo de todo o uso já registrado com os preços atuais
           </span>
         </div>
 
@@ -370,28 +354,13 @@ export function AiPricingTab({ initialEntries = [], initialSubscriptionCost = nu
             <span className="mono" style={{ fontSize: 11, color: "var(--fg-muted)" }}>
               tabela oficial verificada em {PRESETS_VERIFIED_AT}
             </span>
-            <button
-              type="button"
-              className="btn"
-              style={{ fontSize: 12 }}
-              onClick={() => doImport("merge")}
-            >
+            <button type="button" className="btn" onClick={() => doImport("merge")}>
               Mesclar (adicionar que faltam)
             </button>
-            <button
-              type="button"
-              className="btn-ghost btn"
-              style={{ fontSize: 12 }}
-              onClick={() => doImport("replace")}
-            >
+            <button type="button" className="btn-ghost btn" onClick={() => doImport("replace")}>
               Substituir tudo
             </button>
-            <button
-              type="button"
-              className="btn-ghost btn"
-              style={{ fontSize: 12 }}
-              onClick={() => setImportConfirm(null)}
-            >
+            <button type="button" className="btn-ghost btn" onClick={() => setImportConfirm(null)}>
               Cancelar
             </button>
           </div>
@@ -413,8 +382,8 @@ export function AiPricingTab({ initialEntries = [], initialSubscriptionCost = nu
             <thead>
               <tr>
                 <th>Modelo</th>
-                <th>Preço / M Input (USD)</th>
-                <th>Preço / M Output (USD)</th>
+                <th>Entrada (US$ por 1M tokens)</th>
+                <th>Saída (US$ por 1M tokens)</th>
                 <th style={{ width: 40 }}></th>
               </tr>
             </thead>

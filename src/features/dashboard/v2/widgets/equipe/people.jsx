@@ -74,7 +74,7 @@ export function MembersWidget({ data: members }) {
       eyebrow="distribuição"
       title="Contribuição por pessoa na sprint"
       sources={["azure", "github", "ia"]}
-      info="SP = esforço dos itens atribuídos (entregue de planejado). Andamento = itens em andamento agora. PRs e reviews contam só quem vinculou o GitHub. Custo de IA = todo o uso da pessoa nas datas da sprint; T/SP = média de tokens por ponto dos itens dela."
+      info="Por pessoa: SP entregues do total planejado, itens em andamento agora, PRs e reviews (só de quem conectou o GitHub), custo de IA nas datas da sprint e tokens por SP (T/SP) dos itens dela."
     >
       <DataTable
         rowKey={(r) => r.userId}

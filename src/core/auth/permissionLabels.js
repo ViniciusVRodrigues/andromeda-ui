@@ -1,25 +1,32 @@
 export const PERMISSION_LABELS = {
-  DASHBOARD_INDIVIDUAL: "Dashboard Pessoal",
-  DASHBOARD_TEAM: "Dashboard da Equipe",
-  DASHBOARD_STRATEGIC: "Dashboard Estratégico",
-  USER_MANAGE: "Gerenciar Pessoas",
-  ROLE_MANAGE: "Gerenciar Cargos",
+  DASHBOARD_INDIVIDUAL: "Dashboard pessoal",
+  DASHBOARD_TEAM: "Dashboard da equipe",
+  DASHBOARD_STRATEGIC: "Dashboard estratégico",
+  USER_MANAGE: "Gerenciar pessoas",
+  ROLE_MANAGE: "Gerenciar cargos",
   AZURE_CONFIGURE: "Configurar Azure DevOps",
-  AZURE_READ: "Ver dados Azure",
-  REPOS_CONFIGURE: "Configurar Repositórios",
-  REPOS_READ: "Ver dados de Repositórios",
-  AI_READ_OWN: "Ver uso de IA próprio",
-  AI_READ_ALL: "Ver uso de IA geral",
-  PRICE_TABLE_MANAGE: "Gerenciar Tabela de Preços",
-  CONNECTOR_TOKEN_MANAGE_OWN: "Gerenciar Token IA",
-  CONNECTOR_TOKEN_MANAGE_ALL: "Gerenciar Tokens da Equipe",
+  AZURE_READ: "Ver dados do Azure DevOps",
+  REPOS_CONFIGURE: "Configurar repositórios",
+  REPOS_READ: "Ver dados de repositórios",
+  AI_READ_OWN: "Ver o próprio uso de IA",
+  AI_READ_ALL: "Ver o uso de IA de todos",
+  PRICE_TABLE_MANAGE: "Gerenciar tabela de preços",
+  CONNECTOR_TOKEN_MANAGE_OWN: "Gerenciar o próprio token de IA",
+  CONNECTOR_TOKEN_MANAGE_ALL: "Gerenciar os tokens de IA de todos",
   PROJECT_MANAGE: "Gerenciar projetos",
   PROJECT_ACCESS_ALL: "Acesso a todos os projetos",
 };
 
+/* Códigos que existem no backend mas não são configuráveis na matriz de cargos
+ * (ficam fora de PERMISSION_LABELS, que alimenta a matriz e os convites): só o
+ * nome legível, para não aparecerem crus em "Minhas permissões". */
+const DISPLAY_ONLY_LABELS = {
+  WORK_ITEM_MANAGE: "Gerenciar work items",
+};
+
 /** Label legível; códigos desconhecidos do front caem no próprio código. */
 export function permissionLabel(code) {
-  return PERMISSION_LABELS[code] || code;
+  return PERMISSION_LABELS[code] || DISPLAY_ONLY_LABELS[code] || code;
 }
 
 /* Escopos (project-scoped-permissions). A fonte da verdade é o `scope` de

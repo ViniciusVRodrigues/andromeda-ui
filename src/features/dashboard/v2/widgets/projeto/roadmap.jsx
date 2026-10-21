@@ -56,7 +56,7 @@ export function EpicsWidget({ data: epics }) {
       eyebrow="roadmap"
       title="Progresso dos épicos"
       sources={["azure"]}
-      info="Progresso = esforço (SP) dos itens filhos concluídos ÷ esforço total dos filhos, somando as features de cada épico (hierarquia pai/filho do Azure). Previsão = esforço restante ÷ SP concluídos por semana nas últimas 8 semanas. Itens sem estimativa não entram na soma."
+      info="Progresso = esforço (SP) concluído ÷ esforço total dos itens de cada épico. Previsão = esforço restante ÷ ritmo das últimas 8 semanas (SP concluídos por semana). Itens sem estimativa não entram."
     >
       <DataTable
         rowKey={(r) => r.externalId}
@@ -335,7 +335,7 @@ export function CycleByEffortWidget({ data }) {
       eyebrow="esforço × tempo"
       title="Cycle time por tamanho"
       sources={["azure"]}
-      info={`Cycle time mediano dos itens concluídos no período por esforço estimado (campo ${data.config?.effortField ?? "de esforço"}). Tempo crescendo junto com o tamanho = estimativa consistente.`}
+      info={`Tempo típico (mediana) para concluir os itens do período, por esforço estimado (campo ${data.config?.effortField ?? "de esforço"}). Se o tempo cresce junto com o tamanho, as estimativas estão consistentes.`}
       table={{
         columns: [
           { key: "label", label: "Esforço" },

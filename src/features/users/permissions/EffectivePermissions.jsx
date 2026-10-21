@@ -71,9 +71,10 @@ export function EffectivePermissions({ org, projects, projectName, title = "Efet
           </div>
         )}
       </div>
-      <p className="text-fg-dim m-0 font-mono text-[length:var(--mono-sm)]">
-        Origem: <strong>cargo</strong> = herdado do preset; <strong>organização</strong> = ajuste
-        individual para toda a organização; <strong>projeto</strong> = ajuste só naquele projeto.
+      <p className="text-fg-muted m-0 max-w-[72ch] font-mono text-[length:var(--mono-sm)]">
+        De onde vem cada permissão: <strong>cargo</strong> = padrão do cargo;{" "}
+        <strong>organização</strong> = ajuste só desta pessoa, em toda a organização;{" "}
+        <strong>projeto</strong> = ajuste só naquele projeto.
       </p>
     </section>
   );

@@ -283,9 +283,9 @@ test("projetos: negar REPOS_READ a um membro preserva os outros overrides", asyn
     .click();
   await page.getByRole("button", { name: /permissões neste projeto · 2/ }).click();
   const panel = page.getByTestId(`member-permissions-${DEV_ID}`);
-  await expect(panel).toContainText("Ver dados de Repositórios");
+  await expect(panel).toContainText("Ver dados de repositórios");
   await panel
-    .getByRole("radiogroup", { name: "Ver dados de Repositórios · neste projeto" })
+    .getByRole("radiogroup", { name: "Ver dados de repositórios · neste projeto" })
     .getByText("Negar")
     .click();
   await panel.getByRole("button", { name: "Salvar ajustes do membro" }).click();

@@ -132,9 +132,9 @@ function HomeScreen({ onLogin, onSignup }) {
             <span className="accent">.</span>
           </h1>
           <p className="home-lede">
-            <strong>Andrômeda</strong> conecta GitHub, Azure DevOps e seus provedores de IA para
-            correlacionar, entrega por entrega, o esforço computacional em tokens com as métricas de
-            engenharia que sua liderança já acompanha — DORA, cycle time, lead time, velocity.
+            A <strong>Andrômeda</strong> liga GitHub, Azure DevOps e seus provedores de IA para
+            mostrar, em cada entrega, quanto de IA foi gasto ao lado das métricas que a liderança já
+            acompanha: DORA, cycle time, lead time e velocity.
           </p>
           <div className="home-hero-cta">
             <button className="btn btn-lg" onClick={onSignup}>
@@ -155,10 +155,9 @@ function HomeScreen({ onLogin, onSignup }) {
             veio de Copilot, Claude ou ChatGPT — nem quanto custou.
           </p>
           <p className="problem-sub">
-            Times de engenharia adotaram IA generativa mais rápido do que conseguiram
-            instrumentá-la. O board de sprint mostra mais pontos entregues; a fatura da API mostra
-            mais gasto. As duas informações vivem em sistemas diferentes, e raramente alguém as
-            junta por feature, por dev ou por sprint.
+            Os times adotaram IA generativa mais rápido do que conseguiram medi-la. O board mostra
+            mais pontos entregues; a fatura da API, mais gasto. Os dois números vivem em sistemas
+            diferentes, e quase ninguém os cruza por feature, por pessoa ou por sprint.
           </p>
         </div>
       </section>

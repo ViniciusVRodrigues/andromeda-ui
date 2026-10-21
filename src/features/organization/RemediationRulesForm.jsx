@@ -13,6 +13,7 @@ import Checkbox from "../../core/ui/Checkbox.jsx";
 import { Field } from "../../core/ui/Field.jsx";
 import { useIdentity } from "../../core/auth/IdentityContext.jsx";
 import { useMetricSettings, useUpdateMetricSettings } from "./hooks.js";
+import SectionHeader from "../../core/ui/SectionHeader.jsx";
 
 const PREFIX_MAX = 100;
 
@@ -98,14 +99,17 @@ export function RemediationRulesForm() {
 
   return (
     <section className="border-line mt-8 border-t pt-6" aria-labelledby="remediation-rules-title">
-      <h3 id="remediation-rules-title" className="m-0 mb-1 font-serif text-2xl">
-        Regras de remediação
-      </h3>
-      <p className="text-fg-muted mt-0 mb-5 max-w-2xl">
-        O <strong>Change Fail Rate</strong> é estimado a partir dos PRs: a fração dos PRs mergeados
-        na branch padrão que são remediação. Defina aqui o que conta como remediação — vale para
-        todos os projetos da organização.
-      </p>
+      <SectionHeader
+        id="remediation-rules-title"
+        title="Regras de remediação"
+        description={
+          <>
+            A taxa de falha (<strong>Change Fail Rate</strong>) sai dos PRs: é a fração dos PRs
+            mergeados na branch padrão que corrigem uma falha. Defina aqui o que conta como
+            correção. Vale para todos os projetos.
+          </>
+        }
+      />
 
       {query.isPending ? (
         <p role="status" className="text-fg-muted font-mono">

@@ -74,7 +74,7 @@ export function AiAllocationWidget({ data }) {
       eyebrow="alocação"
       title="Dias de uso nos itens"
       sources={["ia", "azure"]}
-      info="Dias de uso dos membros por situação da divisão entre work items. Pendentes e sem item não entram no custo por item."
+      info="Dias de uso de IA do time, pela situação da divisão entre work items. Dias pendentes ou sem item não entram no custo por item."
     >
       <SegmentBar
         segments={[

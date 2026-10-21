@@ -16,6 +16,7 @@ import {
   SCOPE_LABELS,
   scopeOf,
 } from "../../core/auth/permissionLabels.js";
+import SectionHeader from "../../core/ui/SectionHeader.jsx";
 
 const CONFIGURABLE_CODES = Object.keys(PERMISSION_LABELS).filter(
   (c) => !ALWAYS_ON_PERMISSIONS.includes(c),
@@ -130,18 +131,15 @@ export function RolesPage() {
 
   return (
     <>
-      <div className="admin-section-head admin-section-head--row">
-        <div>
-          <h3 className="serif admin-section-title">Cargos e Permissões</h3>
-          <p className="admin-section-sub">
-            Marque o que cada cargo enxerga na Andrômeda. Clique no nome do cargo para editar
-            permissões.
-          </p>
-        </div>
-        <button className="btn" onClick={openCreate}>
-          + Novo cargo
-        </button>
-      </div>
+      <SectionHeader
+        title="Cargos e permissões"
+        description="O que cada cargo pode ver e fazer. Clique no nome de um cargo para editar."
+        actions={
+          <button className="btn" onClick={openCreate}>
+            + Novo cargo
+          </button>
+        }
+      />
 
       <div className="signup-perms">
         <div className="signup-perms-scroll">
@@ -243,7 +241,7 @@ export function RolesPage() {
         <Modal
           open
           onOpenChange={(o) => !o && closeModal()}
-          eyebrow={editingRole.id ? "editar cargo" : "novo cargo"}
+          eyebrow="Cargo"
           title={
             editingRole.id ? (
               <>

@@ -27,7 +27,7 @@ export function BurndownWidget({ data }) {
       eyebrow="execução"
       title="Burndown do time"
       sources={["azure"]}
-      info="Por dia útil, a soma do esforço (SP) dos itens da sprint ainda não concluídos, comparada à linha ideal. Usa o escopo atual da sprint."
+      info="Quanto esforço (SP) da sprint ainda falta concluir em cada dia útil, frente ao ritmo ideal. Acima da linha ideal = atrasado; abaixo = adiantado."
       table={{
         columns: [
           { key: "label", label: "Dia" },
@@ -63,7 +63,7 @@ export function StatusByTypeWidget({ data }) {
       eyebrow="composição"
       title="Itens por status e tipo"
       sources={["azure"]}
-      info="Status normalizado pelo mapeamento de estados do projeto (A fazer, Em andamento, Concluído) e tipo normalizado (Story, Bug, Task)."
+      info="Itens da sprint por status (A fazer, Em andamento, Concluído) e por tipo (Story, Bug, Task), já traduzidos dos estados e tipos do Azure DevOps."
     >
       <SegmentBar
         segments={data.totals.map((t) => ({
@@ -98,7 +98,7 @@ export function AgingWidget({ data }) {
       eyebrow="envelhecimento"
       title="Itens em andamento há mais tempo"
       sources={["azure", "github"]}
-      info={`Itens em andamento ordenados por tempo desde o início efetivo. A barra compara com o p85 do cycle time das últimas 6 sprints (${fmtDuration(p85)}): passar dele é sinal de bloqueio ou item grande demais.`}
+      info={`Itens em andamento, do que começou há mais tempo para o mais recente. A marca na barra é o tempo em que 85% dos itens das últimas 6 sprints ficaram prontos (${fmtDuration(p85)}): passou dela, o item pode estar bloqueado ou grande demais.`}
     >
       {items.length ? (
         <DataTable
@@ -143,7 +143,7 @@ export function AgingWidget({ data }) {
                         value={hours}
                         max={Math.max(p85 * 1.5, hours)}
                         marker={p85}
-                        markerLabel="p85 do cycle time"
+                        markerLabel="85% dos itens prontos até aqui"
                         tone={over ? "warn" : "accent"}
                         height={6}
                         label={`Em andamento há ${fmtDuration(hours)}`}
@@ -211,7 +211,7 @@ export function CumulativeFlowWidget({ data }) {
       eyebrow="fluxo cumulativo"
       title="Itens por estado, dia a dia"
       sources={["azure"]}
-      info={`Quantos itens da sprint estavam em cada categoria de estado (a fazer, em andamento, concluído) no fim de cada dia útil${data.processTemplate ? ` (modelo de processo ${data.processTemplate})` : ""}. Um item só conta a partir do dia em que foi criado. Faixa de "Em andamento" engordando = trabalho começando mais rápido do que termina. Mudanças entre dois syncs não aparecem.`}
+      info={`Quantos itens da sprint estavam a fazer, em andamento e concluídos no fim de cada dia útil${data.processTemplate ? ` (modelo de processo ${data.processTemplate})` : ""}. A faixa "Em andamento" engordando = trabalho começando mais rápido do que termina. Idas e voltas entre dois syncs não aparecem.`}
       table={{
         columns: [
           { key: "label", label: "Dia" },
@@ -238,7 +238,7 @@ export function StateTimesWidget({ data }) {
       eyebrow="tempo por etapa"
       title="Onde os itens concluídos passaram o tempo"
       sources={["azure"]}
-      info="Mediana (p50), nos itens concluídos da sprint: fila = da entrada na sprint (ou da criação) até começar; em andamento = tempo em estados ativos até a primeira conclusão."
+      info="Tempo típico (mediana) dos itens concluídos na sprint em cada etapa: fila = da entrada na sprint até alguém começar; em andamento = do início até concluir. Fila longa = trabalho esperando."
       table={{
         columns: [
           { key: "label", label: "Sprint" },

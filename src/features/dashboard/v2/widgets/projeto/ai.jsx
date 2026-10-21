@@ -21,7 +21,7 @@ export function AiCostByModelWidget({ data }) {
       eyebrow={`custo por ${per}`}
       title="Custo de IA atribuído ao projeto, por modelo"
       sources={["ia", "azure", "andromeda"]}
-      info="Uso diário de IA dividido entre os work items do projeto (alocações validadas e pendentes), somado por modelo. Uso sem item em andamento não entra aqui."
+      info="Uso de IA dividido entre os work items do projeto (validado ou pendente), por modelo. O uso de dias sem item em andamento não entra aqui."
       table={{
         columns: [
           { key: "label", label: per },

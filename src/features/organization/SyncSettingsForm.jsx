@@ -12,6 +12,7 @@ import Combobox from "../../core/ui/Combobox.jsx";
 import { Field } from "../../core/ui/Field.jsx";
 import { useIdentity } from "../../core/auth/IdentityContext.jsx";
 import { useSyncSettings, useUpdateSyncSettings } from "./hooks.js";
+import SectionHeader from "../../core/ui/SectionHeader.jsx";
 
 export const BACKFILL_MIN = 7;
 export const BACKFILL_MAX = 730;
@@ -73,14 +74,16 @@ export function SyncSettingsForm() {
 
   return (
     <section className="border-line mt-8 border-t pt-6" aria-labelledby="sync-settings-title">
-      <h3 id="sync-settings-title" className="m-0 mb-1 font-serif text-2xl">
-        Sincronização
-      </h3>
-      <p className="text-fg-muted mt-0 mb-5 max-w-2xl">
-        As telas mostram os dados já sincronizados e cada uma tem o botão <strong>Atualizar</strong>
-        . O sync agendado é opcional: uma rede de segurança para manter os dados frescos mesmo sem
-        ninguém pedir.
-      </p>
+      <SectionHeader
+        id="sync-settings-title"
+        title="Sincronização"
+        description={
+          <>
+            Cada tela mostra os dados já sincronizados e tem o botão <strong>Atualizar</strong>. O
+            sync agendado é opcional: ele atualiza os dados sozinho, mesmo que ninguém clique.
+          </>
+        }
+      />
 
       {settingsQuery.isPending ? (
         <p role="status" className="text-fg-muted font-mono">
