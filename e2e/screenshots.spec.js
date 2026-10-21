@@ -65,15 +65,15 @@ test.describe("casca autenticada (admin)", () => {
   }
 });
 
-/* O card do conector AIEF fica abaixo da dobra dentro do container de scroll da
+/* O card do conector AIEF (na página Perfil) fica abaixo da dobra dentro do container de scroll da
  * casca, então o fullPage da seção não o captura. Screenshot do elemento garante
  * que o tutorial (chaves da extensão, passo de GitHub, outras IDEs) não regreda
  * em silêncio. */
 test.describe("integrações", () => {
   test("tutorial do conector AIEF", async ({ page }) => {
     const { orgSlug } = await loginAsAdmin(page);
-    await gotoSection(page, orgSlug, "integracoes");
-    const card = page.locator(".integration-card", { hasText: "AI Connector" });
+    await gotoSection(page, orgSlug, "perfil");
+    const card = page.locator(".integration-card", { hasText: "Extensão AI Engineering Fluency" });
     await expect(card).toHaveScreenshot("ai-connector-tutorial.png");
   });
 
@@ -82,8 +82,8 @@ test.describe("integrações", () => {
    * rolado para dentro da viewport. */
   test("outras IDEs e troubleshooting do conector", async ({ page }) => {
     const { orgSlug } = await loginAsAdmin(page);
-    await gotoSection(page, orgSlug, "integracoes");
-    const card = page.locator(".integration-card", { hasText: "AI Connector" });
+    await gotoSection(page, orgSlug, "perfil");
+    const card = page.locator(".integration-card", { hasText: "Extensão AI Engineering Fluency" });
 
     const ides = card.locator("details", { hasText: "Outras IDEs" });
     await ides.locator("summary").click();

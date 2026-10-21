@@ -345,6 +345,12 @@ function ShellGate({ identity, profile }) {
 
   // sem permissão de gestão → sem chrome: só o dashboard com o botão de Sair.
   if (!hasManage(identity)) {
+    if (section === "perfil")
+      return (
+        <div className="dash-only overflow-x-clip">
+          <ProfileOnly slug={sessionSlug} />
+        </div>
+      );
     if (section !== "dashboard")
       return <Navigate to={orgRoute(sessionSlug, "dashboard")} replace />;
     return (
@@ -493,6 +499,36 @@ function DashboardOnly() {
   return (
     <ErrorBoundary variant="dash" onLogout={onLogout}>
       <DashboardsPage onLogout={onLogout} />
+    </ErrorBoundary>
+  );
+}
+
+/* Perfil no modo só-dashboard (Developer/Manager sem gestão): casca simples com
+ * volta ao Dashboard e Sair; é onde a pessoa gera o próprio token do conector. */
+function ProfileOnly({ slug }) {
+  const { onLogout } = useIdentity();
+  const navigate = useNavigate();
+  return (
+    <ErrorBoundary variant="dash" onLogout={onLogout}>
+      <div className="mx-auto max-w-[1480px] px-6 py-6 md:px-9">
+        <div className="mb-5 flex flex-wrap items-center gap-2">
+          <button
+            type="button"
+            className="btn btn-ghost btn-xs min-h-[44px] md:min-h-0"
+            onClick={() => navigate(orgRoute(slug, "dashboard"))}
+          >
+            ← Dashboard
+          </button>
+          <button
+            type="button"
+            className="btn btn-ghost btn-xs ml-auto min-h-[44px] md:min-h-0"
+            onClick={onLogout}
+          >
+            Sair
+          </button>
+        </div>
+        <ProfilePage />
+      </div>
     </ErrorBoundary>
   );
 }

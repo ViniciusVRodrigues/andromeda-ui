@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { loginAsAdmin, gotoSection } from "./auth.mjs";
+import { installDashboardsApi } from "./dashboards-v2-api.mjs";
 
 /* Gating por CÓDIGO de permissão (não por aba nem por isAdmin).
  *
@@ -40,44 +41,50 @@ async function loginWith(page, orgPermissions, projectPermissions = {}) {
 }
 
 const connectorCard = (page) =>
-  page.locator(".integration-card").filter({ hasText: "AI Connector — AIEF" });
+  page.locator(".integration-card").filter({ hasText: "Extensão AI Engineering Fluency" });
 
-test.describe("integrações: card do conector de IA", () => {
+test.describe("perfil: card do conector de IA", () => {
   test.beforeEach(async ({ page }) => {
     await page.route("**/api/v1/connector-tokens", (route) =>
       route.request().method() === "GET" ? json(route, []) : route.fallback(),
     );
   });
 
-  test("não-admin com CONNECTOR_TOKEN_MANAGE_OWN vê os controles do token", async ({ page }) => {
-    /* Não-admin (USER_MANAGE sem ROLE_MANAGE): antes do fix o `can` de aba caía em
-     * isAdmin=false e escondia o card. USER_MANAGE só garante a casca com barra
-     * lateral (sem gestão a casca é só o dashboard); REPOS_READ num projeto
-     * abre a aba Integrações. */
-    const { orgSlug } = await loginWith(
-      page,
-      ["USER_MANAGE", "DASHBOARD_INDIVIDUAL", "AI_READ_OWN", "CONNECTOR_TOKEN_MANAGE_OWN"],
-      { [P_A]: ["REPOS_READ"] },
-    );
+  test("admin não vê o conector em Integrações", async ({ page }) => {
+    const { orgSlug } = await loginAsAdmin(page);
     await gotoSection(page, orgSlug, "integracoes");
-    const card = connectorCard(page);
-    await expect(card).toBeVisible();
-    await expect(card.getByRole("button", { name: "Gerar URL →" })).toBeVisible();
+    await expect(page.getByRole("heading", { name: "Integrações" })).toBeVisible();
+    await expect(page.getByText("Extensão AI Engineering Fluency")).toHaveCount(0);
+    await expect(page.getByText("Conector de IA")).toHaveCount(0);
   });
 
-  test("admin sem CONNECTOR_TOKEN_MANAGE_* não vê o card", async ({ page }) => {
+  test("Developer abre o Perfil pelo dashboard, vê o conector e volta; reload fica no Perfil", async ({
+    page,
+  }) => {
     const { orgSlug } = await loginWith(page, [
-      "USER_MANAGE",
-      "ROLE_MANAGE",
-      "AZURE_CONFIGURE",
-      "REPOS_CONFIGURE",
       "DASHBOARD_INDIVIDUAL",
+      "AI_READ_OWN",
+      "CONNECTOR_TOKEN_MANAGE_OWN",
     ]);
-    await gotoSection(page, orgSlug, "integracoes");
-    // O resto da página carregou (a aba é visível para o admin)...
-    await expect(page.getByRole("heading", { name: "Integrações" })).toBeVisible();
-    // ...mas o card do conector não existe sem o código.
-    await expect(connectorCard(page)).toHaveCount(0);
+    await installDashboardsApi(page, { passthrough: true });
+    await gotoSection(page, orgSlug, "dashboard");
+    await page.getByRole("button", { name: "Perfil e conector de IA" }).click();
+    await expect(page).toHaveURL(new RegExp(`/${orgSlug}/perfil$`));
+    await expect(page.getByRole("heading", { name: "Conector de IA" })).toBeVisible();
+    await expect(connectorCard(page).getByRole("button", { name: "Gerar URL →" })).toBeVisible();
+    await page.reload();
+    await page.waitForLoadState("networkidle");
+    await expect(page).toHaveURL(new RegExp(`/${orgSlug}/perfil$`));
+    await expect(page.getByRole("heading", { name: "Conector de IA" })).toBeVisible();
+    await page.getByRole("button", { name: "← Dashboard" }).click();
+    await expect(page).toHaveURL(new RegExp(`/${orgSlug}/dashboard$`));
+  });
+
+  test("sem CONNECTOR_TOKEN_MANAGE_OWN o Perfil não mostra o conector", async ({ page }) => {
+    const { orgSlug } = await loginWith(page, ["DASHBOARD_INDIVIDUAL", "AI_READ_OWN"]);
+    await gotoSection(page, orgSlug, "perfil");
+    await expect(page).toHaveURL(new RegExp(`/${orgSlug}/perfil$`));
+    await expect(page.getByRole("heading", { name: "Conector de IA" })).toHaveCount(0);
   });
 });
 

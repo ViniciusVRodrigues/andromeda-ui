@@ -6,9 +6,11 @@ import React from "react";
 import { ConnectedAccounts } from "../integrations/ConnectedAccounts.jsx";
 import { useIdentity } from "../../core/auth/IdentityContext.jsx";
 import { MyPermissions } from "./MyPermissions.jsx";
+import { AiConnectorCard } from "../integrations/AiConnectorCard.jsx";
 
 export function ProfilePage() {
-  const { profile } = useIdentity();
+  const { profile, hasOrg, orgSlug } = useIdentity();
+  const slug = profile?.org?.slug || orgSlug;
 
   return (
     <section>
@@ -34,6 +36,21 @@ export function ProfilePage() {
       <MyPermissions />
 
       <ConnectedAccounts />
+
+      {/* Token pessoal do conector: ORG_ONLY, checagem por código (hasOrg). */}
+      {hasOrg && slug && hasOrg("CONNECTOR_TOKEN_MANAGE_OWN") ? (
+        <section aria-labelledby="conector-ia-title">
+          <div className="admin-section-head">
+            <h3 id="conector-ia-title" className="serif admin-section-title">
+              Conector de IA
+            </h3>
+            <p className="admin-section-sub">
+              Seu token pessoal para a extensão AIEF enviar o seu uso de IA ao Andromeda.
+            </p>
+          </div>
+          <AiConnectorCard orgSlug={slug} hasOrg={hasOrg} />
+        </section>
+      ) : null}
     </section>
   );
 }

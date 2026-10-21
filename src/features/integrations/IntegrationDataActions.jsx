@@ -62,7 +62,7 @@ export function IntegrationDataActions({
         {onReparar ? (
           <button
             type="button"
-            className="btn-ghost btn"
+            className="btn-ghost btn min-h-[44px] md:min-h-0"
             disabled={ocupado}
             onClick={() => setConfirmando("reparar")}
           >
@@ -71,7 +71,7 @@ export function IntegrationDataActions({
         ) : null}
         <button
           type="button"
-          className="btn btn-danger"
+          className="btn btn-danger min-h-[44px] md:min-h-0"
           disabled={ocupado}
           onClick={() => setConfirmando("limpar")}
         >

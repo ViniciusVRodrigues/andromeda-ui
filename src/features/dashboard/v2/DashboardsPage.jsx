@@ -20,11 +20,12 @@
  */
 
 import React from "react";
-import { useSearchParams } from "react-router-dom";
+import { useNavigate, useSearchParams } from "react-router-dom";
 import { useIdentity } from "../../../core/auth/IdentityContext.jsx";
 import { useTelemetryDetail } from "../../../core/telemetry/useTelemetryDetail.js";
 import { trackAction } from "../../../core/telemetry/index.js";
 import { dashboardFilterAction } from "../../../core/telemetry/actions.js";
+import { orgRoute } from "../../../lib/orgRoutes.js";
 import { fmtDate } from "./format.js";
 import { useDashboardProjects, usePendingAllocations, useProjectSprints } from "./hooks.js";
 import { useQueryClient } from "@tanstack/react-query";
@@ -113,6 +114,7 @@ export function DashboardsPage({ onLogout, onNavigate }) {
    * .admin-main: muda o respiro e o topo fixo */
   const bare = !!onLogout;
   const ident = useIdentity();
+  const navigate = useNavigate();
   const [params, setParams] = useSearchParams();
   const access = accessModel(ident);
 
@@ -230,9 +232,22 @@ export function DashboardsPage({ onLogout, onNavigate }) {
             {scope ? <CustomizeButton /> : null}
             <div className="ml-auto flex flex-wrap items-center gap-2">
               {onLogout ? (
-                <button type="button" className="btn btn-ghost btn-xs" onClick={onLogout}>
-                  Sair
-                </button>
+                <>
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-xs min-h-[44px] md:min-h-0"
+                    onClick={() => navigate(orgRoute(ident.orgSlug, "perfil"))}
+                  >
+                    Perfil e conector de IA
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-xs min-h-[44px] md:min-h-0"
+                    onClick={onLogout}
+                  >
+                    Sair
+                  </button>
+                </>
               ) : null}
             </div>
           </div>
