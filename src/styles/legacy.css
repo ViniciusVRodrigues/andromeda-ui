@@ -5753,7 +5753,7 @@
   align-items: center;
   justify-content: center;
   overflow-wrap: normal; /* quebra entre palavras, nunca no meio */
-  hyphens: auto;
+  hyphens: manual; /* auto depende do dicionário do SO: CI e local hifenizavam diferente */
 }
 :root[data-palette="light"] .signup-perms-head {
   background: rgba(248, 240, 222, 0.96);
