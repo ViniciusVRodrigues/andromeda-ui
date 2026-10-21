@@ -30,6 +30,39 @@ export function modelColor(model) {
   return `var(--series-${i >= 0 ? i + 1 : 5})`;
 }
 
+/** O tooltip do custo por modelo só lista quem custou ≥ US$ 1 no intervalo. */
+export const MODEL_TOOLTIP_MIN_USD = 1;
+const MODEL_COLORS = 4;
+/**
+ * Séries e legenda de um gráfico de custo por modelo. A lista de modelos é aberta (vem do uso
+ * real, então `modelColor` não a conhece): os modelos vão pelo custo no período, maior
+ * primeiro; os 4 primeiros ganham as séries 1–4 e os demais dividem a 5ª, que a legenda chama
+ * de "outros N modelos". Modelo sem custo nenhum no período fica fora do gráfico (a tabela
+ * continua com todos). Trocar o período pode repintar — limitação de uma lista aberta.
+ */
+export function modelSeries(models, rows) {
+  const total = (m) => rows.reduce((sum, r) => sum + (Number(r[m]) || 0), 0);
+  const withCost = models
+    .map((m) => ({ m, t: total(m) }))
+    .filter((x) => x.t > 0)
+    .sort((a, b) => b.t - a.t)
+    .map((x) => x.m);
+  const series = withCost.map((m, i) => ({
+    key: m,
+    label: m,
+    color: `var(--series-${Math.min(i, MODEL_COLORS) + 1})`,
+  }));
+  const named = series.length > MODEL_COLORS + 1 ? series.slice(0, MODEL_COLORS) : series;
+  const legend = named.map((s) => ({ label: s.label, color: s.color }));
+  if (named.length < series.length) {
+    legend.push({
+      label: `outros ${series.length - named.length} modelos`,
+      color: `var(--series-${MODEL_COLORS + 1})`,
+    });
+  }
+  return { series, legend };
+}
+
 const PROJECT_SLOT = ["p-portal", "p-mobile", "p-pagamentos", "p-dados", "p-infra"];
 export function projectColor(projectId) {
   const i = PROJECT_SLOT.indexOf(projectId);

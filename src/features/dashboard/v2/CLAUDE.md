@@ -81,7 +81,11 @@ configuração na aba de integrações. O `scope.atRiskSp` do `/team/flow` fica 
 
 - Um eixo Y por gráfico (sem eixo duplo — grandezas diferentes viram gráficos lado a lado).
 - Séries categóricas: tokens `--series-1..5` (validados com o skill dataviz contra `--bg-elev` nas paletas);
-  cor segue a entidade (`modelColor`, `projectColor`, `TYPE_COLOR`). Status/estado do fluxo é rampa ordinal do
+  cor segue a entidade (`modelColor`, `projectColor`, `TYPE_COLOR`). Exceção: o custo empilhado por modelo
+  (Organização e Projeto) usa `modelSeries` — a lista de modelos é aberta (uso real), então os modelos sem custo
+  no período saem do gráfico (ficam na tabela), os 4 mais caros ganham `--series-1..4` e o resto divide a 5ª
+  ("outros N modelos" na legenda); o tooltip só lista quem custou ≥ US$ 1 (`tooltipMin`), com uma linha
+  "+N abaixo de US$ 1,00 (soma)". Status/estado do fluxo é rampa ordinal do
   accent. Saúde/classificação usa `--good/--warn/--bad` sempre com ícone + texto. Cores de estado do Azure só
   aparecem como dado (bolinha na tabela de configuração).
 - Números em pt-BR (`format.js`; eixos com `axis*`, `nItems` para "1 item/2 itens"). Tokens em milhões nos totais,

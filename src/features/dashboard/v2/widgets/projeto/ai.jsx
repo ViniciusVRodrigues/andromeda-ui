@@ -2,7 +2,7 @@
 
 import React from "react";
 import { axisUsd, fmtNum, fmtTokensCompact, fmtUsd } from "../../format.js";
-import { modelColor } from "../../kit/Badges.jsx";
+import { MODEL_TOOLTIP_MIN_USD, modelSeries } from "../../kit/Badges.jsx";
 import { ColumnChart, TrendChart } from "../../kit/charts.jsx";
 import { KpiTile } from "../../kit/Kpi.jsx";
 import { Panel } from "../../kit/Panel.jsx";
@@ -15,6 +15,7 @@ export const selectAiCostByModel = (d) => ({
 
 export function AiCostByModelWidget({ data }) {
   const { rows, models, per } = data;
+  const { series, legend } = modelSeries(models, rows);
   return (
     <Panel
       eyebrow={`custo por ${per}`}
@@ -34,7 +35,9 @@ export function AiCostByModelWidget({ data }) {
         stacked
         height={230}
         yWidth={44}
-        series={models.map((m) => ({ key: m, label: m, color: modelColor(m) }))}
+        series={series}
+        legendItems={legend}
+        tooltipMin={MODEL_TOOLTIP_MIN_USD}
         yFormat={axisUsd}
         valueFormat={fmtUsd}
       />

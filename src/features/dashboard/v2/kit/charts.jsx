@@ -36,15 +36,17 @@ const identity = (v) => v;
 /**
  * Conteúdo do tooltip compartilhado.
  * @param {{ series: Array<{ key: string, label: string, color: string, dashed?: boolean, line?: boolean }>,
- *   valueFormat: (v: number) => string, extra?: (row: object) => React.ReactNode }} props
+ *   valueFormat: (v: number) => string, extra?: (row: object) => React.ReactNode, min?: number }} props
+ *   `min`: só lista as séries com valor ≥ min; as de valor entre 0 e min viram uma linha
+ *   "N abaixo de min" com a soma (a tabela do Panel continua com todos os valores).
  */
-function ChartTooltip({ active, payload, label, series, valueFormat, extra }) {
+function ChartTooltip({ active, payload, label, series, valueFormat, extra, min }) {
   if (!active || !payload?.length) return null;
   const row = payload[0]?.payload ?? {};
-  const rows = series
-    .map((s) => ({ s, v: row[s.key] }))
-    .filter((r) => r.v != null)
-    .reverse();
+  const all = series.map((s) => ({ s, v: row[s.key] })).filter((r) => r.v != null);
+  const rows = (min == null ? all : all.filter((r) => Number(r.v) >= min)).reverse();
+  const below = min == null ? [] : all.filter((r) => Number(r.v) > 0 && Number(r.v) < min);
+  const belowSum = below.reduce((sum, r) => sum + Number(r.v), 0);
   return (
     <div className="border-line-strong bg-bg-deep shadow-soft min-w-[150px] rounded-[var(--radius-sm)] border px-3 py-2">
       <div className="mono text-fg-muted mb-1.5 text-[11px]">{row.tooltipLabel ?? label}</div>
@@ -59,6 +61,11 @@ function ChartTooltip({ active, payload, label, series, valueFormat, extra }) {
           <span className="mono text-fg-muted text-[11px] font-normal">{s.label}</span>
         </div>
       ))}
+      {below.length ? (
+        <div className="mono text-fg-muted mt-1 text-[11px] font-normal">
+          {`+${below.length} abaixo de ${valueFormat(min)} (${valueFormat(belowSum)})`}
+        </div>
+      ) : null}
       {extra ? (
         <div className="mono text-fg-muted mt-1.5 text-[11px] font-normal">{extra(row)}</div>
       ) : null}
@@ -71,8 +78,11 @@ function ChartTooltip({ active, payload, label, series, valueFormat, extra }) {
  * @param {{ data: object[], series: Array<{ key: string, label: string, color: string }>,
  *   xKey?: string, stacked?: boolean, height?: number, yFormat?: (v) => string,
  *   valueFormat?: (v) => string, emphasis?: (row) => boolean, extra?: (row) => React.ReactNode,
- *   reference?: { y: number, label: string }, yWidth?: number, legend?: boolean, summary?: string }} props
+ *   reference?: { y: number, label: string }, yWidth?: number, legend?: boolean, summary?: string,
+ *   legendItems?: Array<{ label: string, color: string }>, tooltipMin?: number }} props
  *   `emphasis` (uma série): colunas que não casam ficam no cinza de contexto.
+ *   `legendItems` troca a legenda montada das séries (ex.: "outros N modelos");
+ *   `tooltipMin` esconde do tooltip as séries abaixo do valor (ver `ChartTooltip`).
  */
 export function ColumnChart({
   data,
@@ -88,6 +98,8 @@ export function ColumnChart({
   yWidth = 40,
   legend,
   summary,
+  legendItems,
+  tooltipMin,
 }) {
   const fmt = valueFormat || yFormat;
   const showLegend = legend ?? series.length > 1;
@@ -103,7 +115,10 @@ export function ColumnChart({
   return (
     <figure className="m-0" aria-labelledby={labelledBy}>
       {showLegend ? (
-        <Legend className="mb-2" items={series.map((s) => ({ label: s.label, color: s.color }))} />
+        <Legend
+          className="mb-2"
+          items={legendItems ?? series.map((s) => ({ label: s.label, color: s.color }))}
+        />
       ) : null}
       <ResponsiveContainer width="100%" height={height}>
         <BarChart
@@ -132,7 +147,14 @@ export function ColumnChart({
           />
           <Tooltip
             cursor={{ fill: "var(--line)" }}
-            content={<ChartTooltip series={series} valueFormat={fmt} extra={tooltipExtra} />}
+            content={
+              <ChartTooltip
+                series={series}
+                valueFormat={fmt}
+                extra={tooltipExtra}
+                min={tooltipMin}
+              />
+            }
           />
           {reference ? (
             <ReferenceLine
