@@ -725,6 +725,26 @@ test("desktop: o chip da seção leva o título para baixo da barra fixa", async
   expect(top).toBeGreaterThanOrEqual(barH - 1);
 });
 
+test("com a casca, o chip da seção rola só a seção principal (a casca não sobe)", async ({
+  page,
+}) => {
+  /* USER_MANAGE + ROLE_MANAGE = admin: dashboard dentro da casca (.admin-stage) */
+  await openAs(page, ["USER_MANAGE", "ROLE_MANAGE", ...ALL]);
+  const main = page.locator("main.admin-main");
+  await main.evaluate((el) => (el.scrollTop = el.scrollHeight));
+  const nav = page.locator("[data-dash-filters]").getByRole("navigation", {
+    name: "Seções do dashboard",
+  });
+  await nav.getByRole("button").last().click();
+  await page.waitForTimeout(300);
+  /* overflow: hidden deixava o scrollIntoView rolar a casca (faixa vazia embaixo) */
+  const offsets = await page.evaluate(() =>
+    [".page-layer", ".admin-stage"].map((s) => document.querySelector(s)?.scrollTop),
+  );
+  expect(offsets).toEqual([0, 0]);
+  expect(await main.evaluate((el) => el.scrollTop)).toBeGreaterThan(0);
+});
+
 /* ── Primeira tela do celular ───────────────────────────────────────────────── */
 
 for (const [name, perms, query] of [

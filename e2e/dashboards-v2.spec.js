@@ -87,6 +87,46 @@ test("todo gráfico tem a alternativa em tabela (byModel{} do servidor vira colu
   await expect(panel.getByRole("columnheader", { name: /claude-sonnet/ }).first()).toBeVisible();
 });
 
+test("custo por modelo: sem os modelos zerados, 4 cores + outros e tooltip só com ≥ US$ 1", async ({
+  page,
+}) => {
+  const { readFixture } = await import("./dashboards-v2-api.mjs");
+  /* lista aberta do uso real: 7 modelos com custo (um abaixo de US$ 1) e 3 zerados */
+  const cost = {
+    "claude-opus-5": 100,
+    "gpt-5.6-sol": 90,
+    "claude-sonnet-5": 80,
+    "claude-fable-5.1": 70,
+    "claude-haiku-4.5": 60,
+    unknown: 50,
+    auto: 0.42,
+    "gpt-6-sol": 0,
+    "qwen3.8-flash": 0,
+    "claude-opus-5.5": 0,
+  };
+  const org = readFixture("organization__90");
+  org.ai.models = Object.keys(cost);
+  org.ai.costByBucket = org.ai.costByBucket.map((b) => ({ ...b, byModel: { ...cost } }));
+  await installDashboardsApi(page, { permissions: ["DASHBOARD_STRATEGIC"] });
+  await page.route("**/api/v1/dashboards/organization**", (r) => r.fulfill({ json: org }));
+  await gotoDashboard(page, "?periodo=90");
+
+  const chart = page.getByRole("figure", { name: "Custo de IA por modelo" });
+  await expect(chart.getByRole("listitem")).toHaveText([
+    "claude-opus-5",
+    "gpt-5.6-sol",
+    "claude-sonnet-5",
+    "claude-fable-5.1",
+    "outros 3 modelos",
+  ]);
+  await chart.locator(".recharts-bar-rectangle").first().hover();
+  const tip = chart.locator(".recharts-tooltip-wrapper");
+  await expect(tip).toContainText("claude-haiku-4.5");
+  await expect(tip).toContainText("+1 abaixo de US$ 1,00 (US$ 0,42)");
+  await expect(tip).not.toContainText("auto");
+  await expect(tip).not.toContainText("gpt-6-sol");
+});
+
 test("adaptador: DS mostra p50 com p90 ao lado, notas DORA traduzidas e mediana nos rótulos", async ({
   page,
 }) => {

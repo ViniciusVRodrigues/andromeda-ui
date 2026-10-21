@@ -317,7 +317,7 @@ function HomeScreen({ onLogin, onSignup }) {
           <Wordmark size="sm" />
         </div>
         <div className="home-foot-meta mono">
-          <span>v0.1 · build 2026.05.15</span>
+          <span>v1.0</span>
           <span>TCC · BES</span>
           <a href="/privacidade" className="hover:text-fg text-inherit underline">
             Privacidade

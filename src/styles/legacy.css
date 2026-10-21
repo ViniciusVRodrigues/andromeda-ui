@@ -2914,16 +2914,18 @@
 /* ─────────────────────────────────────────────────────────── */
 /*  ADMIN SETTINGS                                              */
 /* ─────────────────────────────────────────────────────────── */
-/* O admin ocupa a tela inteira e não rola — só a seção principal rola. */
+/* O admin ocupa a tela inteira e não rola — só a seção principal rola. `clip`, não
+   `hidden`: um scrollIntoView/focus dentro da seção rolava também estas caixas e a
+   casca ficava presa para cima, com uma faixa vazia embaixo. */
 .page-layer:has(.admin-stage) {
-  overflow: hidden;
+  overflow: clip;
 }
 .admin-stage {
   height: 100%;
   min-height: 0;
   display: flex;
   background: var(--bg);
-  overflow: hidden;
+  overflow: clip;
 }
 
 .admin-eyebrow {
