@@ -21,7 +21,7 @@ import {
 import { getTeamMembers } from "../ai-usage/api.js";
 import { WorkItemManualFieldsEditor } from "../../components/WorkItemManualFieldsEditor.jsx";
 import Combobox from "../../core/ui/Combobox.jsx";
-import PageHeader from "../../core/ui/PageHeader.jsx";
+import StickyPageHeader from "../../core/ui/StickyPageHeader.jsx";
 import RefreshControl from "../../core/ui/RefreshControl.jsx";
 import { useProjectRefresh } from "../projects/hooks.js";
 import { useIdentity } from "../../core/auth/IdentityContext.jsx";
@@ -747,16 +747,28 @@ export function BacklogPage({ onOpenHierarchyWizard }) {
 
   const binding = bindings.find((b) => b.projectId === projectId);
   const hierarchyConfigured = !!(binding?.workflowConfig?.hierarchyLevels?.length > 0);
+  const pickerRef = React.useRef(null);
 
   return (
     <section>
-      <PageHeader
+      <StickyPageHeader
         title="Backlog"
         subtitle="Navegue pelo backlog do projeto em árvore, por hierarquia de work items."
         actions={projectId ? <RefreshControl {...refresh} /> : null}
+        watchRef={pickerRef}
+        compact={
+          projectId ? (
+            <Combobox
+              value={projectId}
+              onValueChange={setProjectId}
+              options={projects.map((p) => ({ value: p.id, label: p.name }))}
+              aria-label="Trocar projeto"
+            />
+          ) : null
+        }
       />
 
-      <label className="ui-field backlog-project-picker">
+      <label className="ui-field backlog-project-picker" ref={pickerRef}>
         <span className="ui-field-label">Projeto</span>
         <div className="signup-select">
           <select
