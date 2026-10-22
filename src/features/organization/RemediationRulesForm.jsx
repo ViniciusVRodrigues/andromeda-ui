@@ -98,7 +98,10 @@ export function RemediationRulesForm() {
   const data = query.data;
 
   return (
-    <section className="border-line mt-8 border-t pt-6" aria-labelledby="remediation-rules-title">
+    <section
+      className="rounded-card border-line bg-bg-elev border p-6"
+      aria-labelledby="remediation-rules-title"
+    >
       <SectionHeader
         id="remediation-rules-title"
         title="Regras de remediação"
@@ -153,7 +156,7 @@ export function RemediationRulesForm() {
       ) : null}
 
       {query.isSuccess && canEdit ? (
-        <form className="flex max-w-xl flex-col gap-4" onSubmit={handleSubmit} noValidate>
+        <form className="flex flex-col gap-4" onSubmit={handleSubmit} noValidate>
           <Field label="Prefixos de branch (um por linha)" error={validation}>
             <textarea
               className="ui-field-input min-h-[88px] font-mono"

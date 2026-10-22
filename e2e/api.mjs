@@ -71,3 +71,24 @@ function url(request) {
   const u = new URL(request.url());
   return u.search ? `?${u.searchParams.toString()}` : "";
 }
+
+/**
+ * Backlog e Repositórios abrem já com um projeto escolhido (useSelectedProject) e buscam
+ * os dados dele na hora; o replay não tem essas respostas para os projetos das fixtures.
+ * Para os testes que só navegam ou fotografam a casca, responde vazio (page.route vence a
+ * camada de replay do contexto).
+ * @param {import("@playwright/test").Page} page
+ */
+export async function stubEmptyProjectData(page) {
+  const json = (route, body) =>
+    route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(body) });
+  const empty = { page: 0, size: 20, totalElements: 0, content: [] };
+  await page.route("**/api/v1/projects/*/work-items/roots**", (route) =>
+    json(route, { ...empty, dataFreshness: null }),
+  );
+  await page.route("**/api/v1/projects/*/work-items/orphans**", (route) => json(route, empty));
+  await page.route("**/api/v1/projects/*/sprints", (route) => json(route, []));
+  await page.route("**/api/v1/repos/projects/*/repositories**", (route) =>
+    json(route, { repos: [], dataFreshness: null }),
+  );
+}

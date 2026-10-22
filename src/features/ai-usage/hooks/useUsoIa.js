@@ -83,3 +83,38 @@ export function useUsoIa() {
     setParam,
   };
 }
+
+/**
+ * Quem está sendo visto no Uso de IA (`?pessoa=`) e a lista de membros. O seletor da
+ * página e o atalho da barra fixa (UsoIaLayout) leem o mesmo estado da URL, então os
+ * dois ficam sempre iguais.
+ */
+export function useUsoIaPerson() {
+  const [params, setParams] = useSearchParams();
+  const { can } = useIdentity();
+  const enabled = can("uso-ia-team");
+  const members = useQuery({
+    queryKey: ["ai-usage", "members"],
+    queryFn: usage.getTeamMembers,
+    enabled,
+    staleTime: 60000,
+  });
+  const selectedUserId = enabled ? params.get("pessoa") : null;
+  const setSelectedUserId = (value) =>
+    setParams(
+      (old) => {
+        const next = new URLSearchParams(old);
+        if (value) next.set("pessoa", value);
+        else next.delete("pessoa");
+        return next;
+      },
+      { replace: true },
+    );
+  const options = [
+    { value: "__me__", label: "Meu uso" },
+    ...(members.data || [])
+      .filter((m) => m.id)
+      .map((m) => ({ value: m.id, label: m.name || m.email })),
+  ];
+  return { enabled, members, selectedUserId, setSelectedUserId, options };
+}

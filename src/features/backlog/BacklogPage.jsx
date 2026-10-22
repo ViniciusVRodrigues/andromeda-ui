@@ -23,7 +23,8 @@ import { WorkItemManualFieldsEditor } from "../../components/WorkItemManualField
 import Combobox from "../../core/ui/Combobox.jsx";
 import StickyPageHeader from "../../core/ui/StickyPageHeader.jsx";
 import RefreshControl from "../../core/ui/RefreshControl.jsx";
-import { useProjectRefresh } from "../projects/hooks.js";
+import { useProjectRefresh, useSelectedProject } from "../projects/hooks.js";
+import ProjectSwitcher from "../../core/ui/ProjectSwitcher.jsx";
 import { useIdentity } from "../../core/auth/IdentityContext.jsx";
 import { trackAction } from "../../core/telemetry/index.js";
 import { ACTIONS } from "../../core/telemetry/actions.js";
@@ -448,7 +449,8 @@ export function BacklogPage({ onOpenHierarchyWizard }) {
     [allProjects, projectsWith],
   );
   const [projectsLoading, setProjectsLoading] = React.useState(true);
-  const [projectId, setProjectId] = React.useState("");
+  /* Abre já com um projeto (URL → último usado → primeiro): sem clique para ver dados. */
+  const [projectId, setProjectId] = useSelectedProject(projects, { ready: !projectsLoading });
 
   const [bindings, setBindings] = React.useState([]);
 
@@ -768,31 +770,15 @@ export function BacklogPage({ onOpenHierarchyWizard }) {
         }
       />
 
-      <label className="ui-field backlog-project-picker" ref={pickerRef}>
-        <span className="ui-field-label">Projeto</span>
-        <div className="signup-select">
-          <select
-            value={projectId}
-            disabled={projectsLoading || projects.length === 0}
-            onChange={(e) => setProjectId(e.target.value)}
-            aria-label="Selecionar projeto"
-          >
-            <option value="">
-              {projectsLoading
-                ? "Carregando…"
-                : projects.length === 0
-                  ? "Sem projetos"
-                  : "Selecione um projeto"}
-            </option>
-            {projects.map((p) => (
-              <option key={p.id} value={p.id}>
-                {p.name}
-              </option>
-            ))}
-          </select>
-          <span className="signup-select-caret">▾</span>
-        </div>
-      </label>
+      <div className="mb-6" ref={pickerRef}>
+        <div className="ui-field-label mb-1">Projeto</div>
+        <ProjectSwitcher
+          projects={projects}
+          value={projectId}
+          onChange={setProjectId}
+          loading={projectsLoading}
+        />
+      </div>
 
       {projectId && (
         <div className="backlog-filters">
@@ -892,15 +878,6 @@ export function BacklogPage({ onOpenHierarchyWizard }) {
               ? "1 item encontrado — exibido como lista, sem hierarquia."
               : `${rootsTotal} itens encontrados — exibidos como lista, sem hierarquia.`}
         </p>
-      )}
-
-      {!projectId && (
-        <div className="backlog-empty-hint">
-          <span className="backlog-empty-hint-glyph" aria-hidden="true">
-            ◈
-          </span>
-          <span>Selecione um projeto acima para ver o backlog.</span>
-        </div>
       )}
 
       {projectId && !hierarchyConfigured && (

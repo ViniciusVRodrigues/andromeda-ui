@@ -2942,12 +2942,9 @@
   flex: 1;
   min-height: 0;
   display: grid;
-  grid-template-columns: 248px 1fr;
-  background: var(--bg-deep);
-  transition: grid-template-columns 0.24s ease;
-}
-.admin-frame.is-collapsed {
+  /* trilho fixo de 76 px: o menu abre por cima do conteúdo (ShellLayout), sem empurrá-lo */
   grid-template-columns: 76px 1fr;
+  background: var(--bg-deep);
 }
 
 /* menu lateral — sem divisória; compartilha o azul escuro da estrutura */
@@ -2978,32 +2975,6 @@
 }
 .admin-frame.is-collapsed .admin-side-brand {
   display: none;
-}
-.admin-side-collapse {
-  flex: 0 0 auto;
-  width: 32px;
-  height: 32px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid var(--line);
-  border-radius: 9px;
-  background: transparent;
-  color: var(--fg-muted);
-  cursor: pointer;
-  transition:
-    color 0.18s,
-    border-color 0.18s;
-}
-.admin-side-collapse:hover {
-  color: var(--fg);
-  border-color: var(--fg-muted);
-}
-.admin-side-collapse svg {
-  transition: transform 0.24s ease;
-}
-.admin-frame.is-collapsed .admin-side-collapse svg {
-  transform: rotate(180deg);
 }
 
 .admin-side-nav {
@@ -3480,17 +3451,7 @@
 }
 
 /* ─── Role cards (Cargos e Permissões) ────────────────────── */
-.role-list {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
 /* Projetos em duas colunas */
-.role-list--cols {
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-}
 .role-card {
   display: grid;
   grid-template-columns: 1fr auto;
@@ -4649,7 +4610,7 @@
 }
 .member-row {
   display: grid;
-  grid-template-columns: 1.3fr 1.9fr 1.2fr 1fr 1fr 58px;
+  grid-template-columns: 1.2fr 2.2fr 1.1fr 0.9fr 64px; /* nome, e-mail, cargo, status, editar */
   align-items: center;
   gap: 18px;
   padding: 16px 22px;
@@ -6673,31 +6634,6 @@ button.signup-perms-cargo:hover .signup-perms-cargo-edit {
 /* ─────────────────────────────────────────────────────────── */
 /*  BACKLOG — project selector, tree, cards, badges             */
 /* ─────────────────────────────────────────────────────────── */
-
-.backlog-project-picker {
-  max-width: 420px;
-  margin-bottom: 24px;
-}
-
-.backlog-project-picker .signup-select select {
-  font-size: var(--mono-sm);
-}
-
-.backlog-empty-hint {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-  margin-top: 16px;
-  padding: 18px 22px;
-  border: 1px dashed var(--line-strong);
-  border-radius: var(--radius);
-  color: var(--fg-muted);
-  font-size: var(--mono-sm);
-}
-.backlog-empty-hint-glyph {
-  font-size: 20px;
-  opacity: 0.7;
-}
 
 .backlog-banner {
   display: flex;

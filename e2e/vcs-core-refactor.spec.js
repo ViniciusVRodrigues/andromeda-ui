@@ -22,8 +22,10 @@ test("repositórios: selo do provedor e autor neutro (authorLogin)", async ({ pa
   await page.route("**/api/v1/repos/repositories/*/commit-activity**", (route) => json(route, []));
 
   await gotoSection(page, orgSlug, "repositorios");
-  await page.getByRole("combobox", { name: "Selecionar projeto" }).click();
-  await page.getByRole("option", { name: "Projeto Baseline" }).click();
+  await expect(page.getByRole("radio", { name: "Projeto Baseline" })).toHaveAttribute(
+    "aria-checked",
+    "true",
+  ); // abre já com o projeto, sem clique
   await page.waitForLoadState("networkidle");
 
   const identity = page.getByTestId("repo-identity");

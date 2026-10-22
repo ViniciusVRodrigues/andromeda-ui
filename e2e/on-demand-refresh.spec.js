@@ -227,8 +227,10 @@ test("repositórios e backlog mostram a frescura e o Atualizar do projeto", asyn
     json(route, { repos: [], dataFreshness: freshness }),
   );
   await gotoSection(page, orgSlug, "repositorios");
-  await page.getByRole("combobox", { name: "Selecionar projeto" }).click();
-  await page.getByRole("option", { name: "Projeto Baseline" }).click();
+  await expect(page.getByRole("radio", { name: "Projeto Baseline" })).toHaveAttribute(
+    "aria-checked",
+    "true",
+  ); // abre já com o projeto, sem clique
   const reposControl = page.getByTestId("refresh-control");
   await expect(reposControl).toContainText("Atualizado há 3 dias");
   await expect(reposControl.getByRole("button", { name: /atualizar/i })).toBeEnabled();
@@ -240,9 +242,10 @@ test("repositórios e backlog mostram a frescura e o Atualizar do projeto", asyn
   );
   await page.route("**/api/v1/projects/*/work-items/orphans**", (route) => json(route, emptyPage));
   await gotoSection(page, orgSlug, "backlog");
-  await page.getByRole("combobox", { name: "Selecionar projeto" }).selectOption({
-    label: "Projeto Baseline",
-  });
+  await expect(page.getByRole("radio", { name: "Projeto Baseline" })).toHaveAttribute(
+    "aria-checked",
+    "true",
+  ); // abre já com o projeto, sem clique
   const backlogControl = page.getByTestId("refresh-control");
   await expect(backlogControl).toContainText("Atualizado há 3 dias");
   await expect(backlogControl.getByRole("button", { name: /atualizar/i })).toBeEnabled();

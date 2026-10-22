@@ -100,7 +100,6 @@ const ICON_LOGOUT = svgIcon(
     <path d="M21 12H9" />
   </>,
 );
-const ICON_CHEVRON = svgIcon(<path d="M15 6l-6 6 6 6" />);
 const ICON_USER = svgIcon(
   <>
     <circle cx="12" cy="8" r="4" />
@@ -130,7 +129,21 @@ export function ShellLayout() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const [collapsed, setCollapsed] = React.useState(false);
+  /* Menu lateral: trilho de ícones fechado; abre por cima do conteúdo ao passar o mouse
+   * (ou ao receber foco pelo teclado) e fecha ao sair. Sem botão de fixar. A pequena
+   * espera evita abrir quando o mouse só cruza o trilho. Sem hover (toque) não expande. */
+  const [expanded, setExpanded] = React.useState(false);
+  const hoverTimer = React.useRef(null);
+  const canHover = React.useMemo(
+    () =>
+      !!window.matchMedia?.("(hover: hover) and (pointer: fine) and (min-width: 761px)").matches,
+    [],
+  );
+  const setExpandedSoon = (value, delay) => {
+    clearTimeout(hoverTimer.current);
+    hoverTimer.current = setTimeout(() => setExpanded(value), delay);
+  };
+  React.useEffect(() => () => clearTimeout(hoverTimer.current), []);
   const [bannerDismissed, setBannerDismissed] = React.useState(
     () => localStorage.getItem("azure_banner_dismissed") === "true",
   );
@@ -151,8 +164,8 @@ export function ShellLayout() {
     localStorage.setItem("azure_banner_dismissed", "true");
   };
 
-  /* O chrome precisa saber a aba ativa para o is-active do menu e o auto-collapse
-   * do dashboard — deriva da rota (section + splat), não de prop. */
+  /* O chrome precisa saber a aba ativa para o is-active do menu — deriva da rota
+   * (section + splat), não de prop. */
   const params = useParams();
   const fullRest = params.section
     ? params["*"]
@@ -160,28 +173,36 @@ export function ShellLayout() {
       : params.section
     : params["*"] || "";
   const { tab: activeTab } = resolveRoute(fullRest);
-  React.useEffect(() => {
-    setCollapsed(activeTab === "dashboard");
-  }, [activeTab]);
 
   const onNavigate = (t) => navigate(orgRoute(orgSlug, TAB_TO_ROUTE[t]));
 
   return (
     <div className="admin-stage">
-      <div className={"admin-frame" + (collapsed ? " is-collapsed" : "")}>
-        <aside className="admin-side">
+      <div className={"admin-frame" + (expanded ? "" : " is-collapsed")}>
+        <aside
+          className={
+            "admin-side relative z-30 w-[76px] transition-[width,box-shadow] duration-200 motion-reduce:transition-none " +
+            (expanded ? "bg-bg-deep shadow-soft w-[248px]" : "")
+          }
+          data-side={expanded ? "open" : "closed"}
+          onMouseEnter={canHover ? () => setExpandedSoon(true, 120) : undefined}
+          onMouseLeave={canHover ? () => setExpandedSoon(false, 200) : undefined}
+          onFocus={canHover ? () => setExpandedSoon(true, 0) : undefined}
+          onBlur={
+            canHover
+              ? (e) => {
+                  if (!e.currentTarget.contains(e.relatedTarget)) setExpandedSoon(false, 0);
+                }
+              : undefined
+          }
+        >
           <div className="admin-side-top">
             <div className="admin-side-brand">
               <Wordmark size="md" />
             </div>
-            <button
-              className="admin-side-collapse"
-              onClick={() => setCollapsed((c) => !c)}
-              aria-label={collapsed ? "Expandir menu" : "Recolher menu"}
-              title={collapsed ? "Expandir menu" : "Recolher menu"}
-            >
-              {ICON_CHEVRON}
-            </button>
+            {expanded ? null : (
+              <img src="/assets/icon.png" alt="" aria-hidden="true" className="h-7 w-7" />
+            )}
           </div>
 
           <nav className="admin-side-nav">

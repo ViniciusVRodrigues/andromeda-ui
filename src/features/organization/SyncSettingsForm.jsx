@@ -73,7 +73,10 @@ export function SyncSettingsForm() {
   };
 
   return (
-    <section className="border-line mt-8 border-t pt-6" aria-labelledby="sync-settings-title">
+    <section
+      className="rounded-card border-line bg-bg-elev border p-6"
+      aria-labelledby="sync-settings-title"
+    >
       <SectionHeader
         id="sync-settings-title"
         title="Sincronização"
@@ -119,7 +122,7 @@ export function SyncSettingsForm() {
       ) : null}
 
       {settingsQuery.isSuccess && canEdit ? (
-        <form className="flex max-w-xl flex-col gap-4" onSubmit={handleSubmit} noValidate>
+        <form className="flex flex-col gap-4" onSubmit={handleSubmit} noValidate>
           <Field label="Sync agendado">
             <Combobox
               value={scheduledSync}
