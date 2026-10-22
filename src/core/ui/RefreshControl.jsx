@@ -1,10 +1,16 @@
 import React from "react";
 
 /**
- * RefreshControl — frescura dos dados + botão "Atualizar" (on-demand-refresh).
+ * RefreshControl — frescura dos dados + "Atualizar" (on-demand-refresh), numa pílula só.
  *
  * O produto lê só dados já sincronizados; este controle é onde o usuário vê
- * de quando é o dado ("atualizado há 3 dias") e pede um refresh do projeto.
+ * de quando é o dado ("há 3 dias") e pede um refresh do projeto. Compacto de
+ * propósito (cabe no canto da barra fixa do cabeçalho): ↻ + idade do dado; a data
+ * completa e a ação ficam no `title` e no nome acessível. Ao atualizar, o ↻ gira, o
+ * texto vira "Atualizando 1/2" e a borda de baixo da pílula enche como barra de
+ * progresso. Dado com mais de um dia ganha um ponto de aviso. Os textos longos
+ * ("1 de 2 integrações concluídas", "Tente de novo em…") ficam em regiões
+ * `status` só para leitor de tela; falhas continuam visíveis num `alert`.
  *
  * Puramente apresentacional: não busca nada nem conhece permissão. O estado
  * vem pronto de `useProjectRefresh` (features/projects/hooks.js), cujas saídas
@@ -34,74 +40,137 @@ export default function RefreshControl({
   className = "",
 }) {
   const coolingDown = retryAfter > 0;
+  const busy = starting || running;
   const progress = running ? bindingProgress(status) : null;
   const failures =
     !running && status && (status.status === "PARTIAL" || status.status === "FAILED")
       ? (status.bindings || []).filter((b) => b.status !== "SUCCESS" && b.status !== "RUNNING")
       : [];
 
-  let label = "↻ Atualizar";
-  if (starting) label = "Iniciando…";
-  else if (running) label = "Atualizando…";
-  else if (coolingDown) label = `Aguarde ${retryAfter}s`;
+  const syncedAt = freshness?.oldestSyncAt || null;
+  const age = syncedAt ? formatRelativeAge(syncedAt) : null;
+  const stale = syncedAt ? Date.now() - new Date(syncedAt).getTime() > DAY_MS : false;
+
+  /* O que a pílula mostra: o estado da ação vence a idade do dado. */
+  let text = null;
+  if (starting) text = "Iniciando…";
+  else if (running)
+    text = progress ? `Atualizando ${progress.done}/${progress.total}` : "Atualizando…";
+  else if (coolingDown) text = `Aguarde ${retryAfter}s`;
+  else if (freshness && !syncedAt) text = "Nunca sincronizado";
+
+  const tooltip = [
+    syncedAt ? `Dados sincronizados em ${formatAbsolute(syncedAt)}` : null,
+    stale ? "mais de um dia sem atualizar" : null,
+    canRefresh && !busy && !coolingDown ? "clique para buscar de novo nos provedores" : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+
+  let actionLabel = `Atualizar dados do projeto${age ? ` (atualizado ${age})` : ""}`;
+  if (starting) actionLabel = "Iniciando…";
+  else if (running) actionLabel = "Atualizando…";
+  else if (coolingDown) actionLabel = `Aguarde ${retryAfter}s`;
+
+  /* Idade com o prefixo só para leitor de tela: a pílula mostra "há 3 dias". */
+  const ageText = age ? (
+    <>
+      <span className="sr-only">Atualizado </span>
+      {age}
+    </>
+  ) : null;
+  const content = text ?? ageText;
+
+  const pill = (
+    <span
+      className={
+        "border-line relative inline-flex h-8 items-center gap-2 overflow-hidden rounded-full border px-3 whitespace-nowrap " +
+        (canRefresh
+          ? "group-enabled:group-hover:border-fg-muted group-enabled:group-hover:text-fg"
+          : "")
+      }
+    >
+      {canRefresh ? (
+        <span
+          aria-hidden="true"
+          className={
+            "inline-block leading-none " + (busy ? "animate-spin motion-reduce:animate-none" : "")
+          }
+        >
+          ↻
+        </span>
+      ) : null}
+      {stale && !busy && !coolingDown ? (
+        <span aria-hidden="true" className="bg-warn inline-block h-1.5 w-1.5 rounded-full" />
+      ) : null}
+      {canRefresh ? (
+        <span>{content}</span>
+      ) : (
+        <span>{text ?? (age ? `Atualizado ${age}` : null)}</span>
+      )}
+      {running ? (
+        <span aria-hidden="true" className="bg-line absolute inset-x-0 bottom-0 block h-0.5">
+          <span
+            className="bg-accent block h-full transition-[width] duration-300 motion-reduce:transition-none"
+            style={{ width: progress ? `${Math.max(8, progress.pct)}%` : "35%" }}
+          />
+        </span>
+      ) : null}
+    </span>
+  );
+
+  const showPill = canRefresh || content;
 
   return (
     <div
       className={
-        "refresh-control text-fg-muted flex flex-col items-end gap-1.5 font-mono text-[length:var(--mono-sm)] " +
+        "refresh-control text-fg-muted relative flex flex-col items-end gap-1 font-mono text-[12px] " +
         className
       }
       data-testid="refresh-control"
     >
-      <div className="flex flex-wrap items-center justify-end gap-3">
-        <FreshnessLabel freshness={freshness} running={running} />
-        {canRefresh ? (
+      {showPill ? (
+        canRefresh ? (
+          /* Alvo de 44 px; a pílula visível tem 32 (a altura volta pela margem negativa). */
           <button
             type="button"
-            className="btn-ghost btn"
-            style={{ fontSize: "var(--mono-sm)", padding: "0.25rem 0.75rem" }}
+            className="group -my-1.5 inline-flex min-h-[44px] cursor-pointer items-center border-0 bg-transparent p-0 text-inherit disabled:cursor-not-allowed"
+            style={{ font: "inherit" }}
             onClick={onRefresh}
-            disabled={running || coolingDown}
+            disabled={busy || coolingDown}
             aria-busy={running}
+            aria-label={actionLabel}
+            title={tooltip || undefined}
           >
-            {label}
+            {pill}
           </button>
-        ) : null}
-      </div>
+        ) : (
+          <span title={tooltip || undefined}>{pill}</span>
+        )
+      ) : null}
 
       {running ? (
-        <div role="status" className="flex items-center gap-2">
-          <span
-            className="bg-line relative block h-1 w-28 overflow-hidden rounded-full"
-            aria-hidden="true"
-          >
-            <span
-              className="bg-accent absolute inset-y-0 left-0 block rounded-full transition-[width] duration-300"
-              style={{ width: progress ? `${Math.max(8, progress.pct)}%` : "35%" }}
-            />
-          </span>
-          <span>
-            {progress
-              ? `${progress.done} de ${progress.total} integrações concluídas`
-              : "Sincronizando com os provedores…"}
-          </span>
-        </div>
+        <span role="status" className="sr-only">
+          {progress
+            ? `${progress.done} de ${progress.total} integrações concluídas`
+            : "Sincronizando com os provedores…"}
+        </span>
       ) : null}
 
       {coolingDown && !running ? (
-        <p role="status" className="m-0">
+        <span role="status" className="sr-only">
           Atualizado há pouco. Tente de novo em {retryAfter}s.
-        </p>
+        </span>
       ) : null}
 
       {error ? (
-        <p role="alert" className="text-bad m-0">
+        <p role="alert" className="text-bad m-0 max-w-xs text-right">
           {error}
         </p>
       ) : null}
 
       {failures.length > 0 ? (
-        <div role="alert" className="text-bad max-w-md text-right">
+        <div role="alert" className="text-bad max-w-xs text-right">
           <p className="m-0">
             {status.status === "PARTIAL"
               ? "Atualização parcial — algumas integrações falharam:"
@@ -111,7 +180,7 @@ export default function RefreshControl({
             {failures.map((b) => (
               <li key={b.bindingId}>
                 {integrationLabel(b.integration)}: {b.errorMessage || "erro ao sincronizar"}
-                {b.errorCode ? <span className="text-fg-dim"> ({b.errorCode})</span> : null}
+                {b.errorCode ? <span className="text-fg-muted"> ({b.errorCode})</span> : null}
               </li>
             ))}
           </ul>
@@ -121,20 +190,7 @@ export default function RefreshControl({
   );
 }
 
-function FreshnessLabel({ freshness, running }) {
-  // Resposta antiga (sem dataFreshness): não inventa data, só omite.
-  if (!freshness) return null;
-  if (!freshness.oldestSyncAt) {
-    return (
-      <span>{running ? "Primeira sincronização em andamento" : "Ainda não sincronizado"}</span>
-    );
-  }
-  return (
-    <span title={formatAbsolute(freshness.oldestSyncAt)}>
-      Atualizado {formatRelativeAge(freshness.oldestSyncAt)}
-    </span>
-  );
-}
+const DAY_MS = 24 * 60 * 60 * 1000;
 
 const INTEGRATION_LABELS = { AZURE_DEVOPS: "Azure DevOps", GITHUB: "GitHub" };
 

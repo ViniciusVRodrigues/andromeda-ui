@@ -10,7 +10,7 @@ import { WorkItemLink } from "../../core/work-items/WorkItemLink.jsx";
  * Piloto do padrão frontend-server-state: todos os dados vêm de hooks React
  * Query (features/repos/hooks.js), não de useState/useEffect de fetch.
  *
- * Toda a apresentação vem de componentes compartilhados (PageHeader,
+ * Toda a apresentação vem de componentes compartilhados (StickyPageHeader,
  * MetricGrid, ListCard, Drawer, CommitActivityChart) para que a tela herde o
  * design system em vez de recriá-lo.
  */
@@ -19,7 +19,7 @@ import { Link } from "react-router-dom";
 import { useIdentity } from "../../core/auth/IdentityContext.jsx";
 import { orgRoute } from "../../lib/orgRoutes.js";
 import Combobox from "../../core/ui/Combobox.jsx";
-import PageHeader from "../../core/ui/PageHeader.jsx";
+import StickyPageHeader from "../../core/ui/StickyPageHeader.jsx";
 import MetricGrid, { MetricCard } from "../../core/ui/MetricGrid.jsx";
 import ListCard from "../../core/ui/ListCard.jsx";
 import Drawer from "../../core/ui/Drawer.jsx";
@@ -243,23 +243,36 @@ export function ReposPage() {
   }, [prPage]);
 
   const totalPages = Math.max(1, Math.ceil((prPage.totalElements || 0) / PAGE_SIZE));
+  const projectOptions = projects.map((p) => ({ value: p.id, label: p.name }));
+  const pickerRef = React.useRef(null);
 
   return (
     <section>
-      <PageHeader
+      <StickyPageHeader
         title="Repositórios"
         subtitle="Acompanhe a saúde e os pull requests dos repositórios de cada projeto."
         actions={projectId ? <RefreshControl {...refresh} /> : null}
+        watchRef={pickerRef}
+        compact={
+          projectId ? (
+            <Combobox
+              value={projectId}
+              onValueChange={setProjectId}
+              options={projectOptions}
+              aria-label="Trocar projeto"
+            />
+          ) : null
+        }
       />
 
       <div className="filter-bar">
-        <label className="filter-field">
+        <label className="filter-field" ref={pickerRef}>
           <span className="filter-field-label">Projeto</span>
           <Combobox
             value={projectId}
             onValueChange={setProjectId}
             placeholder="Selecione um projeto"
-            options={projects.map((p) => ({ value: p.id, label: p.name }))}
+            options={projectOptions}
             aria-label="Selecionar projeto"
           />
         </label>
