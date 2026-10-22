@@ -2942,7 +2942,7 @@
   flex: 1;
   min-height: 0;
   display: grid;
-  /* trilho fixo de 76 px: o menu abre por cima do conteúdo (ShellLayout), sem empurrá-lo */
+  /* 76 px fechado; ao abrir no hover a coluna vai a 248 px e empurra o conteúdo (ShellLayout) */
   grid-template-columns: 76px 1fr;
   background: var(--bg-deep);
 }

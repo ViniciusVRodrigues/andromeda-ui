@@ -45,10 +45,7 @@ export function MyPermissions() {
   if (!userId) return null;
 
   return (
-    <section
-      className="border-line mt-8 mb-10 border-t pt-6"
-      aria-labelledby="my-permissions-title"
-    >
+    <section className="mb-10" aria-labelledby="my-permissions-title">
       <SectionHeader
         id="my-permissions-title"
         title="Minhas permissões"

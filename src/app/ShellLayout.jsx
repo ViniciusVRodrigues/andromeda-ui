@@ -129,8 +129,8 @@ export function ShellLayout() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  /* Menu lateral: trilho de ícones fechado; abre por cima do conteúdo ao passar o mouse
-   * (ou ao receber foco pelo teclado) e fecha ao sair. Sem botão de fixar. A pequena
+  /* Menu lateral: trilho de ícones fechado; ao passar o mouse (ou receber foco pelo
+   * teclado) abre e empurra o conteúdo, e fecha ao sair. Sem botão de fixar. A pequena
    * espera evita abrir quando o mouse só cruza o trilho. Sem hover (toque) não expande. */
   const [expanded, setExpanded] = React.useState(false);
   const hoverTimer = React.useRef(null);
@@ -178,12 +178,15 @@ export function ShellLayout() {
 
   return (
     <div className="admin-stage">
-      <div className={"admin-frame" + (expanded ? "" : " is-collapsed")}>
+      {/* A coluna do menu muda de 76 para 248 px e empurra o conteúdo (sem sobrepor). */}
+      <div
+        className={
+          "admin-frame transition-[grid-template-columns] duration-200 motion-reduce:transition-none " +
+          (expanded ? "grid-cols-[248px_1fr]" : "is-collapsed grid-cols-[76px_1fr]")
+        }
+      >
         <aside
-          className={
-            "admin-side relative z-30 w-[76px] transition-[width,box-shadow] duration-200 motion-reduce:transition-none " +
-            (expanded ? "bg-bg-deep shadow-soft w-[248px]" : "")
-          }
+          className="admin-side"
           data-side={expanded ? "open" : "closed"}
           onMouseEnter={canHover ? () => setExpandedSoon(true, 120) : undefined}
           onMouseLeave={canHover ? () => setExpandedSoon(false, 200) : undefined}
