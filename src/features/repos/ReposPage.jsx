@@ -33,7 +33,8 @@ import { ReviewStats } from "../../core/ui/ReviewStats.jsx";
 import { deliveryMethodLabel, formatCfr } from "../../core/ui/DeliveryMetrics.jsx";
 import RefreshControl from "../../core/ui/RefreshControl.jsx";
 import { ProviderBadge, providerLabel } from "../../core/ui/ProviderBadge.jsx";
-import { useProjects, useProjectRefresh } from "../projects/hooks.js";
+import { useProjects, useProjectRefresh, useSelectedProject } from "../projects/hooks.js";
+import ProjectSwitcher from "../../core/ui/ProjectSwitcher.jsx";
 import {
   useProjectRepos,
   useRepoCommitActivity,
@@ -190,7 +191,6 @@ function PullRequestDrawer({ repoId, repoName, pr, onClose }) {
 }
 
 export function ReposPage() {
-  const [projectId, setProjectId] = React.useState("");
   const [repoId, setRepoId] = React.useState("");
   const [rangeDays, setRangeDays] = React.useState("90");
   const [status, setStatus] = React.useState(ALL_STATUSES);
@@ -200,11 +200,16 @@ export function ReposPage() {
 
   const { orgSlug, projectsWith } = useIdentity();
   /* Só projetos com REPOS_READ efetivo (project-scoped-permissions). */
-  const { data: allProjects = [] } = useProjects();
+  const projectsQuery = useProjects();
+  const allProjects = projectsQuery.data ?? [];
   const projects = React.useMemo(
     () => projectsWith(allProjects, "REPOS_READ"),
     [allProjects, projectsWith],
   );
+  /* Abre já com um projeto (URL → último usado → primeiro): sem clique para ver dados. */
+  const [projectId, setProjectId] = useSelectedProject(projects, {
+    ready: projectsQuery.isSuccess,
+  });
   const reposQuery = useProjectRepos(projectId, rangeDays);
   const repos = reposQuery.data?.items ?? [];
   // Todas as queries desta tela vivem sob ["repos"], que o refresh invalida ao concluir.
@@ -265,50 +270,45 @@ export function ReposPage() {
         }
       />
 
-      <div className="filter-bar">
-        <label className="filter-field" ref={pickerRef}>
-          <span className="filter-field-label">Projeto</span>
-          <Combobox
-            value={projectId}
-            onValueChange={setProjectId}
-            placeholder="Selecione um projeto"
-            options={projectOptions}
-            aria-label="Selecionar projeto"
-          />
-        </label>
-
-        {repos.length > 1 ? (
-          <label className="filter-field">
-            <span className="filter-field-label">Repositório</span>
-            <Combobox
-              value={repoId}
-              onValueChange={setRepoId}
-              options={repos.map((r) => ({
-                value: repoKey(r),
-                label: repoDisplayName(r),
-                hint: providerLabel(r.provider),
-              }))}
-              aria-label="Selecionar repositório"
-            />
-          </label>
-        ) : null}
-
-        {repoId ? (
-          <label className="filter-field">
-            <span className="filter-field-label">Período</span>
-            <Combobox
-              value={rangeDays}
-              onValueChange={setRangeDays}
-              options={RANGE_OPTIONS}
-              aria-label="Selecionar período"
-            />
-          </label>
-        ) : null}
+      <div className="mb-4" ref={pickerRef}>
+        <div className="filter-field-label mb-1">Projeto</div>
+        <ProjectSwitcher
+          projects={projects}
+          value={projectId}
+          onChange={setProjectId}
+          loading={projectsQuery.isPending}
+        />
       </div>
 
-      {!projectId ? (
-        <div className="state-notice mono">
-          Selecione um projeto acima para ver seus repositórios.
+      {repos.length > 1 || repoId ? (
+        <div className="filter-bar">
+          {repos.length > 1 ? (
+            <label className="filter-field">
+              <span className="filter-field-label">Repositório</span>
+              <Combobox
+                value={repoId}
+                onValueChange={setRepoId}
+                options={repos.map((r) => ({
+                  value: repoKey(r),
+                  label: repoDisplayName(r),
+                  hint: providerLabel(r.provider),
+                }))}
+                aria-label="Selecionar repositório"
+              />
+            </label>
+          ) : null}
+
+          {repoId ? (
+            <label className="filter-field">
+              <span className="filter-field-label">Período</span>
+              <Combobox
+                value={rangeDays}
+                onValueChange={setRangeDays}
+                options={RANGE_OPTIONS}
+                aria-label="Selecionar período"
+              />
+            </label>
+          ) : null}
         </div>
       ) : null}
 

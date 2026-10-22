@@ -128,7 +128,9 @@ export default function StickyPageHeader({ title, subtitle, actions, watchRef, c
         <div className="relative flex min-h-[44px] items-center justify-between gap-4">
           <h1
             className={
-              "serif admin-section-title m-0 min-w-0 truncate transition-[font-size] duration-200 motion-reduce:transition-none " +
+              /* leading 1.3: com o truncate (overflow hidden), o 1.05 do título cortava as
+               * descendentes (p, ç); a linha de 44 px absorve a altura extra. */
+              "serif admin-section-title m-0 min-w-0 truncate leading-[1.3] transition-[font-size] duration-200 motion-reduce:transition-none " +
               (stuck ? "text-[22px] " : "") +
               (showCompact ? "max-sm:hidden" : "")
             }

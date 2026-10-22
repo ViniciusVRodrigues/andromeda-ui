@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { loginAsAdmin } from "./auth.mjs";
+import { stubEmptyProjectData } from "./api.mjs";
 
 /* Contrato de rota da casca fatiada (frontend-route-layout + view-state-in-url).
  * Sem screenshots — só comportamento observável de navegação/URL. */
@@ -29,6 +30,7 @@ test("busca de pessoas vive na URL e sobrevive a refresh", async ({ page }) => {
 
 test("URL antiga sem slug redireciona para a versão com slug", async ({ page }) => {
   const { orgSlug } = await loginAsAdmin(page);
+  await stubEmptyProjectData(page); // o backlog abre com o projeto escolhido
   await page.goto(`/${"backlog"}`); // /backlog (formato antigo)
   await page.waitForLoadState("networkidle");
   expect(page.url()).toContain(`/${orgSlug}/backlog`);
@@ -45,10 +47,12 @@ test("navegar entre seções preserva o chrome (sidebar não remonta)", async ({
   const { orgSlug } = await loginAsAdmin(page);
   await page.goto(`/${orgSlug}/projetos`);
   await page.waitForLoadState("networkidle");
-  const sidebarBefore = await page.locator(".admin-side").getAttribute("class");
+  /* marca o elemento: se a sidebar remontasse, o nó novo não teria a marca (a classe não
+   * serve de prova — o menu abre no hover do próprio clique) */
+  await page.locator(".admin-side").evaluate((el) => (el.dataset.probe = "antes"));
   await page.locator(".admin-side-nav").getByRole("button", { name: "Pessoas" }).click();
   await page.waitForLoadState("networkidle");
   await expect(page.getByRole("heading", { name: "Pessoas" }).first()).toBeVisible();
   // a sidebar continua montada (mesmo elemento), só o conteúdo trocou
-  await expect(page.locator(".admin-side")).toHaveAttribute("class", sidebarBefore);
+  await expect(page.locator(".admin-side")).toHaveAttribute("data-probe", "antes");
 });

@@ -13,6 +13,7 @@ import { getAzureUsers } from "../users/api.js";
 import { useRoles, useOrganization } from "../organization/hooks.js";
 import { useInviteUser, useUpdateUser, useDeactivateUser } from "./hooks.js";
 import { useIdentity } from "../../core/auth/IdentityContext.jsx";
+import StickyPageHeader from "../../core/ui/StickyPageHeader.jsx";
 import { UserPermissionsModal } from "../users/permissions/UserPermissionsModal.jsx";
 
 const ALL_PERMISSION_CODES = Object.keys(PERMISSION_LABELS).filter(
@@ -35,6 +36,7 @@ function memberErrorMessage(err, fallback) {
 }
 
 export function TeamPage() {
+  const searchRef = React.useRef(null);
   const {
     data: members = [],
     isLoading: membersLoading,
@@ -206,19 +208,32 @@ export function TeamPage() {
 
   return (
     <section>
-      <div className="admin-section-head admin-section-head--row">
-        <div>
-          <h1 className="serif admin-section-title">Pessoas</h1>
-          <p className="admin-section-sub max-w-[72ch]">
-            {membersLoading
-              ? "Carregando…"
-              : `${members.length} ${members.length === 1 ? "pessoa na organização" : "pessoas na organização"}.`}
-          </p>
-        </div>
-        <button className="btn" onClick={openInvite}>
-          + Convidar pessoas
-        </button>
-      </div>
+      <StickyPageHeader
+        title="Pessoas"
+        subtitle={
+          membersLoading
+            ? "Carregando…"
+            : `${members.length} ${members.length === 1 ? "pessoa na organização" : "pessoas na organização"}.`
+        }
+        actions={
+          <button className="btn" onClick={openInvite}>
+            + Convidar pessoas
+          </button>
+        }
+        watchRef={searchRef}
+        compact={
+          membersError ? null : (
+            <input
+              className="ui-field-input w-full py-2"
+              type="search"
+              value={memberSearch}
+              placeholder="Buscar pessoas…"
+              aria-label="Buscar pessoas na barra fixa"
+              onChange={(e) => setMemberSearch(e.target.value)}
+            />
+          )
+        }
+      />
 
       {membersError && (
         <div className="admin-placeholder mono" style={{ color: "var(--danger, #c0392b)" }}>
@@ -235,7 +250,7 @@ export function TeamPage() {
 
       {!membersError && (
         <>
-          <div className="admin-search">
+          <div className="admin-search" ref={searchRef}>
             <span className="admin-search-icon" aria-hidden="true">
               ⌕
             </span>
@@ -244,6 +259,7 @@ export function TeamPage() {
               type="text"
               value={memberSearch}
               placeholder="Buscar por nome, email, cargo ou status…"
+              aria-label="Buscar pessoas"
               onChange={(e) => setMemberSearch(e.target.value)}
             />
           </div>
@@ -277,7 +293,7 @@ export function TeamPage() {
                     {m.name == null ? (
                       <span className="member-status member-status--pendente">
                         <span className="member-status-dot"></span>
-                        Convite pendente
+                        Pendente
                       </span>
                     ) : (
                       <span

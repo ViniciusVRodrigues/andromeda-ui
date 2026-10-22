@@ -7,6 +7,7 @@ import React from "react";
 import { Routes, Route, useLocation, useNavigate } from "react-router-dom";
 import { SubTabs } from "../../components/SubTabs.jsx";
 import { useIdentity } from "../../core/auth/IdentityContext.jsx";
+import StickyPageHeader from "../../core/ui/StickyPageHeader.jsx";
 import { orgRoute } from "../../lib/orgRoutes.js";
 import { GeneralPage } from "./GeneralPage.jsx";
 import { RolesPage } from "./RolesPage.jsx";
@@ -29,12 +30,10 @@ export function OrganizationLayout() {
 
   return (
     <section>
-      <div className="admin-section-head">
-        <h1 className="serif admin-section-title">Organização</h1>
-        <p className="admin-section-sub max-w-[72ch]">
-          Identidade visível para todos os membros, cargos e níveis de senioridade.
-        </p>
-      </div>
+      <StickyPageHeader
+        title="Organização"
+        subtitle="Identidade visível para todos os membros, cargos e níveis de senioridade."
+      />
 
       <SubTabs
         tabs={ORG_SUB_TABS}

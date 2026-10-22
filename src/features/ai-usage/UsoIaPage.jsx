@@ -1,5 +1,5 @@
 import React from "react";
-import { useUsoIa } from "./hooks/useUsoIa.js";
+import { useUsoIa, useUsoIaPerson } from "./hooks/useUsoIa.js";
 import { MetricsHeader } from "./components/MetricsHeader.jsx";
 import { FluencyScoreSection } from "./components/FluencyScoreSection.jsx";
 import { AllocationModal } from "./components/AllocationModal.jsx";
@@ -15,7 +15,22 @@ const money = (value) =>
     : Number(value).toLocaleString("pt-BR", { style: "currency", currency: "USD" });
 const tokens = (row) => (row.totalInputTokens || 0) + (row.totalOutputTokens || 0);
 
-export function UsoIaPage({ can }) {
+/** Seletor de quem está sendo visto (Meu uso / uma pessoa). O mesmo componente vai na
+ * página e, ao rolar, no meio da barra fixa do cabeçalho (com outro nome acessível). */
+export function PersonPicker({ label = "Visualizar consumo de" }) {
+  const { options, selectedUserId, setSelectedUserId } = useUsoIaPerson();
+  return (
+    <Combobox
+      value={selectedUserId || "__me__"}
+      onValueChange={(value) => setSelectedUserId(value === "__me__" ? null : value)}
+      aria-label={label}
+      options={options}
+    />
+  );
+}
+
+/** `personRef` marca o seletor de pessoa para a barra fixa saber quando ele saiu da tela. */
+export function UsoIaPage({ can, personRef }) {
   const state = useUsoIa();
   const {
     month,
@@ -95,18 +110,8 @@ export function UsoIaPage({ can }) {
   return (
     <div className="space-y-6">
       {can("uso-ia-team") && (
-        <div className="max-w-sm">
-          <Combobox
-            value={selectedUserId || "__me__"}
-            onValueChange={(value) => state.setSelectedUserId(value === "__me__" ? null : value)}
-            aria-label="Visualizar consumo de"
-            options={[
-              { value: "__me__", label: "Meu uso" },
-              ...(members.data || [])
-                .filter((m) => m.id)
-                .map((m) => ({ value: m.id, label: m.name || m.email })),
-            ]}
-          />
+        <div className="max-w-sm" ref={personRef}>
+          <PersonPicker />
           {members.isError && <p role="alert">Não foi possível carregar os membros.</p>}
         </div>
       )}

@@ -18,6 +18,7 @@ import {
 import { Icon } from "../../components/charts/Charts.jsx";
 import Drawer from "../../core/ui/Drawer.jsx";
 import { ConfirmDialog } from "../../core/ui/Modal.jsx";
+import StickyPageHeader from "../../core/ui/StickyPageHeader.jsx";
 import { IntegrationDataActions } from "./IntegrationDataActions.jsx";
 import {
   useRepairAzureData,
@@ -1143,12 +1144,10 @@ export function IntegrationTab({
 }) {
   return (
     <section>
-      <div className="admin-section-head">
-        <h1 className="serif admin-section-title">Integrações</h1>
-        <p className="admin-section-sub max-w-[72ch]">
-          Configure as conexões externas da organização.
-        </p>
-      </div>
+      <StickyPageHeader
+        title="Integrações"
+        subtitle="Configure as conexões externas da organização."
+      />
 
       <AzureIntegrationCard onStatusChange={onAzureStatusChange} />
       <GithubIntegrationCard onStatusChange={onGithubStatusChange} />

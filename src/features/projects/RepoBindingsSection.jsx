@@ -194,10 +194,12 @@ export function RepoBindingsSection({
 
   return (
     <div className="project-link project-link--gh">
-      <div className="project-link-icon">{icon}</div>
+      {/* Ícone e nome da seção na mesma linha; o conteúdo ocupa a largura toda embaixo. */}
+      <div className="flex items-center gap-3">
+        <div className="project-link-icon">{icon}</div>
+        <div className="project-link-label mb-0">Repositórios</div>
+      </div>
       <div className="project-link-info">
-        <div className="project-link-label">Repositórios</div>
-
         {bindingsQuery.isLoading && (
           <div className="project-link-value mono">Carregando repositórios…</div>
         )}

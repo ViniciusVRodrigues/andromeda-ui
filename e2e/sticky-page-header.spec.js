@@ -43,8 +43,10 @@ test("repositórios: título fixo, atalho do projeto no meio e atualização à 
   );
   await page.route("**/api/v1/repos/repositories/*/commit-activity**", (route) => json(route, []));
   await gotoSection(page, orgSlug, "repositorios");
-  await page.getByRole("combobox", { name: "Selecionar projeto" }).click();
-  await page.getByRole("option", { name: "Projeto Baseline" }).click();
+  await expect(page.getByRole("radio", { name: "Projeto Baseline" })).toHaveAttribute(
+    "aria-checked",
+    "true",
+  ); // abre já com o projeto, sem clique
   await page.waitForLoadState("networkidle");
 
   const shortcut = page.getByRole("combobox", { name: "Trocar projeto" });
@@ -92,9 +94,10 @@ test("backlog: o atalho troca o mesmo projeto do seletor original", async ({ pag
   await page.route("**/api/v1/projects/*/work-items/orphans**", (route) => json(route, EMPTY_PAGE));
   await page.route("**/api/v1/work-items/*/children**", (route) => json(route, EMPTY_PAGE));
   await gotoSection(page, orgSlug, "backlog");
-  await page.getByRole("combobox", { name: "Selecionar projeto" }).selectOption({
-    label: "Projeto Baseline",
-  });
+  await expect(page.getByRole("radio", { name: "Projeto Baseline" })).toHaveAttribute(
+    "aria-checked",
+    "true",
+  ); // abre já com o projeto, sem clique
   await expect(page.getByText("Item de exemplo 1", { exact: true })).toBeVisible();
 
   await scrollMain(page, 2000);

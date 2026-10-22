@@ -1,5 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { loginAsAdmin, gotoSection, shot } from "./auth.mjs";
+import { stubEmptyProjectData } from "./api.mjs";
 import { installDashboardsApi } from "./dashboards-v2-api.mjs";
 
 // Baseline visual pré-refactor (frontend-foundation, spec frontend-tooling-baseline).
@@ -59,6 +60,8 @@ test.describe("casca autenticada (admin)", () => {
        * replay. O admin tem DASHBOARD_STRATEGIC e não participa dos projetos das
        * fixtures, então abre a visão geral da organização. */
       if (section === "dashboard") await installDashboardsApi(page, { passthrough: true });
+      /* Backlog/Repositórios abrem com o projeto escolhido: sem dados dele no replay. */
+      if (section === "backlog" || section === "repositorios") await stubEmptyProjectData(page);
       await gotoSection(page, orgSlug, section);
       await shot(page, `shell-${section.replace(/\//g, "-")}`);
     });

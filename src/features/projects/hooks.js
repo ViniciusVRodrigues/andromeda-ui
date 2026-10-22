@@ -1,6 +1,7 @@
 /* Hooks React Query da feature projects. */
 
 import React from "react";
+import { useSearchParams } from "react-router-dom";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { useIdentity } from "../../core/auth/IdentityContext.jsx";
 import {
@@ -11,6 +12,76 @@ import {
 } from "./api.js";
 import { getUserPermissions, replaceUserPermissionOverrides } from "../users/api.js";
 import { replaceProjectOverrides } from "../users/permissions/resolve.js";
+
+const LAST_PROJECT_KEY = "andromeda_last_project";
+
+function readLastProject(key) {
+  try {
+    return localStorage.getItem(key) || "";
+  } catch (_) {
+    return "";
+  }
+}
+
+function writeLastProject(key, id) {
+  try {
+    if (id) localStorage.setItem(key, id);
+  } catch (_) {
+    /* sem persistência: vale só nesta visita */
+  }
+}
+
+/**
+ * Projeto das telas presas a projeto (Backlog, Repositórios) sem clique para ver dado:
+ * `?projeto=` da URL (link compartilhável, voltar/avançar) → o último usado (localStorage,
+ * por organização e comum às telas) → o primeiro da lista. Trocar grava nos dois.
+ * Devolve `[projectId, selectProject]`; `projectId` fica "" até a lista chegar.
+ *
+ * @param {Array<{ id: string }>} projects  os projetos que a tela pode mostrar
+ * @param {{ ready?: boolean }} [options]  `ready`: a lista já carregou
+ */
+export function useSelectedProject(projects, { ready = true } = {}) {
+  const { orgSlug } = useIdentity();
+  const [params, setParams] = useSearchParams();
+  const fromUrl = params.get("projeto") || "";
+  const storageKey = `${LAST_PROJECT_KEY}:${orgSlug || ""}`;
+  const ids = React.useMemo(() => projects.map((p) => p.id).filter(Boolean), [projects]);
+  const [projectId, setProjectId] = React.useState(fromUrl);
+
+  const selectProject = React.useCallback(
+    (id) => {
+      setProjectId(id || "");
+      writeLastProject(storageKey, id);
+      setParams(
+        (prev) => {
+          const next = new URLSearchParams(prev);
+          if (id) next.set("projeto", id);
+          else next.delete("projeto");
+          return next;
+        },
+        { replace: true },
+      );
+    },
+    [setParams, storageKey],
+  );
+
+  /* A lista chegou (ou mudou): o atual sumiu ou ainda não há → escolhe sozinho. */
+  React.useEffect(() => {
+    if (!ready || !ids.length || (projectId && ids.includes(projectId))) return;
+    const next = [fromUrl, readLastProject(storageKey), ids[0]].find(
+      (id) => id && ids.includes(id),
+    );
+    if (next) selectProject(next);
+  }, [ready, ids, projectId, fromUrl, storageKey, selectProject]);
+
+  /* Voltar/avançar trocou o ?projeto= da URL: acompanha. */
+  React.useEffect(() => {
+    if (fromUrl && fromUrl !== projectId && ids.includes(fromUrl)) setProjectId(fromUrl);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fromUrl]);
+
+  return [projectId, selectProject];
+}
 
 export function useProjects() {
   return useQuery({

@@ -1,6 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { loginAsAdmin, gotoSection } from "./auth.mjs";
 import { installDashboardsApi } from "./dashboards-v2-api.mjs";
+import { stubEmptyProjectData } from "./api.mjs";
 import { normalizeScreen, DASHBOARD_DETAILS } from "../src/core/telemetry/normalize.js";
 import { createTracker } from "../src/core/telemetry/tracker.js";
 import { ACTIONS, dashboardFilterAction } from "../src/core/telemetry/actions.js";
@@ -27,6 +28,7 @@ test.describe("replay não gera tráfego de telemetria", () => {
     });
     const { orgSlug } = await loginAsAdmin(page);
     await installDashboardsApi(page, { passthrough: true });
+    await stubEmptyProjectData(page); // o backlog abre com o projeto escolhido
     for (const route of ["projetos", "dashboard", "backlog"]) {
       await gotoSection(page, orgSlug, route);
     }

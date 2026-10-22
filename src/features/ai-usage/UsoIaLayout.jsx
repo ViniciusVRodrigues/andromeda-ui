@@ -6,11 +6,11 @@
 import React from "react";
 import { Routes, Route, useLocation, useNavigate } from "react-router-dom";
 import { SubTabs } from "../../components/SubTabs.jsx";
-import PageHeader from "../../core/ui/PageHeader.jsx";
+import StickyPageHeader from "../../core/ui/StickyPageHeader.jsx";
 import { useIdentity } from "../../core/auth/IdentityContext.jsx";
 import { orgRoute } from "../../lib/orgRoutes.js";
 import { useOrganization } from "../organization/hooks.js";
-import { UsoIaPage } from "./UsoIaPage.jsx";
+import { PersonPicker, UsoIaPage } from "./UsoIaPage.jsx";
 import { AiPricingTab } from "./components/AiPricingTab.jsx";
 
 const USO_IA_SUB_TABS = [
@@ -27,12 +27,16 @@ export function UsoIaLayout() {
 
   const segs = location.pathname.split("/").filter(Boolean);
   const activeId = segs[2] || "consumo";
+  const personRef = React.useRef(null);
+  const showPerson = activeId === "consumo" && can("uso-ia-team");
 
   return (
     <section>
-      <PageHeader
+      <StickyPageHeader
         title="Uso de IA"
         subtitle="Quanto de IA foi usado por dia, em quais work items e quanto isso custou."
+        watchRef={personRef}
+        compact={showPerson ? <PersonPicker label="Trocar pessoa" /> : null}
       />
       {can("uso-ia-pricing") && (
         <SubTabs
@@ -44,7 +48,7 @@ export function UsoIaLayout() {
         />
       )}
       <Routes>
-        <Route index element={<UsoIaPage can={can} />} />
+        <Route index element={<UsoIaPage can={can} personRef={personRef} />} />
         <Route
           path="precificacao"
           element={
