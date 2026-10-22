@@ -116,6 +116,9 @@ test("AI table filters, nested work item edit and allocation refresh", async ({ 
    * dashboard antigo; o modal vive no Uso de IA desde a troca dos dashboards) */
   const allocation = page.getByRole("dialog").filter({ hasText: "Divida os" });
   await expect(allocation).toContainText("Divida os 0,012M tokens deste dia");
+  /* o clique em "Alocar consumo" deixa o mouse onde o modal põe "Confirmar alocação →":
+   * sem tirá-lo dali, o botão às vezes sai em hover (brilho + 1 px) e o print diverge */
+  await page.mouse.move(0, 0);
   await expect(allocation).toHaveScreenshot("allocation-modal.png");
   await page.getByRole("button", { name: "Confirmar alocação →" }).click();
   await expect(page.getByRole("dialog")).toContainText("Work items alocados");
