@@ -310,6 +310,9 @@ test("cargos: matriz agrupada por escopo inclui PROJECT_ACCESS_ALL", async ({ pa
 test("perfil: Minhas permissões mostra o efetivo por projeto", async ({ page }) => {
   const { orgSlug } = await loginAsAdmin(page);
   await gotoSection(page, orgSlug, "perfil");
+  /* as permissões ficam na 2ª aba do Perfil (a 1ª é Conexões) */
+  await page.getByRole("tab", { name: "Minhas permissões" }).click();
+  await expect(page).toHaveURL(/\/perfil\/permissoes$/);
   await expect(page.getByRole("heading", { name: "Minhas permissões" })).toBeVisible();
   const project = page.getByTestId("effective-project-6a96b750c72203798d740148");
   await expect(project).toContainText("Projeto Baseline");

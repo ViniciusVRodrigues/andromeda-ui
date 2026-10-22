@@ -161,7 +161,15 @@ export function hasManage(identity) {
 /* Perfil no shape que o conteúdo legacy consome, a partir do /me. */
 export function buildProfile(meData) {
   return {
-    personal: { fullName: meData.name, email: meData.email, role: "" },
+    /* cargo, senioridade e "membro desde" vêm do /me (roleLabel, seniority, memberSince);
+     * backend anterior não manda — ficam vazios e o Perfil mostra "—". */
+    personal: {
+      fullName: meData.name,
+      email: meData.email,
+      role: meData.roleLabel || "",
+      seniority: meData.seniority || "",
+      memberSince: meData.memberSince || null,
+    },
     org: { name: meData.orgName, slug: meData.orgSlug ?? "", sector: "", country: "", size: "—" },
     plan: "galaxia",
   };
