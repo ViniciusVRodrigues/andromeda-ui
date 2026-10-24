@@ -10,6 +10,11 @@ import { decodeJwt } from "../../core/api/client.js";
 import { PERMISSION_LABELS, ALWAYS_ON_PERMISSIONS } from "../../core/auth/permissionLabels.js";
 import { useUsers } from "../users/hooks.js";
 import { getAzureUsers } from "../users/api.js";
+
+const AZURE_SOURCE_LABEL = {
+  AUTO_EMAIL: "Vinculado automaticamente pelo e-mail",
+  ADMIN: "Vinculado pelo administrador",
+};
 import { useRoles, useOrganization } from "../organization/hooks.js";
 import { useInviteUser, useUpdateUser, useDeactivateUser } from "./hooks.js";
 import { useIdentity } from "../../core/auth/IdentityContext.jsx";
@@ -168,7 +173,7 @@ export function TeamPage() {
     setAzureUserOptions([]);
     setAzureUsersError(null);
     setMemberSaveMsg(null);
-    loadAzureUsers(m.azureId || null);
+    if (canManagePermissions) loadAzureUsers(m.azureId || null);
   };
   const closeMemberEdit = () => {
     setEditingMember(null);
@@ -503,32 +508,48 @@ export function TeamPage() {
                 </div>
               </label>
 
-              <div className="ui-field" style={{ marginTop: "var(--spacing-md)" }}>
-                <span className="ui-field-label">Identidade Azure</span>
-                {azureUsersLoading && <div className="skeleton" style={{ height: "2.4rem" }} />}
-                {azureUsersError && (
-                  <div style={{ fontSize: "0.8rem", color: "var(--bad)" }}>{azureUsersError}</div>
-                )}
-                {!azureUsersLoading && !azureUsersError && (
-                  <select
-                    className="ui-field-input"
-                    value={selectedAzureUser?.azureId || ""}
-                    disabled={azureUserOptions.length === 0}
-                    onChange={(e) => {
-                      const user =
-                        azureUserOptions.find((u) => u.azureId === e.target.value) || null;
-                      setSelectedAzureUser(user);
-                    }}
-                  >
-                    <option value="">— sem vinculação Azure —</option>
-                    {azureUserOptions.map((u) => (
-                      <option key={u.azureId} value={u.azureId}>
-                        {u.displayName} ({u.azureEmail})
-                      </option>
-                    ))}
-                  </select>
-                )}
-              </div>
+              {canManagePermissions && (
+                <div className="ui-field" style={{ marginTop: "var(--spacing-md)" }}>
+                  <span className="ui-field-label">Identidade Azure</span>
+                  {azureUsersLoading && <div className="skeleton" style={{ height: "2.4rem" }} />}
+                  {azureUsersError && (
+                    <div style={{ fontSize: "0.8rem", color: "var(--bad)" }}>{azureUsersError}</div>
+                  )}
+                  {!azureUsersLoading && !azureUsersError && (
+                    <select
+                      className="ui-field-input"
+                      value={selectedAzureUser?.azureId || ""}
+                      disabled={azureUserOptions.length === 0}
+                      onChange={(e) => {
+                        const user =
+                          azureUserOptions.find((u) => u.azureId === e.target.value) || null;
+                        setSelectedAzureUser(user);
+                      }}
+                    >
+                      <option value="">— sem vinculação Azure —</option>
+                      {azureUserOptions.map((u) => {
+                        const takenByOther =
+                          Boolean(u.linkedUserId) && u.linkedUserId !== editingMember.id;
+                        return (
+                          <option key={u.azureId} value={u.azureId} disabled={takenByOther}>
+                            {u.displayName} ({u.azureEmail})
+                            {takenByOther ? " — já vinculado a outra pessoa" : ""}
+                          </option>
+                        );
+                      })}
+                    </select>
+                  )}
+                  {editingMember.azureId &&
+                    AZURE_SOURCE_LABEL[editingMember.azureIdentitySource] && (
+                      <div
+                        data-testid="azure-source"
+                        style={{ fontSize: "0.8rem", marginTop: "0.35rem" }}
+                      >
+                        {AZURE_SOURCE_LABEL[editingMember.azureIdentitySource]}
+                      </div>
+                    )}
+                </div>
+              )}
 
               {memberSaveMsg && (
                 <p

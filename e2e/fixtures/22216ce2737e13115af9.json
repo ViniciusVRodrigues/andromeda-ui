@@ -1,0 +1,6 @@
+{
+  "request": "GET /api/v1/users/me/azure-identity",
+  "status": 200,
+  "contentType": "application/json",
+  "body": "{\"status\":\"NO_CONNECTION\",\"azureEmail\":null,\"displayName\":null,\"source\":null,\"linkedAt\":null}"
+}

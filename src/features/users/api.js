@@ -16,6 +16,11 @@ export function linkAzureIdentity(userId, body) {
   return api.put(`/v1/users/${userId}/azure-identity`, body);
 }
 
+/** Estado do vínculo automático da própria pessoa com o Azure DevOps (só leitura). */
+export function getMyAzureIdentity() {
+  return api.get("/v1/users/me/azure-identity");
+}
+
 export function getAzureUsers() {
   return api.get("/v1/integrations/azure/users");
 }

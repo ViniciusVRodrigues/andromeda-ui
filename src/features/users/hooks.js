@@ -4,6 +4,7 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  getMyAzureIdentity,
   getPermissions,
   getUserPermissions,
   getUsers,
@@ -15,6 +16,15 @@ export function useUsers() {
   return useQuery({
     queryKey: ["users"],
     queryFn: () => getUsers().then((d) => (Array.isArray(d) ? d : [])),
+  });
+}
+
+/** Estado do vínculo Azure da própria pessoa (LINKED, NOT_FOUND, AMBIGUOUS, TAKEN, NO_CONNECTION). */
+export function useMyAzureIdentity() {
+  return useQuery({
+    queryKey: ["users", "me", "azure-identity"],
+    queryFn: getMyAzureIdentity,
+    retry: false,
   });
 }
 
