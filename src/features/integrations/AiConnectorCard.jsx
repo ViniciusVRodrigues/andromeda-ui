@@ -1,6 +1,8 @@
 import React from "react";
 import api, { BACKEND_URL } from "../../core/api/client.js";
+import Disclosure from "../../core/ui/Disclosure.jsx";
 import { ConfirmDialog } from "../../core/ui/Modal.jsx";
+import Tabs from "../../core/ui/Tabs.jsx";
 import { IntegrationDataActions } from "./IntegrationDataActions.jsx";
 import { useWipeAiUsageData } from "./hooks.js";
 
@@ -217,6 +219,7 @@ export function AiConnectorCard({ orgSlug, hasOrg }) {
 
       {/* ── Tutorial — always visible below divider ── */}
       <AiConnectorTutorial
+        initiallyOpen={uiState === "loading" ? null : uiState !== "existing"}
         connectorUrl={connectorUrl}
         healthUrl={`${BACKEND_URL}/connector/${orgSlug}/health`}
       />
@@ -310,20 +313,61 @@ const IDE_TARGETS = [
   { name: "Void", cmd: "void --install-extension RobBos.ai-engineering-fluency" },
 ];
 
-function TutorialStep({ n, title, children }) {
+const EDITOR_STORAGE_KEY = "andromeda_aief_editor";
+const EDITOR_IDS = ["vscode", "forks", "jetbrains", "visualstudio", "cli"];
+
+const FORK_TARGETS = IDE_TARGETS.slice(1);
+
+/* JetBrains, Visual Studio e CLI: a AIEF tem versão deles, mas só a extensão do
+ * VS Code envia para um servidor — e ela lê os logs desses ambientes na mesma máquina. */
+const VIA_VSCODE =
+  "Para enviar o uso daqui à Andrômeda, deixe a extensão do VS Code instalada, configurada com os passos abaixo e aberta na mesma máquina: é ela que lê os logs deste ambiente e faz o envio.";
+
+function readStoredEditor() {
+  try {
+    return localStorage.getItem(EDITOR_STORAGE_KEY);
+  } catch (_) {
+    return null;
+  }
+}
+
+function storeEditor(id) {
+  try {
+    localStorage.setItem(EDITOR_STORAGE_KEY, id);
+  } catch (_) {
+    /* storage bloqueado: a aba só deixa de ser lembrada */
+  }
+}
+
+/* Passo do acordeão: número e título no <summary>, corpo recuado. */
+function TutorialStep({ n, title, defaultOpen = false, children }) {
   return (
-    <div className="integration-tutorial-step">
-      <span className="integration-tutorial-step-num">{n}</span>
-      <div className="integration-tutorial-step-body">
-        <p className="integration-tutorial-step-title">{title}</p>
-        {children}
-      </div>
-    </div>
+    <Disclosure
+      defaultOpen={defaultOpen}
+      className="border-line border-b"
+      lead={
+        <span
+          aria-hidden="true"
+          className="border-line text-fg-muted flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-full border font-mono text-xs"
+        >
+          {n}
+        </span>
+      }
+      summary={
+        <>
+          <span className="sr-only">Passo {n}: </span>
+          <span className="font-semibold">{title}</span>
+        </>
+      }
+    >
+      <div className="flex min-w-0 flex-col gap-2 pr-1 pb-3 pl-[42px]">{children}</div>
+    </Disclosure>
   );
 }
 
-/* Bloco de código copiável — o snippet de settings tem linhas longas demais
- * para caber no card, então rola na horizontal em vez de quebrar. */
+/* Bloco de código copiável. O texto copiado é exatamente o exibido. A linha
+ * longa rola dentro do <pre>; `min-w-0` em toda a cadeia flex impede que ele
+ * empurre a largura da página. */
 function CopyBlock({ text, label = "Copiar" }) {
   const [copied, setCopied] = React.useState(false);
 
@@ -335,13 +379,16 @@ function CopyBlock({ text, label = "Copiar" }) {
   };
 
   return (
-    <div className="border-line bg-bg-deep rounded-btn mt-1 flex items-start gap-2 border p-2">
-      <pre className="text-fg-muted m-0 min-w-0 flex-1 overflow-x-auto font-mono text-xs whitespace-pre">
+    <div className="border-line bg-bg-deep rounded-btn mt-1 flex min-w-0 flex-col gap-2 border p-2 sm:flex-row sm:items-start">
+      <pre
+        tabIndex={0}
+        className="text-fg focus-visible:outline-accent m-0 min-w-0 flex-1 overflow-x-auto font-mono text-xs whitespace-pre focus-visible:outline-2 focus-visible:outline-offset-2"
+      >
         {text}
       </pre>
       <button
         type="button"
-        className="btn btn-ghost min-h-[44px] shrink-0 md:min-h-0"
+        className="btn btn-ghost min-h-[44px] min-w-[44px] shrink-0"
         onClick={copy}
       >
         {copied ? "Copiado!" : label}
@@ -359,170 +406,265 @@ function TutorialLink({ href, children }) {
       href={href}
       target="_blank"
       rel="noopener noreferrer"
-      className="text-accent font-mono text-xs underline decoration-dotted underline-offset-2"
+      className="text-accent-text focus-visible:outline-accent inline-block py-1.5 font-mono text-xs underline decoration-dotted underline-offset-2 focus-visible:outline-2 focus-visible:outline-offset-2"
     >
       {children}
     </a>
   );
 }
 
-function TutorialDisclosure({ summary, children }) {
+function Desc({ children }) {
+  return <p className="text-fg-muted m-0 font-mono text-xs leading-normal">{children}</p>;
+}
+
+function InstallCommand({ cmd }) {
   return (
-    <details className="border-line mt-3 border-t pt-2">
-      <summary className="text-fg font-mono text-xs tracking-wide uppercase">{summary}</summary>
-      <div className="mt-2 flex flex-col gap-2">{children}</div>
-    </details>
+    <code className="text-fg bg-bg-deep rounded-btn block max-w-full overflow-x-auto px-2 py-1 font-mono text-xs whitespace-pre">
+      {cmd}
+    </code>
   );
 }
 
-function AiConnectorTutorial({ connectorUrl, healthUrl }) {
-  const endpoint = connectorUrl || "<GERE A URL ACIMA E COLE AQUI>";
-  const settingsSnippet = JSON.stringify(
+function EditorTabs() {
+  const [editor, setEditor] = React.useState(() => {
+    const stored = readStoredEditor();
+    return EDITOR_IDS.includes(stored) ? stored : "vscode";
+  });
+  const select = (id) => {
+    setEditor(id);
+    storeEditor(id);
+  };
+
+  const tabs = [
     {
-      "aiEngineeringFluency.backend.enabled": true,
-      "aiEngineeringFluency.backend.backend": "sharingServer",
-      "aiEngineeringFluency.backend.sharingServer.enabled": true,
-      "aiEngineeringFluency.backend.sharingServer.endpointUrl": endpoint,
-      "aiEngineeringFluency.backend.sharingProfile": "teamAnonymized",
-      "aiEngineeringFluency.backend.shareWithTeam": true,
-      "aiEngineeringFluency.backend.datasetId": "default",
+      id: "vscode",
+      label: "VS Code",
+      panel: (
+        <div className="flex flex-col gap-2">
+          <Desc>
+            <strong>AI Engineering Fluency</strong>, publicada como{" "}
+            <code>RobBos.ai-engineering-fluency</code>.
+          </Desc>
+          <InstallCommand cmd={IDE_TARGETS[0].cmd} />
+          <div className="flex flex-wrap gap-x-4">
+            <TutorialLink href={MARKETPLACE_URL}>VS Code Marketplace ↗</TutorialLink>
+            <TutorialLink href={OPENVSX_URL}>Open VSX ↗</TutorialLink>
+            <TutorialLink href={UPSTREAM_SETUP_URL}>docs do projeto ↗</TutorialLink>
+          </div>
+        </div>
+      ),
     },
-    null,
-    2,
-  );
+    {
+      id: "forks",
+      label: "Forks: Cursor, Windsurf e outros",
+      panel: (
+        <div className="flex flex-col gap-2">
+          <Desc>
+            As chaves do <code>settings.json</code> são{" "}
+            <strong>as mesmas em qualquer fork do VS Code</strong>; muda só como se instala. Para
+            abrir as configurações em qualquer um deles: <kbd>Ctrl+Shift+P</kbd> →{" "}
+            <em>Preferences: Open User Settings (JSON)</em>.
+          </Desc>
+          <ul className="m-0 flex list-none flex-col p-0">
+            {FORK_TARGETS.map((target) => (
+              <li
+                key={target.name}
+                className="border-line flex min-w-0 flex-col gap-0.5 border-b py-1 last:border-b-0 sm:flex-row sm:items-baseline sm:gap-3"
+              >
+                <span className="text-fg w-36 shrink-0 font-mono text-xs">{target.name}</span>
+                <code className="text-fg-muted min-w-0 font-mono text-xs break-all">
+                  {target.cmd}
+                </code>
+              </li>
+            ))}
+          </ul>
+          <Desc>
+            Forks costumam resolver extensões pelo{" "}
+            <TutorialLink href={OPENVSX_URL}>Open VSX</TutorialLink> em vez do Marketplace da
+            Microsoft. Se o comando falhar, instale pela UI do editor procurando por “AI Engineering
+            Fluency”.
+          </Desc>
+        </div>
+      ),
+    },
+    {
+      id: "jetbrains",
+      label: "JetBrains",
+      panel: (
+        <div className="flex flex-col gap-2">
+          <Desc>
+            IntelliJ, Rider, PyCharm, WebStorm… O plugin <code>31580</code> da AIEF mostra os dados
+            só localmente: <strong>ele não envia nada por conta própria</strong>.
+          </Desc>
+          <Desc>{VIA_VSCODE}</Desc>
+        </div>
+      ),
+    },
+    {
+      id: "visualstudio",
+      label: "Visual Studio",
+      panel: (
+        <div className="flex flex-col gap-2">
+          <Desc>
+            A extensão <code>RobBos.AIEngineeringFluency</code> do Visual Studio 2022 mostra os
+            dados só localmente: <strong>ela não envia nada por conta própria</strong>.
+          </Desc>
+          <Desc>{VIA_VSCODE}</Desc>
+        </div>
+      ),
+    },
+    {
+      id: "cli",
+      label: "CLI",
+      panel: (
+        <div className="flex flex-col gap-2">
+          <InstallCommand cmd="npx @rajbos/ai-engineering-fluency" />
+          <Desc>
+            O CLI só analisa os dados locais: <strong>ele não envia nada por conta própria</strong>.
+          </Desc>
+          <Desc>{VIA_VSCODE}</Desc>
+        </div>
+      ),
+    },
+  ];
+
+  return <Tabs tabs={tabs} value={editor} onChange={select} label="Editor" />;
+}
+
+/* As sete chaves que a extensão lê, uma por linha, já com a vírgula final e sem
+ * as chaves externas: o usuário cola logo depois da `{` do settings.json e o
+ * arquivo continua válido (JSONC aceita a vírgula final). */
+function buildSettingsSnippet(endpoint) {
+  const entries = [
+    ["aiEngineeringFluency.backend.enabled", true],
+    ["aiEngineeringFluency.backend.backend", "sharingServer"],
+    ["aiEngineeringFluency.backend.sharingServer.enabled", true],
+    ["aiEngineeringFluency.backend.sharingServer.endpointUrl", endpoint],
+    ["aiEngineeringFluency.backend.sharingProfile", "teamAnonymized"],
+    ["aiEngineeringFluency.backend.shareWithTeam", true],
+    ["aiEngineeringFluency.backend.datasetId", "default"],
+  ];
+  return entries.map(([k, v]) => `  ${JSON.stringify(k)}: ${JSON.stringify(v)},`).join("\n");
+}
+
+function AiConnectorTutorial({ initiallyOpen, connectorUrl, healthUrl }) {
+  const endpoint = connectorUrl || "<GERE A URL ACIMA E COLE AQUI>";
+  const settingsSnippet = buildSettingsSnippet(endpoint);
+
+  /* aberto sem token, fechado com token; decidido uma vez, quando o estado do
+   * token chega — depois disso só a pessoa mexe */
+  const [open, setOpen] = React.useState(false);
+  const decided = React.useRef(false);
+  React.useEffect(() => {
+    if (initiallyOpen === null || decided.current) return;
+    decided.current = true;
+    setOpen(initiallyOpen);
+  }, [initiallyOpen]);
 
   return (
     <div className="integration-tutorial">
-      <p className="integration-tutorial-heading">Como configurar</p>
+      <Disclosure
+        open={open}
+        onOpenChange={setOpen}
+        summary="Como configurar no editor · 5 passos"
+        summaryClassName="uppercase tracking-wide"
+      >
+        <div className="flex flex-col pt-1">
+          <TutorialStep n={1} title="Instale a extensão" defaultOpen>
+            <EditorTabs />
+          </TutorialStep>
 
-      <div className="integration-tutorial-steps">
-        <TutorialStep n={1} title="Instale a extensão">
-          <p className="integration-tutorial-step-desc">
-            <strong>AI Engineering Fluency</strong>, publicada como{" "}
-            <code>RobBos.ai-engineering-fluency</code>.{" "}
-            <TutorialLink href={MARKETPLACE_URL}>VS Code Marketplace ↗</TutorialLink>
-            {" · "}
-            <TutorialLink href={OPENVSX_URL}>Open VSX ↗</TutorialLink>
-            {" · "}
-            <TutorialLink href={UPSTREAM_SETUP_URL}>docs do projeto ↗</TutorialLink>
-          </p>
-        </TutorialStep>
+          <TutorialStep n={2} title="Entre com o GitHub no editor">
+            <Desc>
+              <kbd>Ctrl+Shift+P</kbd> → <em>AI Engineering Fluency: Authenticate with GitHub</em>{" "}
+              (ou use o login GitHub nativo do editor). Sem essa sessão a extensão{" "}
+              <strong>pula o envio em silêncio</strong>, mesmo com tudo mais configurado.
+            </Desc>
+            <Desc>
+              A Andrômeda <strong>descarta o token do GitHub</strong> que a extensão envia e não o
+              usa para autorizar nada: quem identifica você é o token embutido na URL. A sessão só
+              libera o envio na extensão.
+            </Desc>
+          </TutorialStep>
 
-        <TutorialStep n={2} title="Entre com o GitHub no editor">
-          <p className="integration-tutorial-step-desc">
-            <kbd>Ctrl+Shift+P</kbd> → <em>AI Engineering Fluency: Authenticate with GitHub</em> (ou
-            use o login GitHub nativo do editor). Sem essa sessão a extensão{" "}
-            <strong>pula o envio em silêncio</strong>, mesmo com tudo mais configurado.
-          </p>
-          <p className="integration-tutorial-step-desc">
-            A Andrômeda não usa essa sessão para autenticar — quem identifica você é o token
-            embutido na URL. Ela só libera o envio na extensão.
-          </p>
-        </TutorialStep>
+          <TutorialStep n={3} title="Cole as configurações no settings.json">
+            <Desc>
+              <kbd>Ctrl+Shift+P</kbd> → <em>Preferences: Open User Settings (JSON)</em> e cole as
+              linhas abaixo <strong>logo depois da </strong>
+              <code>{"{"}</code>
+              <strong> que abre o seu settings.json</strong>.
+              {connectorUrl ? " A URL gerada já veio preenchida." : ""}
+            </Desc>
+            <CopyBlock text={settingsSnippet} label="Copiar linhas" />
+            <p className="text-warn-text m-0 font-mono text-xs leading-normal">
+              <code>backend.enabled</code> precisa estar ligado, apesar do nome: é a chave geral de
+              envio da extensão. Sem ela, nada sai da máquina. A Andrômeda não usa Azure Storage;
+              nenhum dado vai para a nuvem da Microsoft.
+            </p>
+          </TutorialStep>
 
-        <TutorialStep n={3} title="Cole as configurações no settings.json">
-          <p className="integration-tutorial-step-desc">
-            <kbd>Ctrl+Shift+P</kbd> → <em>Preferences: Open User Settings (JSON)</em> e acrescente
-            as chaves abaixo.
-            {connectorUrl ? " A URL gerada já veio preenchida." : ""}
-          </p>
-          <CopyBlock text={settingsSnippet} label="Copiar JSON" />
-          <p className="text-warn mt-1 font-mono text-xs">
-            <code>backend.enabled</code> precisa estar ligado, apesar do nome: é a chave geral de
-            envio da extensão. Sem ela, nada sai da máquina. A Andrômeda não usa Azure Storage;
-            nenhum dado vai para a nuvem da Microsoft.
-          </p>
-        </TutorialStep>
+          <TutorialStep n={4} title="Recarregue a janela">
+            <Desc>
+              <kbd>Ctrl+Shift+P</kbd> → <em>Developer: Reload Window</em>. O agendador de
+              sincronização só é criado na ativação da extensão.
+            </Desc>
+          </TutorialStep>
 
-        <TutorialStep n={4} title="Recarregue a janela">
-          <p className="integration-tutorial-step-desc">
-            <kbd>Ctrl+Shift+P</kbd> → <em>Developer: Reload Window</em>. O agendador de
-            sincronização só é criado na ativação da extensão.
-          </p>
-        </TutorialStep>
+          <TutorialStep n={5} title="Confirme que os dados chegaram">
+            <Desc>
+              O conector responde em{" "}
+              <TutorialLink href={healthUrl}>
+                <code className="break-all">{healthUrl}</code> ↗
+              </TutorialLink>{" "}
+              com <code>&#123;"status":"ok"&#125;</code>. Depois force uma coleta com{" "}
+              <em>AI Engineering Fluency: Refresh Token Usage</em> e acompanhe o painel{" "}
+              <strong>Output → AI Engineering Fluency</strong>.
+            </Desc>
+            <Desc>
+              Os registros caem em <strong>Uso de IA</strong> em alguns minutos — a extensão envia
+              resumos diários (tokens, interações, modelo, editor e o Fluency Score), nunca prompts
+              ou complementos.
+            </Desc>
+          </TutorialStep>
 
-        <TutorialStep n={5} title="Confirme que os dados chegaram">
-          <p className="integration-tutorial-step-desc">
-            O conector responde em{" "}
-            <TutorialLink href={healthUrl}>
-              <code>{healthUrl}</code> ↗
-            </TutorialLink>{" "}
-            com <code>&#123;"status":"ok"&#125;</code>. Depois force uma coleta com{" "}
-            <em>AI Engineering Fluency: Refresh Token Usage</em> e acompanhe o painel{" "}
-            <strong>Output → AI Engineering Fluency</strong>.
-          </p>
-          <p className="integration-tutorial-step-desc">
-            Os registros caem em <strong>Uso de IA</strong> em alguns minutos — a extensão envia
-            resumos diários (tokens, interações, modelo, editor e o Fluency Score), nunca prompts ou
-            complementos.
-          </p>
-        </TutorialStep>
-      </div>
-
-      <TutorialDisclosure summary="Outras IDEs">
-        <p className="integration-tutorial-step-desc">
-          As chaves do <code>settings.json</code> são{" "}
-          <strong>as mesmas em qualquer fork Chromium do VS Code</strong> — muda só como se instala.
-          Para abrir o arquivo de configurações em qualquer um deles: <kbd>Ctrl+Shift+P</kbd> →{" "}
-          <em>Preferences: Open User Settings (JSON)</em>.
-        </p>
-        <div className="flex flex-col">
-          {IDE_TARGETS.map((target) => (
-            <div
-              key={target.name}
-              className="border-line flex flex-col gap-0.5 border-b py-1 last:border-b-0 sm:flex-row sm:items-baseline sm:gap-3"
-            >
-              <span className="text-fg w-36 shrink-0 font-mono text-xs">{target.name}</span>
-              <code className="text-fg-muted font-mono text-xs">{target.cmd}</code>
+          <Disclosure summary="Não funcionou?" summaryClassName="uppercase tracking-wide">
+            <div className="flex flex-col gap-2 pb-2">
+              <Desc>
+                Abra <strong>Output → AI Engineering Fluency</strong> e procure a mensagem:
+              </Desc>
+              <ul className="text-fg-muted m-0 flex list-none flex-col gap-1 p-0 font-mono text-xs">
+                <li>
+                  <code>skipping (no GitHub token…)</code> → falta o passo 2.
+                </li>
+                <li>
+                  <code>not starting timer (cloud sync disabled, profile: off)</code> → falta{" "}
+                  <code>backend.enabled</code> ou <code>sharingProfile</code> no passo 3.
+                </li>
+                <li>
+                  <code>not starting timer (backend not configured)</code> →{" "}
+                  <code>sharingServer.enabled</code> ou <code>sharingServer.endpointUrl</code>{" "}
+                  ausente.
+                </li>
+                <li>
+                  <code>401</code> no upload → token revogado, expirado ou URL de outra organização:
+                  gere um novo token acima.
+                </li>
+              </ul>
+              <Desc>
+                Duas pegadinhas: o dia fecha em <strong>UTC</strong>, então o dia de hoje só aparece
+                completo depois; e forks sem o login do GitHub da Microsoft (como o VSCodium) não
+                conseguem o token do passo 2. Use VS Code, Cursor ou Windsurf.
+              </Desc>
+              <Desc>
+                Com <code>sharingProfile: teamAnonymized</code>, a Andrômeda recebe workspace e
+                máquina sem nome (só um hash). Para receber os nomes, use{" "}
+                <code>teamPseudonymous</code> com <code>shareWorkspaceMachineNames: true</code>, e
+                só se a organização aceitar esses dados.
+              </Desc>
             </div>
-          ))}
+          </Disclosure>
         </div>
-        <p className="integration-tutorial-step-desc">
-          Forks costumam resolver extensões pelo{" "}
-          <TutorialLink href={OPENVSX_URL}>Open VSX</TutorialLink> em vez do Marketplace da
-          Microsoft. Se o comando acima falhar, instale pela UI do editor procurando por “AI
-          Engineering Fluency”.
-        </p>
-        <p className="integration-tutorial-step-desc">
-          <strong>Sem envio para a Andrômeda:</strong> JetBrains (IntelliJ, Rider, PyCharm,
-          WebStorm…) e Visual Studio 2022 têm plugin da AIEF, mas ele não envia para um servidor
-          externo, e o CLI (<code>npx @rajbos/ai-engineering-fluency</code>) só analisa dados
-          locais. Nesses casos, deixe um dos editores acima aberto para a coleta acontecer.
-        </p>
-      </TutorialDisclosure>
-
-      <TutorialDisclosure summary="Não funcionou?">
-        <p className="integration-tutorial-step-desc">
-          Abra <strong>Output → AI Engineering Fluency</strong> e procure a mensagem:
-        </p>
-        <ul className="text-fg-muted m-0 flex list-none flex-col gap-1 p-0 font-mono text-xs">
-          <li>
-            <code>skipping (no GitHub token…)</code> → falta o passo 2.
-          </li>
-          <li>
-            <code>not starting timer (cloud sync disabled, profile: off)</code> → falta{" "}
-            <code>backend.enabled</code> ou <code>sharingProfile</code> no passo 3.
-          </li>
-          <li>
-            <code>not starting timer (backend not configured)</code> →{" "}
-            <code>sharingServer.enabled</code> ou <code>sharingServer.endpointUrl</code> ausente.
-          </li>
-          <li>
-            <code>401</code> no upload → token revogado, expirado ou URL de outra organização: gere
-            um novo token acima.
-          </li>
-        </ul>
-        <p className="integration-tutorial-step-desc">
-          Duas pegadinhas: o dia fecha em <strong>UTC</strong>, então o dia de hoje só aparece
-          completo depois; e forks sem o login do GitHub da Microsoft (como o VSCodium) não
-          conseguem o token do passo 2. Use VS Code, Cursor ou Windsurf.
-        </p>
-        <p className="integration-tutorial-step-desc">
-          Com <code>sharingProfile: teamAnonymized</code>, a Andrômeda recebe workspace e máquina
-          sem nome (só um hash). Para receber os nomes, use <code>teamPseudonymous</code> com{" "}
-          <code>shareWorkspaceMachineNames: true</code>, e só se a organização aceitar esses dados.
-        </p>
-      </TutorialDisclosure>
+      </Disclosure>
     </div>
   );
 }
