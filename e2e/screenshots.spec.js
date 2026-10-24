@@ -80,20 +80,24 @@ test.describe("integrações", () => {
     await expect(card).toHaveScreenshot("ai-connector-tutorial.png");
   });
 
-  /* Os dois <details> ficam fora da dobra e o container de scroll da casca
-   * recorta screenshots de elemento, então cada bloco é capturado aberto e
-   * rolado para dentro da viewport. */
-  test("outras IDEs e troubleshooting do conector", async ({ page }) => {
+  /* Os blocos ficam fora da dobra e o container de scroll da casca recorta
+   * screenshots de elemento, então cada um é aberto e rolado para dentro da
+   * viewport antes da captura. */
+  test("abas por editor e troubleshooting do conector", async ({ page }) => {
     const { orgSlug } = await loginAsAdmin(page);
     await gotoSection(page, orgSlug, "perfil");
     const card = page.locator(".integration-card", { hasText: "Extensão AI Engineering Fluency" });
 
-    const ides = card.locator("details", { hasText: "Outras IDEs" });
-    await ides.locator("summary").click();
-    await ides.scrollIntoViewIfNeeded();
-    await expect(ides).toHaveScreenshot("ai-connector-other-ides.png");
+    const tutorial = card.locator("details", { hasText: "Como configurar no editor" }).first();
+    if (!(await tutorial.evaluate((d) => d.open)))
+      await tutorial.locator("summary").first().click();
 
-    const trouble = card.locator("details", { hasText: "Não funcionou?" });
+    const step1 = tutorial.locator("details", { hasText: "Instale a extensão" }).first();
+    await step1.getByRole("tab", { name: "JetBrains" }).click();
+    await step1.scrollIntoViewIfNeeded();
+    await expect(step1).toHaveScreenshot("ai-connector-editor-tabs.png");
+
+    const trouble = tutorial.locator("details", { hasText: "Não funcionou?" }).last();
     await trouble.locator("summary").click();
     await trouble.scrollIntoViewIfNeeded();
     await expect(trouble).toHaveScreenshot("ai-connector-troubleshooting.png");

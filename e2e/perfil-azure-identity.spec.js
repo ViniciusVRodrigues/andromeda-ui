@@ -73,7 +73,9 @@ test("Perfil: ordem dos blocos no DOM (dados, contas, conector, permissões)", a
     const summary = document.querySelector('[aria-label="Resumo do perfil"]');
     const accounts = q("h1,h2,h3", "Contas conectadas");
     const connector = q("h1,h2,h3", "Conector de IA");
-    const tabs = [...document.querySelectorAll('[role="tab"]')].map((e) => e.textContent.trim());
+    const tabs = [...document.querySelectorAll('.sub-tabs [role="tab"]')].map((e) =>
+      e.textContent.trim(),
+    );
     const follows = (a, b) =>
       Boolean(a && b && a.compareDocumentPosition(b) & Node.DOCUMENT_POSITION_FOLLOWING);
     return {
