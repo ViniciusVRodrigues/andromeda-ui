@@ -3,18 +3,61 @@ import { getMyProviderAccounts, unlinkProviderAccount } from "../users/api.js";
 import { useOAuth } from "../../hooks/useOAuth.js";
 import { ConfirmDialog } from "../../core/ui/Modal.jsx";
 import SectionHeader from "../../core/ui/SectionHeader.jsx";
+import { oauthMessage } from "./oauthMessages.js";
+import { useMyAzureIdentity } from "../users/hooks.js";
+
+const AZURE_SOURCE_TEXT = {
+  AUTO_EMAIL: "vinculado automaticamente pelo e-mail",
+  ADMIN: "vinculado pelo administrador",
+};
+
+const AZURE_STATE_TEXT = {
+  NOT_FOUND:
+    "Ainda não vinculado. O vínculo é feito sozinho em até 6 h quando o seu e-mail no Azure DevOps é o mesmo do Andromeda; se não for, peça ao administrador",
+  AMBIGUOUS: "Peça ao administrador para fazer o vínculo",
+  TAKEN: "Peça ao administrador para fazer o vínculo",
+  NO_CONNECTION: "A organização ainda não conectou o Azure DevOps",
+};
+
+function AzureRow() {
+  const { data, isLoading, isError } = useMyAzureIdentity();
+  let content;
+  if (isLoading) content = <span className="admin-row-empty">Carregando…</span>;
+  else if (isError || !data) {
+    content = (
+      <span className="admin-row-empty">Não foi possível consultar o Azure DevOps agora</span>
+    );
+  } else if (data.status === "LINKED") {
+    const src = AZURE_SOURCE_TEXT[data.source];
+    content = (
+      <>
+        <span data-testid="azure-email">{data.azureEmail}</span>
+        {src ? <span className="admin-row-empty"> · {src}</span> : null}
+      </>
+    );
+  } else {
+    content = (
+      <span className="admin-row-empty">
+        {AZURE_STATE_TEXT[data.status] ?? "Peça ao administrador para fazer o vínculo"}
+      </span>
+    );
+  }
+  return (
+    <div className="admin-row">
+      <div className="admin-row-label">Azure DevOps</div>
+      <div className="admin-row-value">{content}</div>
+      <div />
+    </div>
+  );
+}
 
 /**
  * "Contas conectadas" block for the Perfil page.
  * Lists the caller's own provider accounts and lets them connect/disconnect
  * GitHub via the popup+poll OAuth flow. Azure DevOps is shown read-only
- * (admin-managed) — see design.md D10.
- *
- * TODO(backend): endpoints not implemented yet —
- *   GET    /v1/users/me/provider-accounts
- *   DELETE /v1/users/me/provider-accounts/{provider}
- * Until they ship, fetch failures degrade gracefully (GitHub row renders
- * as "unlinked", same catch-and-degrade pattern used elsewhere in this app).
+ * a linha do Azure DevOps só mostra o estado do vínculo automático pelo e-mail
+ * (GET /v1/users/me/azure-identity), sem ação de conectar — design.md D12.
+ * Falha ao carregar as contas degrada para "não conectado" com um aviso.
  */
 export function ConnectedAccounts() {
   const [accounts, setAccounts] = React.useState([]);
@@ -47,18 +90,19 @@ export function ConnectedAccounts() {
   const githubAccount = accounts.find((a) => a.provider === "GITHUB") || null;
 
   const { trigger: triggerGithubOAuth, polling } = useOAuth({
-    popupUrl: "/api/v1/auth/oauth2/authorization/github",
+    ticketPurpose: "GITHUB_PROFILE",
+    provider: "github",
     popupName: "github-account-oauth",
     pollPath: "/v1/users/me/provider-accounts",
     isDone: (data) => Array.isArray(data) && data.some((a) => a.provider === "GITHUB"),
     onSuccess: (data) => {
-      setAccounts(Array.isArray(data) ? data : []);
       setOauthError(null);
+      /* a sondagem devolve a lista; a página de retorno só avisa e a lista é recarregada */
+      if (Array.isArray(data)) setAccounts(data);
+      else fetchAccounts();
     },
-    onError: (reason) => {
-      setOauthError(
-        reason === "timeout" ? "Tempo esgotado ao aguardar a autorização." : "Conexão cancelada.",
-      );
+    onError: (reason, code) => {
+      setOauthError(oauthMessage(code ?? (reason === "timeout" ? "TIMEOUT" : "CANCELLED")));
     },
   });
 
@@ -89,7 +133,9 @@ export function ConnectedAccounts() {
 
       {loading && <p className="mono admin-section-sub">Carregando…</p>}
       {error && <p className="mono admin-section-sub">{error}</p>}
-      {oauthError && <p className="mono admin-section-sub">{oauthError}</p>}
+      <div aria-live="polite">
+        {oauthError && <p className="mono admin-section-sub">{oauthError}</p>}
+      </div>
 
       {!loading && (
         <div className="admin-fields">
@@ -117,13 +163,7 @@ export function ConnectedAccounts() {
             )}
           </div>
 
-          <div className="admin-row">
-            <div className="admin-row-label">Azure DevOps</div>
-            <div className="admin-row-value">
-              <span className="admin-row-empty">gerenciado pelo administrador</span>
-            </div>
-            <div />
-          </div>
+          <AzureRow />
         </div>
       )}
 

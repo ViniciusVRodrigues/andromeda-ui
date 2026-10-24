@@ -215,8 +215,7 @@ export function useWipeAiUsageData() {
   const queryClient = useQueryClient();
   return useMutation({
     mutationFn: () => wipeAiUsageData(),
-    onSuccess: () =>
-      invalidarTudoDaIntegracao(queryClient, [["ai-usage"], ["fluency"], ["allocations"]]),
+    onSuccess: () => invalidarTudoDaIntegracao(queryClient, [["ai-usage"], ["allocations"]]),
   });
 }
 

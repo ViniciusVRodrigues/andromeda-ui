@@ -1,27 +1,11 @@
 /* Widgets da visão Organização — seção "IA na organização" (`buildOrganization`). */
 
 import React from "react";
-import {
-  FLUENCY_STAGE_LABEL,
-  axisUsd,
-  fmtInt,
-  fmtNum,
-  fmtPct,
-  fmtTokensM,
-  fmtUsd,
-} from "../../format.js";
+import { axisUsd, fmtInt, fmtNum, fmtPct, fmtTokensM, fmtUsd } from "../../format.js";
 import { MODEL_TOOLTIP_MIN_USD, modelSeries, projectColor } from "../../kit/Badges.jsx";
 import { BarList, SegmentBar } from "../../kit/Bars.jsx";
 import { ColumnChart } from "../../kit/charts.jsx";
 import { Panel } from "../../kit/Panel.jsx";
-
-/* rampa ordinal dos estágios de fluência (1 → 4) */
-const FLUENCY_COLOR = [
-  "color-mix(in srgb, var(--accent) 38%, var(--bg-elev))",
-  "color-mix(in srgb, var(--accent) 58%, var(--bg-elev))",
-  "color-mix(in srgb, var(--accent) 79%, var(--bg-elev))",
-  "var(--accent)",
-];
 
 export const selectAiCostByModel = (d) => ({
   rows: d.ai.costByBucket,
@@ -125,31 +109,6 @@ export function SubscriptionWidget({ data }) {
       <p className="mono text-fg-muted m-0 mt-3 text-[12px] font-normal">
         Assinatura de {fmtUsd(sub.perUserMonthUsd)}/pessoa/mês × {people} pessoas × {fmtNum(months)}{" "}
         meses. {sub.usersAboveSubscription} pessoa(s) consomem mais que a assinatura.
-      </p>
-    </Panel>
-  );
-}
-
-export const selectFluency = (d) => ({ fluency: d.ai.fluency, adoption: d.ai.adoption });
-
-export function FluencyWidget({ data }) {
-  const { fluency, adoption } = data;
-  return (
-    <Panel
-      eyebrow="maturidade"
-      title="Fluência em IA"
-      sources={["ia"]}
-      info="Em que estágio (1 a 4) está cada pessoa, pela última nota de fluência que a extensão enviou."
-    >
-      <SegmentBar
-        segments={fluency.map((f) => ({
-          label: FLUENCY_STAGE_LABEL[f.stage - 1],
-          value: f.count,
-          color: FLUENCY_COLOR[f.stage - 1],
-        }))}
-      />
-      <p className="mono text-fg-muted m-0 mt-3 text-[12px] font-normal">
-        {adoption.connected} de {adoption.people} pessoas com conector ativo.
       </p>
     </Panel>
   );

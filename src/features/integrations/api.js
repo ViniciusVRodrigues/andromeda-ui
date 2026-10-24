@@ -1,6 +1,6 @@
 /* API da feature integrations — conexões e vínculos Azure DevOps + GitHub. */
 
-import { api, toQuery, BASE_URL } from "../../core/api/client.js";
+import { api, toQuery } from "../../core/api/client.js";
 
 /* ── Azure DevOps ── */
 
@@ -15,16 +15,6 @@ import { api, toQuery, BASE_URL } from "../../core/api/client.js";
  */
 export function getAzureConnection() {
   return api.get("/v1/integrations/azure/connection");
-}
-
-/**
- * URL que abre a autorização Microsoft (popup). A URL da organização vai junto
- * porque o backend não a deriva mais do token (azure-repos-provider D7): ela
- * viaja no `state` e é validada com `_apis/projects` depois do callback.
- * @param {string} orgUrl `https://dev.azure.com/{org}` ou `https://{org}.visualstudio.com`
- */
-export function azureOAuthStartUrl(orgUrl) {
-  return `${BASE_URL}/v1/integrations/azure/connect${toQuery({ orgUrl })}`;
 }
 
 /**
@@ -334,4 +324,16 @@ export function wipeGithubData(projectId) {
  */
 export function wipeAiUsageData() {
   return api.delete("/v1/connector-tokens/ai-usage-data");
+}
+
+/* ── Vínculo OAuth em popup (perfil-integracoes) ── */
+
+/**
+ * Pede o ticket de uso único (60 s) que o popup apresenta ao iniciar o OAuth.
+ * `purpose`: `GITHUB_PROFILE` | `AZURE_ORG_CONNECT` (este exige `azureOrgUrl`).
+ * @param {{ purpose: string, azureOrgUrl?: string }} body
+ * @returns {Promise<{ ticket: string, expiresIn: number }>}
+ */
+export function createOAuthLinkTicket(body) {
+  return api.post("/v1/auth/oauth2/link-ticket", body);
 }

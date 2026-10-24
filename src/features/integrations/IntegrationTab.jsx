@@ -4,11 +4,11 @@ import {
   configureGithubConnection,
   disconnectGithub,
   getGithubConnectionStatus,
-  azureOAuthStartUrl,
   triggerAzureSync,
   triggerGithubSync,
 } from "./api.js";
 import { useOAuth } from "../../hooks/useOAuth.js";
+import { oauthMessage } from "./oauthMessages.js";
 import {
   AzureOAuthAction,
   AzureOrgUrlFixForm,
@@ -465,17 +465,24 @@ function AzureIntegrationCard({ onStatusChange }) {
 
   /* A URL da organização vai na query do início do OAuth (azure-repos-provider D7). */
   const [oauthOrgUrl, setOauthOrgUrl] = React.useState("");
+  const [oauthError, setOauthError] = React.useState(null);
   const { trigger: triggerOAuth, polling } = useOAuth({
-    popupUrl: azureOAuthStartUrl(oauthOrgUrl.trim()),
+    ticketPurpose: "AZURE_ORG_CONNECT",
+    provider: "azure",
+    azureOrgUrl: oauthOrgUrl.trim(),
     onSuccess: (data) => {
-      setConnection(data);
-      setStatus(data.status);
+      setOauthError(null);
       setAuthMethod(null);
-    },
-    onError: (reason) => {
-      if (reason === "timeout") {
-        alert("Tempo de autorização esgotado. Tente novamente.");
+      /* a sondagem já traz a conexão; o aviso da página de retorno manda recarregar */
+      if (data && data.status === "CONNECTED") {
+        setConnection(data);
+        setStatus(data.status);
+      } else {
+        fetchStatus({ silent: true });
       }
+    },
+    onError: (reason, code) => {
+      setOauthError(oauthMessage(code ?? (reason === "timeout" ? "TIMEOUT" : "CANCELLED")));
     },
   });
 
@@ -516,6 +523,9 @@ function AzureIntegrationCard({ onStatusChange }) {
 
   return (
     <>
+      <div aria-live="polite">
+        {oauthError && <p className="text-bad-text font-mono text-xs">{oauthError}</p>}
+      </div>
       {syncToast && (
         <div
           style={{
@@ -612,7 +622,10 @@ function AzureIntegrationCard({ onStatusChange }) {
                 orgUrl={oauthOrgUrl}
                 onOrgUrlChange={setOauthOrgUrl}
                 polling={polling}
-                onTrigger={triggerOAuth}
+                onTrigger={() => {
+                  setOauthError(null);
+                  triggerOAuth();
+                }}
               />
             )}
             {authMethod === "PAT" && (
@@ -662,7 +675,10 @@ function AzureIntegrationCard({ onStatusChange }) {
                 orgUrl={oauthOrgUrl}
                 onOrgUrlChange={setOauthOrgUrl}
                 polling={polling}
-                onTrigger={triggerOAuth}
+                onTrigger={() => {
+                  setOauthError(null);
+                  triggerOAuth();
+                }}
               />
             )}
             {authMethod === "PAT" && (
