@@ -117,7 +117,6 @@ export const TYPE_LABEL = {
 };
 export const STATUS_LABEL = { TODO: "A fazer", IN_PROGRESS: "Em andamento", DONE: "Concluído" };
 export const PR_STATUS_LABEL = { OPEN: "Aberto", MERGED: "Mergeado", CLOSED: "Fechado" };
-export const FLUENCY_STAGE_LABEL = ["Iniciante", "Básico", "Avançado", "Expert"];
 
 /**
  * Complemento de uma duração DS `{p50, p90, n}` (o p50 é o valor mostrado):

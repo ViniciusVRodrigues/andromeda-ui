@@ -51,7 +51,6 @@ async function setup(page) {
       };
     if (url.pathname.endsWith("/candidates"))
       body = [{ workItemId: "wi-1", title: split.workItemTitle, externalId: "101", type: "STORY" }];
-    if (url.pathname.endsWith("/fluency-score")) body = null;
     if (route.request().method() === "POST") {
       allocated = true;
       body = {};

@@ -47,12 +47,10 @@ import {
 import {
   AllocationWidget,
   CostByModelWidget,
-  FluencyWidget,
   TokensByDayWidget,
   TokensPerSpWidget,
   selectAllocation,
   selectCostByModel,
-  selectFluency,
   selectTokensByDay,
   selectTokensPerSp,
 } from "./widgets/individual/ai.jsx";
@@ -252,19 +250,6 @@ const WIDGETS = [
     aliases: [],
     select: selectAllocation,
     Component: AllocationWidget,
-  },
-  {
-    id: "individual.fluencia",
-    viewKey: "individual",
-    section: "ia",
-    title: "Fluência em IA",
-    sizes: ALL,
-    defaultSize: "P",
-    default: true,
-    skeletonHeight: 320,
-    aliases: [],
-    select: selectFluency,
-    Component: FluencyWidget,
   },
   {
     id: "individual.planejado-entregue",

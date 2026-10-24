@@ -379,7 +379,7 @@ test("padrão do catálogo: seções na ordem e widgets do Resumo individual", a
     "Uso de IA",
     "Histórico",
   ]);
-  for (const title of ["Burndown pessoal", "Meus itens da sprint", "Fluência em IA"]) {
+  for (const title of ["Burndown pessoal", "Meus itens da sprint"]) {
     await expect(page.getByRole("heading", { name: title, level: 3 })).toBeVisible();
   }
   await expect(page.getByText("[object Object]")).toHaveCount(0);
@@ -430,7 +430,7 @@ test("layout salvo com id desconhecido e ordem própria renderiza sem erro", asy
   await expect(page.getByRole("heading", { name: "Meus PRs na sprint" })).toHaveCount(0);
   await expect(page.getByRole("heading", { name: "Burndown pessoal" })).toHaveCount(0);
   /* widget fora de widgets e de hidden é "novo": não entra na grade */
-  await expect(page.getByRole("heading", { name: "Fluência em IA" })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Interações por editor" })).toHaveCount(0);
   expect(errors).toEqual([]);
 });
 
@@ -670,7 +670,7 @@ test("Resumo org: layout salvo com id desconhecido renderiza sem erro e o portf�
               { id: "org.portfolio", size: "I" },
             ],
           },
-          { id: "ia", collapsed: false, widgets: [{ id: "org.fluencia", size: "I" }] },
+          { id: "ia", collapsed: false, widgets: [{ id: "org.editores", size: "I" }] },
         ],
         hidden: ["org.kpis"],
         version: 1,
@@ -682,7 +682,7 @@ test("Resumo org: layout salvo com id desconhecido renderiza sem erro e o portf�
     "Portfólio de projetos",
     "IA na organização",
   ]);
-  await expect(page.getByRole("heading", { name: "Fluência em IA" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Interações por editor" })).toBeVisible();
   await page
     .getByRole("row", { name: /Pagamentos/ })
     .first()

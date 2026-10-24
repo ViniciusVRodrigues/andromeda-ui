@@ -1,7 +1,6 @@
 import React from "react";
 import { useUsoIa, useUsoIaPerson } from "./hooks/useUsoIa.js";
 import { MetricsHeader } from "./components/MetricsHeader.jsx";
-import { FluencyScoreSection } from "./components/FluencyScoreSection.jsx";
 import { AllocationModal } from "./components/AllocationModal.jsx";
 import { WorkItemLink } from "../../core/work-items/WorkItemLink.jsx";
 import Modal from "../../core/ui/Modal.jsx";
@@ -36,7 +35,6 @@ export function UsoIaPage({ can, personRef }) {
     month,
     selectedUserId,
     summary,
-    fluency,
     pending,
     history,
     daily,
@@ -244,11 +242,6 @@ export function UsoIaPage({ can, personRef }) {
           </p>
         )}
       </section>
-      <FluencyScoreSection
-        fluency={fluency.data}
-        loading={fluency.isPending}
-        error={fluency.error?.message}
-      />
       {selected && !allocating && (
         <Modal
           open
