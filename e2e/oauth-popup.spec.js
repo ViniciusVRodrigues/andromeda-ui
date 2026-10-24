@@ -176,3 +176,85 @@ test.describe("useOAuth com ticket (Perfil > GitHub)", () => {
     expect(ticket.seen).toBeUndefined();
   });
 });
+
+test.describe("useOAuth com ticket (Integrações > Azure DevOps)", () => {
+  async function openOAuthForm(page, orgSlug) {
+    await page.route("**/api/v1/integrations/azure/connection", (route) =>
+      route.fulfill({ status: 404, json: { code: "AZURE_CONNECTION_NOT_FOUND" } }),
+    );
+    await gotoSection(page, orgSlug, "integracoes");
+    const card = page.locator(".integration-card", { hasText: "Azure DevOps" }).first();
+    await card.getByRole("button", { name: /Conectar com Microsoft/ }).click();
+    await card
+      .getByRole("textbox", { name: "URL da organização Azure DevOps" })
+      .fill("https://dev.azure.com/contoso");
+    return card;
+  }
+
+  test("pede o ticket AZURE_ORG_CONNECT com a URL e recarrega a conexão ao voltar", async ({
+    page,
+    context,
+  }) => {
+    const { orgSlug } = await loginAsAdmin(page);
+    const seen = [];
+    let connected = false;
+    await context.route("**/api/v1/auth/oauth2/link-ticket", (route) => {
+      seen.push(route.request().postDataJSON());
+      return route.fulfill({ status: 201, json: { ticket: "T-AZ", expiresIn: 60 } });
+    });
+    await context.route("**/api/v1/auth/oauth2/authorization/azure**", (route) => {
+      connected = true;
+      return route.fulfill({
+        status: 302,
+        headers: { location: `${RETURN}?provider=azure&status=connected` },
+      });
+    });
+    await context.route("**/api/v1/integrations/azure/connection", (route) =>
+      connected
+        ? route.fulfill({
+            json: {
+              status: "CONNECTED",
+              azureOrgUrl: "https://dev.azure.com/contoso",
+              authMethod: "OAUTH",
+              reposAccess: null,
+              lastErrorCode: null,
+              authorizedByUserId: "u1",
+              lastSuccessAt: null,
+              consecutiveFailures: 0,
+            },
+          })
+        : route.fulfill({ status: 404, json: { code: "AZURE_CONNECTION_NOT_FOUND" } }),
+    );
+
+    await gotoSection(page, orgSlug, "integracoes");
+    const card = page.locator(".integration-card", { hasText: "Azure DevOps" }).first();
+    await card.getByRole("button", { name: /Conectar com Microsoft/ }).click();
+    await card
+      .getByRole("textbox", { name: "URL da organização Azure DevOps" })
+      .fill("https://dev.azure.com/contoso");
+    await card.getByRole("button", { name: "Abrir autorização Microsoft →" }).click();
+
+    await expect(card).toContainText("● Conectado");
+    expect(seen).toEqual([
+      { purpose: "AZURE_ORG_CONNECT", azureOrgUrl: "https://dev.azure.com/contoso" },
+    ]);
+  });
+
+  test("AZURE_ORG_URL_INVALID do ticket mostra a frase em região aria-live", async ({
+    page,
+    context,
+  }) => {
+    const { orgSlug } = await loginAsAdmin(page);
+    await context.route("**/api/v1/auth/oauth2/link-ticket", (route) =>
+      route.fulfill({ status: 400, json: { code: "AZURE_ORG_URL_INVALID" } }),
+    );
+    const card = await openOAuthForm(page, orgSlug);
+    await card.getByRole("button", { name: "Abrir autorização Microsoft →" }).click();
+
+    const phrase = page.getByText(
+      "A URL da organização do Azure DevOps não é válida. Confira o endereço.",
+    );
+    await expect(phrase).toBeVisible();
+    await expect(page.locator('[aria-live="polite"]', { has: phrase })).toHaveCount(1);
+  });
+});

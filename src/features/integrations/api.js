@@ -1,6 +1,6 @@
 /* API da feature integrations — conexões e vínculos Azure DevOps + GitHub. */
 
-import { api, toQuery, BASE_URL } from "../../core/api/client.js";
+import { api, toQuery } from "../../core/api/client.js";
 
 /* ── Azure DevOps ── */
 
@@ -15,16 +15,6 @@ import { api, toQuery, BASE_URL } from "../../core/api/client.js";
  */
 export function getAzureConnection() {
   return api.get("/v1/integrations/azure/connection");
-}
-
-/**
- * URL que abre a autorização Microsoft (popup). A URL da organização vai junto
- * porque o backend não a deriva mais do token (azure-repos-provider D7): ela
- * viaja no `state` e é validada com `_apis/projects` depois do callback.
- * @param {string} orgUrl `https://dev.azure.com/{org}` ou `https://{org}.visualstudio.com`
- */
-export function azureOAuthStartUrl(orgUrl) {
-  return `${BASE_URL}/v1/integrations/azure/connect${toQuery({ orgUrl })}`;
 }
 
 /**

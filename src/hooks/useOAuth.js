@@ -8,16 +8,12 @@ const TIMEOUT_MS = 5 * 60 * 1000;
 const POPUP_FEATURES = "width=600,height=700";
 
 /**
- * Fluxo OAuth em popup. Dois modos:
- *
- * - Com `ticketPurpose` (perfil-integracoes): o popup abre em `about:blank` ainda no
+ * Fluxo OAuth em popup (perfil-integracoes): o popup abre em `about:blank` ainda no
  *   clique (para não ser bloqueado), o hook pede um ticket de uso único ao servidor
  *   (`POST /v1/auth/oauth2/link-ticket`) e só então leva o popup a
  *   `/api/v1/auth/oauth2/authorization/{provider}?ticket=…`. O resultado chega pela
  *   página `/oauth/retorno` (BroadcastChannel `andromeda-oauth` ou `postMessage`, só da
  *   mesma origem e do tipo certo). A sondagem de `pollPath` e o timeout ficam de reserva.
- * - Sem `ticketPurpose`: abre `popupUrl` direto e sonda `pollPath` (comportamento original
- *   da conexão Azure da organização).
  *
  * `onError(reason, code)`: reason ∈ "cancelled" | "timeout" | "blocked" | "ticket" | "oauth";
  * `code` é o código do contrato (ex.: PROVIDER_ACCOUNT_ALREADY_LINKED) quando houver.
@@ -25,19 +21,17 @@ const POPUP_FEATURES = "width=600,height=700";
  * a mensagem `{type, provider, status, code}`.
  *
  * @param {{
- *   popupUrl?: string,
  *   popupName?: string,
  *   pollPath?: string,
  *   isDone?: (data: any) => boolean,
- *   ticketPurpose?: string,
- *   provider?: string,
+ *   ticketPurpose: string,
+ *   provider: string,
  *   azureOrgUrl?: string,
  *   onSuccess: (data: any) => void,
  *   onError: (reason: string, code?: string) => void,
  * }} options
  */
 export function useOAuth({
-  popupUrl = "/api/v1/integrations/azure/connect",
   popupName = "oauth-popup",
   pollPath = "/v1/integrations/azure/connection",
   isDone = (data) => data && data.status === "CONNECTED",
@@ -128,13 +122,6 @@ export function useOAuth({
   }, [pollPath, isDone, onSuccess, onError, stop]);
 
   const trigger = React.useCallback(async () => {
-    if (!ticketPurpose) {
-      popupRef.current = window.open(popupUrl, popupName, POPUP_FEATURES);
-      setPolling(true);
-      startReserve();
-      return;
-    }
-
     /* abre antes de qualquer await: depois dele o navegador pode bloquear */
     const popup = window.open("about:blank", popupName, POPUP_FEATURES);
     if (!popup) {
@@ -159,17 +146,7 @@ export function useOAuth({
       stop();
       onError("ticket", code);
     }
-  }, [
-    ticketPurpose,
-    popupUrl,
-    popupName,
-    provider,
-    azureOrgUrl,
-    listen,
-    startReserve,
-    stop,
-    onError,
-  ]);
+  }, [ticketPurpose, popupName, provider, azureOrgUrl, listen, startReserve, stop, onError]);
 
   React.useEffect(() => {
     return () => {

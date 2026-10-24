@@ -262,12 +262,19 @@ test("integrações: OAuth pede a URL da organização antes de autorizar", asyn
   await page.route("**/api/v1/integrations/azure/connection", (route) =>
     json(route, { code: "AZURE_CONNECTION_NOT_FOUND" }, 404),
   );
-  // O popup não é aberto de verdade: só registramos a URL pedida.
+  const tickets = [];
+  await page.route("**/api/v1/auth/oauth2/link-ticket", (route) => {
+    tickets.push(route.request().postDataJSON());
+    return route.fulfill({ status: 201, json: { ticket: "T-AZ", expiresIn: 60 } });
+  });
+  // O popup não é aberto de verdade: só registramos a URL pedida (abre em about:blank
+  // e é navegado depois de o ticket chegar).
   await page.addInitScript(() => {
     window.__opened = [];
+    window.__popup = { closed: false, close() {}, location: { href: "about:blank" } };
     window.open = (url) => {
       window.__opened.push(url);
-      return { closed: false, close() {} };
+      return window.__popup;
     };
   });
 
@@ -284,9 +291,11 @@ test("integrações: OAuth pede a URL da organização antes de autorizar", asyn
 
   await url.fill(ORG_URL);
   await authorize.click();
-  expect(await page.evaluate(() => window.__opened)).toEqual([
-    "/api/v1/integrations/azure/connect?orgUrl=https%3A%2F%2Fdev.azure.com%2Fcontoso",
-  ]);
+  await expect
+    .poll(() => page.evaluate(() => window.__popup.location.href))
+    .toBe("/api/v1/auth/oauth2/authorization/azure?ticket=T-AZ");
+  expect(await page.evaluate(() => window.__opened)).toEqual(["about:blank"]);
+  expect(tickets).toEqual([{ purpose: "AZURE_ORG_CONNECT", azureOrgUrl: ORG_URL }]);
 });
 
 test("integrações: corrige a URL da organização sem reautorizar", async ({ page }) => {
