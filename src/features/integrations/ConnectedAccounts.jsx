@@ -3,6 +3,7 @@ import { getMyProviderAccounts, unlinkProviderAccount } from "../users/api.js";
 import { useOAuth } from "../../hooks/useOAuth.js";
 import { ConfirmDialog } from "../../core/ui/Modal.jsx";
 import SectionHeader from "../../core/ui/SectionHeader.jsx";
+import { oauthMessage } from "./oauthMessages.js";
 
 /**
  * "Contas conectadas" block for the Perfil page.
@@ -47,18 +48,19 @@ export function ConnectedAccounts() {
   const githubAccount = accounts.find((a) => a.provider === "GITHUB") || null;
 
   const { trigger: triggerGithubOAuth, polling } = useOAuth({
-    popupUrl: "/api/v1/auth/oauth2/authorization/github",
+    ticketPurpose: "GITHUB_PROFILE",
+    provider: "github",
     popupName: "github-account-oauth",
     pollPath: "/v1/users/me/provider-accounts",
     isDone: (data) => Array.isArray(data) && data.some((a) => a.provider === "GITHUB"),
     onSuccess: (data) => {
-      setAccounts(Array.isArray(data) ? data : []);
       setOauthError(null);
+      /* a sondagem devolve a lista; a página de retorno só avisa e a lista é recarregada */
+      if (Array.isArray(data)) setAccounts(data);
+      else fetchAccounts();
     },
-    onError: (reason) => {
-      setOauthError(
-        reason === "timeout" ? "Tempo esgotado ao aguardar a autorização." : "Conexão cancelada.",
-      );
+    onError: (reason, code) => {
+      setOauthError(oauthMessage(code ?? (reason === "timeout" ? "TIMEOUT" : "CANCELLED")));
     },
   });
 
@@ -89,7 +91,9 @@ export function ConnectedAccounts() {
 
       {loading && <p className="mono admin-section-sub">Carregando…</p>}
       {error && <p className="mono admin-section-sub">{error}</p>}
-      {oauthError && <p className="mono admin-section-sub">{oauthError}</p>}
+      <div aria-live="polite">
+        {oauthError && <p className="mono admin-section-sub">{oauthError}</p>}
+      </div>
 
       {!loading && (
         <div className="admin-fields">

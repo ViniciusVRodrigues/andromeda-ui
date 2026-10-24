@@ -55,6 +55,7 @@ import { IdentityProvider, useIdentity } from "./core/auth/IdentityContext.jsx";
 import { RequireTab } from "./core/auth/RequireTab.jsx";
 import { ErrorBoundary } from "./core/ui/ErrorBoundary.jsx";
 import { PrivacyPage } from "./features/privacidade/PrivacyPage.jsx";
+import { OAuthReturnPage } from "./features/oauth/OAuthReturnPage.jsx";
 import { ShellLayout } from "./app/ShellLayout.jsx";
 import {
   buildIdentity,
@@ -228,6 +229,7 @@ function AppShell() {
               element={<LoginScreenWrapper enterApp={enterApp} onHome={() => navigate("/")} />}
             />
             <Route path="/privacidade" element={<PrivacyPage />} />
+            <Route path="/oauth/retorno" element={<OAuthReturnPage />} />
             <Route path="/esqueci-senha" element={<ForgotPasswordScreen />} />
             <Route path="/redefinir-senha" element={<ResetPasswordScreen />} />
             <Route

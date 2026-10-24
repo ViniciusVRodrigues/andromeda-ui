@@ -335,3 +335,15 @@ export function wipeGithubData(projectId) {
 export function wipeAiUsageData() {
   return api.delete("/v1/connector-tokens/ai-usage-data");
 }
+
+/* ── Vínculo OAuth em popup (perfil-integracoes) ── */
+
+/**
+ * Pede o ticket de uso único (60 s) que o popup apresenta ao iniciar o OAuth.
+ * `purpose`: `GITHUB_PROFILE` | `AZURE_ORG_CONNECT` (este exige `azureOrgUrl`).
+ * @param {{ purpose: string, azureOrgUrl?: string }} body
+ * @returns {Promise<{ ticket: string, expiresIn: number }>}
+ */
+export function createOAuthLinkTicket(body) {
+  return api.post("/v1/auth/oauth2/link-ticket", body);
+}
