@@ -31,7 +31,6 @@ export function useUsoIa() {
     staleTime: 30000,
   });
   const summary = useQuery(query("summary", () => usage.getAiUsageSummary({ ...scope, month })));
-  const fluency = useQuery(query("fluency", () => usage.getAiFluencyScore(scope)));
   const pending = useQuery(query("pending", () => usage.getPendingAllocations(scope)));
   const daily = useQuery(
     query("daily", () => api.get(`/v1/ai/usage/daily${toQuery({ ...scope, month })}`)),
@@ -73,7 +72,6 @@ export function useUsoIa() {
     selectedUserId,
     setSelectedUserId: (value) => setParam("pessoa", value),
     summary,
-    fluency,
     pending,
     daily,
     history,

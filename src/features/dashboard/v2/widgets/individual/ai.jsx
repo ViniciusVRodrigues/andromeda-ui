@@ -2,7 +2,7 @@
 
 import React from "react";
 import { axisTokensM, fmtInt, fmtTokensCompact, fmtTokensM, fmtUsd } from "../../format.js";
-import { FluencyStage, modelColor, STATUS_COLOR } from "../../kit/Badges.jsx";
+import { modelColor, STATUS_COLOR } from "../../kit/Badges.jsx";
 import { BarList, SegmentBar } from "../../kit/Bars.jsx";
 import { ColumnChart } from "../../kit/charts.jsx";
 import { Empty, Panel } from "../../kit/Panel.jsx";
@@ -185,47 +185,6 @@ export function AllocationWidget({ data, ctx }) {
           </ul>
         </div>
       ) : null}
-    </Panel>
-  );
-}
-
-export const selectFluency = (d) => d.fluency;
-
-export function FluencyWidget({ data: fluency }) {
-  const tip = fluency?.categories.slice().sort((a, b) => a.stage - b.stage)[0];
-  return (
-    <Panel
-      eyebrow="maturidade"
-      title="Fluência em IA"
-      sources={["ia"]}
-      info="Nota calculada pela extensão do conector e enviada junto com o uso. Só a última nota fica guardada; não há histórico."
-    >
-      {fluency ? (
-        <div>
-          <div className="mb-3 flex items-center justify-between gap-2">
-            <FluencyStage stage={fluency.overallStage} />
-            <span className="mono text-fg-muted text-[11px] font-normal">
-              {fluency.overallLabel}
-            </span>
-          </div>
-          <ul className="m-0 flex list-none flex-col gap-1.5 p-0">
-            {fluency.categories.map((c) => (
-              <li key={c.category} className="flex items-center justify-between gap-2 text-[12px]">
-                <span className="text-fg-muted truncate">{c.category}</span>
-                <FluencyStage stage={c.stage} />
-              </li>
-            ))}
-          </ul>
-          {tip?.tips?.length ? (
-            <p className="border-line text-fg-muted m-0 mt-3 border-t pt-3 text-[12px] leading-relaxed font-normal">
-              <span className="text-accent-text">Próximo passo ({tip.category}):</span>{" "}
-              {tip.tips[0]}
-            </p>
-          ) : null}
-        </div>
-      ) : (
-        <Empty>A extensão ainda não enviou um score de fluência.</Empty>
-      )}
     </Panel>
   );
 }

@@ -9,7 +9,7 @@
  */
 
 import React from "react";
-import { FLUENCY_STAGE_LABEL, PR_STATUS_LABEL, STATUS_LABEL, TYPE_LABEL } from "../format.js";
+import { PR_STATUS_LABEL, STATUS_LABEL, TYPE_LABEL } from "../format.js";
 
 export const TYPE_COLOR = {
   STORY: "var(--series-1)",
@@ -173,24 +173,6 @@ export function ConnectionBadge({ status }) {
     <span className={`mono inline-flex items-center gap-1.5 text-[12px] ${cls}`}>
       <span aria-hidden="true">{icon}</span>
       {label}
-    </span>
-  );
-}
-
-export function FluencyStage({ stage }) {
-  return (
-    <span className="inline-flex items-center gap-1" aria-label={`Estágio ${stage} de 4`}>
-      {[1, 2, 3, 4].map((s) => (
-        <span
-          key={s}
-          aria-hidden="true"
-          className="inline-block h-1.5 w-4 rounded-full"
-          style={{ background: s <= stage ? "var(--accent)" : "var(--line-strong)" }}
-        />
-      ))}
-      <span className="mono text-fg-muted ml-1.5 text-[11px]">
-        {FLUENCY_STAGE_LABEL[stage - 1]}
-      </span>
     </span>
   );
 }

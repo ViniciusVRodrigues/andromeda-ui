@@ -256,12 +256,12 @@ export function AiConnectorCard({ orgSlug, hasOrg }) {
             {podeApagarDaOrg ? (
               <>
                 O uso de IA de <strong>toda a organização</strong> será apagado: consumo diário,
-                alocações e scores de fluência de todos os usuários.
+                alocações de todos os usuários.
               </>
             ) : (
               <>
                 <strong>Somente os seus dados</strong> de uso de IA serão apagados — consumo,
-                alocações e o seu score de fluência. Os dados dos outros usuários não são afetados.
+                alocações. Os dados dos outros usuários não são afetados.
               </>
             )}{" "}
             Ao contrário do Azure DevOps e do GitHub, estes dados{" "}
@@ -622,8 +622,7 @@ function AiConnectorTutorial({ initiallyOpen, connectorUrl, healthUrl }) {
             </Desc>
             <Desc>
               Os registros caem em <strong>Uso de IA</strong> em alguns minutos — a extensão envia
-              resumos diários (tokens, interações, modelo, editor e o Fluency Score), nunca prompts
-              ou complementos.
+              resumos diários (tokens, interações, modelo e editor), nunca prompts ou complementos.
             </Desc>
           </TutorialStep>
 

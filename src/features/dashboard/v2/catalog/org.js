@@ -35,13 +35,11 @@ import {
   AiCostByModelWidget,
   AiCostByProjectWidget,
   EditorsWidget,
-  FluencyWidget,
   SubscriptionWidget,
   TokensWidget,
   selectAiCostByModel,
   selectAiCostByProject,
   selectByEditor,
-  selectFluency,
   selectSubscription,
   selectTokens,
 } from "../widgets/org/ai.jsx";
@@ -217,13 +215,6 @@ export const widgets = [
     height: 240,
     select: selectSubscription,
     Component: SubscriptionWidget,
-  }),
-  widget("fluencia", "ia", "Fluência em IA", {
-    sizes: ALL,
-    size: "M",
-    height: 240,
-    select: selectFluency,
-    Component: FluencyWidget,
   }),
   widget("editores", "ia", "Interações por editor", {
     sizes: ALL,

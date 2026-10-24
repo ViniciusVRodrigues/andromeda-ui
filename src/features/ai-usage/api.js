@@ -23,14 +23,6 @@ export function getAiUsageSummary(params) {
 }
 
 /**
- * Fetch AI fluency score for the current user (or a specific user).
- * @param {{ userId?: string }} params
- */
-export function getAiFluencyScore(params) {
-  return api.get(`/v1/ai/fluency-score${toQuery(params)}`);
-}
-
-/**
  * Fetch pending AI allocations awaiting user action.
  * @param {{ userId?: string }} params
  */
