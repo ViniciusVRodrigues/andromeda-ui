@@ -18,12 +18,7 @@ const STATES = [
     "ana@empresa.com",
     "vinculado pelo administrador",
   ],
-  [
-    "NOT_FOUND",
-    { status: "NOT_FOUND" },
-    "Nenhuma conta do Azure DevOps com o seu e-mail",
-    "peça ao administrador",
-  ],
+  ["NOT_FOUND", { status: "NOT_FOUND" }, "Ainda não vinculado", "peça ao administrador"],
   ["AMBIGUOUS", { status: "AMBIGUOUS" }, "Peça ao administrador para fazer o vínculo", ""],
   ["TAKEN", { status: "TAKEN" }, "Peça ao administrador para fazer o vínculo", ""],
   [

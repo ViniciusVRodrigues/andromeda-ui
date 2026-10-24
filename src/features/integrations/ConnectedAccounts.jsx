@@ -13,7 +13,7 @@ const AZURE_SOURCE_TEXT = {
 
 const AZURE_STATE_TEXT = {
   NOT_FOUND:
-    "Nenhuma conta do Azure DevOps com o seu e-mail. Use no Azure o mesmo e-mail do Andromeda ou peça ao administrador",
+    "Ainda não vinculado. O vínculo é feito sozinho em até 6 h quando o seu e-mail no Azure DevOps é o mesmo do Andromeda; se não for, peça ao administrador",
   AMBIGUOUS: "Peça ao administrador para fazer o vínculo",
   TAKEN: "Peça ao administrador para fazer o vínculo",
   NO_CONNECTION: "A organização ainda não conectou o Azure DevOps",
