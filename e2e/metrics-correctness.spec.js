@@ -105,11 +105,13 @@ test("equipe: durações em mediana com p90 e IA só com o custo alocado ao proj
   await expect(ai).toContainText("US$ 89,56");
   await expect(kpis).not.toContainText("US$ 101,90");
 
-  /* revisão: PRs parados e quem revisa */
+  /* revisão: PRs parados e quem revisa (coluna Reviews da contribuição por pessoa) */
   await expect(kpis.getByRole("listitem").filter({ hasText: "PRs parados" })).toContainText(
     "1ª review em 6,6 h",
   );
-  await expect(page.locator("[data-widget-id='equipe.quem-revisa']")).toContainText("Bruno Lima");
+  const contrib = page.locator("[data-widget-id='equipe.contribuicao']");
+  await expect(contrib.getByRole("columnheader", { name: /Reviews/ })).toBeVisible();
+  await expect(contrib).toContainText("Bruno Lima");
 });
 
 test("repositórios: janela de datas, review e entrega do repositório", async ({ page }) => {

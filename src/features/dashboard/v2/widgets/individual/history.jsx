@@ -2,6 +2,7 @@
 
 import React from "react";
 import { axisDays, axisUsd, fmtDuration, fmtInt, fmtTokensM, fmtUsd } from "../../format.js";
+import { AiEmpty, hasAiValue } from "../../kit/AiCross.jsx";
 import { ColumnChart, TrendChart } from "../../kit/charts.jsx";
 import { Panel } from "../../kit/Panel.jsx";
 
@@ -74,7 +75,17 @@ export function CycleTimeHistoryWidget({ data }) {
   );
 }
 
+/** Sem uso de IA em nenhuma sprint do histórico (alimenta o aviso único da seção). */
+export const aiCostHistoryEmpty = (data) => !hasAiValue(data.rows, "aiCostUsd", "aiTokens");
+
 export function AiCostHistoryWidget({ data }) {
+  if (aiCostHistoryEmpty(data)) {
+    return (
+      <Panel eyebrow="ia" title="Custo de IA por sprint" sources={["ia"]}>
+        <AiEmpty person />
+      </Panel>
+    );
+  }
   return (
     <Panel
       eyebrow="ia"

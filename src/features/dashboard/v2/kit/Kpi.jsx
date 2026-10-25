@@ -83,7 +83,7 @@ export function KpiRow({ children, label = "Indicadores" }) {
     <div
       role="list"
       aria-label={label}
-      className="grid [grid-template-columns:repeat(auto-fit,minmax(158px,1fr))] gap-3"
+      className="grid grid-cols-2 gap-3 min-[600px]:[grid-template-columns:repeat(auto-fit,minmax(158px,1fr))]"
     >
       {children}
     </div>

@@ -83,6 +83,13 @@ export const sections = [
     "Quais projetos precisam de atenção agora?",
   ),
   section(
+    "ia-entrega",
+    "org-ia-entrega",
+    "IA e entrega",
+    "IA e entrega",
+    "Em que projetos a IA está ligada a entregar melhor?",
+  ),
+  section(
     "entrega",
     "org-entrega",
     "Entrega",
@@ -99,9 +106,9 @@ export const sections = [
   section(
     "ia",
     "org-ia",
-    "IA",
-    "IA na organização",
-    "Quanto se gasta com IA, onde e com que maturidade?",
+    "Consumo de IA",
+    "Consumo de IA",
+    "Quanto se usa de IA, com quais modelos e onde?",
   ),
   section(
     "integracoes",
@@ -123,7 +130,8 @@ const widget = (name, sectionId, title, o) => ({
   title,
   sizes: o.sizes,
   defaultSize: o.size,
-  default: true,
+  default: !o.disabled,
+  disabled: !!o.disabled,
   skeletonHeight: o.height,
   aliases: [],
   select: o.select,
@@ -224,6 +232,7 @@ export const widgets = [
     Component: EditorsWidget,
   }),
   widget("tokens", "ia", "Tokens de entrada × saída", {
+    disabled: true,
     sizes: ALL,
     size: "M",
     height: 240,
@@ -252,6 +261,7 @@ export const widgets = [
     Component: AiConnectorWidget,
   }),
   widget("sync", "integracoes", "Execuções de sync por resultado", {
+    disabled: true,
     sizes: ALL,
     size: "M",
     height: 330,
@@ -266,6 +276,7 @@ export const widgets = [
     Component: CoverageWidget,
   }),
   widget("vinculos", "integracoes", "Projetos e fontes sincronizadas", {
+    disabled: true,
     sizes: TABLE,
     size: "I",
     height: 300,

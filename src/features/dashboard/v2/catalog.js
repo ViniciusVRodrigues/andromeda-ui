@@ -24,6 +24,7 @@
  * @typedef {"P"|"M"|"G"|"I"} WidgetSize
  * @typedef {{ viewKey: string, id: string, domId: string, title: string, question?: string }} CatalogSection
  * @typedef {{ id: string, viewKey: string, section: string, title: string, sizes: WidgetSize[],
+ *   disabled?: boolean, aiEmpty?: (data: any) => boolean, vcsUnlinked?: (data: any) => boolean,
  *   defaultSize: WidgetSize, default: boolean, skeletonHeight: number,
  *   aliases: string[], select: (payload: any) => any,
  *   Component: (props: { data: any, ctx?: object }) => any }} CatalogWidget
@@ -38,6 +39,7 @@ import {
 } from "./widgets/individual/work.jsx";
 import {
   CommitsWidget,
+  notLinked,
   PullRequestsWidget,
   ReviewsWidget,
   selectCommits,
@@ -56,6 +58,7 @@ import {
 } from "./widgets/individual/ai.jsx";
 import {
   AiCostHistoryWidget,
+  aiCostHistoryEmpty,
   CycleTimeHistoryWidget,
   PlannedDeliveredWidget,
   selectHistory,
@@ -88,6 +91,13 @@ const SECTIONS = [
   },
   {
     viewKey: "individual",
+    id: "ia-entrega",
+    domId: "ind-ia-entrega",
+    title: "IA e entrega",
+    question: "O uso de IA acompanha o que eu entrego?",
+  },
+  {
+    viewKey: "individual",
     id: "trabalho",
     domId: "ind-trabalho",
     title: "Meu trabalho",
@@ -104,8 +114,8 @@ const SECTIONS = [
     viewKey: "individual",
     id: "ia",
     domId: "ind-ia",
-    title: "Uso de IA",
-    question: "Quanto usei de IA, com quais modelos e em quais itens?",
+    title: "Consumo de IA",
+    question: "Quanto se usa de IA, com quais modelos e onde?",
   },
   {
     viewKey: "individual",
@@ -171,9 +181,11 @@ const WIDGETS = [
     skeletonHeight: 420,
     aliases: [],
     select: selectPullRequests,
+    vcsUnlinked: notLinked,
     Component: PullRequestsWidget,
   },
   {
+    disabled: true,
     id: "individual.reviews",
     viewKey: "individual",
     section: "codigo",
@@ -197,6 +209,7 @@ const WIDGETS = [
     skeletonHeight: 260,
     aliases: [],
     select: selectCommits,
+    vcsUnlinked: notLinked,
     Component: CommitsWidget,
   },
   {
@@ -280,7 +293,7 @@ const WIDGETS = [
   {
     id: "individual.custo-ia-sprint",
     viewKey: "individual",
-    section: "historico",
+    section: "ia-entrega",
     title: "Custo de IA por sprint",
     sizes: ALL,
     defaultSize: "P",
@@ -288,6 +301,7 @@ const WIDGETS = [
     skeletonHeight: 300,
     aliases: [],
     select: selectHistory,
+    aiEmpty: aiCostHistoryEmpty,
     Component: AiCostHistoryWidget,
   },
 ];
@@ -295,7 +309,10 @@ const WIDGETS = [
 /** O catálogo inteiro: `{ sections, widgets }`. */
 export const CATALOG = Object.freeze({
   sections: [...SECTIONS, ...OTHER_VIEWS.flatMap((v) => v.sections)],
-  widgets: [...WIDGETS, ...OTHER_VIEWS.flatMap((v) => v.widgets)],
+  /* `disabled: true` tira o widget do padrão, do catálogo de "Adicionar widget" e do
+   * `resolveLayout` (layout salvo com o id abre sem ele). O filtro fica só aqui; para
+   * religar basta apagar a flag (o widget volta como "novo"). */
+  widgets: [...WIDGETS, ...OTHER_VIEWS.flatMap((v) => v.widgets)].filter((w) => !w.disabled),
 });
 
 /** Seções de uma visão, na ordem do catálogo. */

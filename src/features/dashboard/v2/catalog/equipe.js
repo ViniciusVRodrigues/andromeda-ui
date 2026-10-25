@@ -50,6 +50,7 @@ import {
 } from "../widgets/equipe/ai.jsx";
 import {
   AiCostPerSpWidget,
+  aiCostPerSpEmpty,
   CommittedDeliveredWidget,
   PredictabilityWidget,
   selectHistory,
@@ -69,6 +70,14 @@ export const sections = [
     nav: "Resumo",
     title: "Resumo da sprint",
     question: "O time vai entregar o que comprometeu?",
+  },
+  {
+    viewKey: VIEW_KEY,
+    id: "ia-entrega",
+    domId: "eq-ia-entrega",
+    nav: "IA e entrega",
+    title: "IA e entrega",
+    question: "O time entrega mais ou melhor quando usa mais IA?",
   },
   {
     viewKey: VIEW_KEY,
@@ -98,9 +107,9 @@ export const sections = [
     viewKey: VIEW_KEY,
     id: "ia",
     domId: "eq-ia",
-    nav: "Uso de IA",
-    title: "Uso de IA no time",
-    question: "Quanto o time gasta com IA e como isso chega nos itens?",
+    nav: "Consumo de IA",
+    title: "Consumo de IA",
+    question: "Quanto se usa de IA, com quais modelos e onde?",
   },
   {
     viewKey: VIEW_KEY,
@@ -151,6 +160,8 @@ const widget = (name, section, title, o) => {
     sizes: o.sizes,
     defaultSize: o.size,
     default: !!o.default,
+    disabled: !!o.disabled,
+    aiEmpty: o.aiEmpty,
     skeletonHeight: o.height,
     aliases: [],
     source,
@@ -178,6 +189,7 @@ export const widgets = [
     Component: BurndownWidget,
   }),
   widget("status-tipo", "fluxo", "Itens por status e tipo", {
+    disabled: true,
     sizes: ALL,
     size: "M",
     default: true,
@@ -210,6 +222,7 @@ export const widgets = [
     Component: StalePrsWidget,
   }),
   widget("quem-revisa", "codigo", "Quem revisa", {
+    disabled: true,
     sizes: ALL,
     size: "P",
     default: true,
@@ -266,6 +279,7 @@ export const widgets = [
     Component: CommittedDeliveredWidget,
   }),
   widget("previsibilidade", "historico", "Previsibilidade", {
+    disabled: true,
     sizes: ALL,
     size: "P",
     default: true,
@@ -273,12 +287,13 @@ export const widgets = [
     select: selectHistory,
     Component: PredictabilityWidget,
   }),
-  widget("custo-ia-sp", "historico", "Custo de IA por SP", {
+  widget("custo-ia-sp", "ia-entrega", "Custo de IA por SP", {
     sizes: ALL,
     size: "P",
     default: true,
     height: 320,
     select: selectHistory,
+    aiEmpty: aiCostPerSpEmpty,
     Component: AiCostPerSpWidget,
   }),
 
@@ -300,6 +315,7 @@ export const widgets = [
     Component: StateTimesWidget,
   }),
   widget("prs-abertos", "codigo", "Rascunhos, destino e labels", {
+    disabled: true,
     sizes: ALL,
     size: "M",
     source: "fluxo",

@@ -63,6 +63,12 @@ function flatDs(o, pairs, div = 1) {
 const spreadMap = (rows, mapKey) =>
   (rows || []).map(({ [mapKey]: map, ...rest }) => ({ ...rest, ...(map || {}) }));
 
+/* Campos aditivos da change dashboards-ia-entrega: com o ms antigo ficam ausentes e o ui
+ * trata como "sem dado" (`null` / lista vazia), nunca como zero. */
+const withComplexity = (items) =>
+  (items || []).map((i) => ({ ...i, complexity: i.complexity ?? null }));
+const withAiTokens = (h) => ({ ...h, aiTokens: h.aiTokens ?? null });
+
 /* ── adaptadores por visão ────────────────────────────────────────────── */
 
 const KPI_SPRINT = [
@@ -82,11 +88,13 @@ export function adaptIndividual(raw) {
     },
     kpis: flatDs(d.kpis, KPI_SPRINT),
     previous: flatDs(d.previous, KPI_SPRINT),
-    items: d.items || [],
+    items: withComplexity(d.items),
     pullRequests: d.pullRequests || [],
     commitsByDay: d.commitsByDay || [],
     burndown: d.burndown || [],
-    history: (d.history || []).map((h) => flatDs(h, [["cycleTimeHours", "avgCycleTimeHours"]])),
+    history: (d.history || []).map((h) =>
+      withAiTokens(flatDs(h, [["cycleTimeHours", "avgCycleTimeHours"]])),
+    ),
   };
 }
 
@@ -107,7 +115,10 @@ export function adaptTeam(raw) {
       ]),
       repo: r.displayName ?? r.repo,
     })),
-    history: (d.history || []).map((h) => flatDs(h, [["cycleTimeHours", "avgCycleTimeHours"]])),
+    agingItems: d.agingItems ? withComplexity(d.agingItems) : d.agingItems,
+    history: (d.history || []).map((h) =>
+      withAiTokens(flatDs(h, [["cycleTimeHours", "avgCycleTimeHours"]])),
+    ),
   };
 }
 
@@ -152,6 +163,8 @@ export function adaptProjectOverview(raw) {
       ...d.dora,
       leadTime: flatDs(d.dora.leadTime, [["hours", "hours"]]),
     },
+    sprints: d.sprints ? d.sprints.map(withAiTokens) : d.sprints,
+    doraSeries: d.doraSeries ?? [],
     flow: (d.flow || []).map((r) => flatDs(r, FLOW_DAYS, 24)),
     prFlow: (d.prFlow || []).map((r) =>
       flatDs(r, [["timeToFirstReviewHours", "timeToFirstReviewHours"]]),
@@ -168,7 +181,13 @@ export function adaptProjectOverview(raw) {
 
 export function adaptRoadmap(raw) {
   const d = msTimestamps(raw);
-  const cal = (rows) => (rows || []).map((r) => flatDs(r, [["cycleTimeHours", "cycleDays"]], 24));
+  const cal = (rows) =>
+    (rows || []).map((r) => ({
+      ...flatDs(r, [["cycleTimeHours", "cycleDays"]], 24),
+      aiCostUsd: r.aiCostUsd ?? null,
+      aiTokens: r.aiTokens ?? null,
+      itemsWithAi: r.itemsWithAi ?? 0,
+    }));
   return {
     ...d,
     calibration: d.calibration && {

@@ -3,6 +3,7 @@
 import React from "react";
 import { axisUsd, fmtNum, fmtTokensCompact, fmtUsd } from "../../format.js";
 import { MODEL_TOOLTIP_MIN_USD, modelSeries } from "../../kit/Badges.jsx";
+import { AiEmpty, hasAiValue } from "../../kit/AiCross.jsx";
 import { ColumnChart, TrendChart } from "../../kit/charts.jsx";
 import { KpiTile } from "../../kit/Kpi.jsx";
 import { Panel } from "../../kit/Panel.jsx";
@@ -13,8 +14,23 @@ export const selectAiCostByModel = (d) => ({
   per: d.period.granularity,
 });
 
+/** Sem custo de IA atribuído a nenhum intervalo/modelo do período. */
+const noModelCost = ({ rows, models }) =>
+  !rows?.length || !models?.length || !hasAiValue(rows, ...models);
+
 export function AiCostByModelWidget({ data }) {
   const { rows, models, per } = data;
+  if (noModelCost(data)) {
+    return (
+      <Panel
+        eyebrow={`custo por ${per}`}
+        title="Custo de IA atribuído ao projeto, por modelo"
+        sources={["ia", "azure", "andromeda"]}
+      >
+        <AiEmpty />
+      </Panel>
+    );
+  }
   const { series, legend } = modelSeries(models, rows);
   return (
     <Panel
@@ -47,7 +63,17 @@ export function AiCostByModelWidget({ data }) {
 
 export const selectAiCostPerSp = (d) => d.sprints;
 
+/** Sem custo de IA em nenhuma sprint do período (aviso único da seção). */
+export const aiCostPerSpEmpty = (sprints) => !hasAiValue(sprints, "aiCostPerSp", "aiCostUsd");
+
 export function AiCostPerSpWidget({ data: sprints }) {
+  if (aiCostPerSpEmpty(sprints)) {
+    return (
+      <Panel eyebrow="retorno" title="Custo de IA por SP entregue" sources={["ia", "azure"]}>
+        <AiEmpty />
+      </Panel>
+    );
+  }
   return (
     <Panel
       eyebrow="retorno"
@@ -101,7 +127,7 @@ export function AiIndicatorsWidget({ data }) {
         value={fmtUsd(sub.consumptionUsd)}
         hint={
           sub.subscriptionUsd == null
-            ? "custo de assinatura não configurado na organização"
+            ? "Assinatura não configurada na organização."
             : `assinatura equivalente: ${fmtUsd(sub.subscriptionUsd)} (${fmtUsd(sub.perUserMonthUsd)}/pessoa/mês × ${adoption.members} × ${fmtNum(months)} meses)`
         }
         title="Custo do uso por token dos membros comparado ao custo fixo de assinatura configurado na organização"

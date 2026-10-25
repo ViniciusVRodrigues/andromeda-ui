@@ -15,13 +15,17 @@ export const SPANS = {
   1: { P: 1, M: 1, G: 1, I: 1 },
 };
 
+/** Seção que a change dashboards-ia-entrega acrescentou, e depois de qual ela entra. */
+export const MIGRATED_SECTION = "ia-entrega";
+const AFTER_SECTION = { org: "portfolio" };
+
 /**
  * @typedef {{ id: string, size: import("./catalog.js").WidgetSize,
  *   entry: import("./catalog.js").CatalogWidget }} PlacedWidget
  * @typedef {{ id: string, domId: string, title: string, question?: string,
  *   collapsed: boolean, widgets: PlacedWidget[] }} ResolvedSection
- * @typedef {{ sections: ResolvedSection[], hidden: string[], novos: string[],
- *   isDefault: boolean, version: number|null }} ResolvedLayout
+ * @typedef {{ viewKey: string, sections: ResolvedSection[], hidden: string[], novos: string[],
+ *   isDefault: boolean, version: number|null, migrated: string|null }} ResolvedLayout
  */
 
 /**
@@ -36,6 +40,10 @@ export const SPANS = {
  *   Seções do catálogo ausentes do layout entram no fim, na ordem do catálogo.
  * - Widget do catálogo que não está nem em `widgets` nem em `hidden` de um layout
  *   salvo é **novo**: não entra na grade, vai para `novos` (selo "novo" no catálogo).
+ * - **Migração (dashboards-ia-entrega D2):** layout salvo sem a seção `ia-entrega` ganha a
+ *   seção na 2ª posição (na Org, logo depois de `portfolio`), com os widgets padrão dela
+ *   que ainda não estão no layout; `migrated` leva o id da seção (a tela avisa e oferece
+ *   Desfazer). Não salva sozinha: o corpo só vai ao servidor quando a pessoa salva.
  * - Todas as seções da visão voltam (inclusive vazias, para o modo de edição e para
  *   o salvamento preservar a ordem); a grade não desenha seção vazia.
  *
@@ -71,6 +79,8 @@ export function resolveLayout(catalog, viewKey, saved, canSee = () => true) {
   if (!saved) {
     const inDefault = (w) => w.default;
     return {
+      viewKey,
+      migrated: null,
       sections: sectionDefs.map((def) =>
         shape(
           def,
@@ -91,7 +101,14 @@ export function resolveLayout(catalog, viewKey, saved, canSee = () => true) {
   const savedSections = (Array.isArray(saved.sections) ? saved.sections : []).filter((s) =>
     defById.has(s?.id),
   );
-  const order = [...new Set([...savedSections.map((s) => s.id), ...sectionDefs.map((d) => d.id)])];
+  const savedIds = savedSections.map((s) => s.id);
+  /* migração D2: a seção nova entra na 2ª posição (Org: depois do Portfólio) */
+  const migrate = defById.has(MIGRATED_SECTION) && !savedIds.includes(MIGRATED_SECTION);
+  if (migrate) {
+    const after = savedIds.indexOf(AFTER_SECTION[viewKey]);
+    savedIds.splice(after >= 0 ? after + 1 : Math.min(1, savedIds.length), 0, MIGRATED_SECTION);
+  }
+  const order = [...new Set([...savedIds, ...sectionDefs.map((d) => d.id)])];
   const collapsed = new Map(savedSections.map((s) => [s.id, !!s.collapsed]));
   const placedBySection = new Map(order.map((id) => [id, []]));
   const seen = new Set();
@@ -111,7 +128,18 @@ export function resolveLayout(catalog, viewKey, saved, canSee = () => true) {
     seen.add(entry.id);
     hidden.push(entry.id);
   }
+  if (migrate) {
+    /* widgets padrão da seção nova que o layout salvo ainda não tem (os que mudaram de
+     * seção já entraram acima; os ocultos pela pessoa continuam ocultos) */
+    for (const w of visible) {
+      if (w.section !== MIGRATED_SECTION || !w.default || seen.has(w.id)) continue;
+      seen.add(w.id);
+      placedBySection.get(MIGRATED_SECTION).push(place(w, w.defaultSize));
+    }
+  }
   return {
+    viewKey,
+    migrated: migrate ? MIGRATED_SECTION : null,
     sections: order.map((id) => shape(defById.get(id), collapsed.get(id), placedBySection.get(id))),
     hidden,
     novos: visible.filter((w) => !seen.has(w.id)).map((w) => w.id),

@@ -92,8 +92,16 @@ const withDate = (rows, year = 2026) =>
 
 /* ── por visão ────────────────────────────────────────────────────────── */
 
+/* Campos novos da change dashboards-ia-entrega (contrato ms → ui), derivados de forma
+ * determinística do que o mundo simulado já tem. Os e2e do ms antigo tiram estes campos
+ * (`installDashboardsApi({ legacy: true })`). */
+const TOKENS_PER_USD = 400_000;
+const tokensOf = (usd) => (usd == null ? null : Math.round(usd * TOKENS_PER_USD));
+const complexityOf = (effort) =>
+  effort == null ? null : Math.min(5, Math.max(1, Math.round(effort / 2)));
+
 function itemView(i) {
-  return omit({ ...i }, "aiTokens", "reopenedAt");
+  return { ...omit({ ...i }, "aiTokens", "reopenedAt"), complexity: complexityOf(i.effort) };
 }
 function prView(p) {
   return {
@@ -176,7 +184,10 @@ function team(d) {
       return o;
     }),
     ai: { ...d.ai, unallocatedCostUsd: 0 },
-    history: d.history.map((h) => toDs({ ...h }, "avgCycleTimeHours", "cycleTimeHours")),
+    history: d.history.map((h) => ({
+      ...toDs({ ...h }, "avgCycleTimeHours", "cycleTimeHours"),
+      aiTokens: tokensOf(h.aiCostUsd),
+    })),
     asOf: d.asOf ?? Date.parse("2026-09-30T15:00:00Z"),
     dataFreshness: freshness(d.asOf),
   };
@@ -257,6 +268,22 @@ function project(p) {
       sprintId: `${p.project.id}-hist-${i}`,
       aiCostUsd: s.aiCostPerSp != null ? round1(s.aiCostPerSp * (s.spDelivered || 0)) : null,
       ...s,
+      aiTokens: tokensOf(
+        s.aiCostPerSp != null ? round1(s.aiCostPerSp * (s.spDelivered || 0)) : null,
+      ),
+    })),
+    doraSeries: withStart(p.flow).map((r, i, rows) => ({
+      start: r.start,
+      label: r.label,
+      leadTimeHoursP50: r.leadTimeDays == null ? null : round1(r.leadTimeDays * 24),
+      deployFreqPerWeek: round1(
+        p.dora.deployFrequency.perWeek * (0.8 + 0.4 * ((i + 1) / rows.length)),
+      ),
+      changeFailurePct: round1(
+        p.dora.changeFailureRate.pct * (1.2 - 0.4 * ((i + 1) / rows.length)),
+      ),
+      method: "VCS_PROXY",
+      estimated: true,
     })),
     flow: withStart(
       p.flow.map((r) => ({
@@ -288,7 +315,17 @@ function project(p) {
 }
 
 function roadmap(r) {
-  const cal = (rows) => rows.map((x) => toDs({ ...x }, "cycleDays", "cycleTimeHours", dsDays));
+  const cal = (rows) =>
+    rows.map((x) => {
+      const withAi = Math.floor((x.count || 0) * 0.6);
+      const cost = withAi ? round1(withAi * 4.2 * (x.effort ?? x.complexity ?? 1)) : null;
+      return {
+        ...toDs({ ...x }, "cycleDays", "cycleTimeHours", dsDays),
+        aiCostUsd: cost,
+        aiTokens: tokensOf(cost),
+        itemsWithAi: withAi,
+      };
+    });
   const bounds = [
     [0, 30],
     [31, 60],

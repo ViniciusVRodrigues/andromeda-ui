@@ -3,6 +3,7 @@
 import React from "react";
 import { axisUsd, fmtInt, fmtNum, fmtPct, fmtTokensM, fmtUsd } from "../../format.js";
 import { MODEL_TOOLTIP_MIN_USD, modelSeries, projectColor } from "../../kit/Badges.jsx";
+import { AiEmpty, hasAiValue } from "../../kit/AiCross.jsx";
 import { BarList, SegmentBar } from "../../kit/Bars.jsx";
 import { ColumnChart } from "../../kit/charts.jsx";
 import { Panel } from "../../kit/Panel.jsx";
@@ -15,6 +16,17 @@ export const selectAiCostByModel = (d) => ({
 
 export function AiCostByModelWidget({ data }) {
   const { rows, models, per } = data;
+  if (!rows?.length || !models?.length || !hasAiValue(rows, ...models)) {
+    return (
+      <Panel
+        eyebrow={`custo por ${per}`}
+        title="Custo de IA por modelo"
+        sources={["ia", "andromeda"]}
+      >
+        <AiEmpty />
+      </Panel>
+    );
+  }
   const { series, legend } = modelSeries(models, rows);
   return (
     <Panel
@@ -52,6 +64,13 @@ export const selectAiCostByProject = (d) => ({
 
 export function AiCostByProjectWidget({ data }) {
   const { rows, total } = data;
+  if (!hasAiValue(rows, "costUsd")) {
+    return (
+      <Panel eyebrow="destino" title="Custo por projeto" sources={["ia", "azure"]}>
+        <AiEmpty />
+      </Panel>
+    );
+  }
   return (
     <Panel
       eyebrow="destino"
@@ -81,6 +100,31 @@ export const selectSubscription = (d) => ({
 
 export function SubscriptionWidget({ data }) {
   const { sub, people, months } = data;
+  const noSubscription = sub.subscriptionUsd == null || sub.perUserMonthUsd == null;
+  if (!Number(sub.consumptionUsd) && noSubscription) {
+    return (
+      <Panel eyebrow="custo" title="Consumo × assinatura" sources={["ia", "andromeda"]}>
+        <AiEmpty />
+      </Panel>
+    );
+  }
+  if (noSubscription) {
+    return (
+      <Panel eyebrow="custo" title="Consumo × assinatura" sources={["ia", "andromeda"]}>
+        <BarList
+          rows={[
+            {
+              key: "c",
+              label: "Consumo por token",
+              value: sub.consumptionUsd,
+              display: fmtUsd(sub.consumptionUsd),
+            },
+          ]}
+        />
+        <AiEmpty kind="subscription" />
+      </Panel>
+    );
+  }
   return (
     <Panel
       eyebrow="custo"
@@ -117,6 +161,13 @@ export function SubscriptionWidget({ data }) {
 export const selectByEditor = (d) => d.ai.byEditor;
 
 export function EditorsWidget({ data: byEditor }) {
+  if (!hasAiValue(byEditor, "interactions")) {
+    return (
+      <Panel eyebrow="ferramentas" title="Interações por editor" sources={["ia"]}>
+        <AiEmpty />
+      </Panel>
+    );
+  }
   return (
     <Panel eyebrow="ferramentas" title="Interações por editor" sources={["ia"]}>
       <BarList

@@ -43,6 +43,9 @@ const prWhen = (r) => Date.parse(r.mergedAt ?? r.closedAt ?? r.createdAt) || 0;
 const sortPullRequests = (rows) =>
   [...rows].sort((a, b) => prGroup(a) - prGroup(b) || prWhen(b) - prWhen(a));
 
+/** Sem GitHub/Azure Repos vinculado (alimenta o aviso único da seção Código). */
+export const notLinked = (data) => !data.linked;
+
 export const selectPullRequests = (d) => ({
   linked: d.person.githubLinked,
   rows: sortPullRequests(d.pullRequests),

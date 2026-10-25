@@ -91,6 +91,47 @@ export function burndownSummary({ data, todayLabel }) {
   );
 }
 
+/* Fmt por série: `fmt(v, série)`; a série pode trazer o seu próprio `fmt`. */
+const fmtOf = (fmt) => (v, s) => (s?.fmt ? s.fmt(v) : fmt(v, s));
+
+/**
+ * Resumo de dois gráficos de mesmo eixo X (`PairedColumns`): a IA e a métrica, cada uma
+ * "de A em X a B em Y" — sempre com pelo menos 2 números por série quando há 2 pontos.
+ * @param {{ data: object[], ia: {key: string, label: string, fmt?: Function},
+ *   metric: {key: string, label: string, fmt?: Function}, xKey?: string, noun?: string }} p
+ */
+export function pairedSummary({ data, ia, metric, xKey = "label", noun = "pontos" }) {
+  if (!data?.length) return "sem dados no período";
+  const fmt = fmtOf(num);
+  const part = (s) => {
+    const pts = values(data, s.key);
+    if (!pts.length) return `${s.label}: sem dados`;
+    const a = pts[0];
+    const b = pts[pts.length - 1];
+    return pts.length === 1
+      ? `${s.label}: ${fmt(a.v, s)} em ${xOf(data, a.i, xKey)}`
+      : `${s.label}: de ${fmt(a.v, s)} em ${xOf(data, a.i, xKey)} a ${fmt(b.v, s)} em ${xOf(data, b.i, xKey)}`;
+  };
+  return `${data.length} ${noun}. ${part(ia)}; ${part(metric)}`;
+}
+
+/**
+ * Resumo da dispersão: n, o ponto com mais IA (x) e a mediana da métrica (y).
+ * @param {{ points: Array<{label: string, x: number, y: number}>, x: {label: string, fmt?: Function},
+ *   y: {label: string, fmt?: Function}, noun?: string }} p
+ */
+export function scatterSummary({ points, x, y, noun = "pontos" }) {
+  const pts = (points || []).filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y));
+  if (!pts.length) return "sem dados no período";
+  const fx = x.fmt || num;
+  const fy = y.fmt || num;
+  const top = pts.reduce((m, p) => (p.x > m.x ? p : m), pts[0]);
+  const ys = pts.map((p) => p.y).sort((a, b) => a - b);
+  const mid =
+    ys.length % 2 ? ys[(ys.length - 1) / 2] : (ys[ys.length / 2 - 1] + ys[ys.length / 2]) / 2;
+  return `${pts.length} ${noun}; maior ${x.label}: ${top.label} (${fx(top.x)}) com ${y.label} ${fy(top.y)}; mediana de ${y.label} ${fy(mid)}`;
+}
+
 /** Props de acessibilidade do SVG do Recharts + o rótulo com o título do cartão. */
 export function useChartLabel(summary) {
   const panel = React.useContext(PanelTitleContext);

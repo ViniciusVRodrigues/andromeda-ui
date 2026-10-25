@@ -3,6 +3,7 @@
 
 import React from "react";
 import { axisPct, axisUsd, fmtInt, fmtPct, fmtUsd } from "../../format.js";
+import { AiEmpty, hasAiValue } from "../../kit/AiCross.jsx";
 import { ColumnChart, TrendChart } from "../../kit/charts.jsx";
 import { Panel } from "../../kit/Panel.jsx";
 
@@ -73,7 +74,17 @@ export function PredictabilityWidget({ data }) {
   );
 }
 
+/** Sem custo de IA em nenhuma sprint do histórico (aviso único da seção). */
+export const aiCostPerSpEmpty = (data) => !hasAiValue(data.history, "aiCostUsd", "aiCostPerSp");
+
 export function AiCostPerSpWidget({ data }) {
+  if (aiCostPerSpEmpty(data)) {
+    return (
+      <Panel eyebrow="ia × entrega" title="Custo de IA por SP" sources={["ia", "azure"]}>
+        <AiEmpty />
+      </Panel>
+    );
+  }
   return (
     <Panel
       eyebrow="ia × entrega"

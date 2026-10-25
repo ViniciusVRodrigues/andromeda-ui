@@ -39,6 +39,7 @@ import {
 import {
   AiCostByModelWidget,
   AiCostPerSpWidget,
+  aiCostPerSpEmpty,
   AiIndicatorsWidget,
   selectAiCostByModel,
   selectAiCostPerSp,
@@ -101,6 +102,13 @@ export const sections = [
     "Como o projeto entregou no período selecionado?",
   ),
   section(
+    "ia-entrega",
+    "pj-ia-entrega",
+    "IA e entrega",
+    "IA e entrega",
+    "O que o investimento em IA devolve em entrega e qualidade?",
+  ),
+  section(
     "dora",
     "pj-dora",
     "DORA",
@@ -118,9 +126,9 @@ export const sections = [
   section(
     "ia",
     "pj-ia",
-    "Investimento em IA",
-    "Investimento em IA",
-    "Quanto o projeto investe em IA e o que volta em entrega?",
+    "Consumo de IA",
+    "Consumo de IA",
+    "Quanto se usa de IA, com quais modelos e onde?",
   ),
   section(
     "dados",
@@ -200,6 +208,8 @@ const widget = (name, sectionId, title, o) => {
     sizes: o.sizes,
     defaultSize: o.size,
     default: !!o.default,
+    disabled: !!o.disabled,
+    aiEmpty: o.aiEmpty,
     skeletonHeight: o.height,
     aliases: [],
     source,
@@ -306,12 +316,13 @@ export const widgets = [
     select: selectAiCostByModel,
     Component: AiCostByModelWidget,
   }),
-  widget("custo-ia-sp", "ia", "Custo de IA por SP entregue", {
+  widget("custo-ia-sp", "ia-entrega", "Custo de IA por SP entregue", {
     sizes: ALL,
     size: "M",
     default: true,
     height: 360,
     select: selectAiCostPerSp,
+    aiEmpty: aiCostPerSpEmpty,
     Component: AiCostPerSpWidget,
   }),
   widget("ia-indicadores", "ia", "Adoção, tokens por SP e consumo × assinatura", {
@@ -405,6 +416,7 @@ export const widgets = [
     Component: CycleByEffortWidget,
   }),
   widget("cycle-complexidade", "estimativas", "Cycle time por complexidade", {
+    disabled: true,
     sizes: ALL,
     size: "P",
     source: "roadmap",
@@ -413,6 +425,7 @@ export const widgets = [
     Component: CycleByComplexityWidget,
   }),
   widget("ajustes-manuais", "estimativas", "Valores ajustados à mão no Andrômeda", {
+    disabled: true,
     sizes: ALL,
     size: "P",
     source: "roadmap",

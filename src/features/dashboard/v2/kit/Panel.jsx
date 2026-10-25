@@ -84,7 +84,7 @@ function SourceLine({ sources }) {
 /**
  * Cartão de indicador.
  * @param {{ eyebrow?: string, title: string, info?: React.ReactNode, sources?: string[],
- *   actions?: React.ReactNode, table?: { columns: Array, rows: Array }, note?: React.ReactNode, className?: string,
+ *   actions?: React.ReactNode, table?: { columns: Array, rows: Array, caption?: string }, note?: React.ReactNode, className?: string,
  *   experimental?: boolean, children: React.ReactNode }} props
  *   `table` liga a alternância Gráfico/Tabela no cabeçalho; `experimental` marca dados
  *   de significado inferido. Painéis que dependem de coleta nova não existem na v2
@@ -172,7 +172,7 @@ export function Panel({
       </div>
       <div className="min-h-0 flex-1">
         {asTable && table ? (
-          <DataTable columns={table.columns} rows={table.rows} dense />
+          <DataTable columns={table.columns} rows={table.rows} dense caption={table.caption} />
         ) : (
           /* os gráficos de dentro viram <figure> rotulada por este título (D8) */
           <PanelTitleContext.Provider value={titleCtx}>{children}</PanelTitleContext.Provider>
@@ -194,7 +194,7 @@ export function Empty({ children }) {
 }
 
 /** `true` enquanto a viewport tem < 600 px (o mesmo corte do celular na grade). */
-function useNarrowViewport() {
+export function useNarrowViewport() {
   const query = "(max-width: 599px)";
   const [narrow, setNarrow] = React.useState(() => !!window.matchMedia?.(query).matches);
   React.useEffect(() => {
@@ -224,7 +224,7 @@ export function Highlights({ items }) {
   const icon = { warn: "!", good: "✓", info: "→" };
   return (
     <ul
-      className="focus-visible:outline-accent m-0 mb-2 grid list-none gap-2 p-0 focus-visible:outline-2 focus-visible:outline-offset-2 max-[599px]:flex max-[599px]:snap-x max-[599px]:snap-mandatory max-[599px]:[scrollbar-width:thin] max-[599px]:overflow-x-auto md:grid-cols-2 xl:grid-cols-3"
+      className="focus-visible:outline-accent relative m-0 mb-2 grid list-none gap-2 p-0 focus-visible:outline-2 focus-visible:outline-offset-2 max-[599px]:flex max-[599px]:snap-x max-[599px]:snap-mandatory max-[599px]:[scrollbar-width:thin] max-[599px]:overflow-x-auto md:grid-cols-2 xl:grid-cols-3"
       aria-label={
         items.length > 1 && narrow ? `Destaques (${items.length}, role para o lado)` : "Destaques"
       }
