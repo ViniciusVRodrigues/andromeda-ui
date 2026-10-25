@@ -113,7 +113,13 @@ export function Panel({
         className
       }
     >
-      <div className="mb-4 flex items-start justify-between gap-3">
+      <div
+        className={
+          "mb-4 flex items-start justify-between gap-3" +
+          /* com alternância no cabeçalho, os controles descem para a linha de baixo quando não cabem */
+          (actions ? " flex-wrap" : "")
+        }
+      >
         <div className="min-w-0">
           {eyebrow || experimental ? (
             <span className="mb-1 flex flex-wrap items-center gap-2">
@@ -133,7 +139,12 @@ export function Panel({
             {title}
           </h3>
         </div>
-        <div className="flex shrink-0 items-center gap-[8px]">
+        <div
+          className={
+            "ml-auto flex items-center gap-[8px]" +
+            (actions ? " max-w-full flex-wrap justify-end" : " shrink-0")
+          }
+        >
           {actions}
           {table ? (
             <div

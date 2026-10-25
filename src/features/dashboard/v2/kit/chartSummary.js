@@ -97,11 +97,13 @@ const fmtOf = (fmt) => (v, s) => (s?.fmt ? s.fmt(v) : fmt(v, s));
 /**
  * Resumo de dois gráficos de mesmo eixo X (`PairedColumns`): a IA e a métrica, cada uma
  * "de A em X a B em Y" — sempre com pelo menos 2 números por série quando há 2 pontos.
+ * `metrics` é a lista de séries do gráfico de baixo. Devolve o resumo de cada gráfico
+ * (`top`, `bottom`) para o `aria-label` de cada SVG.
  * @param {{ data: object[], ia: {key: string, label: string, fmt?: Function},
- *   metric: {key: string, label: string, fmt?: Function}, xKey?: string, noun?: string }} p
+ *   metrics: Array<{key: string, label: string, fmt?: Function}>, xKey?: string, noun?: string }} p
  */
-export function pairedSummary({ data, ia, metric, xKey = "label", noun = "pontos" }) {
-  if (!data?.length) return "sem dados no período";
+export function pairedParts({ data, ia, metrics, xKey = "label", noun = "pontos" }) {
+  if (!data?.length) return { top: "sem dados no período", bottom: "sem dados no período" };
   const fmt = fmtOf(num);
   const part = (s) => {
     const pts = values(data, s.key);
@@ -112,7 +114,8 @@ export function pairedSummary({ data, ia, metric, xKey = "label", noun = "pontos
       ? `${s.label}: ${fmt(a.v, s)} em ${xOf(data, a.i, xKey)}`
       : `${s.label}: de ${fmt(a.v, s)} em ${xOf(data, a.i, xKey)} a ${fmt(b.v, s)} em ${xOf(data, b.i, xKey)}`;
   };
-  return `${data.length} ${noun}. ${part(ia)}; ${part(metric)}`;
+  const head = `${data.length} ${noun}. `;
+  return { top: head + part(ia), bottom: head + metrics.map(part).join("; ") };
 }
 
 /**

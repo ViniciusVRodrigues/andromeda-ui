@@ -97,6 +97,48 @@ for (const view of VIEWS) {
       ).toBeLessThanOrEqual(1);
     });
 
+    test("gráfico de baixo do par tem role=img e rótulo próprio com números", async ({ page }) => {
+      await open(page, view);
+      const c = card(
+        page,
+        view.name === "Projeto" ? "projeto.ia-entrega-sprint" : "org.ia-tendencia",
+      );
+      await c.scrollIntoViewIfNeeded();
+      const svgs = c.locator("svg[role=img]");
+      await expect(svgs).toHaveCount(2);
+      const [a, b] = await Promise.all([0, 1].map((i) => svgs.nth(i).getAttribute("aria-label")));
+      expect(a).not.toEqual(b);
+      for (const label of [a, b]) {
+        expect(label).toContain((await c.getByRole("heading", { level: 3 }).innerText()).trim());
+        expect((label.match(/\d+(?:[.,]\d+)?/g) || []).length).toBeGreaterThanOrEqual(2);
+      }
+    });
+
+    if (view.name === "Projeto") {
+      test("a alternância de medida fica no cabeçalho do card, ao lado do título", async ({
+        page,
+      }) => {
+        await open(page, view);
+        const c = card(page, "projeto.ia-entrega-sprint");
+        await c.scrollIntoViewIfNeeded();
+        const toggle = c.getByRole("group", { name: "Medida de IA" });
+        await expect(toggle).toBeVisible();
+        const [t, h, f] = await Promise.all([
+          toggle.boundingBox(),
+          c.getByRole("heading", { level: 3 }).boundingBox(),
+          c.locator("figure").first().boundingBox(),
+        ]);
+        expect(t.y + t.height).toBeLessThanOrEqual(f.y);
+        expect(Math.abs(t.y - h.y)).toBeLessThanOrEqual(60);
+        expect(
+          await toggle.evaluate(
+            (el, id) => !!el.closest(`[data-widget-id='${id}'] > div`),
+            "projeto.ia-entrega-sprint",
+          ),
+        ).toBe(true);
+      });
+    }
+
     test("critério 5: a tabela gêmea traz os mesmos números do gráfico", async ({ page }) => {
       await open(page, view);
       for (const [id] of view.cards) {

@@ -159,7 +159,7 @@ test("catálogo no Drawer: contador, busca e switch religam o widget no fim da s
   await page.getByRole("button", { name: "Ocultar Custo por modelo" }).click();
   await page.getByRole("button", { name: "Adicionar widgets" }).click();
   const drawer = page.getByRole("dialog", { name: "Adicionar widgets" });
-  await expect(drawer).toContainText("11 de 12 visíveis");
+  await expect(drawer).toContainText("16 de 17 visíveis");
   await expect(drawer.getByRole("searchbox")).toBeFocused();
   await drawer.getByRole("searchbox").fill("custo");
   await expect(drawer.locator("[data-catalog-item]")).toHaveCount(2);
@@ -169,7 +169,7 @@ test("catálogo no Drawer: contador, busca e switch religam o widget no fim da s
   expect(box.height).toBeGreaterThanOrEqual(44);
   await sw.click();
   await expect(sw).toHaveAttribute("aria-checked", "true");
-  await expect(drawer).toContainText("12 de 12 visíveis");
+  await expect(drawer).toContainText("17 de 17 visíveis");
   await page.keyboard.press("Escape");
   await expect(drawer).toHaveCount(0);
   /* Esc fechou só o Drawer: segue editando, foco volta ao botão */
@@ -363,6 +363,11 @@ test("painel vazio oferece Adicionar e Restaurar; widget novo ganha selo e aviso
         "individual.alocacao",
         "individual.planejado-entregue",
         "individual.cycle-time",
+        "individual.ia-entrega-sprint",
+        "individual.ia-por-ponto",
+        "individual.ia-cycle",
+        "individual.ia-esforco-itens",
+        "individual.itens-com-sem-ia",
       ],
       version: 1,
       updatedAt: "2026-10-11T12:00:00Z",
@@ -374,7 +379,7 @@ test("painel vazio oferece Adicionar e Restaurar; widget novo ganha selo e aviso
 
   await page.getByRole("button", { name: "Adicionar widgets" }).click();
   const drawer = page.getByRole("dialog", { name: "Adicionar widgets" });
-  await expect(drawer).toContainText("0 de 12 visíveis");
+  await expect(drawer).toContainText("0 de 17 visíveis");
   await expect(drawer.locator('[data-catalog-item="individual.custo-ia-sprint"]')).toContainText(
     "novo",
   );
@@ -394,7 +399,7 @@ test("painel vazio oferece Adicionar e Restaurar; widget novo ganha selo e aviso
     .locator("[data-dashboard-empty]")
     .getByRole("button", { name: "Restaurar padrão" })
     .click();
-  await expect(page.locator("[data-edit-item]")).toHaveCount(12);
+  await expect(page.locator("[data-edit-item]")).toHaveCount(17);
 });
 
 test("dica de primeiro uso: some ao dispensar e não volta", async ({ page }) => {

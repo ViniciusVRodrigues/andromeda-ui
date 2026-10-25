@@ -15,7 +15,7 @@ import {
   isNum,
   nItems,
 } from "../../format.js";
-import { AiCrossCard, AiEmpty } from "../../kit/AiCross.jsx";
+import { AI_CARD_MIN_HEIGHT, AiCrossCard, AiEmpty } from "../../kit/AiCross.jsx";
 import { Legend } from "../../kit/Bars.jsx";
 import { AI_COLOR, ColumnChart, METRIC_COLOR } from "../../kit/charts.jsx";
 import { Empty, Panel } from "../../kit/Panel.jsx";
@@ -62,6 +62,12 @@ export const SERIES = {
     axis: axisUsd,
   },
   spDelivered: { key: "spDelivered", label: "SP entregues", short: "SP", unit: "SP", fmt: fmtInt },
+  spPlanned: { key: "spPlanned", label: "SP planejados", short: "SP", unit: "SP", fmt: fmtInt },
+  /* gráfico de baixo do card de sprints: entregues (principal) e planejados, mesmo eixo */
+  sprintSp: [
+    { key: "spDelivered", label: "SP entregues", short: "SP entregues", unit: "SP", fmt: fmtInt },
+    { key: "spPlanned", label: "SP planejados", short: "SP planejados", unit: "SP", fmt: fmtInt },
+  ],
   tokensPerSp: {
     key: "tokensPerSp",
     label: "Tokens de IA por SP",
@@ -195,77 +201,60 @@ export function withWithoutReading({ rows, nWith, nWithout }) {
 
 /* ── componentes ── */
 
-/** Altura mínima comum dos cards da seção (os gráficos têm alturas naturais diferentes). */
-export const AI_CARD_MIN_HEIGHT = "min-h-[520px]";
-
-/** Moldura que iguala a altura dos cards `AiCrossCard` (±1 px), cada um no seu grid. */
-export function AiCardFrame({ children }) {
-  return <div className="flex flex-col [&>div]:min-h-[520px] [&>div]:flex-1">{children}</div>;
-}
-
 export function IaSprintWidget({ data }) {
   return (
-    <AiCardFrame>
-      <AiCrossCard
-        eyebrow="entrega"
-        question="Sprints com mais IA entregaram mais do que o planejado?"
-        kind="paired"
-        ia={SERIES.tokens}
-        metric={SERIES.spDelivered}
-        rows={data.rows}
-        columns={[
-          { key: "spPlanned", label: "SP planejados (SP)", align: "right", format: fmtInt },
-        ]}
-        help="Tokens de IA e SP entregues de cada sprint; os SP planejados estão na tabela."
-        basis="seu uso de IA por sprint"
-        sources={["ia", "azure"]}
-        person
-        noAi={data.empty}
-        missing={data.tokensMissing ? MISSING_TOKENS : null}
-      />
-    </AiCardFrame>
+    <AiCrossCard
+      eyebrow="entrega"
+      question="Sprints com mais IA entregaram mais do que o planejado?"
+      kind="paired"
+      ia={SERIES.tokens}
+      metric={SERIES.sprintSp}
+      rows={data.rows}
+      help="Tokens de IA, SP entregues e SP planejados de cada sprint."
+      basis="seu uso de IA por sprint"
+      sources={["ia", "azure"]}
+      person
+      noAi={data.empty}
+      missing={data.tokensMissing ? MISSING_TOKENS : null}
+    />
   );
 }
 
 export function IaPorPontoWidget({ data }) {
   return (
-    <AiCardFrame>
-      <AiCrossCard
-        eyebrow="custo por ponto"
-        question="A IA ficou mais barata por ponto entregue?"
-        kind="paired"
-        ia={SERIES.tokensPerSp}
-        metric={SERIES.costPerSp}
-        rows={data.rows}
-        help="Tokens e US$ de IA divididos pelos SP entregues; sem SP entregues a razão fica em branco."
-        basis="seu uso de IA ÷ SP entregues"
-        sources={["ia", "azure"]}
-        person
-        noAi={data.empty}
-        missing={data.tokensMissing ? MISSING_TOKENS : null}
-      />
-    </AiCardFrame>
+    <AiCrossCard
+      eyebrow="custo por ponto"
+      question="A IA ficou mais barata por ponto entregue?"
+      kind="paired"
+      ia={SERIES.tokensPerSp}
+      metric={SERIES.costPerSp}
+      rows={data.rows}
+      help="Tokens e US$ de IA divididos pelos SP entregues; sem SP entregues a razão fica em branco."
+      basis="seu uso de IA ÷ SP entregues"
+      sources={["ia", "azure"]}
+      person
+      noAi={data.empty}
+      missing={data.tokensMissing ? MISSING_TOKENS : null}
+    />
   );
 }
 
 export function IaCycleWidget({ data }) {
   return (
-    <AiCardFrame>
-      <AiCrossCard
-        eyebrow="cycle time"
-        question="Sprints com mais IA tiveram cycle time menor?"
-        kind="paired"
-        ia={SERIES.tokens}
-        metric={SERIES.cycle}
-        rows={data.rows}
-        help="Tokens de IA e cycle time mediano dos seus itens em cada sprint."
-        basis="seu uso de IA por sprint"
-        sources={["ia", "azure"]}
-        person
-        noAi={data.empty}
-        missing={data.tokensMissing ? MISSING_TOKENS : null}
-      />
-    </AiCardFrame>
+    <AiCrossCard
+      eyebrow="cycle time"
+      question="Sprints com mais IA tiveram cycle time menor?"
+      kind="paired"
+      ia={SERIES.tokens}
+      metric={SERIES.cycle}
+      rows={data.rows}
+      help="Tokens de IA e cycle time mediano dos seus itens em cada sprint."
+      basis="seu uso de IA por sprint"
+      sources={["ia", "azure"]}
+      person
+      noAi={data.empty}
+      missing={data.tokensMissing ? MISSING_TOKENS : null}
+    />
   );
 }
 
@@ -281,34 +270,32 @@ export function IaEsforcoItensWidget({ data }) {
     data.withoutCost ? `; ${nItems(data.withoutCost)} sem custo alocado ficam fora do gráfico` : ""
   }`;
   return (
-    <AiCardFrame>
-      <AiCrossCard
-        eyebrow="esforço e complexidade"
-        question="Itens de mais esforço e complexidade consomem mais IA?"
-        kind="scatter"
-        ia={effort}
-        metric={SERIES.cost}
-        rows={data.rows}
-        noun="itens"
-        labelHeader="Item"
-        columns={[
-          { key: "complexity", label: "Complexidade (faixa)" },
-          { key: "tokensPerSp", label: "Tokens por SP", align: "right", format: fmtTokensCompact },
-          { key: "cycleTimeHours", label: "Cycle (h ou d)", align: "right", format: fmtDuration },
-        ]}
-        help="Um ponto por item: esforço no eixo horizontal, custo de IA no vertical; a complexidade vai no rótulo."
-        sample={sample}
-        basis="custo de IA alocado ao item"
-        sources={["ia", "azure"]}
-        person
-        noAi={data.empty}
-        missing={
-          data.complexityMissing
-            ? "Sem dado de complexidade: o servidor ainda não envia o campo ou os itens não têm complexidade."
-            : null
-        }
-      />
-    </AiCardFrame>
+    <AiCrossCard
+      eyebrow="esforço e complexidade"
+      question="Itens de mais esforço e complexidade consomem mais IA?"
+      kind="scatter"
+      ia={effort}
+      metric={SERIES.cost}
+      rows={data.rows}
+      noun="itens"
+      labelHeader="Item"
+      columns={[
+        { key: "complexity", label: "Complexidade (faixa)" },
+        { key: "tokensPerSp", label: "Tokens por SP", align: "right", format: fmtTokensCompact },
+        { key: "cycleTimeHours", label: "Cycle (h ou d)", align: "right", format: fmtDuration },
+      ]}
+      help="Um ponto por item: esforço no eixo horizontal, custo de IA no vertical; a complexidade vai no rótulo."
+      sample={sample}
+      basis="custo de IA alocado ao item"
+      sources={["ia", "azure"]}
+      person
+      noAi={data.empty}
+      missing={
+        data.complexityMissing
+          ? "Sem dado de complexidade: o servidor ainda não envia o campo ou os itens não têm complexidade."
+          : null
+      }
+    />
   );
 }
 

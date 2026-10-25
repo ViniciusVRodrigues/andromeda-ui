@@ -3,7 +3,7 @@
 import React from "react";
 import { axisUsd, fmtNum, fmtTokensCompact, fmtUsd } from "../../format.js";
 import { MODEL_TOOLTIP_MIN_USD, modelSeries } from "../../kit/Badges.jsx";
-import { AiEmpty, hasAiValue } from "../../kit/AiCross.jsx";
+import { AI_CARD_MIN_HEIGHT, AiEmpty, hasAiValue } from "../../kit/AiCross.jsx";
 import { ColumnChart, TrendChart } from "../../kit/charts.jsx";
 import { KpiTile } from "../../kit/Kpi.jsx";
 import { Panel } from "../../kit/Panel.jsx";
@@ -76,6 +76,7 @@ export function AiCostPerSpWidget({ data: sprints }) {
   }
   return (
     <Panel
+      className={AI_CARD_MIN_HEIGHT}
       eyebrow="retorno"
       title="Custo de IA por SP entregue"
       sources={["ia", "azure"]}

@@ -2,23 +2,9 @@
  * Seletores puros + componentes sobre o `AiCrossCard`. */
 
 import React from "react";
-import {
-  axisPct,
-  fmtDuration,
-  fmtInt,
-  fmtPct,
-  fmtTokensCompact,
-  fmtUsd,
-  isNum,
-} from "../../format.js";
+import { axisPct, fmtDuration, fmtPct, fmtTokensCompact, fmtUsd, isNum } from "../../format.js";
 import { AiCrossCard } from "../../kit/AiCross.jsx";
-import {
-  AiCardFrame,
-  MISSING_TOKENS,
-  SERIES,
-  positive,
-  selectSprintCross,
-} from "../individual/aiCross.jsx";
+import { MISSING_TOKENS, SERIES, positive, selectSprintCross } from "../individual/aiCross.jsx";
 
 /* ── seletores (recebem o payload `resumo` da Equipe) ── */
 
@@ -63,67 +49,58 @@ const hasUsage = (r) => r.aiTokens != null || r.aiCostUsd != null;
 
 export function TeamIaSprintWidget({ data }) {
   return (
-    <AiCardFrame>
-      <AiCrossCard
-        eyebrow="entrega"
-        question="Sprints com mais IA entregaram mais do que o planejado?"
-        kind="paired"
-        ia={SERIES.tokens}
-        metric={SERIES.spDelivered}
-        rows={data.rows}
-        columns={[
-          { key: "spPlanned", label: "SP planejados (SP)", align: "right", format: fmtInt },
-        ]}
-        help="Tokens de IA e SP entregues do time em cada sprint; os SP planejados estão na tabela."
-        basis="uso de IA alocado ao projeto"
-        sources={["ia", "azure"]}
-        noAi={data.empty}
-        missing={data.tokensMissing ? MISSING_TOKENS : null}
-      />
-    </AiCardFrame>
+    <AiCrossCard
+      eyebrow="entrega"
+      question="Sprints com mais IA entregaram mais do que o planejado?"
+      kind="paired"
+      ia={SERIES.tokens}
+      metric={SERIES.sprintSp}
+      rows={data.rows}
+      help="Tokens de IA, SP entregues e SP planejados do time em cada sprint."
+      basis="uso de IA alocado ao projeto"
+      sources={["ia", "azure"]}
+      noAi={data.empty}
+      missing={data.tokensMissing ? MISSING_TOKENS : null}
+    />
   );
 }
 
 export function TeamIaPorPontoWidget({ data }) {
   return (
-    <AiCardFrame>
-      <AiCrossCard
-        eyebrow="custo por ponto"
-        question="Os tokens por ponto caíram ao longo das sprints?"
-        kind="paired"
-        ia={SERIES.tokensPerSp}
-        metric={SERIES.costPerSp}
-        rows={data.rows}
-        help="Tokens e US$ de IA do time divididos pelos SP entregues; sem SP entregues a razão fica em branco."
-        basis="uso de IA alocado ÷ SP entregues"
-        sources={["ia", "azure"]}
-        noAi={data.empty}
-        missing={data.tokensMissing ? MISSING_TOKENS : null}
-      />
-    </AiCardFrame>
+    <AiCrossCard
+      eyebrow="custo por ponto"
+      question="Os tokens por ponto caíram ao longo das sprints?"
+      kind="paired"
+      ia={SERIES.tokensPerSp}
+      metric={SERIES.costPerSp}
+      rows={data.rows}
+      help="Tokens e US$ de IA do time divididos pelos SP entregues; sem SP entregues a razão fica em branco."
+      basis="uso de IA alocado ÷ SP entregues"
+      sources={["ia", "azure"]}
+      noAi={data.empty}
+      missing={data.tokensMissing ? MISSING_TOKENS : null}
+    />
   );
 }
 
 export function TeamIaFluxoWidget({ data }) {
   return (
-    <AiCardFrame>
-      <AiCrossCard
-        eyebrow="fluxo"
-        question="Em sprints com mais IA o fluxo melhorou?"
-        kind="paired"
-        ia={SERIES.cost}
-        metric={PREDICTABILITY}
-        rows={data.rows}
-        columns={[
-          { key: "cycle", label: "Cycle p50 (h ou d)", align: "right", format: fmtDuration },
-          { key: "cycleP90", label: "Cycle p90 (h ou d)", align: "right", format: fmtDuration },
-        ]}
-        help="Custo de IA e previsibilidade (SP entregues ÷ comprometidos) de cada sprint; cycle p50 e p90 na tabela."
-        basis="uso de IA alocado ao projeto"
-        sources={["ia", "azure"]}
-        noAi={data.empty}
-      />
-    </AiCardFrame>
+    <AiCrossCard
+      eyebrow="fluxo"
+      question="Em sprints com mais IA o fluxo melhorou?"
+      kind="paired"
+      ia={SERIES.cost}
+      metric={PREDICTABILITY}
+      rows={data.rows}
+      columns={[
+        { key: "cycle", label: "Cycle p50 (h ou d)", align: "right", format: fmtDuration },
+        { key: "cycleP90", label: "Cycle p90 (h ou d)", align: "right", format: fmtDuration },
+      ]}
+      help="Custo de IA e previsibilidade (SP entregues ÷ comprometidos) de cada sprint; cycle p50 e p90 na tabela."
+      basis="uso de IA alocado ao projeto"
+      sources={["ia", "azure"]}
+      noAi={data.empty}
+    />
   );
 }
 
@@ -131,26 +108,24 @@ export function TeamIaPessoaWidget({ data }) {
   const x = { key: "aiCostUsd", label: "Custo de IA", short: "US$", unit: "US$", fmt: fmtUsd };
   const y = { ...SERIES.spDelivered, label: "SP entregues" };
   return (
-    <AiCardFrame>
-      <AiCrossCard
-        eyebrow="pessoas"
-        question="Quem usa mais IA entrega mais pontos?"
-        kind="scatter"
-        ia={x}
-        metric={y}
-        rows={data.rows}
-        noun="pessoas"
-        labelHeader="Pessoa"
-        columns={[
-          { key: "cycle", label: "Cycle (h ou d)", align: "right", format: fmtDuration },
-          { key: "tokensPerSp", label: "T/SP", align: "right", format: fmtTokensCompact },
-        ]}
-        help="Um ponto por pessoa: custo de IA no eixo horizontal, SP entregues no vertical; mesmos números da contribuição."
-        sample={`${data.withUsage} de ${data.rows.length} pessoas com uso de IA`}
-        basis="custo de IA nas datas da sprint"
-        sources={["ia", "azure"]}
-        noAi={data.empty}
-      />
-    </AiCardFrame>
+    <AiCrossCard
+      eyebrow="pessoas"
+      question="Quem usa mais IA entrega mais pontos?"
+      kind="scatter"
+      ia={x}
+      metric={y}
+      rows={data.rows}
+      noun="pessoas"
+      labelHeader="Pessoa"
+      columns={[
+        { key: "cycle", label: "Cycle (h ou d)", align: "right", format: fmtDuration },
+        { key: "tokensPerSp", label: "T/SP", align: "right", format: fmtTokensCompact },
+      ]}
+      help="Um ponto por pessoa: custo de IA no eixo horizontal, SP entregues no vertical; mesmos números da contribuição."
+      sample={`${data.withUsage} de ${data.rows.length} pessoas com uso de IA`}
+      basis="custo de IA nas datas da sprint"
+      sources={["ia", "azure"]}
+      noAi={data.empty}
+    />
   );
 }

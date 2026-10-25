@@ -193,6 +193,47 @@ for (const [view, cfg] of Object.entries(VIEWS)) {
       }
     });
 
+    test("gráfico de baixo do par tem role=img e rótulo com números; sprints mostra planejado e entregue", async ({
+      page,
+    }) => {
+      await openAs(page, view);
+      const c = card(page, cfg.ids[0]);
+      await c.scrollIntoViewIfNeeded();
+      const svgs = c.locator("svg[role='img']");
+      await expect(svgs).toHaveCount(2);
+      for (const i of [0, 1]) {
+        const label = (await svgs.nth(i).getAttribute("aria-label")) || "";
+        expect(label, `svg ${i}`).toContain("Sprints com mais IA entregaram");
+        expect((label.match(/\d+(?:[.,]\d+)?/g) || []).length, label).toBeGreaterThanOrEqual(2);
+      }
+      const bottom = (await svgs.nth(1).getAttribute("aria-label")) || "";
+      expect(bottom).toContain("SP entregues");
+      expect(bottom).toContain("SP planejados");
+      const paired = c.locator("[data-paired]");
+      await expect(paired.nth(1)).toContainText("SP planejados");
+      await expect(paired.nth(1)).toContainText("SP entregues");
+      expect(await paired.nth(1).locator(".recharts-bar").count()).toBe(2);
+      await expect(c).toContainText("SP planejados (SP)");
+      await c.getByRole("button", { name: "Tabela" }).click();
+      const text = await c.getByRole("table").innerText();
+      expect(text).toMatch(/SP planejados \(SP\)/i);
+      expect(text).toMatch(/SP entregues \(SP\)/i);
+    });
+
+    test("altura única: os cards da seção e o card de custo antigo medem o mesmo (±1 px)", async ({
+      page,
+    }) => {
+      await openAs(page, view);
+      const old = view === "equipe" ? "equipe.custo-ia-sp" : "individual.custo-ia-sprint";
+      const heights = [];
+      for (const id of [...cfg.ids, old]) {
+        const c = card(page, id);
+        await c.scrollIntoViewIfNeeded();
+        heights.push((await c.locator("> *").first().boundingBox()).height);
+      }
+      expect(Math.max(...heights) - Math.min(...heights), heights.join(",")).toBeLessThanOrEqual(1);
+    });
+
     test("ms antigo: o card que depende do campo novo mostra 'sem dado' e os demais funcionam", async ({
       page,
     }) => {

@@ -3,7 +3,7 @@
 
 import React from "react";
 import { axisPct, axisUsd, fmtInt, fmtPct, fmtUsd } from "../../format.js";
-import { AiEmpty, hasAiValue } from "../../kit/AiCross.jsx";
+import { AI_CARD_MIN_HEIGHT, AiEmpty, hasAiValue } from "../../kit/AiCross.jsx";
 import { ColumnChart, TrendChart } from "../../kit/charts.jsx";
 import { Panel } from "../../kit/Panel.jsx";
 
@@ -87,6 +87,7 @@ export function AiCostPerSpWidget({ data }) {
   }
   return (
     <Panel
+      className={AI_CARD_MIN_HEIGHT}
       eyebrow="ia × entrega"
       title="Custo de IA por SP"
       note={data.partialNote}

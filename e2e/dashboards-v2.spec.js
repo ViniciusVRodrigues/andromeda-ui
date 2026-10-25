@@ -73,7 +73,7 @@ test("tela 3 — DASHBOARD_STRATEGIC: visão geral da organização e de cada pr
     .first()
     .click();
   await expect(page).toHaveURL(/escopo=p-pagamentos/);
-  await expect(page.getByRole("heading", { name: "DORA" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "DORA", exact: true })).toBeVisible();
   /* sem DASHBOARD_INDIVIDUAL/TEAM, o projeto só tem a visão estratégica */
   await expect(page.getByRole("radiogroup", { name: "Visão" })).toHaveCount(0);
 });
@@ -140,7 +140,7 @@ test("adaptador: DS mostra p50 com p90 ao lado, notas DORA traduzidas e mediana 
     .getByRole("radiogroup", { name: "Visão" })
     .getByRole("radio", { name: "Projeto" })
     .click();
-  await expect(page.getByRole("heading", { name: "DORA" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "DORA", exact: true })).toBeVisible();
   const dora = page.locator("#pj-dora");
   /* fixture: lead time MEDIUM, frequência ELITE, falha HIGH */
   await expect(dora.getByText("Médio", { exact: true })).toBeVisible();
@@ -485,6 +485,7 @@ const VIEW_CASES = [
     sections: [
       "Resumo da organização",
       "Portfólio de projetos",
+      "IA e entrega",
       "Entrega",
       "Engenharia",
       "Consumo de IA",
@@ -659,7 +660,7 @@ test("Resumo projeto: layout salvo com id desconhecido e widgets do Roadmap e da
   await expect(
     page.locator("#pj-bugs").getByRole("heading", { name: "Bugs criados × fechados" }),
   ).toBeVisible();
-  await expect(page.getByRole("heading", { name: "DORA" })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "DORA", exact: true })).toHaveCount(0);
   expect(errors).toEqual([]);
 });
 
@@ -691,6 +692,7 @@ test("Resumo org: layout salvo com id desconhecido renderiza sem erro e o portf�
   });
   await expect(page.getByRole("heading", { level: 2 })).toHaveText([
     "Portfólio de projetos",
+    "IA e entrega",
     "Consumo de IA",
   ]);
   await expect(page.getByRole("heading", { name: "Interações por editor" })).toBeVisible();

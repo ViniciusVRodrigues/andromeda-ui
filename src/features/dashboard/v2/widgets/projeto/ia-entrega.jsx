@@ -23,9 +23,6 @@ import { AiCrossCard, hasAiValue } from "../../kit/AiCross.jsx";
 
 /* ── peças comuns (também usadas pelos cards da Organização) ───────────── */
 
-/** Altura mínima comum dos cards de "IA e entrega" (todos iguais, ±1 px, no desktop). */
-export const CROSS_MIN_HEIGHT = 536;
-
 const PLURAL = { semana: "semanas", mês: "meses", dia: "dias" };
 export const pluralOf = (per) => PLURAL[per] ?? `${per}s`;
 export const capitalize = (s) => (s ? s[0].toUpperCase() + s.slice(1) : s);
@@ -55,23 +52,6 @@ const ratio = (a, b) => (isNum(a) && isNum(b) && Number(b) > 0 ? Number(a) / Num
 
 /** Cobertura de dias de IA alocados (nota dos cards). */
 const coverageOf = (d) => d.dataQuality?.aiDaysAllocatedPct ?? null;
-
-/**
- * Moldura dos cards: altura mínima comum e, se houver, a faixa de controles (alternância)
- * acima do card. O card ocupa o resto da altura.
- */
-export function CrossFrame({ controls, children }) {
-  return (
-    <div
-      data-cross-frame=""
-      style={{ minHeight: CROSS_MIN_HEIGHT }}
-      className="flex min-w-0 flex-col gap-2 [&>div:last-child]:flex-1"
-    >
-      {controls}
-      {children}
-    </div>
-  );
-}
 
 /** Alternância de modo (botões `aria-pressed`, alvo de 44 px com a densidade da pílula). */
 export function ModeToggle({ label, options, value, onChange, extra }) {
@@ -133,8 +113,8 @@ export function IaSprintWidget({ data }) {
   const f = mode === "tokens" ? FMT.tokens : FMT.usd;
   const key = mode === "tokens" ? "aiTokens" : "aiCostUsd";
   return (
-    <CrossFrame
-      controls={
+    <AiCrossCard
+      actions={
         <ModeToggle
           label="Medida de IA"
           value={mode}
@@ -145,36 +125,33 @@ export function IaSprintWidget({ data }) {
           ]}
         />
       }
-    >
-      <AiCrossCard
-        eyebrow="entrega"
-        question="Sprints com mais IA foram mais previsíveis?"
-        ia={{ key, label: mode === "tokens" ? "Tokens de IA" : "Custo de IA", short: "IA", ...f }}
-        metric={{ key: "spDelivered", label: "SP entregues", short: "SP", ...FMT.sp }}
-        rows={rows}
-        labelHeader="Sprint"
-        noun="sprints"
-        columns={[
-          { key: "spPlanned", label: "SP planejados", align: "right", format: fmtInt },
-          {
-            key: "predictabilityPct",
-            label: "Previsibilidade (%)",
-            align: "right",
-            format: fmtPct,
-          },
-        ]}
-        help="Compara a IA e os pontos entregues de cada sprint; a previsibilidade está na tabela."
-        coverage={coverage}
-        basis="uso alocado ao projeto"
-        sources={["ia", "azure"]}
-        noAi={noAi}
-        missing={
-          !noAi && noTokens
-            ? "Sem dado de tokens por sprint neste servidor; use a medida em US$."
-            : null
-        }
-      />
-    </CrossFrame>
+      eyebrow="entrega"
+      question="Sprints com mais IA foram mais previsíveis?"
+      ia={{ key, label: mode === "tokens" ? "Tokens de IA" : "Custo de IA", short: "IA", ...f }}
+      metric={{ key: "spDelivered", label: "SP entregues", short: "SP", ...FMT.sp }}
+      rows={rows}
+      labelHeader="Sprint"
+      noun="sprints"
+      columns={[
+        { key: "spPlanned", label: "SP planejados", align: "right", format: fmtInt },
+        {
+          key: "predictabilityPct",
+          label: "Previsibilidade (%)",
+          align: "right",
+          format: fmtPct,
+        },
+      ]}
+      help="Compara a IA e os pontos entregues de cada sprint; a previsibilidade está na tabela."
+      coverage={coverage}
+      basis="uso alocado ao projeto"
+      sources={["ia", "azure"]}
+      noAi={noAi}
+      missing={
+        !noAi && noTokens
+          ? "Sem dado de tokens por sprint neste servidor; use a medida em US$."
+          : null
+      }
+    />
   );
 }
 
@@ -201,24 +178,22 @@ export function IaPerPointWidget({ data }) {
   const noAi = iaPerPointEmpty(data);
   const noTokens = !rows.some((r) => isNum(r.aiTokens));
   return (
-    <CrossFrame>
-      <AiCrossCard
-        eyebrow="entrega"
-        question="Os tokens por ponto caíram ao longo das sprints?"
-        ia={{ key: "tokensPerSp", label: "Tokens por SP", short: "IA", ...FMT.tokens }}
-        metric={{ key: "spDelivered", label: "SP entregues", short: "SP", ...FMT.sp }}
-        rows={rows}
-        labelHeader="Sprint"
-        noun="sprints"
-        columns={[{ key: "aiCostPerSp", label: "US$ por SP", align: "right", format: fmtUsd }]}
-        help="Tokens de IA divididos pelos pontos entregues, sprint a sprint, ao lado dos pontos."
-        coverage={coverage}
-        basis="uso alocado ao projeto"
-        sources={["ia", "azure"]}
-        noAi={noAi}
-        missing={!noAi && noTokens ? "Sem dado de tokens por sprint neste servidor." : null}
-      />
-    </CrossFrame>
+    <AiCrossCard
+      eyebrow="entrega"
+      question="Os tokens por ponto caíram ao longo das sprints?"
+      ia={{ key: "tokensPerSp", label: "Tokens por SP", short: "IA", ...FMT.tokens }}
+      metric={{ key: "spDelivered", label: "SP entregues", short: "SP", ...FMT.sp }}
+      rows={rows}
+      labelHeader="Sprint"
+      noun="sprints"
+      columns={[{ key: "aiCostPerSp", label: "US$ por SP", align: "right", format: fmtUsd }]}
+      help="Tokens de IA divididos pelos pontos entregues, sprint a sprint, ao lado dos pontos."
+      coverage={coverage}
+      basis="uso alocado ao projeto"
+      sources={["ia", "azure"]}
+      noAi={noAi}
+      missing={!noAi && noTokens ? "Sem dado de tokens por sprint neste servidor." : null}
+    />
   );
 }
 
@@ -257,30 +232,28 @@ export const iaFlowEmpty = noBucketAi;
 export function IaFlowWidget({ data }) {
   const { rows, per, coverage } = data;
   return (
-    <CrossFrame>
-      <AiCrossCard
-        eyebrow="fluxo"
-        question="Períodos com mais IA tiveram lead e cycle menores?"
-        ia={{ key: "aiCostUsd", label: "Custo de IA", short: "IA", ...FMT.usd }}
-        metric={{ key: "leadTimeDays", label: "Lead time (mediana)", short: "Lead", ...FMT.days }}
-        rows={rows}
-        labelHeader={capitalize(per)}
-        noun={pluralOf(per)}
-        columns={[
-          {
-            key: "cycleTimeDays",
-            label: "Cycle time (dias)",
-            align: "right",
-            format: FMT.days.fmt,
-          },
-        ]}
-        help="Compara o custo de IA de cada intervalo com o lead time; o cycle time está na tabela."
-        coverage={coverage}
-        basis="custo alocado ao projeto"
-        sources={["ia", "azure"]}
-        noAi={noBucketAi(data)}
-      />
-    </CrossFrame>
+    <AiCrossCard
+      eyebrow="fluxo"
+      question="Períodos com mais IA tiveram lead e cycle menores?"
+      ia={{ key: "aiCostUsd", label: "Custo de IA", short: "IA", ...FMT.usd }}
+      metric={{ key: "leadTimeDays", label: "Lead time (mediana)", short: "Lead", ...FMT.days }}
+      rows={rows}
+      labelHeader={capitalize(per)}
+      noun={pluralOf(per)}
+      columns={[
+        {
+          key: "cycleTimeDays",
+          label: "Cycle time (dias)",
+          align: "right",
+          format: FMT.days.fmt,
+        },
+      ]}
+      help="Compara o custo de IA de cada intervalo com o lead time; o cycle time está na tabela."
+      coverage={coverage}
+      basis="custo alocado ao projeto"
+      sources={["ia", "azure"]}
+      noAi={noBucketAi(data)}
+    />
   );
 }
 
@@ -301,36 +274,34 @@ export function IaReviewWidget({ data }) {
   const noPr = !rows.some((r) => isNum(r.reviewHours));
   const noAi = noBucketAi(data);
   return (
-    <CrossFrame>
-      <AiCrossCard
-        eyebrow="review"
-        question="PRs de períodos com mais IA esperaram mais review?"
-        ia={{ key: "aiCostUsd", label: "Custo de IA", short: "IA", ...FMT.usd }}
-        metric={{
-          key: "reviewHours",
-          label: "1ª review (mediana)",
-          short: "Review",
-          ...FMT.hours,
-        }}
-        rows={rows}
-        labelHeader={capitalize(per)}
-        noun={pluralOf(per)}
-        columns={[
-          { key: "opened", label: "PRs abertos", align: "right", format: fmtInt },
-          { key: "merged", label: "PRs mergeados", align: "right", format: fmtInt },
-        ]}
-        help="Compara o custo de IA de cada intervalo com o tempo até a 1ª review dos PRs."
-        coverage={coverage}
-        basis="custo alocado ao projeto"
-        sources={["ia", "github"]}
-        noAi={noAi}
-        missing={
-          !noAi && noPr
-            ? "Sem pull requests com review no período. Vincule um repositório ao projeto."
-            : null
-        }
-      />
-    </CrossFrame>
+    <AiCrossCard
+      eyebrow="review"
+      question="PRs de períodos com mais IA esperaram mais review?"
+      ia={{ key: "aiCostUsd", label: "Custo de IA", short: "IA", ...FMT.usd }}
+      metric={{
+        key: "reviewHours",
+        label: "1ª review (mediana)",
+        short: "Review",
+        ...FMT.hours,
+      }}
+      rows={rows}
+      labelHeader={capitalize(per)}
+      noun={pluralOf(per)}
+      columns={[
+        { key: "opened", label: "PRs abertos", align: "right", format: fmtInt },
+        { key: "merged", label: "PRs mergeados", align: "right", format: fmtInt },
+      ]}
+      help="Compara o custo de IA de cada intervalo com o tempo até a 1ª review dos PRs."
+      coverage={coverage}
+      basis="custo alocado ao projeto"
+      sources={["ia", "github"]}
+      noAi={noAi}
+      missing={
+        !noAi && noPr
+          ? "Sem pull requests com review no período. Vincule um repositório ao projeto."
+          : null
+      }
+    />
   );
 }
 
@@ -358,8 +329,8 @@ export function IaQualityWidget({ data }) {
   const noAi = noBucketAi(data);
   const noMetric = !rows.some((r) => isNum(r[key]));
   return (
-    <CrossFrame
-      controls={
+    <AiCrossCard
+      actions={
         <ModeToggle
           label="Medida de qualidade"
           value={mode}
@@ -370,38 +341,35 @@ export function IaQualityWidget({ data }) {
           ]}
         />
       }
-    >
-      <AiCrossCard
-        eyebrow="qualidade"
-        question="Mais IA veio com mais bugs ou mais retrabalho?"
-        ia={{ key: "aiCostUsd", label: "Custo de IA", short: "IA", ...FMT.usd }}
-        metric={{
-          key,
-          label: mode === "bugs" ? "Bugs entre os concluídos" : "Itens reabertos",
-          short: mode === "bugs" ? "Bugs" : "Reaberto",
-          ...FMT.pct,
-        }}
-        rows={rows}
-        labelHeader={capitalize(per)}
-        noun={pluralOf(per)}
-        columns={[
-          mode === "bugs"
-            ? { key: "reopenRatePct", label: "Reabertura (%)", align: "right", format: fmtPct }
-            : { key: "bugSharePct", label: "Bugs (%)", align: "right", format: fmtPct },
-        ]}
-        help="Compara o custo de IA de cada intervalo com a parcela de bugs ou de itens reabertos."
-        sample={
-          isNum(remediationPct)
-            ? `${rows.length} ${pluralOf(per)} · PRs de remediação: ${fmtPct(remediationPct)}`
-            : undefined
-        }
-        coverage={coverage}
-        basis="custo alocado ao projeto"
-        sources={["ia", "azure"]}
-        noAi={noAi}
-        missing={!noAi && noMetric ? "Sem dado de qualidade no período." : null}
-      />
-    </CrossFrame>
+      eyebrow="qualidade"
+      question="Mais IA veio com mais bugs ou mais retrabalho?"
+      ia={{ key: "aiCostUsd", label: "Custo de IA", short: "IA", ...FMT.usd }}
+      metric={{
+        key,
+        label: mode === "bugs" ? "Bugs entre os concluídos" : "Itens reabertos",
+        short: mode === "bugs" ? "Bugs" : "Reaberto",
+        ...FMT.pct,
+      }}
+      rows={rows}
+      labelHeader={capitalize(per)}
+      noun={pluralOf(per)}
+      columns={[
+        mode === "bugs"
+          ? { key: "reopenRatePct", label: "Reabertura (%)", align: "right", format: fmtPct }
+          : { key: "bugSharePct", label: "Bugs (%)", align: "right", format: fmtPct },
+      ]}
+      help="Compara o custo de IA de cada intervalo com a parcela de bugs ou de itens reabertos."
+      sample={
+        isNum(remediationPct)
+          ? `${rows.length} ${pluralOf(per)} · PRs de remediação: ${fmtPct(remediationPct)}`
+          : undefined
+      }
+      coverage={coverage}
+      basis="custo alocado ao projeto"
+      sources={["ia", "azure"]}
+      noAi={noAi}
+      missing={!noAi && noMetric ? "Sem dado de qualidade no período." : null}
+    />
   );
 }
 
@@ -444,8 +412,8 @@ export function IaDoraWidget({ data }) {
   const methodText = DORA_METHOD[method] ?? "no período";
   const others = Object.entries(DORA_MODES).filter(([k]) => k !== mode);
   return (
-    <CrossFrame
-      controls={
+    <AiCrossCard
+      actions={
         <ModeToggle
           label="Medida DORA"
           value={mode}
@@ -464,33 +432,30 @@ export function IaDoraWidget({ data }) {
           }
         />
       }
-    >
-      <AiCrossCard
-        eyebrow="DORA"
-        question="A IA acompanhou um DORA melhor?"
-        ia={{ key: "aiCostUsd", label: "Custo de IA", short: "IA", ...FMT.usd }}
-        metric={m}
-        rows={rows}
-        labelHeader={capitalize(per)}
-        noun={pluralOf(per)}
-        columns={others.map(([, o]) => ({
-          key: o.key,
-          label: `${o.label} (${o.unit})`,
-          align: "right",
-          format: o.fmt,
-        }))}
-        help="Compara o custo de IA de cada intervalo com o DORA estimado pelos merges do período."
-        coverage={coverage}
-        basis="custo alocado ao projeto"
-        sources={["ia", "github"]}
-        noAi={noAi}
-        missing={
-          !noAi && none
-            ? "Sem DORA por intervalo: o servidor não mandou a série ou não há repositório vinculado."
-            : null
-        }
-      />
-    </CrossFrame>
+      eyebrow="DORA"
+      question="A IA acompanhou um DORA melhor?"
+      ia={{ key: "aiCostUsd", label: "Custo de IA", short: "IA", ...FMT.usd }}
+      metric={m}
+      rows={rows}
+      labelHeader={capitalize(per)}
+      noun={pluralOf(per)}
+      columns={others.map(([, o]) => ({
+        key: o.key,
+        label: `${o.label} (${o.unit})`,
+        align: "right",
+        format: o.fmt,
+      }))}
+      help="Compara o custo de IA de cada intervalo com o DORA estimado pelos merges do período."
+      coverage={coverage}
+      basis="custo alocado ao projeto"
+      sources={["ia", "github"]}
+      noAi={noAi}
+      missing={
+        !noAi && none
+          ? "Sem DORA por intervalo: o servidor não mandou a série ou não há repositório vinculado."
+          : null
+      }
+    />
   );
 }
 
@@ -524,8 +489,8 @@ export function IaEffortWidget({ data }) {
   const rows = data[mode];
   const none = iaEffortEmpty(data);
   return (
-    <CrossFrame
-      controls={
+    <AiCrossCard
+      actions={
         <ModeToggle
           label="Faixas"
           value={mode}
@@ -536,27 +501,24 @@ export function IaEffortWidget({ data }) {
           ]}
         />
       }
-    >
-      <AiCrossCard
-        eyebrow="esforço e complexidade"
-        question="Itens maiores ou mais complexos consomem mais IA e demoram mais?"
-        ia={{ key: "aiPerItem", label: "Custo de IA por item com IA", short: "IA", ...FMT.usd }}
-        metric={{ key: "cycleDays", label: "Cycle time (mediana)", short: "Cycle", ...FMT.days }}
-        rows={rows}
-        labelHeader={mode === "effort" ? "Esforço" : "Complexidade"}
-        noun="faixas"
-        columns={[
-          { key: "aiCostUsd", label: "IA total (US$)", align: "right", format: fmtUsd },
-          { key: "aiTokens", label: "Tokens de IA", align: "right", format: fmtTokensCompact },
-          { key: "itemsWithAi", label: "Itens com IA", align: "right", format: fmtInt },
-          { key: "count", label: "Itens concluídos", align: "right", format: fmtInt },
-        ]}
-        help="Compara o custo de IA por item de cada faixa com o cycle time; os totais estão na tabela."
-        sample={`${rows.length} faixas`}
-        basis="uso alocado aos itens concluídos"
-        sources={["ia", "azure"]}
-        missing={none ? "Sem custo de IA por faixa: nenhum item concluído tem uso alocado." : null}
-      />
-    </CrossFrame>
+      eyebrow="esforço e complexidade"
+      question="Itens maiores ou mais complexos consomem mais IA e demoram mais?"
+      ia={{ key: "aiPerItem", label: "Custo de IA por item com IA", short: "IA", ...FMT.usd }}
+      metric={{ key: "cycleDays", label: "Cycle time (mediana)", short: "Cycle", ...FMT.days }}
+      rows={rows}
+      labelHeader={mode === "effort" ? "Esforço" : "Complexidade"}
+      noun="faixas"
+      columns={[
+        { key: "aiCostUsd", label: "IA total (US$)", align: "right", format: fmtUsd },
+        { key: "aiTokens", label: "Tokens de IA", align: "right", format: fmtTokensCompact },
+        { key: "itemsWithAi", label: "Itens com IA", align: "right", format: fmtInt },
+        { key: "count", label: "Itens concluídos", align: "right", format: fmtInt },
+      ]}
+      help="Compara o custo de IA por item de cada faixa com o cycle time; os totais estão na tabela."
+      sample={`${rows.length} faixas`}
+      basis="uso alocado aos itens concluídos"
+      sources={["ia", "azure"]}
+      missing={none ? "Sem custo de IA por faixa: nenhum item concluído tem uso alocado." : null}
+    />
   );
 }

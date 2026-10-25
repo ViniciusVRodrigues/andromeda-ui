@@ -29,7 +29,7 @@ import { Legend } from "./Bars.jsx";
 import {
   burndownSummary,
   columnSummary,
-  pairedSummary,
+  pairedParts,
   scatterSummary,
   trendSummary,
   useChartLabel,
@@ -380,15 +380,19 @@ export function Sparkline({ data, width = 72, height = 22 }) {
  * paleta `mono` herda estas séries de propósito (ver `tokens.css`). */
 export const AI_COLOR = "var(--series-2)";
 export const METRIC_COLOR = "var(--series-1)";
+/** Cores das séries de métrica (a 1ª é a principal); `--series-3` passa de 3:1 nas 3 paletas. */
+export const METRIC_COLORS = [METRIC_COLOR, "var(--series-3)"];
 
 /**
  * Dois gráficos de colunas de 110 px com o MESMO eixo X e eixos Y independentes (a IA em
  * cima, a métrica embaixo): "pequenos múltiplos", nunca eixo duplo.
  * @param {{ data: object[], ia: { key: string, label: string, short?: string, fmt?: (v) => string, axis?: (v) => string },
- *   metric: { key: string, label: string, short?: string, fmt?: (v) => string, axis?: (v) => string },
- *   xKey?: string, height?: number, noun?: string, summary?: string }} props
+ *   metric: object | object[], xKey?: string, height?: number, noun?: string, summary?: string }} props
  *   Linha com `current: true` ganha "*" no rótulo do eixo (sprint em andamento).
  *   `ia`/`metric`: `label` é o texto da série, `short` o rótulo curto sobre o gráfico.
+ *   `metric` em lista: o gráfico de baixo desenha uma barra por série (mesma unidade e
+ *   mesmo eixo Y, o da 1ª); cores em `METRIC_COLORS`.
+ *   Os dois SVG levam `role="img"` e um `aria-label` próprio (título do card + resumo da série).
  */
 export function PairedColumns({
   data,
@@ -400,17 +404,20 @@ export function PairedColumns({
   summary,
 }) {
   const rows = data.map((r) => ({ ...r, __x: r.current ? `${r[xKey]}*` : r[xKey] }));
-  const { labelledBy, svgProps } = useChartLabel(
-    summary ?? pairedSummary({ data: rows, ia, metric, xKey: "__x", noun }),
-  );
-  const one = (s, color, bottom) => {
+  const metrics = [].concat(metric);
+  const parts = pairedParts({ data: rows, ia, metrics, xKey: "__x", noun });
+  const top = useChartLabel(summary ?? parts.top);
+  const bottom = useChartLabel(summary ?? parts.bottom);
+  const one = (list, colors, isBottom) => {
+    const s = list[0];
     const fmt = s.fmt || identity;
+    const title = list.map((m) => m.short || m.label).join(" · ");
     return (
-      <div key={s.key} data-paired={s.short || s.label}>
-        <div className="mono text-fg mb-0.5 text-[11px] font-normal">{s.short || s.label}</div>
+      <div key={s.key} data-paired={title}>
+        <div className="mono text-fg mb-0.5 text-[11px] font-normal">{title}</div>
         <ResponsiveContainer width="100%" height={height}>
           <BarChart
-            {...(bottom ? {} : svgProps)}
+            {...(isBottom ? bottom : top).svgProps}
             data={rows}
             margin={{ top: 4, right: 4, bottom: 0, left: 0 }}
             barCategoryGap="24%"
@@ -418,7 +425,7 @@ export function PairedColumns({
             <CartesianGrid vertical={false} stroke="var(--line)" />
             <XAxis
               dataKey="__x"
-              hide={!bottom}
+              hide={!isBottom}
               tick={AXIS_TICK}
               axisLine={{ stroke: "var(--line-strong)" }}
               tickLine={false}
@@ -436,26 +443,32 @@ export function PairedColumns({
             <Tooltip
               cursor={{ fill: "var(--line)" }}
               content={
-                <ChartTooltip series={[{ key: s.key, label: s.label, color }]} valueFormat={fmt} />
+                <ChartTooltip
+                  series={list.map((m, i) => ({ key: m.key, label: m.label, color: colors[i] }))}
+                  valueFormat={fmt}
+                />
               }
             />
-            <Bar
-              dataKey={s.key}
-              name={s.label}
-              fill={color}
-              maxBarSize={24}
-              radius={[4, 4, 0, 0]}
-              isAnimationActive={false}
-            />
+            {list.map((m, i) => (
+              <Bar
+                key={m.key}
+                dataKey={m.key}
+                name={m.label}
+                fill={colors[i]}
+                maxBarSize={list.length > 1 ? 16 : 24}
+                radius={[4, 4, 0, 0]}
+                isAnimationActive={false}
+              />
+            ))}
           </BarChart>
         </ResponsiveContainer>
       </div>
     );
   };
   return (
-    <figure className="m-0 flex flex-col gap-1" aria-labelledby={labelledBy}>
-      {one(ia, AI_COLOR, false)}
-      {one(metric, METRIC_COLOR, true)}
+    <figure className="m-0 flex flex-col gap-1" aria-labelledby={top.labelledBy}>
+      {one([ia], [AI_COLOR], false)}
+      {one(metrics, METRIC_COLORS, true)}
     </figure>
   );
 }

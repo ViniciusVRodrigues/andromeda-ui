@@ -9,6 +9,8 @@
  *     kind="paired" | "scatter"              // PairedColumns (eixo X comum) ou dispersão
  *     ia={{ key, label, short: "IA", unit, fmt, axis }}       // série da IA   (--series-2)
  *     metric={{ key, label, short: "SP", unit, fmt, axis }}   // a métrica      (--series-1)
+ *       // ou uma LISTA de métricas de mesma unidade (paired): o gráfico de baixo desenha uma
+ *       // barra por série (--series-1, --series-3); a leitura usa a 1ª como principal
  *     rows={[{ label: "S22", [ia.key]: 12, [metric.key]: 42, current?: true }]}
  *                                            // paired: uma linha por ponto do eixo X, na ordem;
  *                                            // scatter: ia.key = x, metric.key = y, label = rótulo
@@ -18,6 +20,9 @@
  *                                            // "Mostra se andam juntos, não que um causa o outro." (≤ 200)
  *     coverage={67} basis="custo alocado ao projeto"   // nota: amostra + cobertura + base
  *     sources={["ia","azure"]} person={false}
+ *     actions={<ModeToggle .../>}            // slot no cabeçalho (alternâncias de medida)
+ *     minPoints={3}                          // mínimo de pontos; 2 para "período anterior × atual"
+ *     reading="texto"                        // substitui a leitura automática (opcional)
  *     noAi={bool}                            // sem conector/uso → AiEmpty (nunca um eixo vazio)
  *     missing="Sem repositório vinculado não há PR para comparar com a IA."   // falta a outra métrica
  *   />
@@ -33,9 +38,16 @@ import { useNavigate } from "react-router-dom";
 import { useIdentity } from "../../../../core/auth/IdentityContext.jsx";
 import { orgRoute } from "../../../../lib/orgRoutes.js";
 import { Legend } from "./Bars.jsx";
-import { AI_COLOR, METRIC_COLOR, PairedColumns, ScatterChart } from "./charts.jsx";
+import { AI_COLOR, METRIC_COLOR, METRIC_COLORS, PairedColumns, ScatterChart } from "./charts.jsx";
 import { crossReading, AI_READING_THRESHOLDS } from "./aiReading.js";
 import { Empty, Panel } from "./Panel.jsx";
+
+/**
+ * Altura mínima ÚNICA dos cards da seção "IA e entrega" (Individual, Equipe, Projeto e Org),
+ * inclusive os três cards antigos que mudaram para a seção. Vale a partir de 600 px; no
+ * celular os cards empilham com a altura do conteúdo. Literal (o Tailwind não vê template).
+ */
+export const AI_CARD_MIN_HEIGHT = "min-h-[520px] max-[599px]:min-h-0";
 
 const DISCLAIMER = "Mostra se andam juntos, não que um causa o outro.";
 const HELP_MAX = 200;
@@ -118,18 +130,26 @@ export function AiCrossCard({
   person = false,
   noAi = false,
   missing = null,
+  actions,
+  minPoints = AI_READING_THRESHOLDS.minPoints,
+  reading: readingText,
 }) {
-  const min = AI_READING_THRESHOLDS.minPoints;
-  const usable = rows.filter((r) => ok(r[ia.key]) && ok(r[metric.key]));
+  const min = minPoints;
+  const metrics = [].concat(metric);
+  const main = metrics[0];
+  const usable = rows.filter((r) => ok(r[ia.key]) && ok(r[main.key]));
   const showChart = !noAi && !missing;
   const info = `${help ? help + " " : ""}${DISCLAIMER}`.slice(0, HELP_MAX);
-  const reading = crossReading({
-    kind,
-    points: rows.map((r) => ({ a: r[ia.key], b: r[metric.key] })),
-    iaName: ia.label,
-    metricName: metric.label,
-    noun,
-  });
+  const reading =
+    readingText ??
+    crossReading({
+      kind,
+      points: rows.map((r) => ({ a: r[ia.key], b: r[main.key] })),
+      iaName: ia.label,
+      metricName: main.label,
+      noun,
+      minPoints: min,
+    });
   const noteParts = [
     sample ?? `${rows.length} ${noun}`,
     ok(coverage) ? `${Math.round(Number(coverage))}% dos dias de IA alocados a itens` : null,
@@ -137,7 +157,7 @@ export function AiCrossCard({
   ].filter(Boolean);
   const table = showChart
     ? {
-        caption: `${question} ${ia.label} e ${metric.label} por ${labelHeader.toLowerCase()}.`,
+        caption: `${question} ${[ia, ...metrics].map((m) => m.label).join(", ")} por ${labelHeader.toLowerCase()}.`,
         columns: [
           { key: "label", label: labelHeader },
           {
@@ -146,12 +166,12 @@ export function AiCrossCard({
             align: "right",
             format: ia.fmt,
           },
-          {
-            key: metric.key,
-            label: `${metric.label} (${metric.unit})`,
+          ...metrics.map((m) => ({
+            key: m.key,
+            label: `${m.label} (${m.unit})`,
             align: "right",
-            format: metric.fmt,
-          },
+            format: m.fmt,
+          })),
           ...columns,
         ],
         rows,
@@ -159,7 +179,10 @@ export function AiCrossCard({
     : undefined;
   const legendItems = [
     { label: `${ia.label} (${ia.unit})`, color: AI_COLOR },
-    { label: `${metric.label} (${metric.unit})`, color: METRIC_COLOR },
+    ...metrics.map((m, i) => ({
+      label: `${m.label} (${m.unit})`,
+      color: METRIC_COLORS[i] ?? METRIC_COLOR,
+    })),
   ];
   return (
     <Panel
@@ -169,7 +192,8 @@ export function AiCrossCard({
       sources={sources}
       table={table}
       note={showChart ? noteParts.join(" · ") : undefined}
-      className="min-h-[360px]"
+      actions={actions}
+      className={AI_CARD_MIN_HEIGHT}
     >
       {noAi ? (
         <AiEmpty person={person} />
@@ -185,8 +209,7 @@ export function AiCrossCard({
           </p>
           {kind === "scatter" ? (
             <p className="mono text-fg-muted m-0 text-[11px] font-normal">
-              Eixo horizontal: {ia.label} ({ia.unit}) · Eixo vertical: {metric.label} ({metric.unit}
-              )
+              Eixo horizontal: {ia.label} ({ia.unit}) · Eixo vertical: {main.label} ({main.unit})
             </p>
           ) : (
             <Legend
@@ -204,18 +227,13 @@ export function AiCrossCard({
           ) : null}
           {kind === "scatter" ? (
             <ScatterChart
-              points={usable.map((r) => ({ label: r.label, x: r[ia.key], y: r[metric.key] }))}
+              points={usable.map((r) => ({ label: r.label, x: r[ia.key], y: r[main.key] }))}
               x={ia}
-              y={metric}
+              y={main}
               noun={noun}
             />
           ) : (
-            <PairedColumns
-              data={rows}
-              ia={{ ...ia, key: ia.key }}
-              metric={{ ...metric, key: metric.key }}
-              noun={noun}
-            />
+            <PairedColumns data={rows} ia={ia} metric={metric} noun={noun} />
           )}
         </div>
       )}

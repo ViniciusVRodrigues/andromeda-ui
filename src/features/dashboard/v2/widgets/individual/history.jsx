@@ -2,7 +2,7 @@
 
 import React from "react";
 import { axisDays, axisUsd, fmtDuration, fmtInt, fmtTokensM, fmtUsd } from "../../format.js";
-import { AiEmpty, hasAiValue } from "../../kit/AiCross.jsx";
+import { AI_CARD_MIN_HEIGHT, AiEmpty, hasAiValue } from "../../kit/AiCross.jsx";
 import { ColumnChart, TrendChart } from "../../kit/charts.jsx";
 import { Panel } from "../../kit/Panel.jsx";
 
@@ -88,6 +88,7 @@ export function AiCostHistoryWidget({ data }) {
   }
   return (
     <Panel
+      className={AI_CARD_MIN_HEIGHT}
       eyebrow="ia"
       title="Custo de IA por sprint"
       note={data.note}
