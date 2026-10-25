@@ -36,15 +36,24 @@ const PR_COLUMNS = [
   { key: "timeToFirstReviewHours", label: "1ª review", align: "right", format: fmtDuration },
 ];
 
+/* parado → aberto → mergeado/fechado; dentro do grupo, o mais recente primeiro
+ * (Array.prototype.sort é estável) */
+const prGroup = (r) => (r.status === "OPEN" ? (r.stale ? 0 : 1) : 2);
+const prWhen = (r) => Date.parse(r.mergedAt ?? r.closedAt ?? r.createdAt) || 0;
+const sortPullRequests = (rows) =>
+  [...rows].sort((a, b) => prGroup(a) - prGroup(b) || prWhen(b) - prWhen(a));
+
 export const selectPullRequests = (d) => ({
   linked: d.person.githubLinked,
-  rows: d.pullRequests,
+  rows: sortPullRequests(d.pullRequests),
 });
 
 export function PullRequestsWidget({ data }) {
   return (
     <Panel
-      eyebrow="pull requests"
+      eyebrow={
+        data.linked && data.rows.length ? `pull requests · ${data.rows.length}` : "pull requests"
+      }
       title="Meus PRs na sprint"
       sources={["github", "azure"]}
       info="PRs que você abriu ou fechou na sprint, mais os ainda abertos. Parado = aberto há mais de 24 h sem review. 1ª review = tempo até a primeira review. Work item = o AB# citado na branch, no título ou na descrição."
@@ -52,7 +61,7 @@ export function PullRequestsWidget({ data }) {
       {!data.linked ? (
         <Empty>{NOT_LINKED}</Empty>
       ) : data.rows.length ? (
-        <DataTable rowKey={(r) => r.id} rows={data.rows} columns={PR_COLUMNS} />
+        <DataTable rowKey={(r) => r.id} rows={data.rows} columns={PR_COLUMNS} scroll />
       ) : (
         <Empty>Nenhum PR seu nesta sprint.</Empty>
       )}

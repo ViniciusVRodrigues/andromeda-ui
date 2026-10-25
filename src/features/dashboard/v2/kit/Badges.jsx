@@ -96,7 +96,7 @@ export function StatusPill({ status }) {
 }
 
 export function PrPill({ status, stale }) {
-  if (stale) {
+  if (status === "OPEN" && stale) {
     return (
       <span className="mono text-warn-text inline-flex items-center gap-1 text-[12px] whitespace-nowrap">
         <span aria-hidden="true">⏸</span> Parado
