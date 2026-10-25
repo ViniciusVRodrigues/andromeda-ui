@@ -45,6 +45,29 @@ import {
   selectAiCostPerSp,
   selectAiIndicators,
 } from "../widgets/projeto/ai.jsx";
+import {
+  IaDoraWidget,
+  IaEffortWidget,
+  IaFlowWidget,
+  IaPerPointWidget,
+  IaQualityWidget,
+  IaReviewWidget,
+  IaSprintWidget,
+  iaDoraEmpty,
+  iaEffortEmpty,
+  iaFlowEmpty,
+  iaPerPointEmpty,
+  iaQualityEmpty,
+  iaReviewEmpty,
+  iaSprintEmpty,
+  selectIaDora,
+  selectIaEffort,
+  selectIaFlow,
+  selectIaPerPoint,
+  selectIaQuality,
+  selectIaReview,
+  selectIaSprint,
+} from "../widgets/projeto/ia-entrega.jsx";
 import { CoverageWidget, selectCoverage } from "../widgets/projeto/data.jsx";
 import {
   BacklogByTagWidget,
@@ -176,6 +199,22 @@ export const sections = [
     "Quanto volta e quanto do código é correção?",
   ),
 ];
+
+/** Tamanhos dos cards "IA × métrica": nunca P (o gráfico pareado não cabe). */
+const AI_SIZES = ["M", "G", "I"];
+
+/**
+ * `ia-qualidade` junta duas fontes: a Qualidade (reabertura, remediação), que é a `source`
+ * do widget, e o Resumo (bugs, custo por intervalo). O esqueleto/erro continua sendo o da
+ * Qualidade; sem ela, `select` devolve `undefined`.
+ */
+const withQualityJoin = (entry) => ({
+  ...entry,
+  select: (payload) =>
+    payload?.qualidade == null || payload?.resumo == null
+      ? undefined
+      : selectIaQuality({ resumo: payload.resumo, qualidade: payload.qualidade }),
+});
 
 /* `source` diz de qual payload o widget lê; `select` recebe o payload composto. */
 const SOURCES = ["resumo", "roadmap", "qualidade"];
@@ -316,6 +355,79 @@ export const widgets = [
     select: selectAiCostByModel,
     Component: AiCostByModelWidget,
   }),
+  /* ── IA × métrica (dashboards-ia-entrega D3), na ordem do design ── */
+  widget("ia-entrega-sprint", "ia-entrega", "Sprints com mais IA foram mais previsíveis?", {
+    sizes: AI_SIZES,
+    size: "M",
+    default: true,
+    height: 360,
+    select: selectIaSprint,
+    aiEmpty: iaSprintEmpty,
+    Component: IaSprintWidget,
+  }),
+  widget("ia-por-ponto", "ia-entrega", "Os tokens por ponto caíram ao longo das sprints?", {
+    sizes: AI_SIZES,
+    size: "M",
+    default: true,
+    height: 360,
+    select: selectIaPerPoint,
+    aiEmpty: iaPerPointEmpty,
+    Component: IaPerPointWidget,
+  }),
+  widget("ia-fluxo", "ia-entrega", "Períodos com mais IA tiveram lead e cycle menores?", {
+    sizes: AI_SIZES,
+    size: "M",
+    default: true,
+    height: 360,
+    select: selectIaFlow,
+    aiEmpty: iaFlowEmpty,
+    Component: IaFlowWidget,
+  }),
+  withQualityJoin(
+    widget("ia-qualidade", "ia-entrega", "Mais IA veio com mais bugs ou mais retrabalho?", {
+      sizes: AI_SIZES,
+      size: "M",
+      default: true,
+      source: "qualidade",
+      height: 360,
+      select: (q) => q,
+      aiEmpty: iaQualityEmpty,
+      Component: IaQualityWidget,
+    }),
+  ),
+  widget("ia-review", "ia-entrega", "PRs de períodos com mais IA esperaram mais review?", {
+    sizes: AI_SIZES,
+    size: "M",
+    default: true,
+    height: 360,
+    select: selectIaReview,
+    aiEmpty: iaReviewEmpty,
+    Component: IaReviewWidget,
+  }),
+  widget("ia-dora", "ia-entrega", "A IA acompanhou um DORA melhor?", {
+    sizes: AI_SIZES,
+    size: "M",
+    default: true,
+    height: 360,
+    select: selectIaDora,
+    aiEmpty: iaDoraEmpty,
+    Component: IaDoraWidget,
+  }),
+  widget(
+    "ia-esforco-complexidade",
+    "ia-entrega",
+    "Itens maiores ou mais complexos consomem mais IA e demoram mais?",
+    {
+      sizes: AI_SIZES,
+      size: "M",
+      default: true,
+      source: "roadmap",
+      height: 360,
+      select: selectIaEffort,
+      aiEmpty: iaEffortEmpty,
+      Component: IaEffortWidget,
+    },
+  ),
   widget("custo-ia-sp", "ia-entrega", "Custo de IA por SP entregue", {
     sizes: ALL,
     size: "M",

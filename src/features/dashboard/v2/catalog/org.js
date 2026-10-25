@@ -53,6 +53,18 @@ import {
   selectIntegrations,
 } from "../widgets/org/integrations.jsx";
 
+import {
+  IaAdoptionWidget,
+  IaPortfolioWidget,
+  IaTrendWidget,
+  iaAdoptionEmpty,
+  iaPortfolioEmpty,
+  iaTrendEmpty,
+  selectIaAdoption,
+  selectIaPortfolio,
+  selectIaTrend,
+} from "../widgets/org/ia-entrega.jsx";
+
 const VIEW_KEY = "org";
 const ALL = ["P", "M", "G", "I"];
 const TABLE = ["G", "I"];
@@ -132,11 +144,15 @@ const widget = (name, sectionId, title, o) => ({
   defaultSize: o.size,
   default: !o.disabled,
   disabled: !!o.disabled,
+  aiEmpty: o.aiEmpty,
   skeletonHeight: o.height,
   aliases: [],
   select: o.select,
   Component: o.Component,
 });
+
+/** Tamanhos dos cards "IA × métrica": nunca P. */
+const AI_SIZES = ["M", "G", "I"];
 
 /** @type {import("../catalog.js").CatalogWidget[]} */
 export const widgets = [
@@ -153,6 +169,31 @@ export const widgets = [
     height: 380,
     select: selectPortfolio,
     Component: PortfolioWidget,
+  }),
+  /* ── IA × métrica (dashboards-ia-entrega D3) ── */
+  widget("ia-portfolio", "ia-entrega", "Os projetos que mais usam IA entregam melhor?", {
+    sizes: AI_SIZES,
+    size: "M",
+    height: 360,
+    select: selectIaPortfolio,
+    aiEmpty: iaPortfolioEmpty,
+    Component: IaPortfolioWidget,
+  }),
+  widget("ia-tendencia", "ia-entrega", "Custo de IA, throughput e lead time andam juntos?", {
+    sizes: AI_SIZES,
+    size: "M",
+    height: 360,
+    select: selectIaTrend,
+    aiEmpty: iaTrendEmpty,
+    Component: IaTrendWidget,
+  }),
+  widget("ia-adocao", "ia-entrega", "Mais gente usando IA veio com mais entrega?", {
+    sizes: AI_SIZES,
+    size: "I",
+    height: 360,
+    select: selectIaAdoption,
+    aiEmpty: iaAdoptionEmpty,
+    Component: IaAdoptionWidget,
   }),
   widget("vazao-projeto", "entrega", "Itens concluídos por projeto", {
     sizes: ALL,

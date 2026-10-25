@@ -55,11 +55,21 @@ import {
   PredictabilityWidget,
   selectHistory,
 } from "../widgets/equipe/history.jsx";
+import {
+  TeamIaFluxoWidget,
+  TeamIaPessoaWidget,
+  TeamIaPorPontoWidget,
+  TeamIaSprintWidget,
+  selectTeamIaPessoas,
+  selectTeamIaSprint,
+} from "../widgets/equipe/aiCross.jsx";
 import { ReworkWidget, selectRework } from "../widgets/equipe/quality.jsx";
 
 const VIEW_KEY = "equipe";
 const ALL = ["P", "M", "G", "I"];
 const TABLE = ["G", "I"];
+/* cards "IA × métrica": nunca P (dashboards-ia-entrega D4) */
+const AI_CARD = ["M", "G", "I"];
 
 /** @type {import("../catalog.js").CatalogSection[]} */
 export const sections = [
@@ -286,6 +296,47 @@ export const widgets = [
     height: 320,
     select: selectHistory,
     Component: PredictabilityWidget,
+  }),
+  widget(
+    "ia-entrega-sprint",
+    "ia-entrega",
+    "Sprints com mais IA entregaram mais do que o planejado?",
+    {
+      sizes: AI_CARD,
+      size: "M",
+      default: true,
+      height: 360,
+      select: selectTeamIaSprint,
+      aiEmpty: (d) => d.empty,
+      Component: TeamIaSprintWidget,
+    },
+  ),
+  widget("ia-por-ponto", "ia-entrega", "Os tokens por ponto caíram ao longo das sprints?", {
+    sizes: AI_CARD,
+    size: "M",
+    default: true,
+    height: 360,
+    select: selectTeamIaSprint,
+    aiEmpty: (d) => d.empty,
+    Component: TeamIaPorPontoWidget,
+  }),
+  widget("ia-fluxo", "ia-entrega", "Em sprints com mais IA o fluxo melhorou?", {
+    sizes: AI_CARD,
+    size: "M",
+    default: true,
+    height: 360,
+    select: selectTeamIaSprint,
+    aiEmpty: (d) => d.empty,
+    Component: TeamIaFluxoWidget,
+  }),
+  widget("ia-por-pessoa", "ia-entrega", "Quem usa mais IA entrega mais pontos?", {
+    sizes: AI_CARD,
+    size: "I",
+    default: true,
+    height: 360,
+    select: selectTeamIaPessoas,
+    aiEmpty: (d) => d.empty,
+    Component: TeamIaPessoaWidget,
   }),
   widget("custo-ia-sp", "ia-entrega", "Custo de IA por SP", {
     sizes: ALL,

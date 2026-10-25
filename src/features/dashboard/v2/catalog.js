@@ -57,6 +57,16 @@ import {
   selectTokensPerSp,
 } from "./widgets/individual/ai.jsx";
 import {
+  IaCycleWidget,
+  IaEsforcoItensWidget,
+  IaPorPontoWidget,
+  IaSprintWidget,
+  ItensComSemIaWidget,
+  selectIaItens,
+  selectIaSprint,
+  selectItensComSemIa,
+} from "./widgets/individual/aiCross.jsx";
+import {
   AiCostHistoryWidget,
   aiCostHistoryEmpty,
   CycleTimeHistoryWidget,
@@ -78,6 +88,8 @@ export const SIZES = ["P", "M", "G", "I"];
 export const VIEW_KEYS = ["individual", "equipe", "projeto", "org"];
 
 const ALL = ["P", "M", "G", "I"];
+/* cards "IA × métrica": nunca P (o gráfico precisa de largura); ver dashboards-ia-entrega D4 */
+const AI_CARD_SIZES = ["M", "G", "I"];
 const TABLE = ["G", "I"];
 
 /** @type {CatalogSection[]} */
@@ -289,6 +301,76 @@ const WIDGETS = [
     aliases: [],
     select: selectHistory,
     Component: CycleTimeHistoryWidget,
+  },
+  {
+    id: "individual.ia-entrega-sprint",
+    viewKey: "individual",
+    section: "ia-entrega",
+    title: "Sprints com mais IA entregaram mais do que o planejado?",
+    sizes: AI_CARD_SIZES,
+    defaultSize: "M",
+    default: true,
+    skeletonHeight: 360,
+    aliases: [],
+    select: selectIaSprint,
+    aiEmpty: (d) => d.empty,
+    Component: IaSprintWidget,
+  },
+  {
+    id: "individual.ia-por-ponto",
+    viewKey: "individual",
+    section: "ia-entrega",
+    title: "A IA ficou mais barata por ponto entregue?",
+    sizes: AI_CARD_SIZES,
+    defaultSize: "M",
+    default: true,
+    skeletonHeight: 360,
+    aliases: [],
+    select: selectIaSprint,
+    aiEmpty: (d) => d.empty,
+    Component: IaPorPontoWidget,
+  },
+  {
+    id: "individual.ia-cycle",
+    viewKey: "individual",
+    section: "ia-entrega",
+    title: "Sprints com mais IA tiveram cycle time menor?",
+    sizes: AI_CARD_SIZES,
+    defaultSize: "M",
+    default: true,
+    skeletonHeight: 360,
+    aliases: [],
+    select: selectIaSprint,
+    aiEmpty: (d) => d.empty,
+    Component: IaCycleWidget,
+  },
+  {
+    id: "individual.ia-esforco-itens",
+    viewKey: "individual",
+    section: "ia-entrega",
+    title: "Itens de mais esforço e complexidade consomem mais IA?",
+    sizes: AI_CARD_SIZES,
+    defaultSize: "M",
+    default: true,
+    skeletonHeight: 360,
+    aliases: [],
+    select: selectIaItens,
+    aiEmpty: (d) => d.empty,
+    Component: IaEsforcoItensWidget,
+  },
+  {
+    id: "individual.itens-com-sem-ia",
+    viewKey: "individual",
+    section: "ia-entrega",
+    title: "Itens com IA fecharam mais rápido?",
+    sizes: AI_CARD_SIZES,
+    defaultSize: "M",
+    default: true,
+    skeletonHeight: 360,
+    aliases: [],
+    select: selectItensComSemIa,
+    aiEmpty: (d) => d.empty,
+    Component: ItensComSemIaWidget,
   },
   {
     id: "individual.custo-ia-sprint",
