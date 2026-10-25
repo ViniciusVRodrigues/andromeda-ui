@@ -194,13 +194,14 @@ export function AiCrossCard({
       note={showChart ? noteParts.join(" · ") : undefined}
       actions={actions}
       className={AI_CARD_MIN_HEIGHT}
+      fill
     >
       {noAi ? (
         <AiEmpty person={person} />
       ) : missing ? (
         <Empty>{missing}</Empty>
       ) : (
-        <div className="flex flex-col gap-2">
+        <div className="flex min-h-0 flex-1 flex-col gap-2">
           <p
             data-ai-reading=""
             className="text-fg-muted m-0 min-h-[36px] max-w-[72ch] text-[12px] leading-snug font-normal"
@@ -227,13 +228,14 @@ export function AiCrossCard({
           ) : null}
           {kind === "scatter" ? (
             <ScatterChart
+              fill
               points={usable.map((r) => ({ label: r.label, x: r[ia.key], y: r[main.key] }))}
               x={ia}
               y={main}
               noun={noun}
             />
           ) : (
-            <PairedColumns data={rows} ia={ia} metric={metric} noun={noun} />
+            <PairedColumns fill data={rows} ia={ia} metric={metric} noun={noun} />
           )}
         </div>
       )}

@@ -77,6 +77,7 @@ export function AiCostPerSpWidget({ data: sprints }) {
   return (
     <Panel
       className={AI_CARD_MIN_HEIGHT}
+      fill
       eyebrow="retorno"
       title="Custo de IA por SP entregue"
       sources={["ia", "azure"]}
@@ -92,6 +93,7 @@ export function AiCostPerSpWidget({ data: sprints }) {
       <TrendChart
         data={sprints}
         height={230}
+        fill
         yWidth={40}
         series={[{ key: "aiCostPerSp", label: "Custo por SP", color: "var(--accent)" }]}
         yFormat={axisUsd}

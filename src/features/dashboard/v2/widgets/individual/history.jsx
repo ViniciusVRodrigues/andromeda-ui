@@ -89,6 +89,7 @@ export function AiCostHistoryWidget({ data }) {
   return (
     <Panel
       className={AI_CARD_MIN_HEIGHT}
+      fill
       eyebrow="ia"
       title="Custo de IA por sprint"
       note={data.note}
@@ -106,6 +107,7 @@ export function AiCostHistoryWidget({ data }) {
       <ColumnChart
         data={data.rows}
         height={180}
+        fill
         yWidth={40}
         series={[{ key: "aiCostUsd", label: "Custo de IA", color: "var(--accent)" }]}
         emphasis={(r) => r.isSelected}

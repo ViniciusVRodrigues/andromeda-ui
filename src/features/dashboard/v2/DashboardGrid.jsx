@@ -31,7 +31,7 @@ const EditGrid = React.lazy(() => import("./edit/EditGrid.jsx"));
 export const CELL =
   "grid min-w-0 col-span-full @min-[600px]:col-[span_var(--s6)/span_var(--s6)] @min-[960px]:col-[span_var(--s12)/span_var(--s12)]";
 export const GRID =
-  "grid grid-cols-1 items-stretch gap-4 @min-[600px]:grid-cols-6 @min-[960px]:grid-cols-12";
+  "grid grid-cols-1 items-start gap-4 @min-[600px]:grid-cols-6 @min-[960px]:grid-cols-12";
 
 /** Spans de 6 e 12 colunas por widget, na ordem da seção. */
 export function withSpans(widgets) {

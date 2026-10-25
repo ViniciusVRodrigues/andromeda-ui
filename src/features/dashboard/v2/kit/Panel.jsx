@@ -84,7 +84,7 @@ function SourceLine({ sources }) {
 /**
  * Cartão de indicador.
  * @param {{ eyebrow?: string, title: string, info?: React.ReactNode, sources?: string[],
- *   actions?: React.ReactNode, table?: { columns: Array, rows: Array, caption?: string }, note?: React.ReactNode, className?: string,
+ *   actions?: React.ReactNode, table?: { columns: Array, rows: Array, caption?: string }, note?: React.ReactNode, className?: string, fill?: boolean,
  *   experimental?: boolean, children: React.ReactNode }} props
  *   `table` liga a alternância Gráfico/Tabela no cabeçalho; `experimental` marca dados
  *   de significado inferido. Painéis que dependem de coleta nova não existem na v2
@@ -100,6 +100,7 @@ export function Panel({
   note,
   experimental,
   className = "",
+  fill = false,
   children,
 }) {
   const explain = info || null;
@@ -181,7 +182,7 @@ export function Panel({
           {explain ? <InfoTip label={title}>{explain}</InfoTip> : null}
         </div>
       </div>
-      <div className="min-h-0 flex-1">
+      <div className={"min-h-0 flex-1" + (fill ? " flex flex-col" : "")}>
         {asTable && table ? (
           <DataTable columns={table.columns} rows={table.rows} dense caption={table.caption} />
         ) : (

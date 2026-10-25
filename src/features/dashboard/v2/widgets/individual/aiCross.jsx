@@ -328,11 +328,12 @@ export function ItensComSemIaWidget({ data }) {
       table={table}
       note={`${nItems(nWith)} concluídos com IA · ${nItems(nWithout)} sem IA · base: custo de IA alocado ao item`}
       className={AI_CARD_MIN_HEIGHT}
+      fill
     >
       {data.empty ? (
         <AiEmpty person />
       ) : (
-        <div className="flex flex-col gap-2">
+        <div className="flex min-h-0 flex-1 flex-col gap-2">
           <p
             data-ai-reading=""
             className="text-fg-muted m-0 min-h-[36px] max-w-[72ch] text-[12px] leading-snug font-normal"
@@ -343,6 +344,7 @@ export function ItensComSemIaWidget({ data }) {
             <ColumnChart
               data={rows}
               height={200}
+              fill
               yWidth={44}
               series={[
                 { key: "withAi", label: "Com IA", color: AI_COLOR },

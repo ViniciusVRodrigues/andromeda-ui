@@ -44,7 +44,7 @@ export function KpiTile({ label, value, unit, hint, delta, trend, tone, title })
   const empty = value == null || value === "—";
   return (
     <div
-      className="border-line bg-bg-elev flex min-w-0 flex-col gap-1 rounded-[var(--radius-sm)] border px-4 py-3.5"
+      className="border-line bg-bg-elev flex min-w-0 flex-col gap-1 rounded-[var(--radius-sm)] border px-4 py-3.5 max-[599px]:px-3 max-[599px]:py-2"
       title={title}
       role="listitem"
     >
@@ -52,7 +52,7 @@ export function KpiTile({ label, value, unit, hint, delta, trend, tone, title })
       <div className="flex items-baseline gap-1.5">
         <span
           className={
-            "serif text-[30px] leading-none " +
+            "serif text-[30px] leading-none max-[599px]:text-[24px] " +
             (empty
               ? "text-fg-muted"
               : tone === "bad"
@@ -83,7 +83,7 @@ export function KpiRow({ children, label = "Indicadores" }) {
     <div
       role="list"
       aria-label={label}
-      className="grid grid-cols-2 gap-3 min-[600px]:[grid-template-columns:repeat(auto-fit,minmax(158px,1fr))]"
+      className="grid grid-cols-2 gap-3 max-[599px]:gap-2 min-[600px]:[grid-template-columns:repeat(auto-fit,minmax(158px,1fr))]"
     >
       {children}
     </div>

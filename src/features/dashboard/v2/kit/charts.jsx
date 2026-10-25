@@ -83,6 +83,28 @@ function ChartTooltip({ active, payload, label, series, valueFormat, extra, min 
 }
 
 /**
+ * Caixa do gráfico: altura fixa, ou (`fill`) no mínimo `height` e crescendo até o fim do
+ * cartão (o Panel com `fill`). O gráfico fica em posição absoluta para não puxar a altura.
+ */
+function ChartBox({ height, fill, children }) {
+  if (!fill)
+    return (
+      <ResponsiveContainer width="100%" height={height}>
+        {children}
+      </ResponsiveContainer>
+    );
+  return (
+    <div className="relative min-h-0 flex-1" style={{ minHeight: height }}>
+      <div className="absolute inset-0">
+        <ResponsiveContainer width="100%" height="100%">
+          {children}
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
+/**
  * Colunas — simples, agrupadas ou empilhadas.
  * @param {{ data: object[], series: Array<{ key: string, label: string, color: string }>,
  *   xKey?: string, stacked?: boolean, height?: number, yFormat?: (v) => string,
@@ -109,6 +131,7 @@ export function ColumnChart({
   summary,
   legendItems,
   tooltipMin,
+  fill = false,
 }) {
   const fmt = valueFormat || yFormat;
   const showLegend = legend ?? series.length > 1;
@@ -122,14 +145,17 @@ export function ColumnChart({
       ? (row) => `total ${fmt(series.reduce((s, x) => s + (Number(row[x.key]) || 0), 0))}`
       : undefined);
   return (
-    <figure className="m-0" aria-labelledby={labelledBy}>
+    <figure
+      className={fill ? "m-0 flex min-h-0 flex-1 flex-col" : "m-0"}
+      aria-labelledby={labelledBy}
+    >
       {showLegend ? (
         <Legend
           className="mb-2"
           items={legendItems ?? series.map((s) => ({ label: s.label, color: s.color }))}
         />
       ) : null}
-      <ResponsiveContainer width="100%" height={height}>
+      <ChartBox height={height} fill={fill}>
         <BarChart
           {...svgProps}
           data={data}
@@ -199,7 +225,7 @@ export function ColumnChart({
             </Bar>
           ))}
         </BarChart>
-      </ResponsiveContainer>
+      </ChartBox>
     </figure>
   );
 }
@@ -226,6 +252,7 @@ export function TrendChart({
   extra,
   legend,
   summary,
+  fill = false,
 }) {
   const fmt = valueFormat || yFormat;
   const showLegend = legend ?? series.length > 1;
@@ -234,7 +261,10 @@ export function TrendChart({
     summary ?? trendSummary({ data, series, xKey, fmt }),
   );
   return (
-    <figure className="m-0" aria-labelledby={labelledBy}>
+    <figure
+      className={fill ? "m-0 flex min-h-0 flex-1 flex-col" : "m-0"}
+      aria-labelledby={labelledBy}
+    >
       {showLegend ? (
         <Legend
           className="mb-2"
@@ -246,7 +276,7 @@ export function TrendChart({
           }))}
         />
       ) : null}
-      <ResponsiveContainer width="100%" height={height}>
+      <ChartBox height={height} fill={fill}>
         <ComposedChart {...svgProps} data={data} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
           <CartesianGrid vertical={false} stroke="var(--line)" />
           <XAxis
@@ -324,7 +354,7 @@ export function TrendChart({
             />
           ))}
         </ComposedChart>
-      </ResponsiveContainer>
+      </ChartBox>
     </figure>
   );
 }
@@ -402,6 +432,7 @@ export function PairedColumns({
   height = 110,
   noun = "pontos",
   summary,
+  fill = false,
 }) {
   const rows = data.map((r) => ({ ...r, __x: r.current ? `${r[xKey]}*` : r[xKey] }));
   const metrics = [].concat(metric);
@@ -413,9 +444,13 @@ export function PairedColumns({
     const fmt = s.fmt || identity;
     const title = list.map((m) => m.short || m.label).join(" · ");
     return (
-      <div key={s.key} data-paired={title}>
+      <div
+        key={s.key}
+        data-paired={title}
+        className={fill ? "flex min-h-0 flex-1 flex-col" : undefined}
+      >
         <div className="mono text-fg mb-0.5 text-[11px] font-normal">{title}</div>
-        <ResponsiveContainer width="100%" height={height}>
+        <ChartBox height={height} fill={fill}>
           <BarChart
             {...(isBottom ? bottom : top).svgProps}
             data={rows}
@@ -461,12 +496,15 @@ export function PairedColumns({
               />
             ))}
           </BarChart>
-        </ResponsiveContainer>
+        </ChartBox>
       </div>
     );
   };
   return (
-    <figure className="m-0 flex flex-col gap-1" aria-labelledby={top.labelledBy}>
+    <figure
+      className={"m-0 flex flex-col gap-1" + (fill ? " min-h-0 flex-1" : "")}
+      aria-labelledby={top.labelledBy}
+    >
       {one([ia], [AI_COLOR], false)}
       {one(metrics, METRIC_COLORS, true)}
     </figure>
@@ -501,7 +539,15 @@ export function scatterExtremes(points, n = 3) {
  *   x: { label: string, short?: string, fmt?: (v) => string }, y: { label: string, short?: string, fmt?: (v) => string },
  *   height?: number, noun?: string, summary?: string }} props
  */
-export function ScatterChart({ points, x, y, height = 220, noun = "pontos", summary }) {
+export function ScatterChart({
+  points,
+  x,
+  y,
+  height = 220,
+  noun = "pontos",
+  summary,
+  fill = false,
+}) {
   const data = points.filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y));
   const { labelledBy, svgProps } = useChartLabel(
     summary ?? scatterSummary({ points: data, x, y, noun }),
@@ -530,8 +576,11 @@ export function ScatterChart({ points, x, y, height = 220, noun = "pontos", summ
     );
   };
   return (
-    <figure className="m-0" aria-labelledby={labelledBy}>
-      <ResponsiveContainer width="100%" height={height}>
+    <figure
+      className={fill ? "m-0 flex min-h-0 flex-1 flex-col" : "m-0"}
+      aria-labelledby={labelledBy}
+    >
+      <ChartBox height={height} fill={fill}>
         <RechartsScatter {...svgProps} margin={{ top: 8, right: 56, bottom: 16, left: 0 }}>
           <CartesianGrid stroke="var(--line)" />
           <XAxis
@@ -586,7 +635,7 @@ export function ScatterChart({ points, x, y, height = 220, noun = "pontos", summ
           />
           <Scatter data={data} shape={shape} isAnimationActive={false} />
         </RechartsScatter>
-      </ResponsiveContainer>
+      </ChartBox>
     </figure>
   );
 }
