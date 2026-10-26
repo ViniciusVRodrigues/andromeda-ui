@@ -70,7 +70,8 @@ export function readFixture(name) {
  *   "ten":     10 dias na janela da sprint (8 com sugestão, 2 sem)
  *   "none":    sem pendência
  *   "legacy":  a fixture crua (forma antiga, sem allocationId): faixa somente leitura
- * O id da alocação é `alloc-<dia>`. Os POSTs de alocar tiram o dia das próximas leituras. */
+ * O id da alocação é `alloc-<dia>`. Os POSTs de alocar tiram o dia das próximas leituras; um 404
+ * simula a sugestão refeita pelo sync: o dia volta com o id `alloc-<dia>-r`. */
 const addDays = (iso, n) => {
   const d = new Date(`${iso}T12:00:00Z`);
   d.setUTCDate(d.getUTCDate() + n);
@@ -109,13 +110,13 @@ export function globalPendingBatches(total = 62) {
   }));
 }
 
-function allocationPayload(payload, variant, doneDays) {
+function allocationPayload(payload, variant, doneDays, reissued = new Set()) {
   const ai = payload.ai;
   const validated = ai.allocation?.validatedDays ?? 0;
   const itemId = (ext) =>
     payload.items.find((i) => String(i.externalId) === String(ext))?.id ?? `wi-${ext}`;
   const upgrade = (p, source) => ({
-    allocationId: `alloc-${p.date}`,
+    allocationId: reissued.has(p.date) ? `alloc-${p.date}-r` : `alloc-${p.date}`,
     day: p.date,
     tokens: p.tokens,
     cost: p.costUsd,
@@ -190,6 +191,7 @@ export async function installDashboardsApi(page, opts = {}) {
     allocFail: {},
     allocDelay: 0,
     allocated: new Set(),
+    reissued: new Set(),
   };
   const me = {
     userId: E2E_USER_ID,
@@ -238,7 +240,7 @@ export async function installDashboardsApi(page, opts = {}) {
       const byId = /^\/v1\/ai\/allocations\/([^/]+)\/(accept|manual)$/.exec(p);
       if (byId) {
         action = byId[2] === "accept" ? "accept" : "adjust";
-        day = byId[1].replace(/^alloc-/, "");
+        day = byId[1].replace(/^alloc-/, "").replace(/-r$/, "");
       } else if (p === "/v1/ai/allocations/manual") {
         try {
           day = req.postDataJSON()?.day ?? null;
@@ -249,12 +251,15 @@ export async function installDashboardsApi(page, opts = {}) {
       const status = state.allocFail[action];
       if (status) {
         if (status === 409 && day) state.allocated.add(day);
+        if (status === 404 && day) state.reissued.add(day);
         const code =
           status === 409
             ? "ALLOCATION_ALREADY_VALIDATED"
             : status === 422
               ? "ALLOCATION_SPLITS_INVALID"
-              : "INTERNAL_ERROR";
+              : status === 404
+                ? "ALLOCATION_NOT_FOUND"
+                : "INTERNAL_ERROR";
         return json(route, { code }, status);
       }
       if (day) state.allocated.add(day);
@@ -297,7 +302,10 @@ export async function installDashboardsApi(page, opts = {}) {
       const text = fixture(`${kind}__${projectId}__${sprintOf(projectId)}`);
       const variant = opts.allocation || "default";
       if (kind === "individual" && text != null && variant !== "legacy")
-        return json(route, allocationPayload(JSON.parse(text), variant, state.allocated));
+        return json(
+          route,
+          allocationPayload(JSON.parse(text), variant, state.allocated, state.reissued),
+        );
       return raw(route, text);
     }
     if (p === "/v1/dashboards/team/flow") {

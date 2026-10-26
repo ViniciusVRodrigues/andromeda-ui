@@ -225,6 +225,22 @@ test("aceitar com 409: '✓ Já alocado' e nova leitura", async ({ page }) => {
     .toBe(2);
 });
 
+test("aceitar com 404 e sugestão refeita pelo sync: a linha reabre com o id novo", async ({
+  page,
+}) => {
+  const api = await open(page);
+  api.failAllocation("accept", 404);
+  await page.getByRole("button", { name: /^Aceitar a sugestão de 30\/09/ }).click();
+  await expect
+    .poll(() => api.requests.filter((r) => r.startsWith("GET /v1/dashboards/individual")).length)
+    .toBe(2);
+  await expect(row(page, "2026-09-30")).not.toContainText("Já alocado");
+  api.failAllocation("accept", null);
+  await page.getByRole("button", { name: /^Aceitar a sugestão de 30\/09/ }).click();
+  await expect(row(page, "2026-09-30")).toContainText("✓ Alocado");
+  expect(api.requests).toContain("POST /v1/ai/allocations/alloc-2026-09-30-r/accept");
+});
+
 /* ── 9, 10, 11, 12: sem pendência, muitos dias, abrir/fechar, chips ───────────── */
 
 test("sem pendência: sem faixa, widget com 'Todos os dias…' e sem 'Alocar ↑'", async ({ page }) => {

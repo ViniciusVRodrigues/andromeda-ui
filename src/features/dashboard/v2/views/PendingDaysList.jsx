@@ -133,6 +133,24 @@ export function useDayActions(sourceRows, { fallbackFocus = null, sprintItems = 
   const rowsRef = React.useRef(rows);
   rowsRef.current = rows;
 
+  /* 404/409 com a sugestão refeita pelo sync: o dia volta com outro allocationId e reabre */
+  React.useEffect(() => {
+    const byKey = new Map(sourceRows.map((r) => [keyOf(r), r]));
+    let changed = false;
+    const next = { ...statusRef.current };
+    for (const [k, s] of Object.entries(next)) {
+      const fresh = byKey.get(k);
+      if (s.state === "already" && fresh && fresh.allocationId !== s.row.allocationId) {
+        delete next[k];
+        changed = true;
+      }
+    }
+    if (changed) {
+      statusRef.current = next;
+      setStatus(next);
+    }
+  }, [sourceRows]);
+
   const put = (row, state) => {
     statusRef.current = { ...statusRef.current, [keyOf(row)]: { state, row } };
     setStatus(statusRef.current);
