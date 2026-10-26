@@ -13,6 +13,7 @@ import { orgUrlLabel } from "../../lib/appUrl.js";
 import SectionHeader from "../../core/ui/SectionHeader.jsx";
 import { SyncSettingsForm } from "./SyncSettingsForm.jsx";
 import { RemediationRulesForm } from "./RemediationRulesForm.jsx";
+import { DeleteOrganizationSection } from "./DeleteOrganizationSection.jsx";
 
 function Fact({ label, value, mono }) {
   return (
@@ -52,6 +53,7 @@ export function GeneralPage() {
       </section>
       <SyncSettingsForm />
       <RemediationRulesForm />
+      <DeleteOrganizationSection name={orgData.name} slug={orgData.slug} />
     </div>
   );
 }

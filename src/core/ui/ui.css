@@ -203,6 +203,13 @@ textarea.ui-field-input {
   font-size: 11px;
   color: var(--bad);
 }
+/* Dica de validação do campo (ex.: "✓ Confere"); reserva a linha para não saltar. */
+.ui-field-hint {
+  margin: 0;
+  min-height: 1.2em;
+  font-size: 11px;
+  color: var(--good);
+}
 
 /* Grade de opções radio (clone de cargo, escolha de provedor etc.). */
 .ui-modal-options {
@@ -378,4 +385,22 @@ textarea.ui-field-input {
 :root[data-palette="light"] .login-stage {
   background:
     radial-gradient(circle at 80% 0%, rgba(166, 102, 71, 0.14), transparent 50%), var(--bg);
+}
+
+/* ConfirmDialog no celular: rodapé empilhado, ação de risco por cima, alvos de 44 px. */
+@media (max-width: 479px) {
+  .ui-modal--confirm .ui-modal-foot {
+    flex-direction: column-reverse;
+  }
+  .ui-modal--confirm .ui-modal-foot .btn {
+    width: 100%;
+    min-height: 44px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ui-modal-backdrop,
+  .ui-modal {
+    animation: none;
+  }
 }

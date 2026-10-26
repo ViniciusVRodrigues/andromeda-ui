@@ -152,13 +152,17 @@ function AppShell() {
       /* mantém a identidade atual */
     }
   }, []);
-  const exitApp = () => {
+  /* `onLogout` também serve de onClick (recebe o evento): só um objeto com `to`
+   * ou `notice` muda o destino. Ex.: exclusão da organização → /login com aviso. */
+  const exitApp = (opts) => {
+    const to = typeof opts?.to === "string" ? opts.to : "/";
+    const notice = typeof opts?.notice === "string" ? opts.notice : undefined;
     setIdentity(null);
     setProfile(null);
     setAuthStatus("unauthenticated");
     flushTelemetry(); // antes do clearToken: o envio final precisa do token
     clearToken();
-    navigate("/");
+    navigate(to, notice ? { state: { notice } } : undefined);
   };
 
   const handleSignupDone = async (payload) => {
