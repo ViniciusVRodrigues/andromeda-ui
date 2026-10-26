@@ -5,12 +5,20 @@ import { axisTokensM, fmtInt, fmtTokensCompact, fmtTokensM, fmtUsd } from "../..
 import { modelColor, STATUS_COLOR } from "../../kit/Badges.jsx";
 import { BarList, SegmentBar } from "../../kit/Bars.jsx";
 import { ColumnChart } from "../../kit/charts.jsx";
+import { AiEmpty, hasAiValue } from "../../kit/AiCross.jsx";
 import { Empty, Panel } from "../../kit/Panel.jsx";
 import { focusAllocationStrip } from "../../views/allocationStripId.js";
 
 export const selectTokensByDay = (d) => d.ai.byDay;
 
 export function TokensByDayWidget({ data: byDay }) {
+  if (!hasAiValue(byDay, "inputTokens", "outputTokens")) {
+    return (
+      <Panel eyebrow="consumo diário" title="Tokens por dia" sources={["ia"]}>
+        <AiEmpty person />
+      </Panel>
+    );
+  }
   return (
     <Panel
       eyebrow="consumo diário"
@@ -75,7 +83,7 @@ export function CostByModelWidget({ data: byModel }) {
           }))}
         />
       ) : (
-        <Empty>Sem uso de IA nesta sprint.</Empty>
+        <AiEmpty person />
       )}
     </Panel>
   );

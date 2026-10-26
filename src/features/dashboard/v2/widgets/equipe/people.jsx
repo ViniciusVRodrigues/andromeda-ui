@@ -79,6 +79,7 @@ export function MembersWidget({ data: members }) {
       <DataTable
         rowKey={(r) => r.userId}
         rows={members}
+        scroll
         highlight={(r) => r.isMe}
         columns={MEMBER_COLUMNS}
       />

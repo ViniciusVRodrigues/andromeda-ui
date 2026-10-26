@@ -113,7 +113,10 @@ for (const [view, cfg] of Object.entries(VIEWS)) {
       page,
     }) => {
       await openAs(page, view);
-      const h2 = page.getByRole("heading", { level: 2 });
+      /* A faixa "Uso de IA para alocar" (ALO1) fica acima das seções e não conta como seção. */
+      const h2 = page
+        .getByRole("heading", { level: 2 })
+        .filter({ hasNotText: "Uso de IA para alocar" });
       await expect(h2.nth(1)).toHaveText("IA e entrega");
       const top = await h2.nth(1).evaluate((el) => el.getBoundingClientRect().top + window.scrollY);
       expect(top).toBeLessThanOrEqual(1100);

@@ -222,6 +222,37 @@ async function open(page, view, { width, variant = "tipico", theme = "escuro", h
 
 const VIEW_NAMES = Object.keys(VIEWS);
 
+/* Portfólio com 40 projetos (D7): a área da tabela rola por dentro. */
+test("6.2 · Portfólio com 40 projetos: área ≤ 360 px e card ≤ 520 px — 1280px", async ({
+  page,
+}) => {
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await page.clock.setFixedTime(DASH_NOW);
+  await installDashboardsApi(page, {
+    permissions: ALL,
+    transform: (name, body) => {
+      if (!name.startsWith("organization__")) return body;
+      body.portfolio = rep(body.portfolio, Math.ceil(40 / body.portfolio.length), (x, k, i) => ({
+        ...x,
+        projectId: x.projectId + "-" + k,
+        name: x.name + " " + (k * 10 + i),
+      })).slice(0, 40);
+      return body;
+    },
+  });
+  await gotoDashboard(page, VIEWS.org);
+  const card = page.locator("[data-widget-id]", {
+    has: page.getByRole("heading", { name: "Projetos lado a lado" }),
+  });
+  await expect(card).toBeVisible({ timeout: 20000 });
+  expect(await card.locator("tbody tr").count()).toBe(40);
+  const area = await card.locator("table").locator("xpath=..").boundingBox();
+  const c = await card.boundingBox();
+  expect(area.height).toBeLessThanOrEqual(360.5);
+  expect(c.height).toBeLessThanOrEqual(520);
+  await expect(card.getByRole("region")).toHaveCount(1);
+});
+
 /* ── Critério 3: sem rolagem horizontal ─────────────────────────────────────── */
 
 for (const view of VIEW_NAMES)
@@ -289,7 +320,10 @@ for (const view of VIEW_NAMES)
 
 for (const view of ["individual", "equipe"])
   test(`6 · página cheia ≤ 4000 px — ${view}, 1280px`, async ({ page }) => {
-    test.fixme(true, "6.2, depois da prs-sprint-rolagem");
+    test.fixme(
+      true,
+      "a seção IA e entrega sozinha tem 1,7 a 2,2 mil px (cartões de 520 px): o teto de 4000 px não cabe só com a rolagem das tabelas; decisão da sessão principal",
+    );
     await open(page, view, { width: 1280, variant: "cheio" });
     const h = await page.evaluate(() => {
       const layer = document.querySelector(".page-layer");
@@ -302,7 +336,6 @@ for (const view of VIEW_NAMES)
   test(`6 · cartão de tabela ≤ 520 px antes de expandir — ${view}, cheio, 1280px`, async ({
     page,
   }) => {
-    test.fixme(true, "6.2, depois da prs-sprint-rolagem");
     await open(page, view, { width: 1280, variant: "cheio" });
     const tall = await page.evaluate(() =>
       [...document.querySelectorAll("[data-widget-id]")]
@@ -359,12 +392,10 @@ for (const view of VIEW_NAMES)
     for (const variant of ["tipico", "vazio"])
       test(`9 · alvos ≥ 44 px de altura — ${view}, ${variant}, ${width}px`, async ({ page }) => {
         await open(page, view, { width, variant });
-        /* "Revisar →" é do ai.jsx da change alo1: 6.2b, depois do ALO1 (teste próprio abaixo) */
         expect(await smallTargets(page, ["Revisar"])).toEqual([]);
       });
 
 test("9 · 'Revisar →' do uso de IA com alvo de 44 px", async ({ page }) => {
-  test.fixme(true, "6.2b, depois do ALO1");
   await open(page, "individual", { width: 360 });
   const small = await smallTargets(page, []);
   expect(small.filter((s) => s.startsWith("Revisar"))).toEqual([]);
