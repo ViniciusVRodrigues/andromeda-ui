@@ -184,7 +184,14 @@ export function Panel({
       </div>
       <div className={"min-h-0 flex-1" + (fill ? " flex flex-col" : "")}>
         {asTable && table ? (
-          <DataTable columns={table.columns} rows={table.rows} dense caption={table.caption} />
+          <DataTable
+            columns={table.columns}
+            rows={table.rows}
+            dense
+            caption={table.caption}
+            scroll={table.scroll}
+            stickyFirst={table.stickyFirst}
+          />
         ) : (
           /* os gráficos de dentro viram <figure> rotulada por este título (D8) */
           <PanelTitleContext.Provider value={titleCtx}>{children}</PanelTitleContext.Provider>

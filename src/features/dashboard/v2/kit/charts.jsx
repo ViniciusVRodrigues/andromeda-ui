@@ -230,6 +230,219 @@ export function ColumnChart({
   );
 }
 
+/* ── Eixo de tempo (xType "time") ─────────────────────────────────────────────
+ * Cada série traz os seus próprios pontos `{ x (ms), value, current?, label? }`, porque cada
+ * projeto tem as suas datas de fim de sprint: o eixo X é numérico (a data), não categórico.
+ * `marker` (circle|square|triangle|diamond|cross) muda a forma por série (a cor nunca é o único
+ * canal). `current` = sprint em andamento: marcador vazado, trecho tracejado e "*".
+ * Valor nulo interrompe a linha (`connectNulls=false`). */
+export const MARKERS = ["circle", "square", "triangle", "diamond", "cross"];
+export const MARKER_GLYPH = { circle: "●", square: "■", triangle: "▲", diamond: "◆", cross: "✕" };
+
+function Marker({ cx, cy, shape, color, hollow }) {
+  if (cx == null || cy == null || Number.isNaN(cx) || Number.isNaN(cy)) return null;
+  const fill = hollow ? "var(--bg-elev)" : color;
+  const common = { fill, stroke: color, strokeWidth: 2 };
+  const r = 4;
+  if (shape === "square")
+    return <rect {...common} x={cx - r} y={cy - r} width={2 * r} height={2 * r} />;
+  if (shape === "triangle")
+    return (
+      <polygon
+        {...common}
+        points={`${cx},${cy - r - 1} ${cx + r + 1},${cy + r} ${cx - r - 1},${cy + r}`}
+      />
+    );
+  if (shape === "diamond")
+    return (
+      <polygon
+        {...common}
+        points={`${cx},${cy - r - 1} ${cx + r + 1},${cy} ${cx},${cy + r + 1} ${cx - r - 1},${cy}`}
+      />
+    );
+  if (shape === "cross")
+    return (
+      <path
+        d={`M${cx - r},${cy - r} L${cx + r},${cy + r} M${cx + r},${cy - r} L${cx - r},${cy + r}`}
+        stroke={color}
+        strokeWidth={2}
+        strokeLinecap="round"
+        fill="none"
+      />
+    );
+  return <circle {...common} cx={cx} cy={cy} r={r} />;
+}
+
+const dotOf = (s, only) =>
+  function TimeDot({ cx, cy, payload, index }) {
+    if (payload?.value == null) return <g key={`d-${index}`} />;
+    if (only && !only(payload, index)) return <g key={`d-${index}`} />;
+    return (
+      <g
+        key={`d-${index}`}
+        data-marker={s.marker || "circle"}
+        data-current={payload.current ? "" : undefined}
+      >
+        <Marker
+          cx={cx}
+          cy={cy}
+          shape={s.marker || "circle"}
+          color={s.color}
+          hollow={!!payload.current}
+        />
+        {payload.current ? (
+          <text
+            aria-hidden="true"
+            x={cx + 6}
+            y={cy - 4}
+            fill="var(--fg-muted)"
+            fontSize={12}
+            fontFamily="JetBrains Mono, monospace"
+          >
+            *
+          </text>
+        ) : null}
+      </g>
+    );
+  };
+
+function TimeTooltip({ active, payload, valueFormat }) {
+  if (!active || !payload?.length) return null;
+  const p = payload[0];
+  const row = p?.payload;
+  if (!row || row.value == null) return null;
+  return (
+    <div className="border-line-strong bg-bg-deep shadow-soft min-w-[150px] rounded-[var(--radius-sm)] border px-3 py-2">
+      <div className="mono text-fg-muted mb-1.5 text-[11px]">{row.tooltipLabel ?? row.label}</div>
+      <div className="flex items-center gap-2 py-px">
+        <span
+          aria-hidden="true"
+          className="inline-block w-3 shrink-0"
+          style={{ borderTop: `2px solid ${p.stroke}` }}
+        />
+        <span className="mono text-fg text-[13px] tabular-nums">{valueFormat(row.value)}</span>
+        <span className="mono text-fg-muted text-[11px] font-normal">{p.name}</span>
+      </div>
+    </div>
+  );
+}
+
+function TimeTrendChart({
+  series,
+  height,
+  yFormat = identity,
+  valueFormat,
+  yDomain,
+  yWidth,
+  summary,
+  fill,
+  xDomain,
+  xTicks,
+  xFormat = identity,
+  caption,
+}) {
+  const fmt = valueFormat || yFormat;
+  const { labelledBy, svgProps } = useChartLabel(summary ?? "");
+  const capId = React.useId();
+  const single = series.length === 1;
+  return (
+    <figure
+      className={fill ? "m-0 flex min-h-0 flex-1 flex-col" : "m-0"}
+      aria-labelledby={labelledBy}
+    >
+      {caption ? (
+        <figcaption id={capId} className="mono text-fg mb-1 text-[12px] font-normal">
+          {caption}
+        </figcaption>
+      ) : null}
+      <ChartBox height={height} fill={fill}>
+        <ComposedChart {...svgProps} margin={{ top: 8, right: 14, bottom: 0, left: 0 }}>
+          <CartesianGrid vertical={false} stroke="var(--line)" />
+          <XAxis
+            type="number"
+            dataKey="x"
+            scale="time"
+            domain={xDomain || ["dataMin", "dataMax"]}
+            ticks={xTicks}
+            tickFormatter={xFormat}
+            tick={AXIS_TICK}
+            axisLine={{ stroke: "var(--line-strong)" }}
+            tickLine={false}
+            interval={0}
+            allowDataOverflow
+          />
+          <YAxis
+            type="number"
+            tick={AXIS_TICK}
+            axisLine={false}
+            tickLine={false}
+            width={yWidth}
+            tickFormatter={yFormat}
+            domain={yDomain || [0, "auto"]}
+          />
+          <Tooltip
+            shared={false}
+            cursor={{ stroke: "var(--line-strong)", strokeWidth: 1 }}
+            content={<TimeTooltip valueFormat={fmt} />}
+          />
+          {single ? (
+            <Area
+              data={series[0].points}
+              dataKey="value"
+              stroke="none"
+              fill={series[0].color}
+              fillOpacity={0.1}
+              isAnimationActive={false}
+              connectNulls={false}
+              activeDot={false}
+              legendType="none"
+              tooltipType="none"
+            />
+          ) : null}
+          {series.flatMap((s) => {
+            const pts = s.points || [];
+            const closed = pts.filter((p) => !p.current);
+            const cur = pts.length && pts[pts.length - 1].current ? pts[pts.length - 1] : null;
+            const prev = cur ? pts[pts.length - 2] : null;
+            const common = {
+              dataKey: "value",
+              name: s.label,
+              stroke: s.color,
+              strokeLinecap: "round",
+              strokeLinejoin: "round",
+              connectNulls: false,
+              isAnimationActive: false,
+            };
+            const out = [
+              <Line
+                key={`${s.key}-solid`}
+                {...common}
+                data={closed}
+                strokeWidth={2}
+                dot={dotOf(s)}
+                activeDot={false}
+              />,
+            ];
+            if (cur && cur.value != null)
+              out.push(
+                <Line
+                  key={`${s.key}-cur`}
+                  {...common}
+                  data={prev && prev.value != null ? [prev, cur] : [cur]}
+                  strokeWidth={1.5}
+                  strokeDasharray="5 4"
+                  dot={dotOf(s, (p) => !!p.current)}
+                  activeDot={false}
+                />,
+              );
+            return out;
+          })}
+        </ComposedChart>
+      </ChartBox>
+    </figure>
+  );
+}
+
 /**
  * Linhas de mesma unidade (ex.: lead time × cycle time, ambos em dias).
  * Uma série única ganha um véu de área a ~10%.
@@ -240,6 +453,7 @@ export function ColumnChart({
  *   `summary` substitui o resumo numérico gerado (aria-label do SVG, D8).
  */
 export function TrendChart({
+  xType,
   data,
   series,
   xKey = "label",
@@ -253,7 +467,22 @@ export function TrendChart({
   legend,
   summary,
   fill = false,
+  ...timeProps
 }) {
+  if (xType === "time")
+    return (
+      <TimeTrendChart
+        series={series}
+        height={height}
+        yFormat={yFormat}
+        valueFormat={valueFormat}
+        yDomain={yDomain}
+        yWidth={yWidth}
+        summary={summary}
+        fill={fill}
+        {...timeProps}
+      />
+    );
   const fmt = valueFormat || yFormat;
   const showLegend = legend ?? series.length > 1;
   const single = series.length === 1;
@@ -562,14 +791,18 @@ export function ScatterChart({
   const fx = x.fmt || identity;
   const fy = y.fmt || identity;
   const shape = (props) => {
-    const { cx, cy, payload } = props;
+    const { cx, cy, payload, xAxis } = props;
     const idx = data.indexOf(payload);
+    /* rótulo à esquerda do ponto quando não cabe à direita (nunca cortado pela borda) */
+    const right = xAxis ? xAxis.x + xAxis.width + 52 : Infinity;
+    const flip = cx + 8 + String(payload.label ?? "").length * 6.8 > right;
     return (
       <g>
         <circle cx={cx} cy={cy} r={5} fill={AI_COLOR} stroke="var(--bg-elev)" strokeWidth={1.5} />
         {labeled.has(idx) ? (
           <text
-            x={cx + 8}
+            x={flip ? cx - 8 : cx + 8}
+            textAnchor={flip ? "end" : "start"}
             y={cy + 4}
             fontSize={11}
             fontFamily="JetBrains Mono, monospace"
@@ -593,6 +826,7 @@ export function ScatterChart({
             type="number"
             dataKey="x"
             name={x.label}
+            domain={[0, (max) => (max > 0 ? max * 1.15 : 1)]}
             tick={AXIS_TICK}
             axisLine={{ stroke: "var(--line-strong)" }}
             tickLine={false}
@@ -610,6 +844,7 @@ export function ScatterChart({
             type="number"
             dataKey="y"
             name={y.label}
+            domain={[0, (max) => (max > 0 ? max * 1.15 : 1)]}
             tick={AXIS_TICK}
             axisLine={false}
             tickLine={false}

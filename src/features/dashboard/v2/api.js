@@ -261,6 +261,47 @@ const KPI_ORG = [
   ["timeToFirstReviewHours", "timeToFirstReviewHours"],
 ];
 
+/**
+ * `sprintHistory` da Organização (change complexidade-esforco, MS-4): projetos → sprints que cruzam o
+ * período. Campo aditivo: com o ms antigo vem ausente e vira `null`. O `leadTimeHours` DS ganha o
+ * p50 em dias (`leadTimeDays`) e fica inteiro em `leadTimeDs`. Não passa por `spreadMap`: os projetos
+ * são uma lista, não um mapa por chave.
+ */
+export function adaptSprintHistory(h) {
+  if (!h || !Array.isArray(h.projects)) return null;
+  const n = (v) => (v == null ? null : v);
+  return {
+    projects: h.projects.map((p) => ({
+      projectId: p.projectId,
+      name: p.name ?? "",
+      sprints: (p.sprints || []).map((s) => {
+        const lead = p50(s.leadTimeHours);
+        return {
+          sprintId: s.sprintId,
+          name: s.name ?? "",
+          startDate: n(s.startDate),
+          endDate: n(s.endDate),
+          current: !!s.current,
+          aiCostUsd: n(s.aiCostUsd),
+          aiTokens: n(s.aiTokens),
+          complexityPlanned: n(s.complexityPlanned),
+          complexityDelivered: n(s.complexityDelivered),
+          effortLogged: n(s.effortLogged),
+          aiCostPerPoint: n(s.aiCostPerPoint),
+          aiCostPerHour: n(s.aiCostPerHour),
+          hoursPerPoint: n(s.hoursPerPoint),
+          predictabilityPct: n(s.predictabilityPct),
+          leadTimeHours: lead,
+          leadTimeDays: lead == null ? null : lead / 24,
+          leadTimeDs:
+            s.leadTimeHours && typeof s.leadTimeHours === "object" ? s.leadTimeHours : null,
+          itemsDone: n(s.itemsDone),
+        };
+      }),
+    })),
+  };
+}
+
 export function adaptOrganization(raw) {
   const d = msTimestamps(raw);
   return {
@@ -301,6 +342,7 @@ export function adaptOrganization(raw) {
       ),
     },
     ai: d.ai && { ...d.ai, costByBucket: spreadMap(d.ai.costByBucket, "byModel") },
+    sprintHistory: adaptSprintHistory(d.sprintHistory),
   };
 }
 

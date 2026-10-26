@@ -217,6 +217,188 @@ export function withNewMeasures(name, o) {
   return o;
 }
 
+/* ── sprintHistory da Organização (complexidade-esforco MS-4, design.md "Ampliação") ───────────
+ * "rich": 3 projetos de cadências diferentes, 11 sprints, uma `current`, uma sprint sem complexidade
+ * (Portal 24) e um projeto sem IA (Pagamentos). "reduced": 1 projeto com IA e 2 sprints. Os ids são
+ * os da fixture do portfólio (o teste troca por ids reais com `opts.transform`). */
+const sprint = (id, name, start, end, o = {}) => {
+  const lead = o.lead === undefined ? 40 : o.lead;
+  return {
+    sprintId: id,
+    name,
+    startDate: start,
+    endDate: end,
+    current: !!o.current,
+    aiCostUsd: o.cost ?? null,
+    aiTokens: o.tokens ?? null,
+    complexityPlanned: o.planned ?? null,
+    complexityDelivered: o.points ?? null,
+    effortLogged: o.effort ?? null,
+    aiCostPerPoint: o.cost != null && o.points ? Math.round((o.cost / o.points) * 100) / 100 : null,
+    aiCostPerHour: o.cost != null && o.effort ? Math.round((o.cost / o.effort) * 100) / 100 : null,
+    hoursPerPoint:
+      o.effort != null && o.points ? Math.round((o.effort / o.points) * 100) / 100 : null,
+    predictabilityPct: o.pred ?? null,
+    leadTimeHours: lead == null ? null : { p50: lead, p90: lead * 2.5, n: o.items ?? 8 },
+    itemsDone: o.items ?? 8,
+  };
+};
+export function sprintHistoryFixture(kind = "rich") {
+  const portal = (list) => ({ projectId: "p-portal", name: "Portal do Cliente", sprints: list });
+  if (kind === "reduced")
+    return {
+      projects: [
+        portal([
+          sprint("p-portal-s25", "Sprint 25", "2026-08-24", "2026-09-04", {
+            cost: 120,
+            tokens: 9_200_000,
+            planned: 30,
+            points: 28,
+            effort: 112,
+            pred: 78,
+            lead: 52,
+            items: 11,
+          }),
+          sprint("p-portal-s26", "Sprint 26", "2026-09-07", "2026-09-18", {
+            cost: 210,
+            tokens: 14_800_000,
+            planned: 32,
+            points: 34,
+            effort: 140,
+            pred: 85,
+            lead: 48,
+            items: 13,
+          }),
+        ]),
+      ],
+    };
+  return {
+    projects: [
+      portal([
+        sprint("p-portal-s23", "Sprint 23", "2026-07-27", "2026-08-07", {
+          cost: 90,
+          tokens: 6_100_000,
+          planned: 28,
+          points: 25,
+          effort: 100,
+          pred: 71,
+          lead: 60,
+          items: 9,
+        }),
+        sprint("p-portal-s24", "Sprint 24", "2026-08-10", "2026-08-21", {
+          cost: 150,
+          tokens: 10_400_000,
+          planned: 30,
+          points: null,
+          effort: 96,
+          pred: null,
+          lead: 55,
+          items: 8,
+        }),
+        sprint("p-portal-s25", "Sprint 25", "2026-08-24", "2026-09-04", {
+          cost: 260,
+          tokens: 17_900_000,
+          planned: 30,
+          points: 28,
+          effort: 112,
+          pred: 78,
+          lead: 52,
+          items: 11,
+        }),
+        sprint("p-portal-s26", "Sprint 26", "2026-09-07", "2026-09-18", {
+          cost: 410,
+          tokens: 25_300_000,
+          planned: 32,
+          points: 34,
+          effort: 140,
+          pred: 85,
+          lead: 44,
+          items: 13,
+        }),
+        sprint("p-portal-s27", "Sprint 27", "2026-09-21", "2026-10-02", {
+          current: true,
+          cost: 180,
+          tokens: 11_000_000,
+          planned: 34,
+          points: 15,
+          effort: 60,
+          pred: 44,
+          lead: 40,
+          items: 6,
+        }),
+      ]),
+      {
+        projectId: "p-mobile",
+        name: "App Mobile",
+        sprints: [
+          sprint("p-mobile-s11", "Sprint 11", "2026-07-31", "2026-08-14", {
+            cost: 40,
+            tokens: 2_900_000,
+            planned: 20,
+            points: 14,
+            effort: 70,
+            pred: 63,
+            lead: 70,
+            items: 6,
+          }),
+          sprint("p-mobile-s12", "Sprint 12", "2026-08-17", "2026-08-28", {
+            cost: 75,
+            tokens: 5_300_000,
+            planned: 20,
+            points: 17,
+            effort: 80,
+            pred: 74,
+            lead: 66,
+            items: 7,
+          }),
+          sprint("p-mobile-s13", "Sprint 13", "2026-08-31", "2026-09-11", {
+            cost: 130,
+            tokens: 8_700_000,
+            planned: 22,
+            points: 21,
+            effort: 88,
+            pred: 82,
+            lead: 58,
+            items: 9,
+          }),
+          sprint("p-mobile-s14", "Sprint 14", "2026-09-14", "2026-09-25", {
+            cost: 95,
+            tokens: 6_400_000,
+            planned: 22,
+            points: 19,
+            effort: 84,
+            pred: 80,
+            lead: 61,
+            items: 8,
+          }),
+        ],
+      },
+      {
+        projectId: "p-pagamentos",
+        name: "Pagamentos",
+        sprints: [
+          sprint("p-pagamentos-s30", "Sprint 30", "2026-08-24", "2026-09-04", {
+            planned: 18,
+            points: 16,
+            effort: 70,
+            pred: 89,
+            lead: 36,
+            items: 7,
+          }),
+          sprint("p-pagamentos-s31", "Sprint 31", "2026-09-07", "2026-09-18", {
+            planned: 18,
+            points: 18,
+            effort: 72,
+            pred: 100,
+            lead: 34,
+            items: 8,
+          }),
+        ],
+      },
+    ],
+  };
+}
+
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /** Fixture do servidor falso já parseada (para um teste montar a sua variação). */
@@ -376,6 +558,9 @@ export async function installDashboardsApi(page, opts = {}) {
     const o = JSON.parse(text);
     if (opts.legacy) return JSON.stringify(legacyShape(name, o));
     withNewMeasures(name, o);
+    /* `opts.sprintHistory`: "rich" (padrão) | "reduced" | "none" (sem o campo, como o ms antigo) */
+    if (name.startsWith("organization__") && opts.sprintHistory !== "none")
+      o.sprintHistory = sprintHistoryFixture(opts.sprintHistory || "rich");
     return JSON.stringify(opts.transform ? opts.transform(name, o) : o);
   };
 

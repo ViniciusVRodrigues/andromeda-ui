@@ -31,11 +31,7 @@ const VIEWS = [
     name: "Organização",
     query: "?escopo=org",
     section: "#org-ia-entrega",
-    cards: [
-      ["org.ia-portfolio", "Os projetos que mais usam IA entregam melhor?"],
-      ["org.ia-tendencia", "Custo de IA, throughput e lead time andam juntos?"],
-      ["org.ia-adocao", "Mais gente usando IA veio com mais entrega?"],
-    ],
+    cards: [["org.ia-sprints", "Como IA e entrega evoluíram nas sprints de cada projeto?"]],
   },
 ];
 
@@ -100,11 +96,12 @@ for (const view of VIEWS) {
     });
 
     test("gráfico de baixo do par tem role=img e rótulo próprio com números", async ({ page }) => {
-      await open(page, view);
-      const c = card(
-        page,
-        view.name === "Projeto" ? "projeto.ia-entrega-sprint" : "org.ia-tendencia",
+      test.skip(
+        view.name !== "Projeto",
+        "a Organização tem 4 gráficos (complexidade-esforco-org-sprints)",
       );
+      await open(page, view);
+      const c = card(page, "projeto.ia-entrega-sprint");
       await c.scrollIntoViewIfNeeded();
       const svgs = c.locator("svg[role=img]");
       await expect(svgs).toHaveCount(2);
@@ -183,16 +180,10 @@ for (const view of VIEWS) {
           card(page, "projeto.ia-entrega-sprint").locator("svg[role=img]").first(),
         ).toBeVisible();
       } else {
-        await page.route("**/api/v1/dashboards/organization**", async (route) => {
-          const body = await readFixture("organization__90");
-          body.ai.costByBucket = body.ai.costByBucket.slice(0, 2);
-          return json(route, body);
-        });
-        await open(page, view);
-        await expect(card(page, "org.ia-tendencia")).toContainText(
-          "São precisos ao menos 3 semanas com uso de IA para comparar; há 2.",
-        );
-        await expect(card(page, "org.ia-tendencia").locator("svg[role=img]").first()).toBeVisible();
+        await open(page, view, { sprintHistory: "reduced" });
+        const c = card(page, "org.ia-sprints");
+        await expect(c).toContainText("é cedo para concluir");
+        await expect(c.locator("svg[role=img]").first()).toBeVisible();
       }
     });
 
@@ -233,6 +224,12 @@ for (const view of VIEWS) {
           body.kpis.activeAiUsers = 0;
           body.previous.activeAiUsers = 0;
           body.ai.adoption.activeUsers = 0;
+          body.sprintHistory?.projects?.forEach((p) =>
+            p.sprints.forEach((x) => {
+              x.aiCostUsd = 0;
+              x.aiTokens = 0;
+            }),
+          );
           return json(route, body);
         });
       }
@@ -267,17 +264,6 @@ test("Projeto: alternâncias de modo, selo estimado e custo por faixa", async ({
   await expect(sprint.getByRole("table")).toContainText("US$ 70,50");
 });
 
-test("Organização: adoção compara o período anterior com o atual, sem aviso de amostra", async ({
-  page,
-}) => {
-  await open(page, VIEWS[1]);
-  const c = card(page, "org.ia-adocao");
-  await expect(c).toContainText("Pessoas com IA: 18 → 20");
-  await expect(c).not.toContainText("São precisos");
-  await c.getByRole("button", { name: "Tabela" }).click();
-  await expect(c.getByRole("table")).toContainText("Período anterior");
-});
-
 test("ms antigo: cards com campo ausente mostram sem dado e os demais funcionam", async ({
   page,
 }) => {
@@ -293,13 +279,8 @@ test("ms antigo: cards com campo ausente mostram sem dado e os demais funcionam"
   for (const id of ["projeto.ia-fluxo", "projeto.ia-qualidade", "projeto.ia-review"])
     await expect(card(page, id).locator("svg[role=img]").first()).toBeVisible();
   await gotoDashboard(page, VIEWS[1].query);
-  /* sem os campos de complexidade (ms antigo), o portfólio mostra o estado "sem complexidade" */
-  await expect(card(page, "org.ia-portfolio")).toContainText(
-    "Sem complexidade nos itens deste período",
-  );
-  for (const [id] of VIEWS[1].cards)
-    if (id !== "org.ia-portfolio" && id !== "org.ia-adocao")
-      await expect(card(page, id).locator("svg[role=img]").first()).toBeVisible();
+  /* ms antigo: sem `sprintHistory`, a seção mostra o aviso de IA e não quebra */
+  await expect(page.locator("#org-ia-entrega [data-ai-empty]")).toHaveCount(1);
   expect(errors).toEqual([]);
 });
 

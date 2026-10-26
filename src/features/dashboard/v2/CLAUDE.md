@@ -281,3 +281,9 @@ Baselines (só no Docker: `E2E_PORT=<porta> npm run e2e:docker`): `dashboard-ind
 `dashboard-individual-ai.png`, `dashboard-individual-prs.png`, `dashboard-team.png`, `dashboard-org.png`,
 `dashboard-project.png`, `refresh-control-running.png` e `shell-dashboard.png` (casca do admin, visão geral da
 organização).
+
+## Organização · IA e entrega por sprint (complexidade-esforco UI-5)
+
+- `org.ia-sprints` (`widgets/org/ia-sprints.jsx`): 4 mini-gráficos (`kit/SmallMultiples.jsx`, eixo X = data de fim da sprint, uma linha por projeto, top 5 por custo) + tabela gêmea. Alias de `org.ia-tendencia`; `org.ia-adocao` está `disabled`; `org.ia-portfolio` é `default:false` (3+ projetos com IA para a dispersão).
+- `TrendChart xType="time"` aceita pontos próprios por série (`points`), marcador por série, `connectNulls=false` e sprint em andamento tracejada com marcador vazado.
+- O `layout.js` entende `aliases` e `disabled` no `resolveLayout`. Cores: `projectColorByIndex(i)` (tokens `--series-1..5`).
