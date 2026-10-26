@@ -23,11 +23,13 @@ test("individual: IA em milhões de tokens e o uso de cada dia distribuído nos 
     "7,24M tokens na sprint",
   );
 
-  /* alocação: total do dia em milhões + a fatia de cada item */
+  /* alocação: o widget só resume (a faixa Uso de IA para alocar é quem lista os dias) */
   const allocation = page.locator("[data-widget-id='individual.alocacao']");
-  await expect(allocation).toContainText("Aguardando validação", { ignoreCase: true });
-  await expect(allocation).toContainText("1,22M · US$ 4,18");
-  await expect(allocation).toContainText("#4741 33%");
+  await expect(allocation).toContainText("Pendentes");
+  await expect(allocation.getByRole("button", { name: "Alocar ↑" })).toBeVisible();
+  const strip = page.getByRole("region", { name: "Uso de IA para alocar" });
+  await expect(strip.locator("[data-day='2026-09-30']")).toContainText("1,22M tokens");
+  await expect(strip.locator("[data-day='2026-09-30']")).toContainText(/#4741.*33%/);
   await allocation.scrollIntoViewIfNeeded();
   await expect(allocation).toHaveScreenshot("dashboard-individual-ai.png");
 

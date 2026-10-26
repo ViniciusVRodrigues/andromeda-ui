@@ -1,13 +1,13 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useSearchParams } from "react-router-dom";
 import { useIdentity } from "../../../core/auth/IdentityContext.jsx";
 import { api, toQuery } from "../../../core/api/client.js";
 import * as usage from "../api.js";
+import { useAllocateDay } from "./useAllocateDay.js";
 
 export function useUsoIa() {
   const [params, setParams] = useSearchParams();
   const { can } = useIdentity();
-  const client = useQueryClient();
   const current = new Date();
   const defaultMonth = `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, "0")}`;
   const month = /^\d{4}-(0[1-9]|1[0-2])$/.test(params.get("mes") || "")
@@ -53,19 +53,15 @@ export function useUsoIa() {
     enabled: can("uso-ia-team"),
     staleTime: 60000,
   });
-  const mutation = useMutation({
-    mutationFn: async ({ batch, splits, accept }) => {
+  const allocate = useAllocateDay();
+  /* a página usa `mutation.mutateAsync({ batch, splits, accept })`, `isPending`, `error` e `reset` */
+  const mutation = {
+    ...allocate,
+    mutateAsync: async (vars) => {
       if (selectedUserId) throw new Error("Este consumo é somente leitura.");
-      if (accept) return usage.acceptAllocation(batch.suggestionAllocationId);
-      return batch.suggestionAllocationId
-        ? usage.manualAllocate(batch.suggestionAllocationId, splits)
-        : usage.manualAllocateNoSuggestion(batch.day, splits);
+      return allocate.mutateAsync(vars);
     },
-    onSuccess: () =>
-      Promise.all(
-        ["ai-usage", "dashboard"].map((key) => client.invalidateQueries({ queryKey: [key] })),
-      ),
-  });
+  };
   return {
     month,
     setMonth: (value) => setParam("mes", value),

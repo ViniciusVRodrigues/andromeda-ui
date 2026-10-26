@@ -53,12 +53,6 @@ export function individualHighlights(d) {
           : `${stale.length} PRs seus estão sem nenhuma review; o mais antigo (#${oldest.number}, ${oldest.repo}) está aberto há ${fmtDuration(oldest.hoursOpen)}.`,
     });
   }
-  if (d.ai.allocation.pendingDays > 0) {
-    out.push({
-      tone: "info",
-      text: `${d.ai.allocation.pendingDays} dia(s) de uso de IA com divisão automática aguardando sua validação — sem ela o custo não entra nos itens.`,
-    });
-  }
   const cyc = delta(d.kpis.avgCycleTimeHours, d.previous?.avgCycleTimeHours);
   if (cyc && Math.abs(cyc.pct) >= 10 && out.length < 3) {
     out.push({

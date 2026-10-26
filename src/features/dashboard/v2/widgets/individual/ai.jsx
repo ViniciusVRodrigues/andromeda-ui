@@ -6,6 +6,7 @@ import { modelColor, STATUS_COLOR } from "../../kit/Badges.jsx";
 import { BarList, SegmentBar } from "../../kit/Bars.jsx";
 import { ColumnChart } from "../../kit/charts.jsx";
 import { Empty, Panel } from "../../kit/Panel.jsx";
+import { focusAllocationStrip } from "../../views/allocationStripId.js";
 
 export const selectTokensByDay = (d) => d.ai.byDay;
 
@@ -105,28 +106,30 @@ export function TokensPerSpWidget({ data: rows }) {
   );
 }
 
-export const selectAllocation = (d) => ({
-  allocation: d.ai.allocation,
-  pending: d.ai.pendingAllocations,
-});
+export const selectAllocation = (d) => {
+  const a = d.ai.allocation;
+  return {
+    allocation: a,
+    open: (d.ai.pendingAllocations?.length ?? 0) + (d.ai.unallocatedDayList?.length ?? 0),
+  };
+};
 
-/** @param {{ data: ReturnType<typeof selectAllocation>, ctx: { onReviewAi?: (() => void) | null } }} props */
-export function AllocationWidget({ data, ctx }) {
-  const { allocation: a, pending } = data;
+export function AllocationWidget({ data }) {
+  const { allocation: a, open } = data;
   return (
     <Panel
       eyebrow="alocação"
       title="Uso de IA distribuído nos itens"
       sources={["ia", "azure"]}
-      info="Cada dia de uso é dividido sozinho entre os seus itens em andamento e espera você validar. Dia sem item em andamento fica sem divisão, e o custo dele não aparece em nenhum item."
+      info="Quantos dias de uso de IA desta sprint já foram para os seus itens, quantos esperam a sua alocação e quantos não têm sugestão. A alocação é feita na faixa Uso de IA para alocar, acima do Resumo."
       actions={
-        ctx?.onReviewAi ? (
+        open > 0 ? (
           <button
             type="button"
-            onClick={ctx.onReviewAi}
-            className="mono text-accent-text cursor-pointer border-0 bg-transparent p-0 text-[12px] hover:underline"
+            onClick={focusAllocationStrip}
+            className="btn btn-ghost btn-xs min-h-[44px]"
           >
-            Revisar →
+            Alocar ↑
           </button>
         ) : null
       }
@@ -153,37 +156,10 @@ export function AllocationWidget({ data, ctx }) {
           },
         ]}
       />
-      {pending.length ? (
-        <div className="border-line mt-4 border-t pt-3">
-          <span className="mono text-fg-muted mb-2 block text-[11px] tracking-[0.1em] uppercase">
-            aguardando validação
-          </span>
-          <ul className="m-0 flex list-none flex-col gap-2 p-0">
-            {pending.map((p) => (
-              <li key={p.date} className="text-[12px]">
-                <div className="flex justify-between gap-2">
-                  <span className="mono text-fg">{p.label}</span>
-                  <span className="mono text-fg-muted tabular-nums">
-                    {fmtTokensM(p.tokens)} · {fmtUsd(p.costUsd)}
-                  </span>
-                </div>
-                <div
-                  className="mono text-fg-muted truncate font-normal"
-                  title={p.splits
-                    .map((s) => `${s.externalId ? `#${s.externalId} ` : ""}${s.title ?? "—"}`)
-                    .join(" · ")}
-                >
-                  {p.splits
-                    .map(
-                      (s) =>
-                        `${s.externalId ? `#${s.externalId}` : (s.title ?? "—")} ${Math.round(s.pct)}%`,
-                    )
-                    .join(" · ")}
-                </div>
-              </li>
-            ))}
-          </ul>
-        </div>
+      {open === 0 && a.validatedDays > 0 ? (
+        <p className="text-fg-muted m-0 mt-3 text-[12px] font-normal">
+          Todos os dias desta sprint estão alocados.
+        </p>
       ) : null}
     </Panel>
   );

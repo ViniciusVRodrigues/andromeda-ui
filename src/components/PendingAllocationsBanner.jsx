@@ -1,40 +1,16 @@
 import React from "react";
 
+/** Aviso "N dias de uso de IA precisam da sua revisão" (só tokens de cor; alvo de 44px). */
 export default function PendingAllocationsBanner({ count, onReview }) {
   if (!count || count === 0) return null;
 
   return (
-    <div
-      style={{
-        display: "flex",
-        alignItems: "center",
-        justifyContent: "space-between",
-        padding: "10px 18px",
-        background: "rgba(198,139,102,0.12)",
-        border: "1px solid var(--accent)",
-        borderRadius: 8,
-        marginBottom: 18,
-        gap: 16,
-      }}
-    >
-      <span style={{ fontSize: 13, color: "var(--fg)" }}>
-        <span style={{ color: "var(--accent)", fontWeight: 600 }}>{count}</span>{" "}
+    <div className="border-accent mb-[18px] flex flex-wrap items-center justify-between gap-x-4 gap-y-2 rounded-[8px] border bg-[color-mix(in_srgb,var(--accent)_12%,transparent)] px-[18px] py-2">
+      <span className="text-fg text-[13px]">
+        <span className="text-accent-text font-semibold">{count}</span>{" "}
         {count === 1 ? "dia de uso de IA precisa" : "dias de uso de IA precisam"} da sua revisão
       </span>
-      <button
-        onClick={onReview}
-        style={{
-          padding: "5px 14px",
-          background: "var(--accent)",
-          color: "#151B26",
-          border: "none",
-          borderRadius: 6,
-          fontSize: 12,
-          fontWeight: 600,
-          cursor: "pointer",
-          whiteSpace: "nowrap",
-        }}
-      >
+      <button type="button" onClick={onReview} className="btn min-h-[44px] whitespace-nowrap">
         Revisar
       </button>
     </div>
