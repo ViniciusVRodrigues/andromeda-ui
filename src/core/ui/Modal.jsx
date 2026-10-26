@@ -20,6 +20,7 @@ import "./ui.css";
  * @param {string} [props.closeLabel]  quando presente, o × se anuncia "Fechar sem salvar"
  * @param {boolean} [props.closeOnBackdrop]  padrão fecha no fundo; formulários
  *   de edição devem passar false para não perder edição em curso
+ * @param {boolean} [props.busy]  marca a caixa com aria-busy (operação em curso)
  * @param {string} [props.className]  classe extra na caixa (pele específica da tela)
  * @param {import("react").ReactNode} [props.footer]  ação do rodapé (botões)
  */
@@ -35,6 +36,7 @@ export function Modal({
   closeLabel,
   closeDisabled = false,
   closeOnBackdrop = true,
+  busy = false,
   className = "",
   children,
   footer,
@@ -62,6 +64,7 @@ export function Modal({
           className={`ui-modal-backdrop${stacked ? " ui-modal-backdrop--stacked" : ""}`}
         />
         <Dialog.Content
+          aria-busy={busy || undefined}
           className={`ui-modal${sizeClass}${stackClass}${className ? " " + className : ""}`}
           onPointerDownOutside={(e) => {
             // Formulários de edição não fecham no fundo — o clique perderia a edição em curso.
@@ -118,6 +121,9 @@ export function ConfirmDialog({
   danger = false,
   confirmPhrase,
   confirmPhraseLabel,
+  busyLabel = "…",
+  error,
+  confirmClassName = "",
 }) {
   // Ação irreversível pede um gesto deliberado: enquanto o texto digitado não
   // for exatamente `confirmPhrase`, o botão fica desabilitado. Sem a prop, o
@@ -125,6 +131,10 @@ export function ConfirmDialog({
   const [typed, setTyped] = React.useState("");
   const requiresPhrase = Boolean(confirmPhrase);
   const phraseOk = !requiresPhrase || typed.trim() === confirmPhrase;
+  const baseId = React.useId();
+  const inputId = `${baseId}-phrase`;
+  const hintId = `${baseId}-hint`;
+  const errorId = `${baseId}-error`;
 
   // Reabrir o diálogo não pode herdar o texto já validado da vez anterior.
   React.useEffect(() => {
@@ -134,10 +144,15 @@ export function ConfirmDialog({
   return (
     <Modal
       open={open}
-      onOpenChange={onOpenChange}
+      onOpenChange={(v) => {
+        // Enviando, nada fecha o diálogo (Esc, fundo e ×).
+        if (!busy) onOpenChange(v);
+      }}
       eyebrow={eyebrow}
       title={title}
       size="confirm"
+      closeDisabled={busy}
+      busy={busy}
       footer={
         <>
           <button
@@ -150,36 +165,49 @@ export function ConfirmDialog({
           </button>
           <button
             type="button"
-            className={danger ? "btn btn-danger" : "btn"}
+            className={`${danger ? "btn btn-danger" : "btn"}${confirmClassName ? " " + confirmClassName : ""}`}
             disabled={busy || !phraseOk}
             onClick={() => {
               onConfirm();
             }}
           >
-            {busy ? "…" : confirmLabel}
+            {busy ? busyLabel : confirmLabel}
           </button>
         </>
       }
     >
-      {message ? <p className="confirm-text">{message}</p> : null}
+      {message ? <div className="confirm-text">{message}</div> : null}
       {requiresPhrase ? (
-        <label className="ui-field">
-          <span className="ui-field-label">
+        <div className="ui-field">
+          <label htmlFor={inputId} className="ui-field-label">
             {confirmPhraseLabel ?? (
               <>
                 Digite <strong>{confirmPhrase}</strong> para confirmar
               </>
             )}
-          </span>
+          </label>
           <input
+            id={inputId}
             type="text"
             className="ui-field-input"
             value={typed}
             autoComplete="off"
+            autoCapitalize="none"
+            autoCorrect="off"
+            spellCheck={false}
             disabled={busy}
+            aria-describedby={`${hintId}${error ? ` ${errorId}` : ""}`}
             onChange={(e) => setTyped(e.target.value)}
           />
-        </label>
+          <p id={hintId} className="ui-field-hint" aria-live="polite">
+            {typed.length > 0 && phraseOk ? "✓ Confere" : ""}
+          </p>
+        </div>
+      ) : null}
+      {error ? (
+        <p id={errorId} className="ui-field-error" role="alert">
+          {error}
+        </p>
       ) : null}
     </Modal>
   );

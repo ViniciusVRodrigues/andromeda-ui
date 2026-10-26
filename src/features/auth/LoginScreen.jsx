@@ -1,12 +1,13 @@
 /* Login screen */
 
 import React from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import { Wordmark } from "../../components/Wordmark.jsx";
 
 function LoginScreen({ onLogin, onHome, error }) {
   const [email, setEmail] = React.useState("");
   const [password, setPassword] = React.useState("");
+  const notice = useLocation().state?.notice;
 
   const submit = (e) => {
     e.preventDefault();
@@ -53,6 +54,24 @@ function LoginScreen({ onLogin, onHome, error }) {
         <div className="login-sub uppercase" style={{ marginTop: 2 }}>
           Software Engineering Intelligence
         </div>
+
+        {notice ? (
+          <p
+            role="status"
+            style={{
+              margin: "16px 0 0",
+              padding: "10px 12px",
+              fontSize: 13,
+              textAlign: "center",
+              color: "var(--fg)",
+              border: "1px solid var(--line-strong)",
+              borderRadius: 10,
+              background: "var(--bg-elev)",
+            }}
+          >
+            {notice}
+          </p>
+        ) : null}
 
         <form onSubmit={submit}>
           <div className="field">

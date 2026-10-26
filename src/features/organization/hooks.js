@@ -46,6 +46,14 @@ export function useDeleteRole() {
   });
 }
 
+/** Exclui a organização do chamador: DELETE /v1/organizations/me com
+ * `{ confirmSlug }` (204). Sem invalidar nada: o chamador encerra a sessão. */
+export function useDeleteOrganization() {
+  return useMutation({
+    mutationFn: (confirmSlug) => api.delete("/v1/organizations/me", { body: { confirmSlug } }),
+  });
+}
+
 /** Substitui a lista de senioridades da organização (PUT com a lista completa). */
 export function useSaveSeniorities() {
   const queryClient = useQueryClient();

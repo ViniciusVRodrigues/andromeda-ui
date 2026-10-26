@@ -22,6 +22,7 @@ export const PERMISSION_LABELS = {
  * nome legível, para não aparecerem crus em "Minhas permissões". */
 const DISPLAY_ONLY_LABELS = {
   WORK_ITEM_MANAGE: "Gerenciar work items",
+  ORGANIZATION_DELETE: "Excluir a organização",
 };
 
 /** Label legível; códigos desconhecidos do front caem no próprio código. */
