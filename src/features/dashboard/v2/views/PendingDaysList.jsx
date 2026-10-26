@@ -32,12 +32,13 @@ export function dayLabel(iso) {
   return `${wd} ${dd(iso)}`;
 }
 
-/** Tokens em milhões com 2 casas ("0,54M", "2,35M"). */
+/** Tokens em milhões com 2 casas e separador de milhar ("0,54M", "2,35M", "1.336,6M"). */
 export function fmtM(tokens) {
   const m = Number(tokens || 0) / 1e6;
   if (m === 0) return "0";
   if (m < 0.005) return `${Math.round(tokens / 1000)} mil`;
-  return `${m.toFixed(m >= 10 ? 1 : 2).replace(".", ",")}M`;
+  const d = m >= 10 ? 1 : 2;
+  return `${m.toLocaleString("pt-BR", { minimumFractionDigits: d, maximumFractionDigits: d })}M`;
 }
 
 export const nDias = (n) => `${n} ${n === 1 ? "dia" : "dias"}`;
@@ -101,8 +102,6 @@ export function rowsFromBatches(batches) {
 
 /* ── ações, estado e foco ───────────────────────────────────────────────────── */
 
-/* principal: contorno e texto no tom de acento do tema (o preenchido não passa 4,5:1 na paleta clara) */
-const PRIMARY = { color: "var(--accent-text)", borderColor: "var(--accent-text)" };
 const keyOf = (row) => `day:${row.day}`;
 const isGone = (e) => e?.status === 409 || e?.status === 404;
 const closed = (st) => st === "done" || st === "already";
@@ -264,16 +263,16 @@ export function useDayActions(sourceRows, { fallbackFocus = null, sprintItems = 
 function Chips({ row }) {
   const pcts = wholePercents(row.splits);
   return (
-    <div className="flex flex-wrap gap-1.5">
+    <div className="flex flex-wrap gap-[8px]">
       {row.splits.map((s, i) => (
         <span
           key={`${s.workItemId ?? s.externalId ?? i}`}
           title={`${s.externalId ? `#${s.externalId} ` : ""}${s.title} ${pcts[i]}%`}
-          className="border-line bg-bg text-fg mono inline-flex max-w-full items-baseline gap-1 rounded-[var(--radius-sm)] border px-2 py-1 text-[12px] leading-snug font-normal"
+          className="border-line text-fg mono inline-flex max-w-full items-baseline gap-[6px] rounded-[var(--radius-sm)] border px-[8px] py-[3px] text-[12px] leading-tight font-normal"
         >
           {s.externalId ? <span className="text-fg-muted shrink-0">#{s.externalId}</span> : null}
           <span className="max-w-[28ch] truncate min-[1280px]:max-w-[40ch]">{s.title}</span>
-          <span className="shrink-0">{pcts[i]}%</span>
+          <span className="shrink-0 tabular-nums">{pcts[i]}%</span>
         </span>
       ))}
     </div>
@@ -288,64 +287,67 @@ function DayRow({ row, state, readOnly, actions }) {
   const suggestionName = row.splits
     .map((s, i) => `${s.externalId ? `#${s.externalId} ` : ""}${s.title} ${pcts[i]}%`)
     .join(", ");
-  const btn = "h-[44px] flex-1 @min-[600px]:flex-none";
+  /* alvo de 44 px de altura; a pílula visível é o span (como o "Gráfico/Tabela" do Panel) */
+  const btn =
+    "group/act inline-flex min-h-[44px] flex-1 cursor-pointer items-center border-0 bg-transparent p-0 focus-visible:outline-none disabled:cursor-default @min-[600px]:flex-none";
+  const pill = (busy, tone = "primary") =>
+    "mono group-focus-visible/act:outline-accent rounded-full border px-[12px] py-[5px] text-[11px] tracking-[0.12em] uppercase group-focus-visible/act:outline-2 group-focus-visible/act:outline-offset-2 w-full justify-center text-center @min-[600px]:w-auto " +
+    (tone === "primary" ? "border-accent-text text-accent-text" : "border-fg-muted text-fg") +
+    (busy ? " opacity-40" : "");
   let control = null;
   if (closed(state)) {
     control = (
-      <span className="mono text-good-text flex min-h-[44px] items-center text-[12px]">
+      <span className="mono text-good-text -my-[8px] flex min-h-[44px] items-center text-[12px]">
         {state === "done" ? "✓ Alocado" : "✓ Já alocado"}
       </span>
     );
   } else if (!ro) {
     const busy = state === "busy";
     control = (
-      <div className="flex gap-3">
+      <div className="-my-[8px] flex gap-[8px]">
         {hasSuggestion && state !== "error" ? (
           <button
             type="button"
             ref={actions.register(row, "primary")}
-            className={`btn btn-ghost btn-xs ${btn}`}
-            style={PRIMARY}
+            className={btn}
             disabled={busy}
             aria-busy={busy || undefined}
             aria-label={busy ? undefined : `Aceitar a sugestão de ${label}: ${suggestionName}`}
             onClick={() => actions.accept(row)}
           >
-            {busy ? "Aceitando…" : "Aceitar"}
+            <span className={pill(busy)}>{busy ? "Aceitando…" : "Aceitar"}</span>
           </button>
         ) : null}
         {state === "error" ? (
           <button
             type="button"
             ref={actions.register(row, "retry")}
-            className={`btn btn-ghost btn-xs ${btn}`}
-            style={PRIMARY}
+            className={btn}
             onClick={() => actions.accept(row)}
           >
-            Tentar de novo
+            <span className={pill(false)}>Tentar de novo</span>
           </button>
         ) : null}
         {hasSuggestion ? (
           <button
             type="button"
             ref={actions.register(row, "adjust")}
-            className={`btn btn-ghost btn-xs ${btn}`}
+            className={btn}
             disabled={busy}
             aria-label={`Ajustar a alocação de ${label}`}
             onClick={() => actions.openAdjust(row)}
           >
-            Ajustar
+            <span className={pill(busy, "plain")}>Ajustar</span>
           </button>
         ) : (
           <button
             type="button"
             ref={actions.register(row, "primary")}
-            className={`btn btn-ghost btn-xs ${btn}`}
-            style={PRIMARY}
+            className={btn}
             aria-label={`Alocar o uso de ${label}`}
             onClick={() => actions.openAdjust(row)}
           >
-            Alocar
+            <span className={pill(false)}>Alocar</span>
           </button>
         )}
       </div>
@@ -354,7 +356,7 @@ function DayRow({ row, state, readOnly, actions }) {
   return (
     <li
       data-day={row.day}
-      className="border-line bg-bg-elev flex flex-col gap-2 rounded-[var(--radius-sm)] border px-4 py-3 @min-[600px]:grid @min-[600px]:grid-cols-[9.5rem_minmax(0,1fr)_15rem] @min-[600px]:gap-x-4 @min-[600px]:rounded-none @min-[600px]:border-0 @min-[600px]:border-t @min-[600px]:bg-transparent @min-[600px]:px-0 @min-[600px]:py-2"
+      className="border-line flex flex-col gap-2 border-b py-[12px] last:border-b-0 @min-[600px]:grid @min-[600px]:grid-cols-[9.5rem_minmax(0,1fr)_15rem] @min-[600px]:gap-x-4"
     >
       <div className="min-w-0">
         <div className="mono text-fg text-[13px]">{dayLabel(row.day)}</div>
@@ -367,8 +369,8 @@ function DayRow({ row, state, readOnly, actions }) {
           <>
             <Chips row={row} />
             {row.source === "IN_PROGRESS" ? (
-              <p className="text-fg-muted m-0 mt-1.5 text-[12px] font-normal">
-                sugestão pelos itens em andamento: sem mudança sua no Azure neste dia
+              <p className="mono text-fg-muted m-0 mt-[6px] text-[11px] font-normal">
+                Sugestão pelos itens em andamento: sem mudança sua no Azure neste dia.
               </p>
             ) : null}
           </>
@@ -403,10 +405,14 @@ export function PendingDaysList({
 }) {
   const box = React.useRef(null);
   const [scrolls, setScrolls] = React.useState(false);
+  const [atEnd, setAtEnd] = React.useState(true);
   React.useLayoutEffect(() => {
     const el = box.current;
     if (!el || !bounded) return undefined;
-    const measure = () => setScrolls(el.scrollHeight > el.clientHeight + 1);
+    const measure = () => {
+      setScrolls(el.scrollHeight > el.clientHeight + 1);
+      setAtEnd(el.scrollTop + el.clientHeight >= el.scrollHeight - 1);
+    };
     measure();
     if (typeof ResizeObserver === "undefined") return undefined;
     const ro = new ResizeObserver(measure);
@@ -423,18 +429,23 @@ export function PendingDaysList({
         ref={box}
         id={id}
         hidden={hidden}
+        onScroll={(e) => {
+          const el = e.currentTarget;
+          setAtEnd(el.scrollTop + el.clientHeight >= el.scrollHeight - 1);
+        }}
         {...(scrolls ? { tabIndex: 0, role: "region", "aria-label": "Dias para alocar" } : {})}
         className={
           "scroll-slim focus-visible:outline-accent focus-visible:outline-2 focus-visible:outline-offset-2 " +
           (bounded
-            ? "max-h-[50svh] overflow-x-auto overflow-y-auto @min-[600px]:max-h-[min(360px,60svh)]"
+            ? "max-h-[50svh] overflow-x-auto overflow-y-auto pb-[8px] @min-[600px]:max-h-[min(360px,60svh)]"
+            : "") +
+          /* esmaece o fim enquanto há mais dias abaixo */
+          (bounded && scrolls && !atEnd
+            ? " [mask-image:linear-gradient(to_bottom,#000_calc(100%-32px),transparent)]"
             : "")
         }
       >
-        <ul
-          aria-label="Dias para alocar"
-          className="m-0 flex list-none flex-col gap-2 p-0 @min-[600px]:gap-0"
-        >
+        <ul aria-label="Dias para alocar" className="m-0 flex list-none flex-col p-0">
           {actions.rows.map((row) => (
             <DayRow
               key={row.day}

@@ -11,6 +11,7 @@ import React from "react";
 import { useIdentity } from "../../../../core/auth/IdentityContext.jsx";
 import { usePendingAllocations } from "../hooks.js";
 import { fmtUsd } from "../format.js";
+import { Tag } from "../kit/Badges.jsx";
 import { InfoTip } from "../kit/Panel.jsx";
 import { ALLOCATION_STRIP_TITLE_ID } from "./allocationStripId.js";
 import {
@@ -22,6 +23,9 @@ import {
 } from "./PendingDaysList.jsx";
 
 const LIST_ID = "alocacao-strip-list";
+/* ação de navegação em estilo link, alvo de 44 px (como o "Ver" do work.jsx) */
+const LINK =
+  "mono text-accent-text focus-visible:outline-accent inline-flex min-h-[44px] cursor-pointer items-center border-0 bg-transparent p-0 text-[12px] hover:underline focus-visible:outline-2 focus-visible:outline-offset-2";
 
 function readStored(key) {
   try {
@@ -106,100 +110,103 @@ export function AllocationStrip({ ai, sprint, items = [], onNavigate, onReviewAi
     <section
       ref={sectionRef}
       aria-labelledby={ALLOCATION_STRIP_TITLE_ID}
-      className={
-        "border-line bg-bg-elev @container mb-3 max-w-[1600px] rounded-[var(--radius-sm)] border border-l-[3px] " +
-        (done ? "border-l-good" : "border-l-warn")
-      }
+      className="border-line bg-bg-elev @container mb-3 max-w-[1600px] rounded-[var(--radius-sm)] border px-4 py-4"
     >
-      <div className="grid gap-x-6 px-4 py-3 @min-[1280px]:grid-cols-[280px_minmax(0,1fr)]">
-        <header className="min-w-0 @min-[1280px]:col-start-1 @min-[1280px]:row-start-1">
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex min-w-0 items-baseline gap-2">
-              <span aria-hidden="true" className="mono text-warn-text text-[14px]">
-                {done ? "✓" : "!"}
+      <header className="min-w-0">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <span className="mb-1 flex flex-wrap items-center gap-2">
+              <span className="mono text-fg-muted text-[11px] tracking-[0.14em] uppercase">
+                Alocação
               </span>
-              <h2
-                id={ALLOCATION_STRIP_TITLE_ID}
-                ref={titleRef}
-                tabIndex={-1}
-                className="serif text-fg m-0 text-[15px] font-normal focus-visible:outline-none"
-              >
-                Uso de IA para alocar
-              </h2>
-            </div>
+              {done ? (
+                <span className="mono text-good-text text-[11px]">✓ em dia</span>
+              ) : (
+                <Tag tone="warn">pendente</Tag>
+              )}
+            </span>
+            <h2
+              id={ALLOCATION_STRIP_TITLE_ID}
+              ref={titleRef}
+              tabIndex={-1}
+              className="serif text-fg m-0 text-[19px] leading-snug font-normal focus-visible:outline-none"
+            >
+              Uso de IA para alocar
+            </h2>
+          </div>
+          <div className="flex shrink-0 items-center gap-[8px]">
+            <button
+              type="button"
+              className={LINK}
+              aria-expanded={open}
+              aria-controls={LIST_ID}
+              onClick={toggle}
+            >
+              {open ? "Esconder os dias" : `Ver os ${rows.length} dias`}
+            </button>
             <InfoTip label="Uso de IA para alocar">
               Cada dia de uso de IA vai para os itens em que você trabalhou. A sugestão vem do que
               você mudou no Azure naquele dia. Confira e aceite, ou escolha os itens. Um dia pode ir
               para itens de qualquer projeto.
             </InfoTip>
           </div>
-          {done ? (
-            <p className="text-good-text m-0 mt-1 text-[13px]">✓ Tudo alocado nesta sprint.</p>
-          ) : (
-            <>
-              <p className="text-fg-muted m-0 mt-1 text-[13px] font-normal">
-                {past ? (
-                  <>
-                    <b className="text-fg font-normal">{nDias(remaining.length)}</b> da{" "}
-                    {sprint.name} (encerrada) ficaram sem alocação
-                  </>
-                ) : (
-                  <>
-                    <b className="text-fg font-normal">{nDias(remaining.length)}</b> desta sprint ·{" "}
-                    <b className="text-fg font-normal">{fmtM(tokens)}</b> tokens ·{" "}
-                    <b className="text-fg font-normal">{fmtUsd(cost)}</b> ainda fora dos seus itens
-                  </>
-                )}
-              </p>
-              <p className="mono text-fg-muted m-0 mt-0.5 text-[12px] font-normal">
-                {withSuggestion} com sugestão · {without} sem sugestão
-              </p>
-            </>
-          )}
-          <button
-            type="button"
-            className="btn btn-ghost btn-xs mt-2 min-h-[44px]"
-            aria-expanded={open}
-            aria-controls={LIST_ID}
-            onClick={toggle}
-          >
-            {open ? "Esconder os dias" : `Ver os ${rows.length} dias`}
-          </button>
-        </header>
+        </div>
+        {done ? (
+          <p className="text-good-text m-0 mt-2 text-[13px]">✓ Tudo alocado nesta sprint.</p>
+        ) : (
+          <>
+            <p className="text-fg-muted m-0 mt-2 text-[13px] font-normal">
+              {past ? (
+                <>
+                  <b className="text-fg font-normal">{nDias(remaining.length)}</b> da {sprint.name}{" "}
+                  (encerrada) ficaram sem alocação
+                </>
+              ) : (
+                <>
+                  <b className="text-fg font-normal">{nDias(remaining.length)}</b> desta sprint ·{" "}
+                  <b className="text-fg font-normal">{fmtM(tokens)}</b> tokens ·{" "}
+                  <b className="text-fg font-normal">{fmtUsd(cost)}</b> ainda fora dos seus itens
+                </>
+              )}
+            </p>
+            <p className="mono text-fg-muted m-0 mt-0.5 text-[12px] font-normal">
+              {withSuggestion} com sugestão · {without} sem sugestão
+            </p>
+          </>
+        )}
+      </header>
 
-        <PendingDaysList
-          actions={actions}
-          readOnly={readOnly}
-          id={LIST_ID}
-          hidden={!open}
-          className="mt-2 @min-[1280px]:col-start-2 @min-[1280px]:row-span-2 @min-[1280px]:row-start-1 @min-[1280px]:mt-0"
-        />
+      <PendingDaysList
+        actions={actions}
+        readOnly={readOnly}
+        id={LIST_ID}
+        hidden={!open}
+        className="border-line mt-3 border-t"
+      />
 
-        {showFooter ? (
-          <footer className="border-line mt-3 flex min-w-0 flex-wrap items-center gap-x-3 gap-y-1 border-t pt-2 @min-[1280px]:col-start-1 @min-[1280px]:row-start-2 @min-[1280px]:self-end">
-            {!readOnly ? (
-              <span className="text-fg-muted text-[13px] font-normal">{outsideText(outside)}</span>
-            ) : null}
-            {onNavigate ? (
-              <button
-                type="button"
-                className="btn btn-ghost btn-xs min-h-[44px]"
-                onClick={() => onNavigate("uso-ia")}
-              >
-                Ver no Uso de IA →
-              </button>
-            ) : onReviewAi && !readOnly ? (
-              <button
-                type="button"
-                className="btn btn-ghost btn-xs min-h-[44px]"
-                onClick={onReviewAi}
-              >
-                Ver todos os {total} dias
-              </button>
-            ) : null}
-          </footer>
-        ) : null}
-      </div>
+      {showFooter ? (
+        <footer className="border-line mt-3 flex min-w-0 flex-wrap items-center gap-x-2 border-t pt-[8px]">
+          {!readOnly ? (
+            <span className="mono text-fg-muted text-[12px] font-normal">
+              {outsideText(outside)}
+            </span>
+          ) : null}
+          {!readOnly && (onNavigate || onReviewAi) ? (
+            <span aria-hidden="true" className="mono text-fg-muted text-[12px]">
+              ·
+            </span>
+          ) : null}
+          {onNavigate ? (
+            <button type="button" className={LINK} onClick={() => onNavigate("uso-ia")}>
+              Ver no Uso de IA →
+            </button>
+          ) : onReviewAi && !readOnly ? (
+            <button type="button" className={LINK} onClick={onReviewAi}>
+              Ver todos os {total} dias
+            </button>
+          ) : null}
+        </footer>
+      ) : null}
     </section>
   );
 }

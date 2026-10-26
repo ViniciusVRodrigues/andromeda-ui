@@ -224,7 +224,11 @@ export function useSaveLayout(viewKey, options = {}) {
     const before = snapshot.current;
     snapshot.current = undefined;
     const gen = generation.current;
-    const stale = () => gen !== generation.current;
+    /* queryClient.clear() (logout/troca de conta) remove a query: o PUT em voo não recria o cache da conta anterior */
+    const query0 = qc.getQueryCache().find({ queryKey: key });
+    const stale = () =>
+      gen !== generation.current ||
+      (!!query0 && qc.getQueryCache().find({ queryKey: key }) !== query0);
     setStatus((s) => ({ ...s, isSaving: true }));
     chain.current = chain.current.then(async () => {
       if (stale()) return;

@@ -5,6 +5,7 @@ import { AllocationSlider } from "./AllocationSlider.jsx";
 import { getAllocationCandidates } from "../api.js";
 import { fmtTokensM } from "../../../core/tokenMath.js";
 import { Modal } from "../../../core/ui/Modal.jsx";
+import { TypeBadge } from "../../dashboard/v2/kit/Badges.jsx";
 
 /**
  * Redistribute the change in one slider's value proportionally across the others.
@@ -47,21 +48,33 @@ function redistributeProportional(items, changedIndex, newVal) {
  * Has a left accent border on hover to signal interactivity.
  */
 function CandidateRow({ si, wi, onAdd }) {
+  const type = si.type ?? wi?.type;
+  const ext = si.externalId ?? wi?.externalId;
+  const sp = si.storyPoints ?? wi?.storyPoints;
   return (
-    <div className="border-line flex flex-wrap items-center gap-2 border-b py-3">
-      <span className="text-accent font-mono text-sm">
-        {si.type ?? wi?.type} {si.externalId ?? wi?.externalId}
-      </span>
-      <WorkItemLink id={si.workItemId} className="min-w-0 flex-1">
-        {si.workItemTitle || si.title}
-      </WorkItemLink>
-      {(si.storyPoints ?? wi?.storyPoints) != null && (
-        <span className="text-fg-muted text-sm">{si.storyPoints ?? wi?.storyPoints} SP</span>
-      )}
-      <span className="text-fg-muted text-sm">{si.sprintName}</span>
+    <div className="border-line grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 border-b px-3 py-[10px] last:border-b-0">
+      <div className="min-w-0">
+        <div className="mono text-fg-muted flex flex-wrap items-center gap-x-2 text-[11px]">
+          {/* TypeBadge é do kit do dashboard v2; reaproveitado para o tipo ter a mesma cara */}
+          {type ? <TypeBadge type={type} /> : null}
+          {ext ? <span>#{ext}</span> : null}
+          {si.sprintName || sp != null ? (
+            <span>
+              · {si.sprintName}
+              {sp != null ? `${si.sprintName ? " · " : ""}${sp} SP` : ""}
+            </span>
+          ) : null}
+        </div>
+        <WorkItemLink
+          id={si.workItemId}
+          className="text-fg line-clamp-2 block w-full text-[13px] leading-snug"
+        >
+          {si.workItemTitle || si.title}
+        </WorkItemLink>
+      </div>
       <button
         type="button"
-        className="btn-ghost btn"
+        className="btn-ghost btn btn-xs min-h-[44px]"
         onClick={() => onAdd(si)}
         aria-label={"Adicionar " + (si.workItemTitle || si.title)}
       >
@@ -122,6 +135,7 @@ export function AllocationModal({
   });
 
   const [search, setSearch] = React.useState("");
+  const searchId = React.useId();
 
   const sum = items.reduce((s, it) => s + it.pct, 0);
   const sumOk = sum === 100;
@@ -206,6 +220,7 @@ export function AllocationModal({
   return (
     <Modal
       open
+      size="wide"
       onOpenChange={(o) => !o && onClose()}
       eyebrow="Uso de IA"
       title={<>Alocação de {String(batch.day).split("-").reverse().join("/")}</>}
@@ -230,13 +245,17 @@ export function AllocationModal({
       }
     >
       {error && (
-        <p role="alert" className="text-bad mb-3">
+        <p role="alert" className="text-bad m-0">
           {error}
         </p>
       )}
-      {candidateQuery.isPending && <p role="status">Carregando work items do dia…</p>}
+      {candidateQuery.isPending && (
+        <p role="status" className="m-0">
+          Carregando work items do dia…
+        </p>
+      )}
       {candidateQuery.isError && (
-        <p role="alert" className="text-bad mb-3">
+        <p role="alert" className="text-bad m-0">
           Não foi possível carregar os work items.{" "}
           <button className="btn" onClick={() => candidateQuery.refetch()}>
             Tentar novamente
@@ -250,7 +269,6 @@ export function AllocationModal({
             padding: "14px 16px",
             border: "1px dashed var(--line-strong)",
             borderRadius: "var(--radius-sm)",
-            marginBottom: 12,
             textAlign: "center",
           }}
         >
@@ -259,7 +277,7 @@ export function AllocationModal({
           </p>
         </div>
       ) : (
-        <div style={{ marginBottom: 12 }}>
+        <div className="flex flex-col gap-[8px]">
           {items.map((item, i) => (
             <AllocationSlider
               key={item.workItemId}
@@ -278,56 +296,42 @@ export function AllocationModal({
 
       {/* Sum indicator */}
       <div
+        className="flex flex-wrap items-center gap-x-2 rounded-[var(--radius-sm)] px-[10px] py-[6px]"
         style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 8,
-          padding: "6px 10px",
-          borderRadius: "var(--radius-sm)",
           background: sumOk
             ? "color-mix(in srgb, var(--good) 12%, transparent)"
             : "color-mix(in srgb, var(--bad) 12%, transparent)",
-          marginBottom: 12,
         }}
       >
-        <span
-          className="mono"
-          style={{ fontSize: "0.8rem", color: sumOk ? "var(--good)" : "var(--bad)" }}
-        >
+        <span className={`mono text-[12px] ${sumOk ? "text-good-text" : "text-bad-text"}`}>
           {sumOk
             ? `Σ = 100% ✓${dayTokens > 0 ? ` · ${fmtTokensM(dayTokens)} tokens alocados` : ""}`
             : `Σ = ${sum}%${dayTokens > 0 ? ` · ${fmtTokensM((sum / 100) * dayTokens)} de ${fmtTokensM(dayTokens)}` : ""}`}
         </span>
         {!sumOk && (
-          <span style={{ fontSize: "0.75rem", color: "var(--fg-muted)" }}>
-            O total deve ser exatamente 100%
-          </span>
+          <span className="text-fg-muted text-[12px]">O total deve ser exatamente 100%</span>
         )}
       </div>
 
       {/* Add item search */}
-      <div style={{ borderTop: "1px solid var(--line)", paddingTop: 12 }}>
-        <span className="label" style={{ fontSize: "0.75rem", display: "block", marginBottom: 6 }}>
+      <div className="border-line flex flex-col gap-[8px] border-t pt-[18px]">
+        <label
+          htmlFor={searchId}
+          className="mono text-fg-muted text-[11px] tracking-[0.14em] uppercase"
+        >
           Adicionar work item
-        </span>
+        </label>
         <input
-          className="ui-field-input"
+          id={searchId}
+          className="ui-field-input w-full"
           type="text"
           value={search}
           placeholder="Buscar por ID ou título…"
           onChange={(e) => setSearch(e.target.value)}
           disabled={loading}
-          style={{ marginBottom: 6 }}
         />
         {filteredSprint.length > 0 ? (
-          <div
-            style={{
-              border: "1px solid var(--line)",
-              borderRadius: "var(--radius-sm)",
-              maxHeight: 160,
-              overflowY: "auto",
-            }}
-          >
+          <div className="scroll-slim border-line max-h-[min(280px,40svh)] overflow-y-auto rounded-[var(--radius-sm)] border">
             {filteredSprint.slice(0, 20).map((si) => (
               <CandidateRow
                 key={si.workItemId}
@@ -338,7 +342,7 @@ export function AllocationModal({
             ))}
           </div>
         ) : (
-          <p className="mono" style={{ fontSize: "0.75rem", color: "var(--fg-muted)" }}>
+          <p className="mono text-fg-muted m-0 text-[12px]">
             {candidates === null ? "Carregando itens do sprint…" : "Nenhum item encontrado."}
           </p>
         )}
