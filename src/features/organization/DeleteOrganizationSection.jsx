@@ -70,8 +70,8 @@ export function DeleteOrganizationSection({ name, slug }) {
             description={
               <>
                 Encerra a organização <strong>{name}</strong> para todas as pessoas, inclusive você.
-                Ninguém mais consegue entrar. Projetos, integrações, painéis e histórico deixam de
-                ficar acessíveis. Não dá para desfazer.
+                Ninguém mais consegue entrar e todos os dados da organização são apagados: pessoas,
+                projetos, integrações, painéis, uso de IA e histórico. Não dá para desfazer.
               </>
             }
           />
@@ -94,7 +94,10 @@ export function DeleteOrganizationSection({ name, slug }) {
           message={
             <ul className="m-0 list-disc space-y-1 pl-5">
               <li>Todas as pessoas perdem o acesso na hora, inclusive você.</li>
-              <li>Projetos, integrações, painéis e histórico deixam de ficar acessíveis.</li>
+              <li>
+                Todos os dados da organização são apagados: pessoas, projetos, integrações, painéis,
+                uso de IA e histórico.
+              </li>
               <li>As integrações com Azure DevOps e GitHub param de sincronizar.</li>
               <li>Não é possível desfazer.</li>
             </ul>
