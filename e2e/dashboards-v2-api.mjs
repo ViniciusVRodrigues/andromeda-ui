@@ -59,6 +59,16 @@ function validBody(body) {
  * `doraSeries` no overview e `aiCostUsd`/`aiTokens`/`itemsWithAi` na calibração do roadmap.
  */
 export function legacyShape(name, o) {
+  const strip = (v) => {
+    if (Array.isArray(v)) v.forEach(strip);
+    else if (v && typeof v === "object") {
+      for (const k of Object.keys(v)) {
+        if (NEW_MEASURE_KEYS.has(k)) delete v[k];
+        else strip(v[k]);
+      }
+    }
+  };
+  strip(o);
   const drop = (rows, ...keys) => (rows || []).forEach((r) => keys.forEach((k) => delete r[k]));
   if (name.startsWith("individual__")) drop(o.items, "complexity");
   if (name.startsWith("team__")) {
@@ -69,9 +79,140 @@ export function legacyShape(name, o) {
     drop(o.sprints, "aiTokens");
     delete o.doraSeries;
   }
+  if (name.startsWith("team-flow__") && o.scope) delete o.scope.points;
   if (name.startsWith("roadmap__")) {
+    delete o.backlog?.points;
+    drop(o.backlog?.byTag, "points");
+    drop(o.deliveredByTag, "points");
+    drop(o.backlog?.forgotten, "complexity");
     for (const k of ["byEffort", "byComplexity"])
       drop(o.calibration?.[k], "aiCostUsd", "aiTokens", "itemsWithAi");
+  }
+  return o;
+}
+
+/**
+ * Campos novos da change complexidade-esforco (contrato do design.md), derivados dos antigos para
+ * as fixtures ficarem coerentes: complexidade = os antigos `sp*`, esforço registrado em horas,
+ * razões por ponto e por hora. Os antigos continuam no payload (D6, aditivo). Fixture do design:
+ * Story de 3 pts com Tasks de 4 h e 8 h (`effortRolledUp` 12), Bug sem complexidade, Story
+ * concluída, custo US$ 6. `legacyShape` tira tudo isto (ms antigo).
+ */
+const NEW_MEASURE_KEYS = new Set([
+  "complexityPlanned",
+  "complexityDelivered",
+  "complexityTotal",
+  "complexityDone",
+  "effortLogged",
+  "effortRolledUp",
+  "avgTokensPerPoint",
+  "avgTokensPerHour",
+  "tokensPerPoint",
+  "tokensPerHour",
+  "aiCostPerPoint",
+  "aiCostPerHour",
+  "unitsWithoutComplexity",
+  "itemsWithComplexity",
+  "tasksWithEffort",
+  "remainingPoints",
+  "idealPoints",
+  "pointsPerWeek",
+  "pointsDone",
+  "pointsPlanned",
+]);
+export function withNewMeasures(name, o) {
+  const num = (v) => (typeof v === "number" ? v : null);
+  const hours = (pts) => (pts == null ? null : Math.round(pts * 4 * 10) / 10);
+  const stats = (r) => {
+    if (!r || typeof r !== "object") return;
+    if ("spPlanned" in r) r.complexityPlanned = num(r.spPlanned);
+    if ("spDelivered" in r) {
+      r.complexityDelivered = num(r.spDelivered);
+      r.effortLogged = hours(num(r.spDelivered));
+    }
+    if ("avgTokensPerSp" in r) {
+      r.avgTokensPerPoint = num(r.avgTokensPerSp);
+      r.avgTokensPerHour = r.avgTokensPerSp == null ? null : Math.round(r.avgTokensPerSp / 4);
+    }
+    if ("aiCostPerSp" in r) {
+      r.aiCostPerPoint = num(r.aiCostPerSp);
+      r.aiCostPerHour = r.aiCostPerSp == null ? null : Math.round((r.aiCostPerSp / 4) * 100) / 100;
+    }
+  };
+  const items = (rows) =>
+    (rows || []).forEach((i) => {
+      const isTask = i.type === "TASK";
+      const hasTasks = !isTask && i.complexity != null;
+      i.effortRolledUp = hasTasks ? 12 : null; // Story 3 pts: Tasks de 4 h e 8 h
+      if ("tokensPerSp" in i) {
+        i.tokensPerPoint = num(i.tokensPerSp);
+        i.tokensPerHour = i.tokensPerSp == null ? null : Math.round(i.tokensPerSp / 4);
+      }
+    });
+  if (name.startsWith("individual__")) {
+    stats(o.kpis);
+    stats(o.previous);
+    (o.history || []).forEach(stats);
+    (o.burndown || []).forEach((b) => {
+      b.remainingPoints = num(b.remaining);
+      b.idealPoints = num(b.ideal);
+    });
+    items(o.items);
+    if (o.kpis) o.kpis.unitsWithoutComplexity = 1;
+  }
+  if (name.startsWith("team__")) {
+    stats(o.kpis);
+    stats(o.previous);
+    (o.members || []).forEach(stats);
+    (o.history || []).forEach(stats);
+    (o.burndown || []).forEach((b) => {
+      b.remainingPoints = num(b.remaining);
+      b.idealPoints = num(b.ideal);
+    });
+    items(o.agingItems);
+    if (o.kpis) o.kpis.itemsWithComplexity = o.kpis.itemsWithPoints ?? null;
+  }
+  if (name.startsWith("team-flow__") && o.scope && "atRiskSp" in o.scope)
+    o.scope.points = num(o.scope.atRiskSp);
+  if (name.startsWith("overview__")) {
+    stats(o.kpis);
+    stats(o.previous);
+    (o.sprints || []).forEach(stats);
+    if (o.ai) {
+      o.ai.tokensPerPoint = num(o.ai.tokensPerSp);
+      o.ai.tokensPerHour = o.ai.tokensPerSp == null ? null : Math.round(o.ai.tokensPerSp / 4);
+    }
+    if (o.dataQuality) {
+      o.dataQuality.itemsWithComplexity = 12;
+      o.dataQuality.tasksWithEffort = 20;
+    }
+  }
+  if (name.startsWith("roadmap__")) {
+    [...(o.epics || []), ...(o.features || [])].forEach((e) => {
+      e.complexityTotal = num(e.effortTotal);
+      e.complexityDone = num(e.effortDone);
+      e.pointsPerWeek = num(e.weeklyPace);
+    });
+    if (o.backlog) {
+      o.backlog.points = num(o.backlog.sp);
+      (o.backlog.forgotten || []).forEach((f) => {
+        f.complexity = num(f.effort);
+        f.effortRolledUp = f.complexity == null ? null : 12;
+      });
+      (o.backlog.byTag || []).forEach((t) => (t.points = num(t.sp)));
+    }
+    (o.deliveredByTag || []).forEach((t) => (t.points = num(t.sp)));
+  }
+  if (name.startsWith("organization__")) {
+    stats(o.kpis);
+    stats(o.previous);
+    (o.portfolio || []).forEach((p) => {
+      stats(p);
+      if (p.currentSprint) {
+        p.currentSprint.pointsDone = num(p.currentSprint.spDone);
+        p.currentSprint.pointsPlanned = num(p.currentSprint.spPlanned);
+      }
+    });
   }
   return o;
 }
@@ -231,9 +372,11 @@ export async function installDashboardsApi(page, opts = {}) {
    * `opts.legacy`, sem os campos aditivos da dashboards-ia-entrega (ms antigo) */
   const fx = (name) => {
     const text = fixture(name);
-    const transform = opts.legacy ? (n, o) => legacyShape(n, o) : opts.transform;
-    if (text == null || !transform) return text;
-    return JSON.stringify(transform(name, JSON.parse(text)));
+    if (text == null) return text;
+    const o = JSON.parse(text);
+    if (opts.legacy) return JSON.stringify(legacyShape(name, o));
+    withNewMeasures(name, o);
+    return JSON.stringify(opts.transform ? opts.transform(name, o) : o);
   };
 
   const json = (route, body, status = 200) =>

@@ -33,8 +33,12 @@ export function SprintStrip({ sprint, extra }) {
   );
 }
 
-/** Célula "tipo · #id / título" das tabelas de work item e PR. */
-export function ItemCell({ type, externalId, title, sub }) {
+/**
+ * Célula "tipo · #id / título" das tabelas de work item e PR. `meta` (opcional): texto
+ * secundário abaixo do título, usado quando as colunas Complex./Esforço somem no card estreito
+ * — ex.: `STORY #4741 · Complex. 3 · Esforço Σ 12 h` (monte com `measureMeta` de `kit/Measure.jsx`).
+ */
+export function ItemCell({ type, externalId, title, sub, meta }) {
   return (
     <div className="min-w-0">
       <div className="flex items-center gap-2">
@@ -48,6 +52,11 @@ export function ItemCell({ type, externalId, title, sub }) {
         {title}
       </div>
       {sub ? <div className="mono text-fg-muted mt-0.5 text-[11px] font-normal">{sub}</div> : null}
+      {meta ? (
+        <div data-item-meta className="text-fg-muted mt-0.5 text-[11px] leading-snug font-normal">
+          {meta}
+        </div>
+      ) : null}
     </div>
   );
 }

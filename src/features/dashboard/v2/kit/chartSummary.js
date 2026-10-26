@@ -27,9 +27,9 @@ const xOf = (data, i, xKey) => {
 /**
  * Resumo de linhas: cada série "de A (x0) a B (xn)" e, numa série só, o máximo.
  * @param {{ data: object[], series: Array<{key: string, label: string}>, xKey?: string,
- *   fmt?: (v: number, s?: object) => string }} p
+ *   fmt?: (v: number, s?: object) => string, noun?: string }} p
  */
-export function trendSummary({ data, series, xKey = "label", fmt = num }) {
+export function trendSummary({ data, series, xKey = "label", fmt = num, noun = "valores" }) {
   if (!data?.length) return "sem dados no período";
   const parts = series.map((s) => {
     const pts = values(data, s.key);
@@ -46,7 +46,7 @@ export function trendSummary({ data, series, xKey = "label", fmt = num }) {
     }
     return text;
   });
-  return `${data.length} pontos. ${parts.join("; ")}`;
+  return `${data.length} ${noun}. ${parts.join("; ")}`;
 }
 
 /**
@@ -102,7 +102,7 @@ const fmtOf = (fmt) => (v, s) => (s?.fmt ? s.fmt(v) : fmt(v, s));
  * @param {{ data: object[], ia: {key: string, label: string, fmt?: Function},
  *   metrics: Array<{key: string, label: string, fmt?: Function}>, xKey?: string, noun?: string }} p
  */
-export function pairedParts({ data, ia, metrics, xKey = "label", noun = "pontos" }) {
+export function pairedParts({ data, ia, metrics, xKey = "label", noun = "valores" }) {
   if (!data?.length) return { top: "sem dados no período", bottom: "sem dados no período" };
   const fmt = fmtOf(num);
   const part = (s) => {
@@ -123,7 +123,7 @@ export function pairedParts({ data, ia, metrics, xKey = "label", noun = "pontos"
  * @param {{ points: Array<{label: string, x: number, y: number}>, x: {label: string, fmt?: Function},
  *   y: {label: string, fmt?: Function}, noun?: string }} p
  */
-export function scatterSummary({ points, x, y, noun = "pontos" }) {
+export function scatterSummary({ points, x, y, noun = "valores" }) {
   const pts = (points || []).filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y));
   if (!pts.length) return "sem dados no período";
   const fx = x.fmt || num;

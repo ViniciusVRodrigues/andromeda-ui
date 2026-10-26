@@ -430,7 +430,7 @@ export function PairedColumns({
   metric,
   xKey = "label",
   height = 110,
-  noun = "pontos",
+  noun = "valores",
   summary,
   fill = false,
 }) {
@@ -544,7 +544,7 @@ export function ScatterChart({
   x,
   y,
   height = 220,
-  noun = "pontos",
+  noun = "valores",
   summary,
   fill = false,
 }) {
