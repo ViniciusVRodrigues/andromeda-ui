@@ -242,7 +242,7 @@ test("frescor do dado e aviso de alocação de IA pendente (paridade com o dashb
   await expect(page).toHaveURL(new RegExp(`/${SLUG}/uso-ia`));
 });
 
-test("modo só-dashboard (sem a casca): Revisar abre o painel de alocação aqui mesmo", async ({
+test("modo só-dashboard (sem a casca): Revisar abre o Drawer de alocação aqui mesmo", async ({
   page,
 }) => {
   await openAs(page, ["DASHBOARD_INDIVIDUAL"], "", {
@@ -251,7 +251,7 @@ test("modo só-dashboard (sem a casca): Revisar abre o painel de alocação aqui
   await expect(page.getByRole("button", { name: "Sair" })).toBeVisible();
   await expect(page.getByText("dia de uso de IA precisa da sua revisão")).toBeVisible();
   await page.getByRole("button", { name: "Revisar", exact: true }).click();
-  await expect(page.getByText("AI Usage Allocation")).toBeVisible();
+  await expect(page.getByRole("dialog", { name: "Uso de IA para alocar" })).toBeVisible();
   await expect(page).toHaveURL(/\/dashboard/);
 });
 
@@ -373,6 +373,7 @@ for (const [width, expectedCols] of [
 test("padrão do catálogo: seções na ordem e widgets do Resumo individual", async ({ page }) => {
   await openAs(page, ["DASHBOARD_INDIVIDUAL"]);
   await expect(page.getByRole("heading", { level: 2 })).toHaveText([
+    "Uso de IA para alocar",
     "Resumo da sprint",
     "Meu trabalho",
     "Código",
@@ -420,6 +421,7 @@ test("layout salvo com id desconhecido e ordem própria renderiza sem erro", asy
   /* a ordem das seções segue o layout salvo (as do catálogo ausentes dele vêm depois);
    * seções sem widget visível não aparecem */
   await expect(page.getByRole("heading", { level: 2 })).toHaveText([
+    "Uso de IA para alocar",
     "Meu trabalho",
     "Resumo da sprint",
     "Código",

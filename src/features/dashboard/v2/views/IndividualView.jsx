@@ -20,6 +20,7 @@ import { individualHighlights } from "../highlights.js";
 import { layoutFor, useDashboardLayouts, useIndividualDashboard } from "../hooks.js";
 import { Highlights } from "../kit/Panel.jsx";
 import { resolveLayout } from "../layout.js";
+import { AllocationStrip } from "./AllocationStrip.jsx";
 import { FetchFrame, SprintStrip, ViewError, ViewRefresh } from "./shared.jsx";
 
 const VIEW_KEY = "individual";
@@ -80,6 +81,14 @@ export function IndividualView({ projectId, sprintId, onNavigate, onReviewAi = n
       <div className="mt-2">
         <SprintStrip sprint={data.sprint} />
       </div>
+      <AllocationStrip
+        key={`${projectId}:${sprintId}`}
+        ai={data.ai}
+        sprint={data.sprint}
+        items={data.items}
+        onNavigate={onNavigate}
+        onReviewAi={onReviewAi}
+      />
       <DashboardGrid layout={layout} payload={data} ctx={ctx} />
     </FetchFrame>
   );

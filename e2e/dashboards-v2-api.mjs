@@ -62,16 +62,122 @@ export function readFixture(name) {
   return JSON.parse(text);
 }
 
+/* ── Alocação de IA (alocacao-no-dashboard, contrato.md) ─────────────────────────
+ * O individual sai com a forma NOVA de `ai` (allocation, pendingAllocations com
+ * allocationId/suggestionSource/splits em fração e unallocatedDayList). Variantes
+ * (`opts.allocation`):
+ *   "default": 2 dias com sugestão (30/09 AZURE_ACTIVITY, 29/09 IN_PROGRESS) + 1 sem (28/09)
+ *   "ten":     10 dias na janela da sprint (8 com sugestão, 2 sem)
+ *   "none":    sem pendência
+ *   "legacy":  a fixture crua (forma antiga, sem allocationId): faixa somente leitura
+ * O id da alocação é `alloc-<dia>`. Os POSTs de alocar tiram o dia das próximas leituras. */
+const addDays = (iso, n) => {
+  const d = new Date(`${iso}T12:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + n);
+  return d.toISOString().slice(0, 10);
+};
+
+/** Dias do `pending-batches` global: os da sprint (30/09, 29/09, 28/09) e mais `total - 3` antes dela. */
+export function globalPendingBatches(total = 62) {
+  const days = [];
+  for (let i = 0; i < total; i++)
+    days.push(i < 3 ? addDays("2026-09-30", -i) : addDays("2026-09-20", -(i - 3)));
+  return days.map((day, i) => ({
+    day,
+    totalInputTokens: 400000 + i * 1000,
+    totalOutputTokens: 140000,
+    totalInteractions: 12,
+    estimatedCostUsd: 1.93,
+    ...(i === 2
+      ? {}
+      : {
+          suggestionAllocationId: `alloc-${day}`,
+          suggestionSource: i === 1 ? "IN_PROGRESS" : "AZURE_ACTIVITY",
+          suggestion: [
+            {
+              workItemId: "wi-4741",
+              workItemTitle: "Histórico de alterações em área do cliente",
+              percentage: 0.5,
+            },
+            {
+              workItemId: "wi-4742",
+              workItemTitle: "Adicionar testes de carrinho",
+              percentage: 0.5,
+            },
+          ],
+        }),
+  }));
+}
+
+function allocationPayload(payload, variant, doneDays) {
+  const ai = payload.ai;
+  const validated = ai.allocation?.validatedDays ?? 0;
+  const itemId = (ext) =>
+    payload.items.find((i) => String(i.externalId) === String(ext))?.id ?? `wi-${ext}`;
+  const upgrade = (p, source) => ({
+    allocationId: `alloc-${p.date}`,
+    day: p.date,
+    tokens: p.tokens,
+    cost: p.costUsd,
+    suggestionSource: source,
+    splits: p.splits.map((sp, i, all) => ({
+      workItemId: itemId(sp.externalId),
+      externalId: Number(sp.externalId),
+      title: sp.title,
+      percentage:
+        i === all.length - 1 ? Number((1 - (all.length - 1) * 0.3333).toFixed(4)) : 0.3333,
+    })),
+  });
+  const old = ai.pendingAllocations;
+  let pending = [];
+  const unalloc = [];
+  if (variant === "default" && old.length) {
+    pending = old.slice(0, 2).map((p, i) => upgrade(p, i === 0 ? "AZURE_ACTIVITY" : "IN_PROGRESS"));
+    old.slice(2).forEach((p) => unalloc.push({ day: p.date, tokens: p.tokens, cost: p.costUsd }));
+  } else if (variant === "ten" && old.length) {
+    const base = old[0];
+    for (let i = 0; i < 10; i++) {
+      const day = addDays("2026-09-30", -i);
+      const p = {
+        ...base,
+        date: day,
+        tokens: base.tokens - i * 40000,
+        costUsd: base.costUsd - i * 0.2,
+      };
+      if (i === 3 || i === 7) unalloc.push({ day, tokens: p.tokens, cost: p.costUsd });
+      else pending.push(upgrade(p, i % 3 === 1 ? "IN_PROGRESS" : "AZURE_ACTIVITY"));
+    }
+  }
+  pending = pending.filter((p) => !doneDays.has(p.day));
+  const unallocLeft = unalloc.filter((u) => !doneDays.has(u.day));
+  const summary = {
+    validatedDays: validated + doneDays.size,
+    pendingDays: pending.length,
+    unallocatedDays: unallocLeft.length,
+  };
+  return {
+    ...payload,
+    ai: {
+      ...ai,
+      allocation: summary,
+      pendingAllocations: pending,
+      unallocatedDayList: unallocLeft,
+    },
+  };
+}
+
 /**
  * Instala o servidor falso no contexto da página.
  * @param {import("@playwright/test").Page} page
  * @param {{ permissions?: string[], layouts?: object[], me?: object, pending?: object[],
- *   passthrough?: boolean }} [opts]
+ *   allocation?: "default"|"ten"|"none"|"legacy", passthrough?: boolean }} [opts]
  * @returns {Promise<{
  *   layouts: () => object[], saved: (viewKey?: string) => object | null,
  *   failLayouts: (methods: string[]) => void,
  *   delaySource: (source: string, ms: number) => void,
  *   failSource: (source: string, on: boolean) => void,
+ *   failAllocation: (action: "accept"|"adjust"|"day", status: number|null) => void,
+ *   delayAllocation: (ms: number) => void, allocated: () => string[],
  *   requests: string[] }>}
  */
 export async function installDashboardsApi(page, opts = {}) {
@@ -81,6 +187,9 @@ export async function installDashboardsApi(page, opts = {}) {
     delay: {},
     fail: {},
     requests: [],
+    allocFail: {},
+    allocDelay: 0,
+    allocated: new Set(),
   };
   const me = {
     userId: E2E_USER_ID,
@@ -115,7 +224,63 @@ export async function installDashboardsApi(page, opts = {}) {
 
     if (p === "/v1/auth/me") return opts.passthrough ? route.fallback() : json(route, me);
     if (p === "/v1/projects") return raw(route, fixture("projects"));
-    if (p === "/v1/ai/allocations/pending-batches") return json(route, opts.pending || []);
+    if (p === "/v1/ai/allocations/pending-batches")
+      return json(
+        route,
+        (opts.pending || []).filter((b) => !state.allocated.has(b.day)),
+      );
+
+    /* alocar (contrato.md): accept, manual por id e manual por dia */
+    if (method === "POST" && p.startsWith("/v1/ai/allocations/")) {
+      if (state.allocDelay) await sleep(state.allocDelay);
+      let action = "day";
+      let day = null;
+      const byId = /^\/v1\/ai\/allocations\/([^/]+)\/(accept|manual)$/.exec(p);
+      if (byId) {
+        action = byId[2] === "accept" ? "accept" : "adjust";
+        day = byId[1].replace(/^alloc-/, "");
+      } else if (p === "/v1/ai/allocations/manual") {
+        try {
+          day = req.postDataJSON()?.day ?? null;
+        } catch {
+          return json(route, { code: "MALFORMED_REQUEST" }, 400);
+        }
+      } else return json(route, { code: "NOT_FOUND" }, 404);
+      const status = state.allocFail[action];
+      if (status) {
+        if (status === 409 && day) state.allocated.add(day);
+        const code =
+          status === 409
+            ? "ALLOCATION_ALREADY_VALIDATED"
+            : status === 422
+              ? "ALLOCATION_SPLITS_INVALID"
+              : "INTERNAL_ERROR";
+        return json(route, { code }, status);
+      }
+      if (day) state.allocated.add(day);
+      return route.fulfill({ status: 204, body: "" });
+    }
+    if (/^\/v1\/ai\/allocations\/[^/]+\/candidates$/.test(p))
+      return json(route, [
+        {
+          workItemId: "wi-4741",
+          title: "Histórico de alterações em área do cliente",
+          externalId: "4741",
+          type: "STORY",
+        },
+        {
+          workItemId: "wi-4742",
+          title: "Adicionar testes de carrinho",
+          externalId: "4742",
+          type: "STORY",
+        },
+        {
+          workItemId: "wi-4743",
+          title: "Revisar fluxo de pagamento",
+          externalId: "4743",
+          type: "TASK",
+        },
+      ]);
 
     let m = /^\/v1\/projects\/([^/]+)\/sprints$/.exec(p);
     if (m) return raw(route, fixture(`sprints__${m[1]}`));
@@ -129,7 +294,11 @@ export async function installDashboardsApi(page, opts = {}) {
       const projectId = q.get("projectId");
       if (!projectId) return json(route, { code: "ACCESS_DENIED" }, 403);
       const kind = p.endsWith("team") ? "team" : "individual";
-      return raw(route, fixture(`${kind}__${projectId}__${sprintOf(projectId)}`));
+      const text = fixture(`${kind}__${projectId}__${sprintOf(projectId)}`);
+      const variant = opts.allocation || "default";
+      if (kind === "individual" && text != null && variant !== "legacy")
+        return json(route, allocationPayload(JSON.parse(text), variant, state.allocated));
+      return raw(route, text);
     }
     if (p === "/v1/dashboards/team/flow") {
       const projectId = q.get("projectId");
@@ -206,6 +375,13 @@ export async function installDashboardsApi(page, opts = {}) {
     failSource: (name, on) => {
       state.fail[name] = on;
     },
+    failAllocation: (action, status) => {
+      state.allocFail[action] = status;
+    },
+    delayAllocation: (ms) => {
+      state.allocDelay = ms;
+    },
+    allocated: () => [...state.allocated],
     requests: state.requests,
   };
 }

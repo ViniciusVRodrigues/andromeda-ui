@@ -28,9 +28,8 @@ import { dashboardFilterAction } from "../../../core/telemetry/actions.js";
 import { orgRoute } from "../../../lib/orgRoutes.js";
 import { fmtDate } from "./format.js";
 import { useDashboardProjects, usePendingAllocations, useProjectSprints } from "./hooks.js";
-import { useQueryClient } from "@tanstack/react-query";
 import PendingAllocationsBanner from "../../../components/PendingAllocationsBanner.jsx";
-import AllocationPanel from "../../ai-usage/AllocationPanel.jsx";
+import { AllocationDrawer } from "./views/AllocationDrawer.jsx";
 import { IndividualView, INDIVIDUAL_SECTIONS } from "./views/IndividualView.jsx";
 import { TeamView, TEAM_SECTIONS } from "./views/TeamView.jsx";
 import { ProjectView, PROJECT_SECTIONS } from "./views/ProjectView.jsx";
@@ -121,7 +120,6 @@ export function DashboardsPage({ onLogout, onNavigate }) {
   const projects = useDashboardProjects(ident.identity?.userId ?? null);
   /* Aviso de alocação de IA pendente. Com a casca, "Revisar" leva ao Uso de IA; no modo
    * só-dashboard (sem navegação) abre o painel de alocação aqui mesmo. */
-  const qc = useQueryClient();
   const canReviewAi = access.individual && (!onNavigate || !!ident.can?.("uso-ia"));
   const pending = usePendingAllocations(canReviewAi);
   const [allocationOpen, setAllocationOpen] = React.useState(false);
@@ -257,13 +255,11 @@ export function DashboardsPage({ onLogout, onNavigate }) {
         </header>
 
         {canReviewAi ? <PendingAllocationsBanner count={pendingCount} onReview={reviewAi} /> : null}
-        {allocationOpen && pendingCount ? (
-          <AllocationPanel
-            pendingDays={pending.data}
+        {canReviewAi && !onNavigate ? (
+          <AllocationDrawer
+            open={allocationOpen}
             onClose={() => setAllocationOpen(false)}
-            onSaved={() => {
-              qc.invalidateQueries({ queryKey: ["dashboards-v2"] });
-            }}
+            batches={pending.data}
           />
         ) : null}
 

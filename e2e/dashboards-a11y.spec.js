@@ -128,6 +128,7 @@ async function setPalette(page, p) {
 
 const CONTRAST_PAGES = [
   ["individual", ["DASHBOARD_INDIVIDUAL"], "", "Histórico"],
+  ["individual com alocação", ["DASHBOARD_INDIVIDUAL", "AI_READ_OWN"], "", "Histórico"],
   ["equipe resumo", ALL, EQUIPE, null],
   ["equipe fluxo", ALL, `${EQUIPE}&aba=fluxo`, null],
   ["projeto resumo", ALL, PROJETO, null],
@@ -760,7 +761,9 @@ for (const [name, perms, query] of [
     await openAs(page, perms, query);
     const top = await page.evaluate(() => {
       const cands = [
-        ...document.querySelectorAll("[data-dashboard-v2] section [role=list], [data-widget-id]"),
+        ...document.querySelectorAll(
+          "[data-dashboard-v2] section [role=list], [data-widget-id], section[aria-labelledby=alocacao-strip-title]",
+        ),
       ].filter((e) => e.getClientRects().length);
       return Math.min(...cands.map((e) => e.getBoundingClientRect().top));
     });

@@ -1,5 +1,5 @@
 /* Matemática de alocação percentual — funções puras compartilhadas entre os
- * editores de split (AllocationPanel; AllocationModal unifica aqui quando
+ * editores de split (o antigo AllocationPanel; AllocationModal unifica aqui quando
  * uso-ia e ai-usage se fundirem em frontend-feature-slices).
  *
  * Invariantes (teste de mesa documentado em docs/frontend-primitives.md):
