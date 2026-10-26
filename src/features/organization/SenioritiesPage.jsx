@@ -81,7 +81,7 @@ export function SenioritiesPage() {
 
   if (error) {
     return (
-      <div className="admin-placeholder mono" style={{ color: "var(--danger, #c0392b)" }}>
+      <div className="admin-placeholder mono" style={{ color: "var(--bad-text)" }}>
         Não foi possível carregar os níveis de senioridade.{" "}
         <button className="btn" style={{ marginLeft: "var(--spacing-sm)" }} onClick={refetch}>
           Tentar novamente

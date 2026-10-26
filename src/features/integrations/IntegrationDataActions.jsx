@@ -82,7 +82,7 @@ export function IntegrationDataActions({
       {resultado ? (
         <p
           className={`mono mt-3 ${
-            resultado.tipo === "erro" ? "text-[var(--bad)]" : "text-[var(--good)]"
+            resultado.tipo === "erro" ? "text-[var(--bad-text)]" : "text-[var(--good)]"
           }`}
           role="status"
         >

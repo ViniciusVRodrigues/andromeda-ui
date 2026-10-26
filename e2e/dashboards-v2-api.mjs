@@ -394,9 +394,13 @@ export async function installDashboardsApi(page, opts = {}) {
   };
 }
 
-/** Login falso: token no localStorage e vai ao dashboard. */
+/** Login falso: token no localStorage e vai ao dashboard.
+ *
+ * O token entra por script de inicialização, antes do primeiro script da página. Antes
+ * isto abria `/login` só para ter uma origem onde gravar o token: um boot completo do app
+ * (centenas de módulos do Vite) a mais por chamada, que em CPU limitada (CI) estourava
+ * o tempo do teste e deixava o `h1 Dashboard` sem aparecer (FLK1). */
 export async function gotoDashboard(page, query = "") {
-  await page.goto("/login");
-  await page.evaluate(() => localStorage.setItem("andromeda_token", "e2e-token"));
+  await page.addInitScript(() => localStorage.setItem("andromeda_token", "e2e-token"));
   await page.goto(`/${SLUG}/dashboard${query}`);
 }
