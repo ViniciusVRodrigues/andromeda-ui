@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { gotoDashboard, installDashboardsApi } from "./dashboards-v2-api.mjs";
+import { gotoDashboard, installDashboardsApi, withNewMeasures } from "./dashboards-v2-api.mjs";
 
 /* dashboards-ia-entrega UI-3: cards "IA × métrica" do Projeto (7) e da Organização (3),
  * no padrão comum (D4): pergunta, legenda com unidade, ajuda "não causa", gráfico
@@ -24,7 +24,7 @@ const VIEWS = [
         "projeto.ia-esforco-complexidade",
         "Itens maiores ou mais complexos consomem mais IA e demoram mais?",
       ],
-      ["projeto.custo-ia-sp", "Custo de IA por SP entregue"],
+      ["projeto.custo-ia-sp", "Custo de IA por ponto entregue"],
     ],
   },
   {
@@ -53,7 +53,9 @@ const json = (route, body) =>
 
 async function readFixture(name) {
   const fs = await import("node:fs");
-  return JSON.parse(fs.readFileSync(`e2e/fixtures/dashboards-v2/${name}.json`, "utf8"));
+  const o = JSON.parse(fs.readFileSync(`e2e/fixtures/dashboards-v2/${name}.json`, "utf8"));
+  withNewMeasures(name, o); // campos novos (complexidade, esforço) como o ms novo manda
+  return o;
 }
 
 for (const view of VIEWS) {
@@ -168,7 +170,7 @@ for (const view of VIEWS) {
             if (i >= 2) {
               s.aiTokens = null;
               s.aiCostUsd = null;
-              s.aiCostPerSp = null;
+              s.aiCostPerPoint = null;
             }
           });
           return json(route, body);
@@ -201,7 +203,7 @@ for (const view of VIEWS) {
           body.sprints.forEach((s) => {
             s.aiTokens = 0;
             s.aiCostUsd = 0;
-            s.aiCostPerSp = 0;
+            s.aiCostPerPoint = 0;
           });
           body.ai.costByBucket.forEach((r) =>
             Object.keys(r.byModel).forEach((m) => (r.byModel[m] = 0)),
@@ -223,7 +225,7 @@ for (const view of VIEWS) {
           const body = await readFixture("organization__90");
           body.portfolio.forEach((p) => {
             p.aiCostUsd = 0;
-            p.aiCostPerSp = 0;
+            p.aiCostPerPoint = 0;
           });
           body.ai.costByBucket.forEach((r) =>
             Object.keys(r.byModel).forEach((m) => (r.byModel[m] = 0)),
@@ -258,7 +260,7 @@ test("Projeto: alternâncias de modo, selo estimado e custo por faixa", async ({
   const effort = card(page, "projeto.ia-esforco-complexidade");
   await effort.getByRole("button", { name: "Complexidade" }).click();
   await effort.getByRole("button", { name: "Tabela" }).click();
-  await expect(effort.getByRole("table")).toContainText("Complexidade 1");
+  await expect(effort.getByRole("table")).toContainText("1 pt");
   const sprint = card(page, "projeto.ia-entrega-sprint");
   await sprint.getByRole("button", { name: "US$" }).click();
   await sprint.getByRole("button", { name: "Tabela" }).click();
@@ -291,8 +293,13 @@ test("ms antigo: cards com campo ausente mostram sem dado e os demais funcionam"
   for (const id of ["projeto.ia-fluxo", "projeto.ia-qualidade", "projeto.ia-review"])
     await expect(card(page, id).locator("svg[role=img]").first()).toBeVisible();
   await gotoDashboard(page, VIEWS[1].query);
+  /* sem os campos de complexidade (ms antigo), o portfólio mostra o estado "sem complexidade" */
+  await expect(card(page, "org.ia-portfolio")).toContainText(
+    "Sem complexidade nos itens deste período",
+  );
   for (const [id] of VIEWS[1].cards)
-    await expect(card(page, id).locator("svg[role=img]").first()).toBeVisible();
+    if (id !== "org.ia-portfolio" && id !== "org.ia-adocao")
+      await expect(card(page, id).locator("svg[role=img]").first()).toBeVisible();
   expect(errors).toEqual([]);
 });
 

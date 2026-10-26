@@ -5,7 +5,7 @@
  * Limiares nomeados em HIGHLIGHT_THRESHOLDS para ficarem auditáveis.
  */
 
-import { delta, fmtDuration, fmtPct, fmtUsd } from "./format.js";
+import { delta, fmtDuration, fmtPct, fmtPoints, fmtUsd, isNum } from "./format.js";
 
 export const HIGHLIGHT_THRESHOLDS = {
   paceGapPct: 15, // p.p. entre % do tempo corrido e % entregue
@@ -19,20 +19,20 @@ export const HIGHLIGHT_THRESHOLDS = {
 const T = HIGHLIGHT_THRESHOLDS;
 
 function pace(sprint, planned, delivered, who) {
-  if (sprint.timeFrame !== "CURRENT" || !planned) return null;
+  if (sprint.timeFrame !== "CURRENT" || !planned || !isNum(delivered)) return null;
   const elapsed = (sprint.dayIndex / sprint.dayCount) * 100;
   const done = (delivered / planned) * 100;
   const restantes = sprint.dayCount - sprint.dayIndex;
   if (elapsed - done >= T.paceGapPct) {
     return {
       tone: "warn",
-      text: `${who} ${fmtPct(done)} dos pontos com ${fmtPct(elapsed)} da sprint corrida — faltam ${planned - delivered} SP para ${restantes} dia(s) útil(eis).`,
+      text: `${who} ${fmtPct(done)} da complexidade planejada com ${fmtPct(elapsed)} da sprint corrida — faltam ${fmtPoints(planned - delivered, { total: true })} de complexidade para ${restantes} dia(s) útil(eis).`,
     };
   }
   if (done - elapsed >= 5) {
     return {
       tone: "good",
-      text: `${who} ${fmtPct(done)} dos pontos com ${fmtPct(elapsed)} da sprint corrida — à frente da linha ideal.`,
+      text: `${who} ${fmtPct(done)} da complexidade planejada com ${fmtPct(elapsed)} da sprint corrida — à frente da linha ideal.`,
     };
   }
   return null;
@@ -40,7 +40,7 @@ function pace(sprint, planned, delivered, who) {
 
 export function individualHighlights(d) {
   const out = [];
-  const p = pace(d.sprint, d.kpis.spPlanned, d.kpis.spDelivered, "Você entregou");
+  const p = pace(d.sprint, d.kpis.complexityPlanned, d.kpis.complexityDelivered, "Você entregou");
   if (p) out.push(p);
   const stale = d.pullRequests.filter((pr) => pr.stale);
   if (stale.length) {
@@ -65,7 +65,7 @@ export function individualHighlights(d) {
 
 export function teamHighlights(d) {
   const out = [];
-  const p = pace(d.sprint, d.kpis.spPlanned, d.kpis.spDelivered, "O time entregou");
+  const p = pace(d.sprint, d.kpis.complexityPlanned, d.kpis.complexityDelivered, "O time entregou");
   if (p) out.push(p);
   if (d.stalePrs.length) {
     const oldest = d.stalePrs[0];
@@ -107,11 +107,14 @@ export function teamHighlights(d) {
       text: `${topReviewer.name} fez ${fmtPct((topReviewer.reviewsGiven / reviews) * 100)} das reviews da sprint — a revisão está concentrada em uma pessoa.`,
     });
   }
-  const cov = d.kpis.itemsTotal ? (d.kpis.itemsWithPoints / d.kpis.itemsTotal) * 100 : 100;
+  const cov =
+    d.kpis.itemsTotal && isNum(d.kpis.itemsWithComplexity)
+      ? (d.kpis.itemsWithComplexity / d.kpis.itemsTotal) * 100
+      : 100;
   if (cov < T.estimateCoveragePct && out.length < 3) {
     out.push({
       tone: "info",
-      text: `${d.kpis.itemsTotal - d.kpis.itemsWithPoints} item(ns) da sprint sem estimativa — eles ficam fora da velocity e do custo de IA por SP.`,
+      text: `${d.kpis.itemsTotal - d.kpis.itemsWithComplexity} item(ns) da sprint sem complexidade — eles ficam fora da velocity e do custo de IA por ponto.`,
     });
   }
   return out.slice(0, 3);
@@ -138,11 +141,11 @@ export function projectHighlights(d) {
       text: `Lead time ${lead.direction === "down" ? "caiu" : "subiu"} ${Math.abs(lead.pct).toFixed(0)}% vs o período anterior (${fmtDuration(d.previous.leadTimeHours)} → ${fmtDuration(d.kpis.leadTimeHours)}).`,
     });
   }
-  const cps = delta(d.kpis.aiCostPerSp, d.previous.aiCostPerSp);
+  const cps = delta(d.kpis.aiCostPerPoint, d.previous.aiCostPerPoint);
   if (cps && Math.abs(cps.pct) >= T.costChangePct && out.length < 3) {
     out.push({
       tone: "info",
-      text: `Custo de IA por ponto entregue foi de ${fmtUsd(d.previous.aiCostPerSp)} para ${fmtUsd(d.kpis.aiCostPerSp)} (${cps.direction === "up" ? "+" : "−"}${Math.abs(cps.pct).toFixed(0)}%).`,
+      text: `Custo de IA por ponto entregue foi de ${fmtUsd(d.previous.aiCostPerPoint)} para ${fmtUsd(d.kpis.aiCostPerPoint)} (${cps.direction === "up" ? "+" : "−"}${Math.abs(cps.pct).toFixed(0)}%).`,
     });
   }
   if (
@@ -171,7 +174,7 @@ export function organizationHighlights(d) {
   if (cost && Math.abs(cost.pct) >= T.costChangePct) {
     out.push({
       tone: "info",
-      text: `Gasto com IA ${cost.direction === "up" ? "subiu" : "caiu"} ${Math.abs(cost.pct).toFixed(0)}% vs o período anterior (${fmtUsd(d.previous.aiCostUsd)} → ${fmtUsd(d.kpis.aiCostUsd)}); custo por SP ${fmtUsd(d.previous.aiCostPerSp)} → ${fmtUsd(d.kpis.aiCostPerSp)}.`,
+      text: `Gasto com IA ${cost.direction === "up" ? "subiu" : "caiu"} ${Math.abs(cost.pct).toFixed(0)}% vs o período anterior (${fmtUsd(d.previous.aiCostUsd)} → ${fmtUsd(d.kpis.aiCostUsd)}); custo por ponto ${fmtUsd(d.previous.aiCostPerPoint)} → ${fmtUsd(d.kpis.aiCostPerPoint)}.`,
     });
   }
   const unalloc = (d.ai.costByProject || []).find((c) => c.projectId == null);

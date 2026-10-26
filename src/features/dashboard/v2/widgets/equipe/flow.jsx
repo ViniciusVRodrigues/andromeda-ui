@@ -10,29 +10,46 @@ import { BurndownChart, ColumnChart } from "../../kit/charts.jsx";
 import { Empty, Panel } from "../../kit/Panel.jsx";
 import { DataTable } from "../../kit/Table.jsx";
 import { ItemCell } from "../../views/shared.jsx";
+import { burndownEmpty, burndownRows } from "../individual/burndown.jsx";
+import { ITEM_MEASURE_COLUMNS, itemMeta } from "../individual/itemMeasures.jsx";
+import { NoComplexityPanel } from "../individual/noComplexity.jsx";
 
 /* ── Resumo (buildTeam) ── */
 
-export const selectBurndown = (d) => ({
-  burndown: d.burndown,
-  todayLabel:
-    d.sprint?.timeFrame === "CURRENT"
-      ? d.burndown.filter((p) => p.remaining != null).at(-1)?.label
-      : undefined,
-});
+export const selectBurndown = (d) => {
+  const rows = burndownRows(d.burndown);
+  return {
+    burndown: rows,
+    empty: burndownEmpty(rows),
+    todayLabel:
+      d.sprint?.timeFrame === "CURRENT"
+        ? rows.filter((p) => p.remainingPoints != null).at(-1)?.label
+        : undefined,
+  };
+};
 
-export function BurndownWidget({ data }) {
+export function BurndownWidget({ data, ctx }) {
+  if (data.empty) {
+    return (
+      <NoComplexityPanel
+        href={ctx?.mappingHref}
+        eyebrow="execução"
+        title="Burndown do time"
+        sources={["azure"]}
+      />
+    );
+  }
   return (
     <Panel
       eyebrow="execução"
       title="Burndown do time"
       sources={["azure"]}
-      info="Quanto esforço (SP) da sprint ainda falta concluir em cada dia útil, frente ao ritmo ideal. Acima da linha ideal = atrasado; abaixo = adiantado."
+      info="Quantos pontos de complexidade da sprint ainda faltam concluir em cada dia útil, frente ao ritmo ideal. Acima da linha ideal = atrasado; abaixo = adiantado."
       table={{
         columns: [
           { key: "label", label: "Dia" },
-          { key: "remaining", label: "Restante (SP)", align: "right", format: fmtInt },
-          { key: "ideal", label: "Ideal (SP)", align: "right" },
+          { key: "remainingPoints", label: "Restante (pts)", align: "right", format: fmtInt },
+          { key: "idealPoints", label: "Ideal (pts)", align: "right" },
         ],
         rows: data.burndown,
       }}
@@ -98,19 +115,28 @@ export function AgingWidget({ data }) {
       eyebrow="envelhecimento"
       title="Itens em andamento há mais tempo"
       sources={["azure", "github"]}
-      info={`Itens em andamento, do que começou há mais tempo para o mais recente. A marca na barra é o tempo em que 85% dos itens das últimas 6 sprints ficaram prontos (${fmtDuration(p85)}): passou dela, o item pode estar bloqueado ou grande demais.`}
+      info={`Itens em andamento, do que começou há mais tempo para o mais recente. A marca na barra é o tempo em que 85% dos itens das últimas 6 sprints ficaram prontos (${fmtDuration(p85)}): passou dela, o item pode estar bloqueado ou grande demais. O traço (—) é sem valor no Azure: complexidade fica nas User Stories, esforço (CompletedWork) nas Tasks.`}
     >
       {items.length ? (
         <DataTable
           rowKey={(r) => r.id}
           rows={items}
           scroll
+          stickyFirst
           columns={[
             {
               key: "title",
               label: "Item",
-              render: (r) => <ItemCell type={r.type} externalId={r.externalId} title={r.title} />,
+              render: (r) => (
+                <ItemCell
+                  type={r.type}
+                  externalId={r.externalId}
+                  title={r.title}
+                  meta={itemMeta(r)}
+                />
+              ),
             },
+            ...ITEM_MEASURE_COLUMNS,
             {
               key: "assignee",
               label: "Responsável",
@@ -121,7 +147,6 @@ export function AgingWidget({ data }) {
                   <span className="text-fg-muted">sem responsável</span>
                 ),
             },
-            { key: "effort", label: "SP", align: "right", format: fmtInt },
             {
               key: "age",
               label: "Em andamento há",

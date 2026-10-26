@@ -38,11 +38,11 @@ import {
 } from "../widgets/projeto/engineering.jsx";
 import {
   AiCostByModelWidget,
-  AiCostPerSpWidget,
-  aiCostPerSpEmpty,
+  AiCostPerPointWidget,
+  aiCostPerPointEmpty,
   AiIndicatorsWidget,
   selectAiCostByModel,
-  selectAiCostPerSp,
+  selectAiCostPerPoint,
   selectAiIndicators,
 } from "../widgets/projeto/ai.jsx";
 import {
@@ -428,16 +428,16 @@ export const widgets = [
       Component: IaEffortWidget,
     },
   ),
-  widget("custo-ia-sp", "ia-entrega", "Custo de IA por SP entregue", {
+  widget("custo-ia-sp", "ia-entrega", "Custo de IA por ponto entregue", {
     sizes: ALL,
     size: "M",
     default: true,
     height: 360,
-    select: selectAiCostPerSp,
-    aiEmpty: aiCostPerSpEmpty,
-    Component: AiCostPerSpWidget,
+    select: selectAiCostPerPoint,
+    aiEmpty: aiCostPerPointEmpty,
+    Component: AiCostPerPointWidget,
   }),
-  widget("ia-indicadores", "ia", "Adoção, tokens por SP e consumo × assinatura", {
+  widget("ia-indicadores", "ia", "Adoção, tokens por ponto e consumo × assinatura", {
     sizes: ["I"],
     size: "I",
     default: true,

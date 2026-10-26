@@ -20,7 +20,9 @@ test("individual: destaques com números, KPIs com p90 e variação, itens com t
 
   /* leitura determinística (highlights.js): cita o percentual, o tempo corrido e o que falta */
   await expect(
-    page.getByText(/Você entregou 47% dos pontos com 80% da sprint corrida — faltam 8 SP/),
+    page.getByText(
+      /Você entregou 47% da complexidade planejada com 80% da sprint corrida — faltam 8 pts de complexidade/,
+    ),
   ).toBeVisible();
 
   /* a mediana é rotulada como tal, com p90 e amostra; variação vs a sprint anterior */

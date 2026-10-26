@@ -417,14 +417,14 @@ for (const [name, perms, query, heading] of [
   });
 }
 
-test("burndown: resumo 'restam X de Y SP no dia N de M; ideal Z' e o par Gráfico/Tabela", async ({
+test("burndown: resumo 'restam X de Y pontos de complexidade no dia N de M; ideal Z' e o par Gráfico/Tabela", async ({
   page,
 }) => {
   await openAs(page, ["DASHBOARD_INDIVIDUAL"], "", "Histórico");
   const svg = page.locator("svg.recharts-surface[aria-label*='restam']").first();
   await expect(svg).toHaveAttribute(
     "aria-label",
-    /restam [\d.,]+ de [\d.,]+ SP no dia \d+ de \d+; ideal [\d.,]+/,
+    /restam [\d.,]+ de [\d.,]+ pontos de complexidade no dia \d+ de \d+; ideal [\d.,]+/,
   );
   const figure = svg.locator("xpath=ancestor::figure[1]");
   await expect(figure).toHaveCount(1);

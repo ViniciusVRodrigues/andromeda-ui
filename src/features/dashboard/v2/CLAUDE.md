@@ -209,7 +209,7 @@ vale para toda visão que tiver seções no catálogo e desenhar o Resumo com `D
   `dashboards-a11y.spec.js` "sub-abas em 360/390px").
 - **Gráficos** (`kit/chartSummary.js`): o `Panel` dá id ao `h3` e um contexto; cada gráfico é `<figure
   aria-labelledby>` e o SVG do Recharts recebe `role="img"` + `aria-label` "Título: resumo" gerado do dado
-  (`trendSummary`, `columnSummary`, `burndownSummary` — "restam X de Y SP no dia N de M; ideal Z"). Prop
+  (`trendSummary`, `columnSummary`, `burndownSummary` — "restam X de Y pontos de complexidade no dia N de M; ideal Z"). Prop
   `summary` sobrescreve.
 - **Contraste**: nenhum texto em `--fg-dim` (vale para widgets novos: use `text-fg-muted`). Texto de status
   usa `text-warn-text`/`text-good-text`/`text-bad-text` (tokens novos; na light #874a1c/#3f5f44/#8f3a2f, ≥ 4,8

@@ -1,10 +1,21 @@
 /* Widgets da visão Individual — seção "Histórico" (últimas sprints). */
 
 import React from "react";
-import { axisDays, axisUsd, fmtDuration, fmtInt, fmtTokensM, fmtUsd } from "../../format.js";
+import {
+  axisDays,
+  axisUsd,
+  fmtDuration,
+  fmtHours,
+  fmtNum,
+  fmtPoints,
+  fmtTokensM,
+  fmtUsd,
+  isNum,
+} from "../../format.js";
 import { AI_CARD_MIN_HEIGHT, AiEmpty, hasAiValue } from "../../kit/AiCross.jsx";
 import { ColumnChart, TrendChart } from "../../kit/charts.jsx";
 import { Panel } from "../../kit/Panel.jsx";
+import { NoComplexityPanel } from "./noComplexity.jsx";
 
 const PARTIAL = "* sprint em andamento: valores parciais";
 
@@ -13,19 +24,34 @@ export const selectHistory = (d) => ({
   note: d.history.some((h) => h.isCurrent) ? PARTIAL : null,
 });
 
-export function PlannedDeliveredWidget({ data }) {
+/** Sem complexidade (planejada nem entregue) em nenhuma sprint do histórico. */
+export const plannedDeliveredEmpty = (data) =>
+  !data.rows.some((h) => isNum(h.complexityPlanned) || isNum(h.complexityDelivered));
+
+export function PlannedDeliveredWidget({ data, ctx }) {
+  if (plannedDeliveredEmpty(data)) {
+    return (
+      <NoComplexityPanel
+        href={ctx?.mappingHref}
+        eyebrow="entrega"
+        title="Planejado × entregue"
+        sources={["azure"]}
+      />
+    );
+  }
   return (
     <Panel
       eyebrow="entrega"
       title="Planejado × entregue"
       note={data.note}
       sources={["azure"]}
-      info="Soma do esforço (SP) dos seus itens em cada sprint: planejado = todos os itens; entregue = itens concluídos."
+      info="Soma da complexidade (pts) dos seus itens em cada sprint: planejado = todos os itens; entregue = itens concluídos. O esforço registrado (horas das Tasks concluídas) aparece na tabela."
       table={{
         columns: [
           { key: "name", label: "Sprint" },
-          { key: "spPlanned", label: "Planejado", align: "right" },
-          { key: "spDelivered", label: "Entregue", align: "right" },
+          { key: "complexityPlanned", label: "Planejado (pts)", align: "right", format: fmtNum },
+          { key: "complexityDelivered", label: "Entregue (pts)", align: "right", format: fmtNum },
+          { key: "effortLogged", label: "Esforço registrado", align: "right", format: fmtHours },
         ],
         rows: data.rows,
       }}
@@ -35,10 +61,10 @@ export function PlannedDeliveredWidget({ data }) {
         height={180}
         yWidth={28}
         series={[
-          { key: "spPlanned", label: "Planejado", color: "var(--line-strong)" },
-          { key: "spDelivered", label: "Entregue", color: "var(--accent)" },
+          { key: "complexityPlanned", label: "Planejado", color: "var(--line-strong)" },
+          { key: "complexityDelivered", label: "Entregue", color: "var(--accent)" },
         ]}
-        valueFormat={(v) => `${fmtInt(v)} SP`}
+        valueFormat={(v) => fmtPoints(v, { total: true })}
       />
     </Panel>
   );

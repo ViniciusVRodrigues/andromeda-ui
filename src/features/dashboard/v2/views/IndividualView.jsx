@@ -21,6 +21,7 @@ import { layoutFor, useDashboardLayouts, useIndividualDashboard } from "../hooks
 import { Highlights } from "../kit/Panel.jsx";
 import { resolveLayout } from "../layout.js";
 import { AllocationStrip } from "./AllocationStrip.jsx";
+import { useMappingHref } from "./mappingLink.js";
 import { FetchFrame, SprintStrip, ViewError, ViewRefresh } from "./shared.jsx";
 
 const VIEW_KEY = "individual";
@@ -55,13 +56,15 @@ export function IndividualView({ projectId, sprintId, onNavigate, onReviewAi = n
   const ident = useIdentity();
   /* "Editar no backlog": a edição de esforço/complexidade é lá (sem edição inline aqui) */
   const canBacklog = !!onNavigate && !!ident.can?.("backlog");
+  const mappingHref = useMappingHref(projectId);
   const ctx = React.useMemo(
     () => ({
       onNavigate,
       onReviewAi,
       onOpenBacklog: canBacklog ? () => onNavigate("backlog") : null,
+      mappingHref,
     }),
-    [onNavigate, onReviewAi, canBacklog],
+    [onNavigate, onReviewAi, canBacklog, mappingHref],
   );
 
   if (isError && !data) return <ViewError error={error} onRetry={refetch} />;

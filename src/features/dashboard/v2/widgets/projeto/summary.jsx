@@ -2,7 +2,15 @@
  * (Resumo, `buildProject`). */
 
 import React from "react";
-import { fmtDuration, fmtInt, fmtNum, fmtPct, fmtUsd } from "../../format.js";
+import {
+  fmtDuration,
+  fmtInt,
+  fmtNum,
+  fmtPct,
+  fmtPerPoint,
+  fmtPoints,
+  fmtUsd,
+} from "../../format.js";
 import { GradeBadge } from "../../kit/Badges.jsx";
 import { KpiRow, KpiTile } from "../../kit/Kpi.jsx";
 
@@ -25,10 +33,11 @@ export function KpisWidget({ data }) {
         trend={trend}
       />
       <KpiTile
-        label="Pontos entregues"
-        value={fmtInt(k.spDelivered)}
-        unit="SP"
-        delta={{ current: k.spDelivered, previous: p.spDelivered, vs }}
+        label="Complexidade entregue"
+        value={fmtPoints(k.complexityDelivered)}
+        unit="pts"
+        hint={k.complexityDelivered == null ? "sem complexidade nos itens do período" : undefined}
+        delta={{ current: k.complexityDelivered, previous: p.complexityDelivered, vs }}
       />
       <KpiTile
         label="Previsibilidade"
@@ -52,12 +61,12 @@ export function KpisWidget({ data }) {
       <KpiTile
         label="Custo de IA"
         value={fmtUsd(k.aiCostUsd)}
-        hint={`${fmtUsd(k.aiCostPerSp)} por SP entregue`}
+        hint={`${fmtPerPoint(k.aiCostPerPoint)} por ponto de complexidade`}
         delta={{
-          current: k.aiCostPerSp,
-          previous: p.aiCostPerSp,
+          current: k.aiCostPerPoint,
+          previous: p.aiCostPerPoint,
           goodWhen: "neutral",
-          vs: "custo/SP anterior",
+          vs: "custo por ponto anterior",
         }}
       />
     </KpiRow>

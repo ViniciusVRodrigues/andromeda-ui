@@ -2,7 +2,15 @@
  * "Portfólio de projetos" (`buildOrganization`). */
 
 import React from "react";
-import { fmtDuration, fmtInt, fmtPct, fmtTokensM, fmtUsd } from "../../format.js";
+import {
+  fmtDuration,
+  fmtInt,
+  fmtPct,
+  fmtPerPoint,
+  fmtPoints,
+  fmtTokensM,
+  fmtUsd,
+} from "../../format.js";
 import { HealthBadge, projectColor } from "../../kit/Badges.jsx";
 import { Meter } from "../../kit/Bars.jsx";
 import { Sparkline } from "../../kit/charts.jsx";
@@ -19,7 +27,7 @@ export function KpisWidget({ data }) {
       <KpiTile
         label="Itens entregues"
         value={fmtInt(k.itemsDone)}
-        hint={`${fmtInt(k.spDelivered)} SP em ${k.projects} projetos`}
+        hint={`${fmtPoints(k.complexityDelivered, { total: true })} de complexidade em ${k.projects} projetos`}
         delta={{ current: k.itemsDone, previous: p.itemsDone, vs }}
       />
       <KpiTile
@@ -43,7 +51,7 @@ export function KpisWidget({ data }) {
       <KpiTile
         label="Custo de IA"
         value={fmtUsd(k.aiCostUsd)}
-        hint={`${fmtTokensM(k.aiTokens)} tokens · ${fmtUsd(k.aiCostPerSp)}/SP`}
+        hint={`${fmtTokensM(k.aiTokens)} tokens · ${fmtPerPoint(k.aiCostPerPoint)} por ponto`}
         delta={{ current: k.aiCostUsd, previous: p.aiCostUsd, goodWhen: "neutral", vs }}
       />
       <KpiTile
@@ -106,7 +114,8 @@ const PORTFOLIO_COLUMNS = [
           <div className="mono mb-1 flex justify-between gap-2 text-[11px]">
             <span className="text-fg-muted font-normal">{r.currentSprint.name}</span>
             <span className="tabular-nums">
-              {fmtInt(r.currentSprint.spDone)}/{fmtInt(r.currentSprint.spPlanned)} SP
+              {fmtPoints(r.currentSprint.pointsDone)}/
+              {fmtPoints(r.currentSprint.pointsPlanned, { total: true })}
             </span>
           </div>
           <Meter
@@ -147,7 +156,14 @@ const PORTFOLIO_COLUMNS = [
     render: (r) => <span className={r.stalePrs >= 3 ? "text-warn-text" : ""}>{r.stalePrs}</span>,
   },
   { key: "aiCostUsd", label: "Custo IA", align: "right", format: fmtUsd },
-  { key: "aiCostPerSp", label: "IA/SP", align: "right", format: fmtUsd },
+  {
+    key: "complexityDelivered",
+    label: "Complexidade entregue",
+    align: "right",
+    format: fmtPoints,
+  },
+  { key: "aiCostPerPoint", label: "IA por ponto", align: "right", format: fmtUsd },
+  { key: "aiCostPerHour", label: "IA por hora", align: "right", format: fmtUsd },
 ];
 
 export const selectPortfolio = (d) => d.portfolio;
@@ -160,7 +176,7 @@ export function PortfolioWidget({ data: portfolio, ctx }) {
       eyebrow="comparação"
       title="Projetos lado a lado"
       sources={["azure", "github", "ia"]}
-      info="Sprint atual: SP entregues ÷ comprometidos; a marca mostra quanto do tempo já passou. As outras colunas usam o período escolhido. Saúde: Atenção com 1 alerta, Em risco com 2 ou mais. Alertas: previsibilidade abaixo de 70%, sprint 25 p.p. atrás do tempo, 3+ PRs parados ou taxa de falha acima de 15%. Clique num projeto para abrir a visão dele."
+      info="Sprint atual: pontos de complexidade entregues ÷ comprometidos; a marca mostra quanto do tempo já passou. As outras colunas usam o período escolhido. Saúde: Atenção com 1 alerta, Em risco com 2 ou mais. Alertas: previsibilidade abaixo de 70%, sprint 25 p.p. atrás do tempo, 3+ PRs parados ou taxa de falha acima de 15%. Clique num projeto para abrir a visão dele."
     >
       <DataTable
         rowKey={(r) => r.projectId}

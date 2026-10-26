@@ -1,10 +1,13 @@
 /* Cards "IA × métrica" da visão Organização — seção "IA e entrega" (dashboards-ia-entrega D3/D4). */
 
 import React from "react";
-import { fmtInt, fmtNum, fmtUsd, isNum } from "../../format.js";
+import { fmtInt, fmtNum, fmtPoints, fmtUsd, isNum } from "../../format.js";
 import { AiCrossCard, hasAiValue } from "../../kit/AiCross.jsx";
 import { pctChange } from "../../kit/aiReading.js";
+import { Panel } from "../../kit/Panel.jsx";
 import { FMT, capitalize, costByStart, pluralOf } from "../projeto/ia-entrega.jsx";
+import { NoComplexityPanel } from "../individual/noComplexity.jsx";
+import { noComplexityIn } from "../projeto/hasComplexity.js";
 
 const coverageOf = (d) => d.integrations?.coverage?.aiDaysAllocatedPct ?? null;
 
@@ -13,7 +16,8 @@ const coverageOf = (d) => d.integrations?.coverage?.aiDaysAllocatedPct ?? null;
 export const selectIaPortfolio = (d) => ({
   rows: (d.portfolio || []).map((p) => ({
     label: p.name,
-    aiCostPerSp: p.aiCostPerSp ?? null,
+    aiCostPerPoint: p.aiCostPerPoint ?? null,
+    aiCostPerHour: p.aiCostPerHour ?? null,
     aiCostUsd: p.aiCostUsd ?? null,
     predictabilityPct: p.predictabilityPct ?? null,
     leadTimeHours: p.leadTimeHours ?? null,
@@ -22,20 +26,30 @@ export const selectIaPortfolio = (d) => ({
 });
 
 export const iaPortfolioEmpty = (data) =>
-  !!data && !hasAiValue(data.rows, "aiCostUsd", "aiCostPerSp");
+  !!data && !hasAiValue(data.rows, "aiCostUsd", "aiCostPerPoint");
 
-export function IaPortfolioWidget({ data }) {
+export function IaPortfolioWidget({ data, ctx }) {
   const { rows, coverage } = data;
+  if (!iaPortfolioEmpty(data) && noComplexityIn(rows, "aiCostPerPoint")) {
+    return (
+      <NoComplexityPanel
+        href={ctx?.mappingHref}
+        eyebrow="entrega"
+        title="Os projetos que mais usam IA entregam melhor?"
+        sources={["ia", "azure"]}
+      />
+    );
+  }
   return (
     <AiCrossCard
       eyebrow="entrega"
       kind="scatter"
       question="Os projetos que mais usam IA entregam melhor?"
       ia={{
-        key: "aiCostPerSp",
-        label: "Custo de IA por SP",
-        short: "US$/SP",
-        unit: "US$ por SP",
+        key: "aiCostPerPoint",
+        label: "Custo de IA por ponto",
+        short: "US$/pt",
+        unit: "US$ por ponto",
         fmt: fmtUsd,
         axis: FMT.usd.axis,
       }}
@@ -50,9 +64,10 @@ export function IaPortfolioWidget({ data }) {
       noun="projetos"
       columns={[
         { key: "aiCostUsd", label: "IA total (US$)", align: "right", format: fmtUsd },
+        { key: "aiCostPerHour", label: "US$ por hora", align: "right", format: fmtUsd },
         { key: "leadTimeHours", label: "Lead time", align: "right", format: FMT.hours.fmt },
       ]}
-      help="Um ponto por projeto: custo de IA por ponto entregue e previsibilidade; o lead time está na tabela."
+      help="Um ponto por projeto: custo de IA por ponto de complexidade entregue e previsibilidade; o custo por hora e o lead time está na tabela."
       coverage={coverage}
       basis="custo alocado aos projetos"
       sources={["ia", "azure"]}
@@ -123,10 +138,10 @@ export function selectIaAdoption(d) {
   const row = (label, k, people) => ({
     label,
     people: people ?? null,
-    spDelivered: k?.spDelivered ?? null,
+    complexityDelivered: k?.complexityDelivered ?? null,
     itemsDone: k?.itemsDone ?? null,
   });
-  const hasPrev = !!d.previous && isNum(d.previous.spDelivered);
+  const hasPrev = !!d.previous && isNum(d.previous.complexityDelivered);
   return {
     rows: [
       ...(hasPrev ? [row("Período anterior", d.previous, d.previous.activeAiUsers)] : []),
@@ -140,7 +155,7 @@ export function selectIaAdoption(d) {
 
 export const iaAdoptionEmpty = (data) => !!data && !hasAiValue(data.rows, "people");
 
-/** Leitura automática (pura): variação de pessoas com IA e de pontos entregues, com os números. */
+/** Leitura automática (pura): variação de pessoas com IA e de complexidade entregue, com os números. */
 export function adoptionReading(rows) {
   const [a, b] = rows.length === 2 ? rows : [];
   if (!a) return "Sem período anterior para comparar.";
@@ -150,10 +165,10 @@ export function adoptionReading(rows) {
       : Math.abs(pct) < 5
         ? "ficou estável"
         : `${pct > 0 ? "subiu" : "caiu"} ${fmtNum(Math.abs(pct))}%`;
-  return `Pessoas com IA: ${fmtInt(a.people)} → ${fmtInt(b.people)} (${word(pctChange(a.people, b.people))}); SP entregues: ${fmtInt(a.spDelivered)} → ${fmtInt(b.spDelivered)} (${word(pctChange(a.spDelivered, b.spDelivered))}).`;
+  return `Pessoas com IA: ${fmtInt(a.people)} → ${fmtInt(b.people)} (${word(pctChange(a.people, b.people))}); complexidade entregue: ${fmtPoints(a.complexityDelivered, { total: true })} → ${fmtPoints(b.complexityDelivered, { total: true })} (${word(pctChange(a.complexityDelivered, b.complexityDelivered))}).`;
 }
 
-export function IaAdoptionWidget({ data }) {
+export function IaAdoptionWidget({ data, ctx }) {
   const { rows, hasPrevious, members, coverage } = data;
   const ia = {
     key: "people",
@@ -163,7 +178,22 @@ export function IaAdoptionWidget({ data }) {
     fmt: fmtInt,
     axis: fmtInt,
   };
-  const metric = { key: "spDelivered", label: "SP entregues", short: "SP", ...FMT.sp };
+  const metric = {
+    key: "complexityDelivered",
+    label: "Complexidade entregue",
+    short: "Pts",
+    ...FMT.points,
+  };
+  if (!iaAdoptionEmpty(data) && noComplexityIn(rows, "complexityDelivered")) {
+    return (
+      <NoComplexityPanel
+        href={ctx?.mappingHref}
+        eyebrow="entrega"
+        title="Mais gente usando IA veio com mais entrega?"
+        sources={["ia", "azure"]}
+      />
+    );
+  }
   const sample = [
     `${rows.length} ${rows.length === 1 ? "período" : "períodos"}`,
     isNum(members) ? `${fmtInt(members)} pessoas na organização` : null,
@@ -182,7 +212,7 @@ export function IaAdoptionWidget({ data }) {
       minPoints={2}
       reading={adoptionReading(rows)}
       columns={[{ key: "itemsDone", label: "Itens concluídos", align: "right", format: fmtInt }]}
-      help="Compara o período atual com o anterior: pessoas com uso de IA e pontos entregues."
+      help="Compara o período atual com o anterior: pessoas com uso de IA e complexidade entregue."
       sample={sample}
       coverage={coverage}
       basis="custo da organização"

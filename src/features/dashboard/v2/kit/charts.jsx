@@ -359,21 +359,27 @@ export function TrendChart({
   );
 }
 
-/** Burndown da sprint: pontos restantes × linha ideal, com marcador de hoje. */
+/** Burndown da sprint em pontos de complexidade: restante × linha ideal, com marcador de hoje.
+ *  Lê `remainingPoints`/`idealPoints`; `remaining`/`ideal` só se os novos vierem ausentes. */
 export function BurndownChart({ data, todayLabel, height = 220 }) {
+  const rows = (data || []).map((r) => ({
+    ...r,
+    remainingPoints: r?.remainingPoints ?? r?.remaining ?? null,
+    idealPoints: r?.idealPoints ?? r?.ideal ?? null,
+  }));
   /* o resumo diz quanto falta no dia de hoje — a leitura que o gráfico existe para dar */
   return (
     <TrendChart
-      data={data}
+      data={rows}
       height={height}
       yWidth={32}
       series={[
-        { key: "remaining", label: "Restante (SP)", color: "var(--accent)" },
-        { key: "ideal", label: "Ideal", color: "var(--fg-muted)", dashed: true },
+        { key: "remainingPoints", label: "Restante (pts)", color: "var(--accent)" },
+        { key: "idealPoints", label: "Ideal", color: "var(--fg-muted)", dashed: true },
       ]}
-      valueFormat={(v) => `${Math.round(v * 10) / 10} SP`}
+      valueFormat={(v) => `${Math.round(v * 10) / 10} pts`}
       reference={todayLabel ? { x: todayLabel, label: "hoje" } : undefined}
-      summary={burndownSummary({ data, todayLabel })}
+      summary={burndownSummary({ data: rows, todayLabel })}
     />
   );
 }

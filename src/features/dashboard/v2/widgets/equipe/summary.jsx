@@ -1,7 +1,16 @@
 /* Widgets da visão Equipe — seção "Resumo da sprint" (faixa de KPIs). */
 
 import React from "react";
-import { fmtDsSpread, fmtDuration, fmtInt, fmtPct, fmtUsd } from "../../format.js";
+import {
+  fmtDsSpread,
+  fmtDuration,
+  fmtHours,
+  fmtInt,
+  fmtPct,
+  fmtPoints,
+  fmtUsd,
+  isNum,
+} from "../../format.js";
 import { KpiRow, KpiTile } from "../../kit/Kpi.jsx";
 
 /** Fatia do payload do Resumo da equipe (`buildTeam`). */
@@ -19,10 +28,29 @@ export function KpisWidget({ data }) {
     <KpiRow label="Indicadores do time na sprint">
       <KpiTile
         label="Velocity"
-        value={fmtInt(k.spDelivered)}
-        unit={`de ${fmtInt(k.spPlanned)} SP`}
-        hint={`${fmtPct(k.spPlanned ? (k.spDelivered / k.spPlanned) * 100 : null)} do comprometido`}
-        delta={isCurrent ? null : { current: k.spDelivered, previous: prev?.spDelivered, vs }}
+        value={fmtPoints(k.complexityDelivered)}
+        unit={
+          isNum(k.complexityPlanned)
+            ? `de ${fmtPoints(k.complexityPlanned, { total: true })}`
+            : undefined
+        }
+        hint={
+          isNum(k.complexityDelivered) && isNum(k.complexityPlanned)
+            ? `${fmtPct(k.complexityPlanned ? (k.complexityDelivered / k.complexityPlanned) * 100 : null)} do comprometido`
+            : "sem complexidade nos itens"
+        }
+        title="Complexidade (pts) entregue na sprint, frente ao comprometido"
+        delta={
+          isCurrent
+            ? null
+            : { current: k.complexityDelivered, previous: prev?.complexityDelivered, vs }
+        }
+      />
+      <KpiTile
+        label="Esforço registrado"
+        value={fmtHours(k.effortLogged)}
+        hint="horas das tarefas concluídas"
+        title="Soma do esforço (horas) das Tasks dos itens concluídos na sprint"
       />
       <KpiTile
         label="Itens concluídos"
@@ -55,20 +83,32 @@ export function KpisWidget({ data }) {
         }}
       />
       <KpiTile
-        label="Estimativa"
-        value={fmtPct(k.itemsTotal ? (k.itemsWithPoints / k.itemsTotal) * 100 : null)}
-        hint={`${k.itemsWithPoints} de ${k.itemsTotal} itens com pontos`}
-        tone={k.itemsTotal && k.itemsWithPoints / k.itemsTotal < 0.9 ? "warn" : undefined}
+        label="Com complexidade"
+        value={fmtPct(
+          k.itemsTotal && isNum(k.itemsWithComplexity)
+            ? (k.itemsWithComplexity / k.itemsTotal) * 100
+            : null,
+        )}
+        hint={
+          isNum(k.itemsWithComplexity)
+            ? `${k.itemsWithComplexity} de ${k.itemsTotal} itens com complexidade`
+            : "sem complexidade nos itens"
+        }
+        tone={
+          k.itemsTotal && isNum(k.itemsWithComplexity) && k.itemsWithComplexity / k.itemsTotal < 0.9
+            ? "warn"
+            : undefined
+        }
       />
       <KpiTile
         label="Custo de IA"
         value={fmtUsd(k.aiCostUsd)}
-        hint={`${fmtUsd(k.aiCostPerSp)} por SP entregue`}
+        hint={`${fmtUsd(k.aiCostPerPoint)} por ponto entregue`}
         delta={{
-          current: k.aiCostPerSp,
-          previous: prev?.aiCostPerSp,
+          current: k.aiCostPerPoint,
+          previous: prev?.aiCostPerPoint,
           goodWhen: "neutral",
-          vs: "custo/SP anterior",
+          vs: "custo/ponto anterior",
         }}
       />
       <KpiTile

@@ -37,7 +37,7 @@ test("organização: KPIs do período, taxa de falha em % e portfólio por proje
 
   const kpis = page.locator("[data-widget-id='org.kpis']");
   await expect(kpis).toContainText("459");
-  await expect(kpis).toContainText("1.431 SP em 5 projetos");
+  await expect(kpis).toContainText("1.431 pts de complexidade em 5 projetos");
   /* CFR já em % (nunca ×100) */
   await expect(kpis.getByRole("listitem").filter({ hasText: "Taxa de falha" })).toContainText("9%");
 
@@ -213,4 +213,43 @@ test("organização: regras de remediação validam, salvam e mostram o 422", as
     bugLinkedCountsAsRemediation: false,
     revertCountsAsRemediation: true,
   });
+});
+
+test("equipe: complexidade entregue em pts, esforço em h e custo de IA por ponto", async ({
+  page,
+}) => {
+  await page.clock.setFixedTime(DASH_NOW);
+  /* Story de 3 pts com Tasks de 4 h e 8 h e um Bug sem complexidade: 1 de 2 itens */
+  await page.route("**/api/v1/dashboards/team?*", (route) => {
+    const body = readFixture("team__p-portal__p-portal-s27");
+    Object.assign(body.kpis, {
+      complexityDelivered: 3,
+      complexityPlanned: 3,
+      effortLogged: 12,
+      itemsTotal: 2,
+      itemsWithComplexity: 1,
+      aiCostUsd: 6,
+      aiCostPerPoint: 2,
+      aiCostPerHour: 0.5,
+    });
+    return json(route, body);
+  });
+  await installDashboardsApi(page, {
+    permissions: ["DASHBOARD_INDIVIDUAL", "DASHBOARD_TEAM", "PROJECT_MANAGE"],
+  });
+  await gotoDashboard(page, "?visao=equipe");
+
+  const kpis = page.locator("[data-widget-id='equipe.kpis']");
+  const velocity = kpis.getByRole("listitem").filter({ hasText: "Velocity" });
+  await expect(velocity).toContainText("3");
+  await expect(velocity).toContainText("pts");
+  await expect(kpis.getByRole("listitem").filter({ hasText: "Esforço registrado" })).toContainText(
+    "12 h",
+  );
+  await expect(kpis.getByRole("listitem").filter({ hasText: "Com complexidade" })).toContainText(
+    "1 de 2 itens com complexidade",
+  );
+  await expect(kpis.getByRole("listitem").filter({ hasText: "Custo de IA" })).toContainText(
+    "US$ 2,00 por ponto entregue",
+  );
 });

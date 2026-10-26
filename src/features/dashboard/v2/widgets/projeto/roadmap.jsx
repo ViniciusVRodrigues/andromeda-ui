@@ -2,14 +2,28 @@
  * `GET .../projects/{id}/roadmap`): épicos e features, saúde do backlog, temas e estimativas. */
 
 import React from "react";
-import { axisDays, fmtDate, fmtDuration, fmtInt, fmtNum, fmtPct, nItems } from "../../format.js";
+import {
+  axisDays,
+  fmtDate,
+  fmtDuration,
+  fmtHours,
+  fmtInt,
+  fmtNum,
+  fmtPct,
+  fmtPoints,
+  nItems,
+} from "../../format.js";
 import { Tag } from "../../kit/Badges.jsx";
 import { BarList, Meter, SegmentBar } from "../../kit/Bars.jsx";
 import { ColumnChart } from "../../kit/charts.jsx";
 import { KpiRow, KpiTile } from "../../kit/Kpi.jsx";
 import { Empty, Panel } from "../../kit/Panel.jsx";
 import { DataTable } from "../../kit/Table.jsx";
+import { Effort, measureMeta, NoValue, Points } from "../../kit/Measure.jsx";
 import { ItemCell } from "../../views/shared.jsx";
+import { bandLabel } from "./ia-entrega.jsx";
+import { NoComplexityPanel } from "../individual/noComplexity.jsx";
+import { noComplexityIn } from "./hasComplexity.js";
 
 const STATUS_TEXT = { DONE: "Concluído", IN_PROGRESS: "Em andamento", TODO: "Não iniciado" };
 const STALE_COLORS = [
@@ -19,7 +33,19 @@ const STALE_COLORS = [
   "var(--accent)",
 ];
 
-function forecastText(r) {
+/** Progresso em complexidade (campos novos): pct e previsão em semanas; null sem base. */
+export function complexityProgress(r) {
+  const total = Number(r.complexityTotal);
+  const done = Number(r.complexityDone);
+  const pct = total > 0 && Number.isFinite(done) ? (done / total) * 100 : null;
+  const pace = Number(r.pointsPerWeek);
+  const left = total - done;
+  const forecastWeeks = pct == null ? null : left <= 0 ? 0 : pace > 0 ? left / pace : null;
+  return { pct, forecastWeeks };
+}
+
+function forecastText(row) {
+  const r = { ...row, ...{ forecastWeeks: complexityProgress(row).forecastWeeks } };
   if (r.status === "DONE" || r.forecastWeeks === 0) return "concluído";
   if (r.status === "TODO") return "não iniciado";
   if (r.forecastWeeks == null) return "sem ritmo recente";
@@ -27,12 +53,13 @@ function forecastText(r) {
   return `~${fmtNum(r.forecastWeeks)} sem.`;
 }
 
-function ProgressCell({ r }) {
+function ProgressCell({ r: row }) {
+  const r = { ...row, pctDone: complexityProgress(row).pct };
   return (
     <div className="min-w-[160px]">
       <div className="mono mb-1 flex justify-between gap-2 text-[11px]">
         <span className="text-fg-muted font-normal">
-          {fmtInt(r.effortDone)}/{fmtInt(r.effortTotal)} SP
+          {fmtPoints(r.complexityDone)}/{fmtPoints(r.complexityTotal, { total: true })}
         </span>
         <span className="tabular-nums">{fmtPct(r.pctDone)}</span>
       </div>
@@ -50,13 +77,23 @@ function ProgressCell({ r }) {
 
 export const selectEpics = (r) => r.epics;
 
-export function EpicsWidget({ data: epics }) {
+export function EpicsWidget({ data: epics, ctx }) {
+  if (epics.length && noComplexityIn(epics, "complexityTotal")) {
+    return (
+      <NoComplexityPanel
+        href={ctx?.mappingHref}
+        eyebrow="roadmap"
+        title="Progresso dos épicos"
+        sources={["azure"]}
+      />
+    );
+  }
   return (
     <Panel
       eyebrow="roadmap"
       title="Progresso dos épicos"
       sources={["azure"]}
-      info="Progresso = esforço (SP) concluído ÷ esforço total dos itens de cada épico. Previsão = esforço restante ÷ ritmo das últimas 8 semanas (SP concluídos por semana). Itens sem estimativa não entram."
+      info="Progresso = complexidade (pontos) concluída ÷ complexidade total dos itens de cada épico. Previsão = complexidade restante ÷ ritmo das últimas 8 semanas (pontos concluídos por semana). Itens sem complexidade não entram."
     >
       <DataTable
         rowKey={(r) => r.externalId}
@@ -87,21 +124,21 @@ export function EpicsWidget({ data: epics }) {
             render: (r) => <ProgressCell r={r} />,
           },
           {
-            key: "spDoneInPeriod",
+            key: "complexityDoneInPeriod",
             label: "Entregue no período",
             align: "right",
-            render: (r) => `${fmtInt(r.spDoneInPeriod)} SP`,
+            render: (r) => <Points value={r.complexityDoneInPeriod} total />,
           },
           {
             key: "weeklyPace",
             label: "Ritmo",
             align: "right",
-            render: (r) => (r.weeklyPace ? `${fmtNum(r.weeklyPace)} SP/sem` : "—"),
+            render: (r) => (r.pointsPerWeek ? `${fmtNum(r.pointsPerWeek)} pts/sem` : <NoValue />),
           },
           { key: "forecast", label: "Previsão", align: "right", render: (r) => forecastText(r) },
           {
             key: "unestimated",
-            label: "Sem estimativa",
+            label: "Sem complexidade",
             align: "right",
             render: (r) => (
               <span className={r.unestimated && r.status !== "DONE" ? "text-warn-text" : ""}>
@@ -166,10 +203,14 @@ export function BacklogKpisWidget({ data: b }) {
       <KpiTile
         label="Itens no backlog"
         value={fmtInt(b.count)}
-        hint={`${fmtInt(b.sp)} SP estimados`}
+        hint={
+          b.points == null
+            ? "sem complexidade nos itens"
+            : `${fmtPoints(b.points, { total: true })} de complexidade`
+        }
       />
       <KpiTile
-        label="Sem estimativa"
+        label="Sem complexidade"
         value={fmtPct(b.unestimatedPct)}
         hint="ficam fora da previsão"
         tone={b.unestimatedPct > 20 ? "warn" : undefined}
@@ -244,13 +285,25 @@ export function BacklogForgottenWidget({ data: b }) {
       info="Itens do backlog com a última alteração mais antiga — candidatos a refinar, repriorizar ou fechar."
     >
       <DataTable
+        stickyFirst
         rowKey={(r) => r.externalId}
         rows={b.forgotten}
         columns={[
           {
             key: "title",
             label: "Item",
-            render: (r) => <ItemCell type={r.type} externalId={r.externalId} title={r.title} />,
+            render: (r) => (
+              <ItemCell
+                type={r.type}
+                externalId={r.externalId}
+                title={r.title}
+                meta={measureMeta({
+                  complexity: r.complexity,
+                  effort: r.effort,
+                  effortRolledUp: r.effortRolledUp,
+                })}
+              />
+            ),
           },
           {
             key: "priority",
@@ -258,7 +311,21 @@ export function BacklogForgottenWidget({ data: b }) {
             align: "right",
             render: (r) => (r.priority == null ? "—" : `P${r.priority}`),
           },
-          { key: "effort", label: "SP", align: "right", format: fmtInt },
+          {
+            key: "complexity",
+            label: "Complexidade",
+            abbr: "Complex.",
+            align: "right",
+            hideBelow: 420,
+            render: (r) => <Points value={r.complexity} />,
+          },
+          {
+            key: "effortRolledUp",
+            label: "Esforço",
+            align: "right",
+            hideBelow: 420,
+            render: (r) => <Effort effort={r.effort} rolledUp={r.effortRolledUp} />,
+          },
           {
             key: "daysWithoutChange",
             label: "Sem alteração",
@@ -277,7 +344,8 @@ export function BacklogForgottenWidget({ data: b }) {
 
 /* ── Temas ── */
 
-export const selectDeliveredByTag = (r) => r.deliveredByTag;
+export const selectDeliveredByTag = (r) =>
+  [...(r.deliveredByTag || [])].sort((a, b) => (b.points ?? -1) - (a.points ?? -1));
 
 export function DeliveredByTagWidget({ data: rows }) {
   return (
@@ -285,15 +353,15 @@ export function DeliveredByTagWidget({ data: rows }) {
       eyebrow="entregue no período"
       title="Por tag"
       sources={["azure"]}
-      info="Esforço (SP) dos itens concluídos no período, por tag do Azure. Um item com duas tags conta nas duas."
+      info="Complexidade (pontos) dos itens concluídos no período, por tag do Azure. Um item com duas tags conta nas duas."
     >
       {rows.length ? (
         <BarList
           rows={rows.map((t) => ({
             key: t.tag,
             label: <Tag>{t.tag}</Tag>,
-            value: t.sp,
-            display: `${fmtInt(t.sp)} SP`,
+            value: t.points,
+            display: fmtPoints(t.points, { total: true }),
             sub: nItems(t.count),
           }))}
         />
@@ -312,8 +380,8 @@ export function BacklogByTagWidget({ data: b }) {
           rows={b.byTag.map((t) => ({
             key: t.tag,
             label: <Tag>{t.tag}</Tag>,
-            value: t.sp,
-            display: `${fmtInt(t.sp)} SP`,
+            value: t.points,
+            display: fmtPoints(t.points, { total: true }),
             sub: nItems(t.count),
           }))}
         />
@@ -329,7 +397,10 @@ export function BacklogByTagWidget({ data: b }) {
 export const selectCalibration = (r) => ({ calibration: r.calibration, config: r.config });
 
 export function CycleByEffortWidget({ data }) {
-  const rows = data.calibration.byEffort;
+  const rows = data.calibration.byEffort.map((r) => ({
+    ...r,
+    label: bandLabel(r.label, r.effort, "h"),
+  }));
   return (
     <Panel
       eyebrow="esforço × tempo"
@@ -338,7 +409,7 @@ export function CycleByEffortWidget({ data }) {
       info={`Tempo típico (mediana) para concluir os itens do período, por esforço estimado (campo ${data.config?.effortField ?? "de esforço"}). Se o tempo cresce junto com o tamanho, as estimativas estão consistentes.`}
       table={{
         columns: [
-          { key: "label", label: "Esforço" },
+          { key: "label", label: "Esforço (h)" },
           { key: "count", label: "Itens", align: "right" },
           { key: "cycleDays", label: "Cycle (d)", align: "right", format: fmtNum },
         ],
@@ -359,7 +430,10 @@ export function CycleByEffortWidget({ data }) {
 }
 
 export function CycleByComplexityWidget({ data }) {
-  const rows = data.calibration.byComplexity;
+  const rows = data.calibration.byComplexity.map((r) => ({
+    ...r,
+    label: bandLabel(r.label, r.complexity, "pts"),
+  }));
   return (
     <Panel
       eyebrow="complexidade × tempo"
@@ -370,7 +444,7 @@ export function CycleByComplexityWidget({ data }) {
         columns: [
           { key: "label", label: "Complexidade" },
           { key: "count", label: "Itens", align: "right" },
-          { key: "avgEffort", label: "Esforço médio", align: "right", format: fmtNum },
+          { key: "avgEffort", label: "Esforço médio", align: "right", format: fmtHours },
           { key: "cycleDays", label: "Cycle (d)", align: "right", format: fmtNum },
         ],
         rows,
@@ -383,7 +457,7 @@ export function CycleByComplexityWidget({ data }) {
         series={[{ key: "cycleDays", label: "Cycle time mediano", color: "var(--accent)" }]}
         yFormat={axisDays}
         valueFormat={(v) => fmtDuration(v * 24)}
-        extra={(row) => `${nItems(row.count)} · esforço médio ${fmtNum(row.avgEffort)} SP`}
+        extra={(row) => `${nItems(row.count)} · esforço médio ${fmtHours(row.avgEffort)}`}
       />
     </Panel>
   );

@@ -5,7 +5,10 @@ import {
   fmtDsSpread,
   fmtDuration,
   fmtInt,
+  isNum,
+  fmtHours,
   fmtPct,
+  fmtPoints,
   fmtTokensCompact,
   fmtTokensM,
   fmtUsd,
@@ -18,11 +21,29 @@ export function KpisWidget({ data }) {
   return (
     <KpiRow label="Indicadores pessoais da sprint">
       <KpiTile
-        label="Pontos entregues"
-        value={fmtInt(k.spDelivered)}
-        unit={`de ${fmtInt(k.spPlanned)} SP`}
-        hint={`${fmtPct(k.spPlanned ? (k.spDelivered / k.spPlanned) * 100 : null)} do planejado`}
-        delta={isCurrent ? null : { current: k.spDelivered, previous: prev?.spDelivered, vs }}
+        label="Complexidade entregue"
+        value={fmtPoints(k.complexityDelivered)}
+        unit={
+          isNum(k.complexityPlanned)
+            ? `de ${fmtPoints(k.complexityPlanned, { total: true })}`
+            : undefined
+        }
+        hint={
+          isNum(k.complexityDelivered) && isNum(k.complexityPlanned)
+            ? `${fmtPct(k.complexityPlanned ? (k.complexityDelivered / k.complexityPlanned) * 100 : null)} do planejado`
+            : "sem complexidade nos itens"
+        }
+        delta={
+          isCurrent
+            ? null
+            : { current: k.complexityDelivered, previous: prev?.complexityDelivered, vs }
+        }
+      />
+      <KpiTile
+        label="Esforço registrado"
+        value={fmtHours(k.effortLogged)}
+        hint="horas das tarefas concluídas"
+        title="Soma do esforço (horas) das Tasks dos seus itens concluídos na sprint"
       />
       <KpiTile
         label="Itens concluídos"
@@ -58,12 +79,16 @@ export function KpisWidget({ data }) {
         }
       />
       <KpiTile
-        label="Tokens por SP"
-        value={fmtTokensCompact(k.avgTokensPerSp)}
-        hint="média dos seus itens"
+        label="Tokens por ponto"
+        value={fmtTokensCompact(k.avgTokensPerPoint)}
+        hint={
+          isNum(k.avgTokensPerHour)
+            ? `média dos seus itens · ${fmtTokensCompact(k.avgTokensPerHour)} por hora`
+            : "média dos seus itens"
+        }
         delta={{
-          current: k.avgTokensPerSp,
-          previous: prev?.avgTokensPerSp,
+          current: k.avgTokensPerPoint,
+          previous: prev?.avgTokensPerPoint,
           goodWhen: "neutral",
           vs,
         }}

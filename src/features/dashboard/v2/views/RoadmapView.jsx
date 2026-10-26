@@ -30,6 +30,7 @@ import {
   selectEpics,
   selectFeatures,
 } from "../widgets/projeto/roadmap.jsx";
+import { useMappingHref } from "./mappingLink.js";
 import { FetchFrame, Grid, ViewError, ViewRefresh, ViewSkeleton } from "./shared.jsx";
 
 export const ROADMAP_SECTIONS = [
@@ -40,6 +41,7 @@ export const ROADMAP_SECTIONS = [
 ];
 
 export function RoadmapView({ projectId, periodDays }) {
+  const mappingHref = useMappingHref(projectId);
   const { data, isPending, isFetching, isError, error, refetch } = useProjectRoadmap({
     projectId,
     periodDays,
@@ -60,7 +62,7 @@ export function RoadmapView({ projectId, periodDays }) {
         title="Épicos e features"
         question="O que está sendo construído e quando termina no ritmo atual?"
       >
-        <EpicsWidget data={selectEpics(d)} />
+        <EpicsWidget data={selectEpics(d)} ctx={{ mappingHref }} />
         <div className="mt-4">
           <FeaturesWidget data={selectFeatures(d)} />
         </div>

@@ -49,8 +49,8 @@ import {
   selectAiByModel,
 } from "../widgets/equipe/ai.jsx";
 import {
-  AiCostPerSpWidget,
-  aiCostPerSpEmpty,
+  AiCostPerPointWidget,
+  aiCostPerPointEmpty,
   CommittedDeliveredWidget,
   PredictabilityWidget,
   selectHistory,
@@ -329,7 +329,7 @@ export const widgets = [
     aiEmpty: (d) => d.empty,
     Component: TeamIaFluxoWidget,
   }),
-  widget("ia-por-pessoa", "ia-entrega", "Quem usa mais IA entrega mais pontos?", {
+  widget("ia-por-pessoa", "ia-entrega", "Quem usa mais IA entrega mais pontos de complexidade?", {
     sizes: AI_CARD,
     size: "I",
     default: true,
@@ -338,14 +338,14 @@ export const widgets = [
     aiEmpty: (d) => d.empty,
     Component: TeamIaPessoaWidget,
   }),
-  widget("custo-ia-sp", "ia-entrega", "Custo de IA por SP", {
+  widget("custo-ia-sp", "ia-entrega", "Custo de IA por ponto", {
     sizes: ALL,
     size: "P",
     default: true,
     height: 320,
     select: selectHistory,
-    aiEmpty: aiCostPerSpEmpty,
-    Component: AiCostPerSpWidget,
+    aiEmpty: aiCostPerPointEmpty,
+    Component: AiCostPerPointWidget,
   }),
 
   /* ── Fluxo e qualidade (buildTeamFlow) — fora do padrão ── */

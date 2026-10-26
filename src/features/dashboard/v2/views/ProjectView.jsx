@@ -28,6 +28,7 @@ import {
 } from "../hooks.js";
 import { Highlights } from "../kit/Panel.jsx";
 import { resolveLayout } from "../layout.js";
+import { useMappingHref } from "./mappingLink.js";
 import { FetchFrame, ViewError, ViewRefresh } from "./shared.jsx";
 
 const VIEW_KEY = "projeto";
@@ -56,9 +57,13 @@ export function ProjectView({ projectId, periodDays, allowed = true }) {
   const quality = useProjectQuality({ projectId: needsQuality ? projectId : null, periodDays });
   /* o grid não espera as fontes secundárias: cada widget delas mostra o próprio
    * esqueleto ou erro */
+  const mappingHref = useMappingHref(projectId);
   const ctx = React.useMemo(
-    () => ({ sources: { roadmap: sourceState(roadmap), qualidade: sourceState(quality) } }),
-    [roadmap, quality],
+    () => ({
+      sources: { roadmap: sourceState(roadmap), qualidade: sourceState(quality) },
+      mappingHref,
+    }),
+    [roadmap, quality, mappingHref],
   );
 
   if (overview.isError && !overview.data)

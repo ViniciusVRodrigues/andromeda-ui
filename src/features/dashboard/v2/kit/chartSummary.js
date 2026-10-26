@@ -79,14 +79,16 @@ export function columnSummary({ data, series, xKey = "label", stacked = false, f
  */
 export function burndownSummary({ data, todayLabel }) {
   if (!data?.length) return "sem dados da sprint";
-  const withValue = data.map((r, i) => (r?.remaining != null ? i : -1)).filter((i) => i >= 0);
+  const rem = (r) => r?.remainingPoints ?? r?.remaining ?? null;
+  const idl = (r) => r?.idealPoints ?? r?.ideal ?? null;
+  const withValue = data.map((r, i) => (rem(r) != null ? i : -1)).filter((i) => i >= 0);
   if (!withValue.length) return "sem dados da sprint";
   const today = data.findIndex((r) => r?.label === todayLabel);
-  const i = today >= 0 && data[today]?.remaining != null ? today : withValue[withValue.length - 1];
-  const total = Number(data[withValue[0]].remaining);
-  const ideal = data[i]?.ideal;
+  const i = today >= 0 && rem(data[today]) != null ? today : withValue[withValue.length - 1];
+  const total = Number(rem(data[withValue[0]]));
+  const ideal = idl(data[i]);
   return (
-    `restam ${num(Number(data[i].remaining))} de ${num(total)} SP no dia ${i + 1} de ${data.length}` +
+    `restam ${num(Number(rem(data[i])))} de ${num(total)} pontos de complexidade no dia ${i + 1} de ${data.length}` +
     (ideal != null ? `; ideal ${num(Number(ideal))}` : "")
   );
 }

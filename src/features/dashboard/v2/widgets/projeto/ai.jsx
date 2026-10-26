@@ -61,15 +61,15 @@ export function AiCostByModelWidget({ data }) {
   );
 }
 
-export const selectAiCostPerSp = (d) => d.sprints;
+export const selectAiCostPerPoint = (d) => d.sprints;
 
 /** Sem custo de IA em nenhuma sprint do período (aviso único da seção). */
-export const aiCostPerSpEmpty = (sprints) => !hasAiValue(sprints, "aiCostPerSp", "aiCostUsd");
+export const aiCostPerPointEmpty = (sprints) => !hasAiValue(sprints, "aiCostPerPoint", "aiCostUsd");
 
-export function AiCostPerSpWidget({ data: sprints }) {
-  if (aiCostPerSpEmpty(sprints)) {
+export function AiCostPerPointWidget({ data: sprints }) {
+  if (aiCostPerPointEmpty(sprints)) {
     return (
-      <Panel eyebrow="retorno" title="Custo de IA por SP entregue" sources={["ia", "azure"]}>
+      <Panel eyebrow="retorno" title="Custo de IA por ponto entregue" sources={["ia", "azure"]}>
         <AiEmpty />
       </Panel>
     );
@@ -79,13 +79,14 @@ export function AiCostPerSpWidget({ data: sprints }) {
       className={AI_CARD_MIN_HEIGHT}
       fill
       eyebrow="retorno"
-      title="Custo de IA por SP entregue"
+      title="Custo de IA por ponto entregue"
       sources={["ia", "azure"]}
-      info="Custo de IA atribuído aos itens da sprint ÷ SP entregues na sprint."
+      info="Custo de IA atribuído aos itens da sprint ÷ pontos de complexidade entregues na sprint. Custo por hora de esforço na tabela."
       table={{
         columns: [
           { key: "name", label: "Sprint" },
-          { key: "aiCostPerSp", label: "Custo/SP", align: "right", format: fmtUsd },
+          { key: "aiCostPerPoint", label: "Custo/pt", align: "right", format: fmtUsd },
+          { key: "aiCostPerHour", label: "Custo/h", align: "right", format: fmtUsd },
         ],
         rows: sprints,
       }}
@@ -95,7 +96,7 @@ export function AiCostPerSpWidget({ data: sprints }) {
         height={230}
         fill
         yWidth={40}
-        series={[{ key: "aiCostPerSp", label: "Custo por SP", color: "var(--accent)" }]}
+        series={[{ key: "aiCostPerPoint", label: "Custo por ponto", color: "var(--accent)" }]}
         yFormat={axisUsd}
         valueFormat={fmtUsd}
       />
@@ -105,14 +106,15 @@ export function AiCostPerSpWidget({ data: sprints }) {
 
 export const selectAiIndicators = (d) => ({
   adoption: d.ai.adoption,
-  tokensPerSp: d.ai.tokensPerSp,
+  tokensPerPoint: d.ai.tokensPerPoint,
+  tokensPerHour: d.ai.tokensPerHour,
   sub: d.ai.subscription,
   months: d.period.days / 30,
 });
 
 /** Faixa de três indicadores de IA (um widget, inteiro). */
 export function AiIndicatorsWidget({ data }) {
-  const { adoption, tokensPerSp, sub, months } = data;
+  const { adoption, tokensPerPoint, tokensPerHour, sub, months } = data;
   return (
     <div className="grid items-stretch gap-4 md:grid-cols-3">
       <KpiTile
@@ -121,9 +123,9 @@ export function AiIndicatorsWidget({ data }) {
         hint="pessoas com uso de IA no período"
       />
       <KpiTile
-        label="Tokens por SP"
-        value={fmtTokensCompact(tokensPerSp)}
-        hint="média dos itens das sprints do período"
+        label="Tokens por ponto"
+        value={fmtTokensCompact(tokensPerPoint)}
+        hint={`média dos itens das sprints do período · ${fmtTokensCompact(tokensPerHour)} por hora`}
       />
       <KpiTile
         label="Consumo × assinatura"

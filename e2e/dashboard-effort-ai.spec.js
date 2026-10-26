@@ -40,7 +40,7 @@ test("individual: IA em milhões de tokens e o uso de cada dia distribuído nos 
   await expect(aiHistory.getByRole("cell", { name: /M$/ }).first()).toBeVisible();
 });
 
-test("equipe: comprometido × entregue por sprint e custo de IA por SP", async ({ page }) => {
+test("equipe: comprometido × entregue por sprint e custo de IA por ponto", async ({ page }) => {
   await page.clock.setFixedTime(DASH_NOW);
   await installDashboardsApi(page, {
     permissions: ["DASHBOARD_INDIVIDUAL", "DASHBOARD_TEAM", "PROJECT_MANAGE"],
@@ -60,7 +60,7 @@ test("equipe: comprometido × entregue por sprint e custo de IA por SP", async (
   const s22 = velocity.getByRole("row").filter({ hasText: "Sprint 22" });
   await expect(s22).toContainText("79");
   await expect(s22).toContainText("70");
-  await expect(page.getByRole("heading", { name: "Custo de IA por SP" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Custo de IA por ponto" })).toBeVisible();
   /* o título antigo não aparece em lugar nenhum */
   await expect(page.getByText("Velocity por Sprint")).toHaveCount(0);
 });
