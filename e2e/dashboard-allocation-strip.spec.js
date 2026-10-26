@@ -99,6 +99,15 @@ for (const width of [390, 1440]) {
     for (const loc of scopes) {
       for (const el of await loc.all()) {
         if (!(await el.isVisible())) continue;
+        /* alvo rolado para fora da caixa da lista não disputa a tela com os outros */
+        const clipped = await el.evaluate((n) => {
+          const box = n.closest("#alocacao-strip-list");
+          if (!box) return false;
+          const r = n.getBoundingClientRect();
+          const c = box.getBoundingClientRect();
+          return r.top < c.top - 1 || r.bottom > c.bottom + 1;
+        });
+        if (clipped) continue;
         const b = await el.boundingBox();
         expect(b.height, await el.innerText()).toBeGreaterThanOrEqual(43.5);
         boxes.push({ ...b, name: await el.innerText() });
@@ -356,9 +365,9 @@ test("com a casca o rodapé leva ao Uso de IA", async ({ page }) => {
 
 test("a nota aparece só na sugestão pelos itens em andamento", async ({ page }) => {
   await open(page);
-  const note = "sugestão pelos itens em andamento: sem mudança sua no Azure neste dia";
+  const note = "Sugestão pelos itens em andamento: sem mudança sua no Azure neste dia.";
   await expect(row(page, "2026-09-29")).toContainText(note);
-  await expect(row(page, "2026-09-30")).not.toContainText("sugestão pelos itens em andamento");
+  await expect(row(page, "2026-09-30")).not.toContainText("Sugestão pelos itens em andamento");
   await expect(row(page, "2026-09-28")).toContainText("Sem sugestão");
 });
 
@@ -389,5 +398,67 @@ for (const width of [390, 1440]) {
     await el.scrollIntoViewIfNeeded();
     await page.mouse.move(0, 0);
     await expect(el).toHaveScreenshot(`dashboard-individual-alocacao-${width}.png`);
+  });
+}
+
+/* ── alocacao-visual: pele do card, ações compactas, modal ───────────────────── */
+
+for (const width of [360, 768, 1440]) {
+  test(`pele do card: borda esquerda de 1px igual à de cima, a ${width}px`, async ({ page }) => {
+    await open(page, { width });
+    const b = await strip(page).evaluate((el) => {
+      const c = getComputedStyle(el);
+      return [c.borderLeftWidth, c.borderTopWidth, c.borderLeftColor, c.borderTopColor];
+    });
+    expect(b[0]).toBe("1px");
+    expect(b[1]).toBe("1px");
+    expect(b[2]).toBe(b[3]);
+  });
+}
+
+test("a 1440px o título fica acima do primeiro dia da lista", async ({ page }) => {
+  await open(page, { width: 1440 });
+  const h2 = await page.getByRole("heading", { name: TITLE, level: 2 }).boundingBox();
+  const first = await strip(page).locator("li").first().boundingBox();
+  expect(h2.y + h2.height).toBeLessThanOrEqual(first.y);
+});
+
+for (const width of [390, 768, 1440]) {
+  test(`Aceitar tem alvo de 44px com pílula de até 32px e 8px até o Ajustar, a ${width}px`, async ({
+    page,
+  }) => {
+    await open(page, { width });
+    const show = page.getByRole("button", { name: "Ver os 3 dias" });
+    if (await show.isVisible()) await show.click();
+    const accept = row(page, "2026-09-30").getByRole("button", { name: /^Aceitar a sugestão/ });
+    const adjust = row(page, "2026-09-30").getByRole("button", { name: /^Ajustar a alocação/ });
+    await accept.scrollIntoViewIfNeeded();
+    const a = await accept.boundingBox();
+    const pill = await accept.locator("span").boundingBox();
+    const j = await adjust.boundingBox();
+    expect(a.height).toBeGreaterThanOrEqual(44);
+    expect(pill.height).toBeLessThanOrEqual(32);
+    expect(j.x - (a.x + a.width)).toBeGreaterThanOrEqual(8);
+  });
+}
+
+for (const width of [390, 1440]) {
+  test(`modal: busca com rótulo "Adicionar work item" em largura total, a ${width}px`, async ({
+    page,
+  }) => {
+    await open(page, { width });
+    const show = page.getByRole("button", { name: "Ver os 3 dias" });
+    if (await show.isVisible()) await show.click();
+    await page.getByRole("button", { name: /^Ajustar a alocação de 29\/09/ }).click();
+    const dialog = page.getByRole("dialog");
+    const input = dialog.getByLabel("Adicionar work item");
+    await expect(input).toBeVisible();
+    const block = await input.locator("xpath=..").boundingBox();
+    const box = await input.boundingBox();
+    expect(Math.abs(box.width - block.width)).toBeLessThanOrEqual(1);
+    if (width === 1440) {
+      const d = await dialog.boundingBox();
+      expect(d.width).toBeLessThanOrEqual(721);
+    }
   });
 }

@@ -127,7 +127,7 @@ export function AllocationWidget({ data }) {
           <button
             type="button"
             onClick={focusAllocationStrip}
-            className="btn btn-ghost btn-xs min-h-[44px]"
+            className="mono text-accent-text focus-visible:outline-accent inline-flex min-h-[44px] cursor-pointer items-center border-0 bg-transparent p-0 text-[12px] hover:underline focus-visible:outline-2 focus-visible:outline-offset-2"
           >
             Alocar ↑
           </button>

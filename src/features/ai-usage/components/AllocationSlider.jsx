@@ -27,7 +27,6 @@ export function AllocationSlider({ item, onChange, onRemove, disabled, tokensLab
         border: "1px solid var(--line)",
         borderRadius: "var(--radius-sm)",
         padding: "10px 12px",
-        marginBottom: 8,
       }}
     >
       <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -48,7 +47,7 @@ export function AllocationSlider({ item, onChange, onRemove, disabled, tokensLab
           </span>
         ) : null}
         {wi?.externalId ? (
-          <span className="mono" style={{ fontSize: 11, color: "var(--fg-dim)", flexShrink: 0 }}>
+          <span className="mono" style={{ fontSize: 11, color: "var(--fg-muted)", flexShrink: 0 }}>
             {wi.externalId}
           </span>
         ) : null}
@@ -68,7 +67,12 @@ export function AllocationSlider({ item, onChange, onRemove, disabled, tokensLab
         </span>
         <span
           className="mono"
-          style={{ fontSize: "0.85rem", fontWeight: 700, color: "var(--accent)", flexShrink: 0 }}
+          style={{
+            fontSize: "0.85rem",
+            fontWeight: 700,
+            color: "var(--accent-text)",
+            flexShrink: 0,
+          }}
         >
           {item.pct}%
         </span>

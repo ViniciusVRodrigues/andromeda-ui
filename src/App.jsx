@@ -12,6 +12,7 @@
  * core/auth/shell.js; o contexto de sessão em core/auth/IdentityContext.jsx. */
 
 import React from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   BrowserRouter,
   Routes,
@@ -77,6 +78,7 @@ function App() {
 }
 
 function AppShell() {
+  const queryClient = useQueryClient();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -117,6 +119,7 @@ function AppShell() {
       })
       .catch(() => {
         clearToken();
+        queryClient.clear(); // keys genéricas: nada de uma conta anterior pode sobrar
         setIdentity(null);
         setProfile(null);
         setAuthStatus("unauthenticated");
@@ -127,6 +130,7 @@ function AppShell() {
   React.useEffect(() => {
     onAuthExpired(() => {
       discardTelemetry();
+      queryClient.clear();
       setIdentity(null);
       setProfile(null);
       setAuthStatus("unauthenticated");
@@ -135,6 +139,8 @@ function AppShell() {
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   const enterApp = (meData, route) => {
+    /* login/signup: o cache é de quem estava antes (as keys não levam a organização) */
+    queryClient.clear();
     const nextIdentity = buildIdentity(meData);
     setIdentity(nextIdentity);
     setProfile(buildProfile(meData));
@@ -162,6 +168,7 @@ function AppShell() {
     setAuthStatus("unauthenticated");
     flushTelemetry(); // antes do clearToken: o envio final precisa do token
     clearToken();
+    queryClient.clear();
     navigate(to, notice ? { state: { notice } } : undefined);
   };
 
