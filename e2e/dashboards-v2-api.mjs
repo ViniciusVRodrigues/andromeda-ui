@@ -119,6 +119,10 @@ const NEW_MEASURE_KEYS = new Set([
   "pointsPerWeek",
   "pointsDone",
   "pointsPlanned",
+  "effortHours",
+  "unitsWithoutEffort",
+  "hoursPerPoint",
+  "outliers",
 ]);
 export function withNewMeasures(name, o) {
   const num = (v) => (typeof v === "number" ? v : null);
@@ -165,6 +169,14 @@ export function withNewMeasures(name, o) {
     stats(o.previous);
     (o.members || []).forEach(stats);
     (o.history || []).forEach(stats);
+    /* h/pt por sprint (MS-4): 4,5 / 4 / 5 / 3,5 em ciclo; sem entrega fica nulo */
+    (o.history || []).forEach((h, i) => {
+      const hpp = [4.5, 4, 5, 3.5][i % 4];
+      h.effortLogged = h.complexityDelivered
+        ? Math.round(h.complexityDelivered * hpp * 10) / 10
+        : null;
+      h.hoursPerPoint = h.effortLogged == null ? null : hpp;
+    });
     (o.burndown || []).forEach((b) => {
       b.remainingPoints = num(b.remaining);
       b.idealPoints = num(b.ideal);
@@ -202,6 +214,40 @@ export function withNewMeasures(name, o) {
       (o.backlog.byTag || []).forEach((t) => (t.points = num(t.sp)));
     }
     (o.deliveredByTag || []).forEach((t) => (t.points = num(t.sp)));
+    if (o.calibration) {
+      /* MS-4: horas registradas nas Tasks por faixa; a faixa 3 tem 6 h, 8 h e 30 h (mediana 8, n 3) */
+      const spread = {
+        1: [1.5, 2, 3, 5],
+        2: [3, 4, 5.5, 7],
+        3: [7, 8, 19, 3],
+        5: [14, 20, 26, 6],
+        8: [28, 40, 52, 4],
+        13: [40, 60, 80, 2],
+      };
+      (o.calibration.byComplexity || []).forEach((r) => {
+        const sp = spread[r.complexity];
+        r.effortHours = sp ? { p25: sp[0], p50: sp[1], p75: sp[2], n: sp[3] } : null;
+        r.unitsWithoutEffort = sp ? 1 : 0;
+      });
+      o.calibration.outliers = [
+        {
+          externalId: "4802",
+          title: "Refatorar o fluxo de pagamento",
+          type: "STORY",
+          complexity: 3,
+          effortHours: 30,
+          url: "https://dev.azure.com/orbital/_workitems/edit/4802",
+        },
+        {
+          externalId: "4811",
+          title: "Ajustar o texto do botão de envio",
+          type: "STORY",
+          complexity: 8,
+          effortHours: 6,
+          url: null,
+        },
+      ];
+    }
   }
   if (name.startsWith("organization__")) {
     stats(o.kpis);

@@ -17,7 +17,9 @@ import {
   nItems,
 } from "../../format.js";
 import { AI_CARD_MIN_HEIGHT, AiCrossCard, AiEmpty } from "../../kit/AiCross.jsx";
+import { Segmented } from "../../FilterBar.jsx";
 import { Legend } from "../../kit/Bars.jsx";
+import { IaPerPointCard } from "../../kit/IaPerPoint.jsx";
 import { AI_COLOR, ColumnChart, METRIC_COLOR } from "../../kit/charts.jsx";
 import { Empty, Panel } from "../../kit/Panel.jsx";
 
@@ -239,12 +241,25 @@ export function withWithoutReading({ rows, nWith, nWithout }) {
 /* ── componentes ── */
 
 export function IaSprintWidget({ data }) {
+  /* tokens | US$ (herdado do antigo "Custo de IA por sprint", hoje alias deste card) */
+  const [unit, setUnit] = React.useState("tokens");
   return (
     <AiCrossCard
+      actions={
+        <Segmented
+          label="Medida de IA"
+          value={unit}
+          onChange={setUnit}
+          options={[
+            { value: "tokens", label: "Tokens", ariaLabel: "Em tokens" },
+            { value: "usd", label: "US$", ariaLabel: "Em dólares" },
+          ]}
+        />
+      }
       eyebrow="entrega"
       question="Sprints com mais IA entregaram mais do que o planejado?"
       kind="paired"
-      ia={SERIES.tokens}
+      ia={unit === "tokens" ? SERIES.tokens : SERIES.cost}
       metric={SERIES.sprintPoints}
       rows={data.rows}
       help="Tokens de IA e complexidade (pts) entregue e planejada de cada sprint."
@@ -252,27 +267,20 @@ export function IaSprintWidget({ data }) {
       sources={["ia", "azure"]}
       person
       noAi={data.empty}
-      missing={data.tokensMissing ? MISSING_TOKENS : null}
+      missing={unit === "tokens" && data.tokensMissing ? MISSING_TOKENS : null}
     />
   );
 }
 
 export function IaPorPontoWidget({ data }) {
   return (
-    <AiCrossCard
-      eyebrow="custo por ponto"
+    <IaPerPointCard
       question="A IA ficou mais barata por ponto entregue?"
-      kind="paired"
-      ia={SERIES.tokensPerPoint}
-      metric={SERIES.costPerPoint}
       rows={data.rows}
-      columns={[SERIES.tokensPerHour, SERIES.costPerHour]}
-      help="Tokens e US$ de IA ÷ pontos de complexidade entregues; sem entrega a razão fica em branco. A tabela traz também por hora."
-      basis="seu uso de IA ÷ complexidade entregue"
-      sources={["ia", "azure"]}
+      help="Seu uso de IA ÷ pontos de complexidade entregues, ou ÷ horas registradas nas tarefas, em tokens ou US$; sem divisor a razão fica em branco."
+      basis="seu uso de IA ÷ complexidade entregue ou horas"
       person
       noAi={data.empty}
-      missing={data.tokensMissing ? MISSING_TOKENS : null}
     />
   );
 }

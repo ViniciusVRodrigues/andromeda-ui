@@ -49,11 +49,10 @@ import {
   selectAiByModel,
 } from "../widgets/equipe/ai.jsx";
 import {
-  AiCostPerPointWidget,
-  aiCostPerPointEmpty,
   CommittedDeliveredWidget,
   PredictabilityWidget,
   selectHistory,
+  HoursPerPointWidget,
 } from "../widgets/equipe/history.jsx";
 import {
   TeamIaFluxoWidget,
@@ -173,7 +172,7 @@ const widget = (name, section, title, o) => {
     disabled: !!o.disabled,
     aiEmpty: o.aiEmpty,
     skeletonHeight: o.height,
-    aliases: [],
+    aliases: o.aliases ?? [],
     source,
     ...render,
   };
@@ -288,6 +287,14 @@ export const widgets = [
     select: selectHistory,
     Component: CommittedDeliveredWidget,
   }),
+  widget("horas-por-ponto", "historico", "Horas por ponto, sprint a sprint", {
+    sizes: ALL,
+    size: "P",
+    default: true,
+    height: 320,
+    select: selectHistory,
+    Component: HoursPerPointWidget,
+  }),
   widget("previsibilidade", "historico", "Previsibilidade", {
     disabled: true,
     sizes: ALL,
@@ -312,6 +319,7 @@ export const widgets = [
     },
   ),
   widget("ia-por-ponto", "ia-entrega", "Os tokens por ponto caíram ao longo das sprints?", {
+    aliases: ["equipe.custo-ia-sp"],
     sizes: AI_CARD,
     size: "M",
     default: true,
@@ -337,15 +345,6 @@ export const widgets = [
     select: selectTeamIaPessoas,
     aiEmpty: (d) => d.empty,
     Component: TeamIaPessoaWidget,
-  }),
-  widget("custo-ia-sp", "ia-entrega", "Custo de IA por ponto", {
-    sizes: ALL,
-    size: "P",
-    default: true,
-    height: 320,
-    select: selectHistory,
-    aiEmpty: aiCostPerPointEmpty,
-    Component: AiCostPerPointWidget,
   }),
 
   /* ── Fluxo e qualidade (buildTeamFlow) — fora do padrão ── */

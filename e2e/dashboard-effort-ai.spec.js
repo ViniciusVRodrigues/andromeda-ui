@@ -34,7 +34,7 @@ test("individual: IA em milhões de tokens e o uso de cada dia distribuído nos 
   await expect(allocation).toHaveScreenshot("dashboard-individual-ai.png");
 
   /* custo e tokens por sprint, com a tabela como alternativa */
-  const aiHistory = page.locator("[data-widget-id='individual.custo-ia-sprint']");
+  const aiHistory = page.locator("[data-widget-id='individual.ia-entrega-sprint']");
   await aiHistory.getByRole("button", { name: "Tabela" }).click();
   await expect(aiHistory.getByRole("columnheader", { name: "Tokens" })).toBeVisible();
   await expect(aiHistory.getByRole("cell", { name: /M$/ }).first()).toBeVisible();
@@ -60,7 +60,9 @@ test("equipe: comprometido × entregue por sprint e custo de IA por ponto", asyn
   const s22 = velocity.getByRole("row").filter({ hasText: "Sprint 22" });
   await expect(s22).toContainText("79");
   await expect(s22).toContainText("70");
-  await expect(page.getByRole("heading", { name: "Custo de IA por ponto" })).toBeVisible();
+  await expect(
+    page.getByRole("heading", { name: "Os tokens por ponto caíram ao longo das sprints?" }),
+  ).toBeVisible();
   /* o título antigo não aparece em lugar nenhum */
   await expect(page.getByText("Velocity por Sprint")).toHaveCount(0);
 });

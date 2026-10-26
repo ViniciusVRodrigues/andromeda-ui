@@ -107,11 +107,11 @@ test("Projeto: label antigo da calibração ('3 SP') sai como '3 h' / '3 pts'", 
   await page.route("**/api/v1/dashboards/projects/p-portal/roadmap**", async (route) => {
     const body = readFixture("roadmap__p-portal__180");
     body.calibration.byEffort.forEach((r) => (r.label = `${r.effort} SP`));
-    body.calibration.byComplexity.forEach((r) => (r.label = `${r.complexity}`));
+    body.calibration.byComplexity.forEach((r) => (r.label = `${r.complexity} SP`));
     return json(route, body);
   });
   await open(page, "?escopo=p-portal&aba=roadmap");
-  const eff = panel(page, "Cycle time por tamanho");
+  const eff = panel(page, "Cycle time por complexidade");
   await eff.scrollIntoViewIfNeeded();
   await eff.getByRole("button", { name: "Tabela" }).click();
   const t = await eff.getByRole("table").innerText();

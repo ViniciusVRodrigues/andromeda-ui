@@ -226,13 +226,10 @@ for (const [view, cfg] of Object.entries(VIEWS)) {
       expect(text).toMatch(/Complexidade entregue \(pts\)/i);
     });
 
-    test("altura única: os cards da seção e o card de custo antigo medem o mesmo (±1 px)", async ({
-      page,
-    }) => {
+    test("altura única: os cards da seção medem o mesmo (±1 px)", async ({ page }) => {
       await openAs(page, view);
-      const old = view === "equipe" ? "equipe.custo-ia-sp" : "individual.custo-ia-sprint";
       const heights = [];
-      for (const id of [...cfg.ids, old]) {
+      for (const id of cfg.ids) {
         const c = card(page, id);
         await c.scrollIntoViewIfNeeded();
         heights.push((await c.locator("> *").first().boundingBox()).height);
@@ -246,7 +243,7 @@ for (const [view, cfg] of Object.entries(VIEWS)) {
       const errors = [];
       page.on("pageerror", (e) => errors.push(e.message));
       await openAs(page, view, { transform: (n, o) => legacyShape(n, typical(n, o)) });
-      const missing = view === "equipe" ? cfg.ids.slice(0, 2) : [cfg.ids[3]];
+      const missing = view === "equipe" ? cfg.ids.slice(0, 2) : [cfg.ids[1], cfg.ids[3]];
       for (const id of missing) await expect(card(page, id), id).toContainText(/sem dado/i);
       for (const id of cfg.ids.filter((x) => !missing.includes(x))) {
         await expect(card(page, id), id).not.toContainText(/sem dado/i);

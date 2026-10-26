@@ -2,20 +2,12 @@
  * leem a mesma fatia (`selectHistory`). */
 
 import React from "react";
-import {
-  axisPct,
-  axisUsd,
-  fmtHours,
-  fmtNum,
-  fmtPct,
-  fmtPoints,
-  fmtUsd,
-  isNum,
-} from "../../format.js";
-import { AI_CARD_MIN_HEIGHT, AiEmpty, hasAiValue } from "../../kit/AiCross.jsx";
+import { axisPct, fmtHours, fmtNum, fmtPct, fmtPoints, isNum } from "../../format.js";
 import { ColumnChart, TrendChart } from "../../kit/charts.jsx";
-import { Panel } from "../../kit/Panel.jsx";
+import { Empty, Panel } from "../../kit/Panel.jsx";
 import { NoComplexityPanel } from "../individual/noComplexity.jsx";
+import { median } from "../individual/aiCross.jsx";
+import { NO_EFFORT_TEXT } from "../projeto/horasPorPonto.jsx";
 
 export const selectHistory = (d) => ({
   history: d.history,
@@ -100,47 +92,58 @@ export function PredictabilityWidget({ data }) {
   );
 }
 
-/** Sem custo de IA em nenhuma sprint do histórico (aviso único da seção). */
-export const aiCostPerPointEmpty = (data) =>
-  !hasAiValue(data.history, "aiCostUsd", "aiCostPerPoint");
+/* ── equipe.horas-por-ponto (complexidade-esforco D14) ── */
 
-export function AiCostPerPointWidget({ data }) {
-  if (aiCostPerPointEmpty(data)) {
+const HPP_TITLE = "Horas por ponto, sprint a sprint";
+const fmtHpp = (v) => (isNum(v) ? `${fmtNum(v)} h/pt` : "—");
+
+/** Sprints com horas por ponto (`hoursPerPoint` não nulo). */
+export const hoursPerPointEmpty = (data) => !data.history.some((h) => isNum(h.hoursPerPoint));
+
+export function HoursPerPointWidget({ data, ctx }) {
+  if (committedDeliveredEmpty(data)) {
     return (
-      <Panel eyebrow="ia × entrega" title="Custo de IA por ponto" sources={["ia", "azure"]}>
-        <AiEmpty />
+      <NoComplexityPanel
+        href={ctx?.mappingHref}
+        eyebrow="esforço × complexidade"
+        title={HPP_TITLE}
+        sources={["azure"]}
+      />
+    );
+  }
+  if (hoursPerPointEmpty(data)) {
+    return (
+      <Panel eyebrow="esforço × complexidade" title={HPP_TITLE} sources={["azure"]}>
+        <Empty>{NO_EFFORT_TEXT}</Empty>
       </Panel>
     );
   }
+  const med = median(data.history.map((h) => h.hoursPerPoint));
   return (
     <Panel
-      className={AI_CARD_MIN_HEIGHT}
-      fill
-      eyebrow="ia × entrega"
-      title="Custo de IA por ponto"
+      eyebrow="esforço × complexidade"
+      title={HPP_TITLE}
       note={data.partialNote}
-      sources={["ia", "azure"]}
-      info="Custo de IA do time na sprint ÷ pontos de complexidade entregues na sprint. A tabela traz também o custo por hora de esforço registrado."
+      sources={["azure"]}
+      info="Horas registradas nas tarefas dos itens entregues ÷ pontos entregues, em cada sprint. A linha tracejada é a mediana das sprints."
       table={{
         columns: [
           { key: "name", label: "Sprint" },
-          { key: "aiCostPerPoint", label: "US$/pt", align: "right", format: fmtUsd },
-          { key: "aiCostPerHour", label: "US$/h", align: "right", format: fmtUsd },
-          { key: "aiCostUsd", label: "Custo total", align: "right", format: fmtUsd },
+          { key: "effortLogged", label: "Horas registradas", align: "right", format: fmtHours },
+          { key: "complexityDelivered", label: "Entregue (pts)", align: "right", format: fmtNum },
+          { key: "hoursPerPoint", label: "Horas por ponto", align: "right", format: fmtHpp },
         ],
         rows: data.history,
       }}
     >
-      <ColumnChart
+      <TrendChart
         data={data.history}
-        height={180}
-        fill
+        height={200}
         yWidth={40}
-        series={[{ key: "aiCostPerPoint", label: "Custo por ponto", color: "var(--accent)" }]}
-        emphasis={(r) => r.isSelected}
-        yFormat={axisUsd}
-        valueFormat={fmtUsd}
-        extra={(row) => `total ${fmtUsd(row.aiCostUsd)}`}
+        series={[{ key: "hoursPerPoint", label: "Horas por ponto", color: "var(--accent)" }]}
+        yFormat={(v) => fmtNum(v)}
+        valueFormat={fmtHpp}
+        reference={isNum(med) ? { y: med, label: `mediana ${fmtHpp(med)}` } : undefined}
       />
     </Panel>
   );

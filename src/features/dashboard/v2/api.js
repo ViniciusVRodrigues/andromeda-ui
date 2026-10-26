@@ -94,7 +94,13 @@ const K_COVERAGE = ["unitsWithoutComplexity", "itemsWithComplexity", "tasksWithE
 const K_BURN = ["remainingPoints", "idealPoints"];
 const K_PROGRESS = ["complexityTotal", "complexityDone", "pointsPerWeek"];
 const K_PERIOD = ["complexityDelivered", "effortLogged", "aiCostPerPoint", "aiCostPerHour"];
-const K_ROW = ["complexityPlanned", "complexityDelivered", "aiCostPerPoint", "aiCostPerHour"];
+const K_ROW = [
+  "complexityPlanned",
+  "complexityDelivered",
+  "effortLogged",
+  "aiCostPerPoint",
+  "aiCostPerHour",
+];
 const K_SPRINT_FIG = ["complexityPlanned", "complexityDelivered", "effortLogged"];
 
 const withAiTokens = (h) => ({ ...h, aiTokens: h.aiTokens ?? null });
@@ -153,6 +159,7 @@ export function adaptTeam(raw) {
         ...K_SPRINT_FIG,
         "aiCostPerPoint",
         "aiCostPerHour",
+        "hoursPerPoint",
       ]),
     ),
   };
@@ -220,6 +227,26 @@ export function adaptProjectOverview(raw) {
   };
 }
 
+/** `effortHours {p25,p50,p75,n}` → o mesmo objeto com números ou `null`; sem `n` > 0, `null`. */
+const effortSpread = (e) =>
+  e && typeof e === "object" && Number(e.n) > 0
+    ? {
+        p25: e.p25 ?? null,
+        p50: e.p50 ?? null,
+        p75: e.p75 ?? null,
+        n: Number(e.n),
+      }
+    : null;
+
+/** `calibration.outliers[]` (no máximo 5); `url` e `complexity` podem vir nulos. */
+const adaptOutliers = (rows) =>
+  (rows || []).slice(0, 5).map((o) => ({
+    ...o,
+    complexity: o.complexity ?? null,
+    effortHours: o.effortHours ?? null,
+    url: typeof o.url === "string" && /^https?:\/\//i.test(o.url) ? o.url : null,
+  }));
+
 export function adaptRoadmap(raw) {
   const d = msTimestamps(raw);
   const cal = (rows) =>
@@ -228,6 +255,9 @@ export function adaptRoadmap(raw) {
       aiCostUsd: r.aiCostUsd ?? null,
       aiTokens: r.aiTokens ?? null,
       itemsWithAi: r.itemsWithAi ?? 0,
+      /* complexidade-esforco MS-4: horas registradas nas tarefas (p25/p50/p75/n) por faixa */
+      effortHours: effortSpread(r.effortHours),
+      unitsWithoutEffort: r.unitsWithoutEffort ?? null,
     }));
   const backlog = d.backlog && {
     ...withNew(d.backlog, ["points"]),
@@ -246,6 +276,7 @@ export function adaptRoadmap(raw) {
       ...d.calibration,
       byEffort: cal(d.calibration.byEffort),
       byComplexity: cal(d.calibration.byComplexity),
+      outliers: adaptOutliers(d.calibration.outliers),
     },
   };
 }

@@ -1,18 +1,7 @@
 /* Widgets da visão Individual — seção "Histórico" (últimas sprints). */
 
 import React from "react";
-import {
-  axisDays,
-  axisUsd,
-  fmtDuration,
-  fmtHours,
-  fmtNum,
-  fmtPoints,
-  fmtTokensM,
-  fmtUsd,
-  isNum,
-} from "../../format.js";
-import { AI_CARD_MIN_HEIGHT, AiEmpty, hasAiValue } from "../../kit/AiCross.jsx";
+import { axisDays, fmtDuration, fmtHours, fmtNum, fmtPoints, isNum } from "../../format.js";
 import { ColumnChart, TrendChart } from "../../kit/charts.jsx";
 import { Panel } from "../../kit/Panel.jsx";
 import { NoComplexityPanel } from "./noComplexity.jsx";
@@ -96,50 +85,6 @@ export function CycleTimeHistoryWidget({ data }) {
         series={[{ key: "cycleDays", label: "Cycle time (dias)", color: "var(--accent)" }]}
         yFormat={axisDays}
         valueFormat={(v) => fmtDuration(v * 24)}
-      />
-    </Panel>
-  );
-}
-
-/** Sem uso de IA em nenhuma sprint do histórico (alimenta o aviso único da seção). */
-export const aiCostHistoryEmpty = (data) => !hasAiValue(data.rows, "aiCostUsd", "aiTokens");
-
-export function AiCostHistoryWidget({ data }) {
-  if (aiCostHistoryEmpty(data)) {
-    return (
-      <Panel eyebrow="ia" title="Custo de IA por sprint" sources={["ia"]}>
-        <AiEmpty person />
-      </Panel>
-    );
-  }
-  return (
-    <Panel
-      className={AI_CARD_MIN_HEIGHT}
-      fill
-      eyebrow="ia"
-      title="Custo de IA por sprint"
-      note={data.note}
-      sources={["ia"]}
-      info="Soma do custo diário do seu uso de IA dentro das datas de cada sprint."
-      table={{
-        columns: [
-          { key: "name", label: "Sprint" },
-          { key: "aiCostUsd", label: "Custo", align: "right", format: fmtUsd },
-          { key: "aiTokens", label: "Tokens", align: "right", format: fmtTokensM },
-        ],
-        rows: data.rows,
-      }}
-    >
-      <ColumnChart
-        data={data.rows}
-        height={180}
-        fill
-        yWidth={40}
-        series={[{ key: "aiCostUsd", label: "Custo de IA", color: "var(--accent)" }]}
-        emphasis={(r) => r.isSelected}
-        yFormat={axisUsd}
-        valueFormat={fmtUsd}
-        extra={(row) => `${fmtTokensM(row.aiTokens)} tokens`}
       />
     </Panel>
   );

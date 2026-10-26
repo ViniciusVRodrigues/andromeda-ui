@@ -396,39 +396,6 @@ export function BacklogByTagWidget({ data: b }) {
 
 export const selectCalibration = (r) => ({ calibration: r.calibration, config: r.config });
 
-export function CycleByEffortWidget({ data }) {
-  const rows = data.calibration.byEffort.map((r) => ({
-    ...r,
-    label: bandLabel(r.label, r.effort, "h"),
-  }));
-  return (
-    <Panel
-      eyebrow="esforço × tempo"
-      title="Cycle time por tamanho"
-      sources={["azure"]}
-      info={`Tempo típico (mediana) para concluir os itens do período, por esforço estimado (campo ${data.config?.effortField ?? "de esforço"}). Se o tempo cresce junto com o tamanho, as estimativas estão consistentes.`}
-      table={{
-        columns: [
-          { key: "label", label: "Esforço (h)" },
-          { key: "count", label: "Itens", align: "right" },
-          { key: "cycleDays", label: "Cycle (d)", align: "right", format: fmtNum },
-        ],
-        rows,
-      }}
-    >
-      <ColumnChart
-        data={rows}
-        height={200}
-        yWidth={34}
-        series={[{ key: "cycleDays", label: "Cycle time mediano", color: "var(--accent)" }]}
-        yFormat={axisDays}
-        valueFormat={(v) => fmtDuration(v * 24)}
-        extra={(row) => nItems(row.count)}
-      />
-    </Panel>
-  );
-}
-
 export function CycleByComplexityWidget({ data }) {
   const rows = data.calibration.byComplexity.map((r) => ({
     ...r,

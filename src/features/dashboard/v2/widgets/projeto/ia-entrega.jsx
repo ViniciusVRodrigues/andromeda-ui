@@ -23,6 +23,7 @@ import {
 } from "../../format.js";
 import { Tag } from "../../kit/Badges.jsx";
 import { AiCrossCard, hasAiValue } from "../../kit/AiCross.jsx";
+import { IaPerPointCard } from "../../kit/IaPerPoint.jsx";
 import { Panel } from "../../kit/Panel.jsx";
 import { NoComplexityPanel } from "../individual/noComplexity.jsx";
 import { noComplexityIn } from "./hasComplexity.js";
@@ -190,8 +191,11 @@ export function selectIaPerPoint(d) {
       label: s.label ?? s.name,
       aiTokens: s.aiTokens ?? null,
       tokensPerPoint: ratio(s.aiTokens, s.complexityDelivered),
+      tokensPerHour: ratio(s.aiTokens, s.effortLogged),
       complexityDelivered: s.complexityDelivered ?? null,
       aiCostUsd: s.aiCostUsd ?? null,
+      costPerPoint: s.aiCostPerPoint ?? null,
+      costPerHour: s.aiCostPerHour ?? null,
       aiCostPerPoint: s.aiCostPerPoint ?? null,
       aiCostPerHour: s.aiCostPerHour ?? null,
     })),
@@ -216,29 +220,16 @@ export function IaPerPointWidget({ data, ctx }) {
     );
   }
   return (
-    <AiCrossCard
+    <IaPerPointCard
       eyebrow="entrega"
       question="Os tokens por ponto caíram ao longo das sprints?"
-      ia={{ key: "tokensPerPoint", label: "Tokens por ponto", short: "IA", ...FMT.tokens }}
-      metric={{
-        key: "complexityDelivered",
-        label: "Complexidade entregue",
-        short: "Pts",
-        ...FMT.points,
-      }}
       rows={rows}
-      labelHeader="Sprint"
-      noun="sprints"
-      columns={[
-        { key: "aiCostPerPoint", label: "US$ por ponto", align: "right", format: fmtPerPoint },
-        { key: "aiCostPerHour", label: "US$ por hora", align: "right", format: fmtPerHour },
-      ]}
-      help="Tokens de IA divididos pelos pontos de complexidade entregues, sprint a sprint, ao lado da complexidade."
-      coverage={coverage}
+      help="IA do projeto ÷ pontos de complexidade entregues, ou ÷ horas registradas nas tarefas, em tokens ou US$."
       basis="uso alocado ao projeto"
-      sources={["ia", "azure"]}
+      note={
+        isNum(coverage) ? `${Math.round(Number(coverage))}% dos dias de IA alocados a itens` : null
+      }
       noAi={noAi}
-      missing={!noAi && noTokens ? "Sem dado de tokens por sprint neste servidor." : null}
     />
   );
 }

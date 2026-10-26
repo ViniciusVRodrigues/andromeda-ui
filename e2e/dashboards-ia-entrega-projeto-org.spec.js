@@ -24,7 +24,6 @@ const VIEWS = [
         "projeto.ia-esforco-complexidade",
         "Itens maiores ou mais complexos consomem mais IA e demoram mais?",
       ],
-      ["projeto.custo-ia-sp", "Custo de IA por ponto entregue"],
     ],
   },
   {
@@ -77,7 +76,6 @@ for (const view of VIEWS) {
         const c = card(page, id);
         await expect(c.getByRole("heading", { level: 3, name: question })).toBeVisible();
         heights.push((await c.boundingBox()).height);
-        if (id === "projeto.custo-ia-sp") continue; // gráfico que só mudou de seção
         await expect(c).toContainText("IA ×");
         expect(question.endsWith("?")).toBe(true);
         expect(await c.innerText()).toMatch(/\([^)]{1,14}\)/); // legenda com unidade
@@ -141,7 +139,6 @@ for (const view of VIEWS) {
     test("critério 5: a tabela gêmea traz os mesmos números do gráfico", async ({ page }) => {
       await open(page, view);
       for (const [id] of view.cards) {
-        if (id === "projeto.custo-ia-sp") continue;
         const c = card(page, id);
         const label = (await c.locator("svg[role=img]").first().getAttribute("aria-label")) || "";
         await c.getByRole("button", { name: "Tabela" }).click();
@@ -271,7 +268,7 @@ test("ms antigo: cards com campo ausente mostram sem dado e os demais funcionam"
   page.on("pageerror", (e) => errors.push(e.message));
   await open(page, VIEWS[0], { legacy: true });
   await expect(card(page, "projeto.ia-entrega-sprint")).toContainText("Sem dado de tokens");
-  await expect(card(page, "projeto.ia-por-ponto")).toContainText("Sem dado de tokens");
+  await expect(card(page, "projeto.ia-por-ponto")).toContainText("Sem dado");
   await expect(card(page, "projeto.ia-dora")).toContainText("Sem DORA por intervalo");
   await expect(card(page, "projeto.ia-esforco-complexidade")).toContainText(
     "Sem custo de IA por faixa",

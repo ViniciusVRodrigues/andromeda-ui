@@ -67,8 +67,6 @@ import {
   selectItensComSemIa,
 } from "./widgets/individual/aiCross.jsx";
 import {
-  AiCostHistoryWidget,
-  aiCostHistoryEmpty,
   CycleTimeHistoryWidget,
   PlannedDeliveredWidget,
   selectHistory,
@@ -311,7 +309,7 @@ const WIDGETS = [
     defaultSize: "M",
     default: true,
     skeletonHeight: 360,
-    aliases: [],
+    aliases: ["individual.custo-ia-sprint"],
     select: selectIaSprint,
     aiEmpty: (d) => d.empty,
     Component: IaSprintWidget,
@@ -371,20 +369,6 @@ const WIDGETS = [
     select: selectItensComSemIa,
     aiEmpty: (d) => d.empty,
     Component: ItensComSemIaWidget,
-  },
-  {
-    id: "individual.custo-ia-sprint",
-    viewKey: "individual",
-    section: "ia-entrega",
-    title: "Custo de IA por sprint",
-    sizes: ALL,
-    defaultSize: "P",
-    default: true,
-    skeletonHeight: 300,
-    aliases: [],
-    select: selectHistory,
-    aiEmpty: aiCostHistoryEmpty,
-    Component: AiCostHistoryWidget,
   },
 ];
 

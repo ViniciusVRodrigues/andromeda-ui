@@ -478,7 +478,7 @@ const VIEW_CASES = [
     widgets: [
       "Itens concluídos por tipo",
       "Saúde por repositório",
-      "Custo de IA por ponto entregue",
+      "Os tokens por ponto caíram ao longo das sprints?",
     ],
   },
   {

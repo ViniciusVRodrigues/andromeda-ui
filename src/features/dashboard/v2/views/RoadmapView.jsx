@@ -19,7 +19,6 @@ import {
   BacklogPriorityWidget,
   BacklogStalenessWidget,
   CycleByComplexityWidget,
-  CycleByEffortWidget,
   DeliveredByTagWidget,
   EpicsWidget,
   FeaturesWidget,
@@ -30,6 +29,7 @@ import {
   selectEpics,
   selectFeatures,
 } from "../widgets/projeto/roadmap.jsx";
+import { HorasPorPontoWidget, selectHorasPorPonto } from "../widgets/projeto/horasPorPonto.jsx";
 import { useMappingHref } from "./mappingLink.js";
 import { FetchFrame, Grid, ViewError, ViewRefresh, ViewSkeleton } from "./shared.jsx";
 
@@ -95,11 +95,13 @@ export function RoadmapView({ projectId, periodDays }) {
         title="Estimativas"
         question="Os tamanhos estimados batem com o tempo real?"
       >
-        <Grid cols="lg:grid-cols-3">
-          <CycleByEffortWidget data={calibration} />
+        <Grid cols="lg:grid-cols-2">
+          <HorasPorPontoWidget data={selectHorasPorPonto(d)} ctx={{ mappingHref }} />
           <CycleByComplexityWidget data={calibration} />
-          <ManualOverridesWidget data={calibration} />
         </Grid>
+        <div className="mt-4">
+          <ManualOverridesWidget data={calibration} />
+        </div>
       </Section>
     </FetchFrame>
   );

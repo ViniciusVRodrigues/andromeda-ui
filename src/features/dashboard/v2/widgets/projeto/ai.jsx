@@ -4,7 +4,7 @@ import React from "react";
 import { axisUsd, fmtNum, fmtTokensCompact, fmtUsd } from "../../format.js";
 import { MODEL_TOOLTIP_MIN_USD, modelSeries } from "../../kit/Badges.jsx";
 import { AI_CARD_MIN_HEIGHT, AiEmpty, hasAiValue } from "../../kit/AiCross.jsx";
-import { ColumnChart, TrendChart } from "../../kit/charts.jsx";
+import { ColumnChart } from "../../kit/charts.jsx";
 import { KpiTile } from "../../kit/Kpi.jsx";
 import { Panel } from "../../kit/Panel.jsx";
 
@@ -54,49 +54,6 @@ export function AiCostByModelWidget({ data }) {
         series={series}
         legendItems={legend}
         tooltipMin={MODEL_TOOLTIP_MIN_USD}
-        yFormat={axisUsd}
-        valueFormat={fmtUsd}
-      />
-    </Panel>
-  );
-}
-
-export const selectAiCostPerPoint = (d) => d.sprints;
-
-/** Sem custo de IA em nenhuma sprint do período (aviso único da seção). */
-export const aiCostPerPointEmpty = (sprints) => !hasAiValue(sprints, "aiCostPerPoint", "aiCostUsd");
-
-export function AiCostPerPointWidget({ data: sprints }) {
-  if (aiCostPerPointEmpty(sprints)) {
-    return (
-      <Panel eyebrow="retorno" title="Custo de IA por ponto entregue" sources={["ia", "azure"]}>
-        <AiEmpty />
-      </Panel>
-    );
-  }
-  return (
-    <Panel
-      className={AI_CARD_MIN_HEIGHT}
-      fill
-      eyebrow="retorno"
-      title="Custo de IA por ponto entregue"
-      sources={["ia", "azure"]}
-      info="Custo de IA atribuído aos itens da sprint ÷ pontos de complexidade entregues na sprint. Custo por hora de esforço na tabela."
-      table={{
-        columns: [
-          { key: "name", label: "Sprint" },
-          { key: "aiCostPerPoint", label: "Custo/pt", align: "right", format: fmtUsd },
-          { key: "aiCostPerHour", label: "Custo/h", align: "right", format: fmtUsd },
-        ],
-        rows: sprints,
-      }}
-    >
-      <TrendChart
-        data={sprints}
-        height={230}
-        fill
-        yWidth={40}
-        series={[{ key: "aiCostPerPoint", label: "Custo por ponto", color: "var(--accent)" }]}
         yFormat={axisUsd}
         valueFormat={fmtUsd}
       />

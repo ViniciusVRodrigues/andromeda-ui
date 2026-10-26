@@ -4,6 +4,7 @@
 import React from "react";
 import { axisPct, fmtDuration, fmtPct, fmtTokensCompact, fmtUsd, isNum } from "../../format.js";
 import { AiCrossCard } from "../../kit/AiCross.jsx";
+import { IaPerPointCard } from "../../kit/IaPerPoint.jsx";
 import { MISSING_TOKENS, SERIES, positive, selectSprintCross } from "../individual/aiCross.jsx";
 
 /* ── seletores (recebem o payload `resumo` da Equipe) ── */
@@ -68,19 +69,12 @@ export function TeamIaSprintWidget({ data }) {
 
 export function TeamIaPorPontoWidget({ data }) {
   return (
-    <AiCrossCard
-      eyebrow="custo por ponto"
+    <IaPerPointCard
       question="Os tokens por ponto caíram ao longo das sprints?"
-      kind="paired"
-      ia={SERIES.tokensPerPoint}
-      metric={SERIES.costPerPoint}
       rows={data.rows}
-      columns={[SERIES.tokensPerHour, SERIES.costPerHour]}
-      help="Tokens e US$ de IA do time ÷ pontos de complexidade entregues; sem entrega a razão fica em branco. A tabela traz também por hora."
-      basis="uso de IA alocado ÷ complexidade entregue"
-      sources={["ia", "azure"]}
+      help="IA do time ÷ pontos de complexidade entregues, ou ÷ horas registradas nas tarefas, em tokens ou US$; sem divisor a razão fica em branco."
+      basis="uso de IA alocado ÷ complexidade entregue ou horas"
       noAi={data.empty}
-      missing={data.tokensMissing ? MISSING_TOKENS : null}
     />
   );
 }
