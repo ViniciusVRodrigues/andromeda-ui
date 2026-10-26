@@ -165,6 +165,7 @@ export function PortfolioWidget({ data: portfolio, ctx }) {
       <DataTable
         rowKey={(r) => r.projectId}
         rows={portfolio}
+        scroll
         onRowClick={onOpenProject ? (r) => onOpenProject(r.projectId) : undefined}
         columns={PORTFOLIO_COLUMNS}
       />

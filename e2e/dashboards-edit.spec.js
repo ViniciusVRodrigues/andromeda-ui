@@ -52,23 +52,23 @@ test("só teclado: entrar, pegar, mover, soltar e cancelar com Esc", async ({ pa
   /* a grade de edição já desenhou a ordem padrão (a posição anunciada vem dela) */
   await expect
     .poll(() => order(page, "ind-codigo"))
-    .toEqual(["individual.prs", "individual.reviews", "individual.commits-dia"]);
+    .toEqual(["individual.prs", "individual.commits-dia"]);
 
-  await tabTo(page, "Mover Reviews que fiz");
-  const handle = page.getByRole("button", { name: "Mover Reviews que fiz", exact: true });
+  await tabTo(page, "Mover Commits por dia");
+  const handle = page.getByRole("button", { name: "Mover Commits por dia", exact: true });
   await expect(handle).toHaveAttribute("aria-roledescription", "item reordenável");
 
   await page.keyboard.press("Space");
   await expect(announcer(page)).toContainText(
-    "Pegou Reviews que fiz, posição 2 de 3 na seção Código. Setas movem, Espaço solta, Esc cancela.",
+    "Pegou Commits por dia, posição 2 de 2 na seção Código. Setas movem, Espaço solta, Esc cancela.",
   );
-  await page.keyboard.press("ArrowRight");
-  await expect(announcer(page)).toContainText("Posição 3 de 3.");
+  await page.keyboard.press("ArrowLeft");
+  await expect(announcer(page)).toContainText("Posição 1 de 2.");
   await page.keyboard.press("Space");
-  await expect(announcer(page)).toContainText("Reviews que fiz solto na posição 3 de 3.");
+  await expect(announcer(page)).toContainText("Commits por dia solto na posição 1 de 2.");
   await expect
     .poll(() => order(page, "ind-codigo"))
-    .toEqual(["individual.prs", "individual.commits-dia", "individual.reviews"]);
+    .toEqual(["individual.commits-dia", "individual.prs"]);
   await expect(handle).toBeFocused();
 
   /* Esc durante o arrasto cancela (e não sai do modo de edição) */
@@ -76,17 +76,17 @@ test("só teclado: entrar, pegar, mover, soltar e cancelar com Esc", async ({ pa
   /* o texto inteiro: "posição 3 de 3" sozinho já estava no anúncio do solto anterior, e a
    * seta saía antes de o arrasto começar. "Pegou…" só é anunciado com as setas ligadas. */
   await expect(announcer(page)).toContainText(
-    "Pegou Reviews que fiz, posição 3 de 3 na seção Código. Setas movem, Espaço solta, Esc cancela.",
+    "Pegou Commits por dia, posição 1 de 2 na seção Código. Setas movem, Espaço solta, Esc cancela.",
   );
-  await page.keyboard.press("ArrowLeft");
-  await expect(announcer(page)).toContainText("Posição 2 de 3.");
+  await page.keyboard.press("ArrowRight");
+  await expect(announcer(page)).toContainText("Posição 2 de 2.");
   await page.keyboard.press("Escape");
   await expect(announcer(page)).toContainText(
-    "Movimento cancelado; Reviews que fiz voltou à posição 3.",
+    "Movimento cancelado; Commits por dia voltou à posição 1.",
   );
   await expect
     .poll(() => order(page, "ind-codigo"))
-    .toEqual(["individual.prs", "individual.commits-dia", "individual.reviews"]);
+    .toEqual(["individual.commits-dia", "individual.prs"]);
   await expect(page.getByRole("heading", { name: "Personalizando o painel" })).toBeVisible();
 
   /* Esc fora do arrasto sai e devolve o foco ao Personalizar (logo depois do cancelamento:
@@ -104,18 +104,18 @@ test("só teclado: seções também se reordenam pela alça", async ({ page }) =
   const handle = page.getByRole("button", { name: "Mover seção Histórico", exact: true });
   await handle.focus();
   await page.keyboard.press("Enter");
-  await expect(announcer(page)).toContainText("Pegou a seção Histórico, posição 5 de 5.");
+  await expect(announcer(page)).toContainText("Pegou a seção Histórico, posição 6 de 6.");
   await page.keyboard.press("ArrowUp");
-  await expect(announcer(page)).toContainText("Posição 4 de 5.");
+  await expect(announcer(page)).toContainText("Posição 5 de 6.");
   await page.keyboard.press("Enter");
-  await expect(announcer(page)).toContainText("Seção Histórico solta na posição 4 de 5.");
+  await expect(announcer(page)).toContainText("Seção Histórico solta na posição 5 de 6.");
   await expect
     .poll(() =>
       page
         .locator("[data-edit-section]")
         .evaluateAll((els) => els.map((e) => e.getAttribute("data-edit-section"))),
     )
-    .toEqual(["resumo", "trabalho", "codigo", "historico", "ia"]);
+    .toEqual(["resumo", "ia-entrega", "trabalho", "codigo", "historico", "ia"]);
   await expect(handle).toBeFocused();
 });
 
@@ -128,7 +128,7 @@ test("no modo de edição, seções são <section> com lista de widgets e alças
   await expect(code).toHaveAttribute("aria-labelledby", "ind-codigo-title");
   const list = code.getByRole("list", { name: "Widgets da seção Código" });
   await expect(list).toBeVisible();
-  await expect(list.locator(':scope > [role="listitem"]')).toHaveCount(3);
+  await expect(list.locator(':scope > [role="listitem"]')).toHaveCount(2);
   await expect(page.getByRole("button", { name: "Mover seção Código", exact: true })).toBeVisible();
   /* o gráfico não recebe clique nem foco durante a edição */
   await expect(code.locator("[inert]").first()).toHaveCSS("pointer-events", "none");
@@ -159,7 +159,7 @@ test("catálogo no Drawer: contador, busca e switch religam o widget no fim da s
   await page.getByRole("button", { name: "Ocultar Custo por modelo" }).click();
   await page.getByRole("button", { name: "Adicionar widgets" }).click();
   const drawer = page.getByRole("dialog", { name: "Adicionar widgets" });
-  await expect(drawer).toContainText("12 de 13 visíveis");
+  await expect(drawer).toContainText("16 de 17 visíveis");
   await expect(drawer.getByRole("searchbox")).toBeFocused();
   await drawer.getByRole("searchbox").fill("custo");
   await expect(drawer.locator("[data-catalog-item]")).toHaveCount(2);
@@ -169,7 +169,7 @@ test("catálogo no Drawer: contador, busca e switch religam o widget no fim da s
   expect(box.height).toBeGreaterThanOrEqual(44);
   await sw.click();
   await expect(sw).toHaveAttribute("aria-checked", "true");
-  await expect(drawer).toContainText("13 de 13 visíveis");
+  await expect(drawer).toContainText("17 de 17 visíveis");
   await page.keyboard.press("Escape");
   await expect(drawer).toHaveCount(0);
   /* Esc fechou só o Drawer: segue editando, foco volta ao botão */
@@ -205,8 +205,8 @@ test("menu ⋯ move, Ctrl+Z desfaz e o layout persiste depois do reload", async 
   await page.getByRole("menuitem", { name: "Mover para o início" }).click();
   await expect
     .poll(() => order(page, "ind-codigo"))
-    .toEqual(["individual.commits-dia", "individual.prs", "individual.reviews"]);
-  await expect(announcer(page)).toContainText("Commits por dia: posição 1 de 3.");
+    .toEqual(["individual.commits-dia", "individual.prs"]);
+  await expect(announcer(page)).toContainText("Commits por dia: posição 1 de 2.");
 
   /* seção inteira pelo menu */
   await page.getByRole("button", { name: "Mais ações da seção Histórico" }).click();
@@ -237,30 +237,28 @@ test("menu ⋯ move, Ctrl+Z desfaz e o layout persiste depois do reload", async 
   const ids = await page
     .locator("#ind-codigo [data-widget-id]")
     .evaluateAll((els) => els.map((e) => e.getAttribute("data-widget-id")));
-  expect(ids).toEqual(["individual.commits-dia", "individual.prs", "individual.reviews"]);
+  expect(ids).toEqual(["individual.commits-dia", "individual.prs"]);
 });
 
 test("restaurar padrão: DELETE na hora e toast com Desfazer", async ({ page }) => {
   const api = await open(page);
   await enterEdit(page);
-  await page.getByRole("button", { name: "Ocultar Reviews que fiz" }).click();
+  await page.getByRole("button", { name: "Ocultar Commits por dia" }).click();
   await page.getByRole("button", { name: "Mais ações da personalização" }).click();
   await page.getByRole("menuitem", { name: "Restaurar padrão" }).click();
   await expect(page.locator("[data-edit-toast]")).toContainText("Painel restaurado ao padrão");
   await expect
     .poll(() => order(page, "ind-codigo"))
-    .toEqual(["individual.prs", "individual.reviews", "individual.commits-dia"]);
+    .toEqual(["individual.prs", "individual.commits-dia"]);
   await expect.poll(() => api.layouts().length).toBe(0);
   await page.locator("[data-edit-toast]").getByRole("button", { name: "Desfazer" }).click();
-  await expect
-    .poll(() => order(page, "ind-codigo"))
-    .toEqual(["individual.prs", "individual.commits-dia"]);
+  await expect.poll(() => order(page, "ind-codigo")).toEqual(["individual.prs"]);
 });
 
 test("descartar alterações pede confirmação e volta ao estado de entrada", async ({ page }) => {
   await open(page);
   await enterEdit(page);
-  await page.getByRole("button", { name: "Ocultar Reviews que fiz" }).click();
+  await page.getByRole("button", { name: "Ocultar Commits por dia" }).click();
   await page.getByRole("button", { name: "Mais ações da personalização" }).click();
   await page.getByRole("menuitem", { name: "Descartar alterações" }).click();
   const dialog = page.getByRole("dialog", { name: "Descartar alterações?" });
@@ -268,7 +266,7 @@ test("descartar alterações pede confirmação e volta ao estado de entrada", a
   await dialog.getByRole("button", { name: "Descartar" }).click();
   await expect(page.getByRole("heading", { name: "Personalizando o painel" })).toHaveCount(0);
   await expect(
-    page.locator("#ind-codigo").getByRole("heading", { name: "Reviews que fiz" }),
+    page.locator("#ind-codigo").getByRole("heading", { name: "Commits por dia" }),
   ).toBeVisible();
 });
 
@@ -277,7 +275,7 @@ test("celular 390: ↑↓ sem alça e barra fixa embaixo (≤ 15% da altura)", a
   await open(page);
   await enterEdit(page);
   await expect(
-    page.getByRole("button", { name: "Mover Reviews que fiz", exact: true }),
+    page.getByRole("button", { name: "Mover Commits por dia", exact: true }),
   ).toBeHidden();
   const bar = page.locator("[data-edit-bottom-bar]");
   await expect(bar).toBeVisible();
@@ -285,14 +283,14 @@ test("celular 390: ↑↓ sem alça e barra fixa embaixo (≤ 15% da altura)", a
   expect(Math.round(box.y + box.height)).toBe(844);
   expect(box.height).toBeLessThanOrEqual(844 * 0.15);
 
-  await page.getByRole("button", { name: "Mover Reviews que fiz para cima" }).click();
-  await expect(announcer(page)).toContainText("Reviews que fiz: posição 1 de 3.");
+  await page.getByRole("button", { name: "Mover Commits por dia para cima" }).click();
+  await expect(announcer(page)).toContainText("Commits por dia: posição 1 de 2.");
   await expect
     .poll(() => order(page, "ind-codigo"))
-    .toEqual(["individual.reviews", "individual.prs", "individual.commits-dia"]);
+    .toEqual(["individual.commits-dia", "individual.prs"]);
   /* chegou ao topo: o ↑ desabilita e o foco vai para o ↓ do mesmo cartão */
   await expect(
-    page.getByRole("button", { name: "Mover Reviews que fiz para baixo" }),
+    page.getByRole("button", { name: "Mover Commits por dia para baixo" }),
   ).toBeFocused();
 
   const overflow = await page.evaluate(
@@ -349,6 +347,8 @@ test("painel vazio oferece Adicionar e Restaurar; widget novo ganha selo e aviso
       sections: [
         { id: "resumo", collapsed: false, widgets: [] },
         { id: "trabalho", collapsed: false, widgets: [] },
+        /* a seção nova já existe no layout salvo: sem migração, o widget segue "novo" */
+        { id: "ia-entrega", collapsed: false, widgets: [] },
       ],
       /* tudo oculto, menos Custo de IA por sprint, que fica "nova" (nem em widgets nem em hidden) */
       hidden: [
@@ -356,7 +356,6 @@ test("painel vazio oferece Adicionar e Restaurar; widget novo ganha selo e aviso
         "individual.burndown",
         "individual.itens",
         "individual.prs",
-        "individual.reviews",
         "individual.commits-dia",
         "individual.tokens-dia",
         "individual.custo-modelo",
@@ -364,6 +363,11 @@ test("painel vazio oferece Adicionar e Restaurar; widget novo ganha selo e aviso
         "individual.alocacao",
         "individual.planejado-entregue",
         "individual.cycle-time",
+        "individual.ia-entrega-sprint",
+        "individual.ia-por-ponto",
+        "individual.ia-cycle",
+        "individual.ia-esforco-itens",
+        "individual.itens-com-sem-ia",
       ],
       version: 1,
       updatedAt: "2026-10-11T12:00:00Z",
@@ -375,7 +379,7 @@ test("painel vazio oferece Adicionar e Restaurar; widget novo ganha selo e aviso
 
   await page.getByRole("button", { name: "Adicionar widgets" }).click();
   const drawer = page.getByRole("dialog", { name: "Adicionar widgets" });
-  await expect(drawer).toContainText("0 de 13 visíveis");
+  await expect(drawer).toContainText("0 de 17 visíveis");
   await expect(drawer.locator('[data-catalog-item="individual.custo-ia-sprint"]')).toContainText(
     "novo",
   );
@@ -395,7 +399,7 @@ test("painel vazio oferece Adicionar e Restaurar; widget novo ganha selo e aviso
     .locator("[data-dashboard-empty]")
     .getByRole("button", { name: "Restaurar padrão" })
     .click();
-  await expect(page.locator("[data-edit-item]")).toHaveCount(13);
+  await expect(page.locator("[data-edit-item]")).toHaveCount(17);
 });
 
 test("dica de primeiro uso: some ao dispensar e não volta", async ({ page }) => {
@@ -422,8 +426,8 @@ test("restaurar padrão com DELETE falhando: toast de erro e nada falso na pilha
 }) => {
   const api = await open(page);
   await enterEdit(page);
-  await page.getByRole("button", { name: "Ocultar Reviews que fiz" }).click();
-  await waitSaved(api, (item) => !!item?.hidden?.includes("individual.reviews"));
+  await page.getByRole("button", { name: "Ocultar Commits por dia" }).click();
+  await waitSaved(api, (item) => !!item?.hidden?.includes("individual.commits-dia"));
   api.failLayouts(["DELETE"]);
 
   await page.getByRole("button", { name: "Mais ações da personalização" }).click();
@@ -433,22 +437,20 @@ test("restaurar padrão com DELETE falhando: toast de erro e nada falso na pilha
   await expect(toast.getByRole("button", { name: "Tentar de novo" })).toBeVisible();
   await expect(announcer(page)).toContainText("Não foi possível restaurar o padrão.");
   /* o rollback devolveu o layout salvo */
-  await expect
-    .poll(() => order(page, "ind-codigo"))
-    .toEqual(["individual.prs", "individual.commits-dia"]);
+  await expect.poll(() => order(page, "ind-codigo")).toEqual(["individual.prs"]);
   /* a pilha só tem o Ocultar (um registro falso do Restaurar repetiria o layout salvo):
    * Desfazer — um DELETE, já sem a falha — traz Reviews de volta */
   api.failLayouts([]);
   await page.keyboard.press("Control+z");
   await expect
     .poll(() => order(page, "ind-codigo"))
-    .toEqual(["individual.prs", "individual.reviews", "individual.commits-dia"]);
+    .toEqual(["individual.prs", "individual.commits-dia"]);
 
   await waitSaved(api, (item) => item === null);
 
   /* falha de novo; sem ela, Tentar de novo restaura */
-  await page.getByRole("button", { name: "Ocultar Reviews que fiz" }).click();
-  await waitSaved(api, (item) => !!item?.hidden?.includes("individual.reviews"));
+  await page.getByRole("button", { name: "Ocultar Commits por dia" }).click();
+  await waitSaved(api, (item) => !!item?.hidden?.includes("individual.commits-dia"));
   api.failLayouts(["DELETE"]);
   await page.getByRole("button", { name: "Mais ações da personalização" }).click();
   await page.getByRole("menuitem", { name: "Restaurar padrão" }).click();
@@ -463,15 +465,13 @@ test("PUT falhando: toast de erro com Tentar de novo reenvia a alteração", asy
   const api = await open(page);
   await enterEdit(page);
   api.failLayouts(["PUT"]);
-  await page.getByRole("button", { name: "Ocultar Reviews que fiz" }).click();
+  await page.getByRole("button", { name: "Ocultar Commits por dia" }).click();
   const toast = page.locator("[data-edit-toast]");
   await expect(toast).toContainText("Não foi possível salvar o painel");
   api.failLayouts([]);
   await toast.getByRole("button", { name: "Tentar de novo" }).click();
-  await waitSaved(api, (item) => !!item?.hidden?.includes("individual.reviews"));
-  await expect
-    .poll(() => order(page, "ind-codigo"))
-    .toEqual(["individual.prs", "individual.commits-dia"]);
+  await waitSaved(api, (item) => !!item?.hidden?.includes("individual.commits-dia"));
+  await expect.poll(() => order(page, "ind-codigo")).toEqual(["individual.prs"]);
 });
 
 test("409 nos dois lados: reaplica a operação na versão relida; Desfazer e Descartar não apagam a outra aba", async ({
@@ -490,11 +490,11 @@ test("409 nos dois lados: reaplica a operação na versão relida; Desfazer e De
 
   /* A, com o cache velho, oculta outro widget: 409 → relê e reaplica o Ocultar */
   await enterEdit(a);
-  await a.getByRole("button", { name: "Ocultar Reviews que fiz" }).click();
+  await a.getByRole("button", { name: "Ocultar Commits por dia" }).click();
   await waitSaved(api, (item) => item?.version === 1);
   let saved = api.saved();
   expect(saved.hidden).toEqual(
-    expect.arrayContaining(["individual.burndown", "individual.reviews"]),
+    expect.arrayContaining(["individual.burndown", "individual.commits-dia"]),
   );
   await expect(announcer(a)).toContainText(REBASE_MSG);
   await expect.poll(() => order(a, "ind-trabalho")).toEqual(["individual.itens"]);
@@ -504,17 +504,15 @@ test("409 nos dois lados: reaplica a operação na versão relida; Desfazer e De
   await waitSaved(api, (item) => item?.version === 2);
   saved = api.saved();
   expect(saved.hidden).toContain("individual.burndown");
-  expect(saved.hidden).not.toContain("individual.reviews");
+  expect(saved.hidden).not.toContain("individual.commits-dia");
 
-  /* B, agora com o cache velho (v1), oculta Commits: o mesmo do outro lado */
+  /* B, agora com o cache velho (v1), oculta PRs: o mesmo do outro lado */
   await enterEdit(b);
-  await b.getByRole("button", { name: "Ocultar Commits por dia" }).click();
+  await b.getByRole("button", { name: "Ocultar Meus PRs na sprint" }).click();
   await waitSaved(api, (item) => item?.version === 3);
   saved = api.saved();
-  expect(saved.hidden).toEqual(
-    expect.arrayContaining(["individual.burndown", "individual.commits-dia"]),
-  );
-  expect(saved.hidden).not.toContain("individual.reviews");
+  expect(saved.hidden).toEqual(expect.arrayContaining(["individual.burndown", "individual.prs"]));
+  expect(saved.hidden).not.toContain("individual.commits-dia");
   await expect(announcer(b)).toContainText(REBASE_MSG);
 
   /* Descartar em B volta ao estado relido (v3), não ao de entrada antigo */
@@ -534,7 +532,7 @@ test("Desfazer até o padrão (DELETE) não apaga a mudança feita em outra aba"
   const api = await open(a);
   await open(b, { api });
   await enterEdit(a);
-  await a.getByRole("button", { name: "Ocultar Reviews que fiz" }).click();
+  await a.getByRole("button", { name: "Ocultar Commits por dia" }).click();
   await waitSaved(api, (item) => item?.version === 0);
 
   /* B não sabia da v1: 409, reaplica e grava v2 */
@@ -563,7 +561,7 @@ test("Drawer: ligar e desligar anunciam numa região dentro dele", async ({ page
   await drawer.getByRole("switch", { name: "Mostrar Custo por modelo" }).click();
   await expect(region).toContainText("Custo por modelo oculto.");
   await drawer.getByRole("switch", { name: "Mostrar Custo por modelo" }).click();
-  await expect(region).toContainText("Custo por modelo adicionado no fim da seção Uso de IA.");
+  await expect(region).toContainText("Custo por modelo adicionado no fim da seção Consumo de IA.");
 });
 
 test("menu ⋯ e ↑↓ não aparecem num widget sozinho na seção", async ({ page }) => {
@@ -585,7 +583,7 @@ test("celular 360: toast acima da barra fixa (altura real) e fim da página livr
   await open(page);
   await enterEdit(page);
   const bar = page.locator("[data-edit-bottom-bar]");
-  await page.getByRole("button", { name: "Ocultar Reviews que fiz" }).click();
+  await page.getByRole("button", { name: "Ocultar Commits por dia" }).click();
   const toast = page.locator("[data-edit-toast] > div");
   await expect(toast).toBeVisible();
   const barBox = await bar.boundingBox();

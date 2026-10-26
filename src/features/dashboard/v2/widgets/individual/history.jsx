@@ -2,6 +2,7 @@
 
 import React from "react";
 import { axisDays, axisUsd, fmtDuration, fmtInt, fmtTokensM, fmtUsd } from "../../format.js";
+import { AI_CARD_MIN_HEIGHT, AiEmpty, hasAiValue } from "../../kit/AiCross.jsx";
 import { ColumnChart, TrendChart } from "../../kit/charts.jsx";
 import { Panel } from "../../kit/Panel.jsx";
 
@@ -74,9 +75,21 @@ export function CycleTimeHistoryWidget({ data }) {
   );
 }
 
+/** Sem uso de IA em nenhuma sprint do histórico (alimenta o aviso único da seção). */
+export const aiCostHistoryEmpty = (data) => !hasAiValue(data.rows, "aiCostUsd", "aiTokens");
+
 export function AiCostHistoryWidget({ data }) {
+  if (aiCostHistoryEmpty(data)) {
+    return (
+      <Panel eyebrow="ia" title="Custo de IA por sprint" sources={["ia"]}>
+        <AiEmpty person />
+      </Panel>
+    );
+  }
   return (
     <Panel
+      className={AI_CARD_MIN_HEIGHT}
+      fill
       eyebrow="ia"
       title="Custo de IA por sprint"
       note={data.note}
@@ -94,6 +107,7 @@ export function AiCostHistoryWidget({ data }) {
       <ColumnChart
         data={data.rows}
         height={180}
+        fill
         yWidth={40}
         series={[{ key: "aiCostUsd", label: "Custo de IA", color: "var(--accent)" }]}
         emphasis={(r) => r.isSelected}

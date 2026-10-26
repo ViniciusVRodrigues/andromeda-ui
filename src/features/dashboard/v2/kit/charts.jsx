@@ -19,12 +19,21 @@ import {
   Line,
   ReferenceLine,
   ResponsiveContainer,
+  Scatter,
+  ScatterChart as RechartsScatter,
   Tooltip,
   XAxis,
   YAxis,
 } from "recharts";
 import { Legend } from "./Bars.jsx";
-import { burndownSummary, columnSummary, trendSummary, useChartLabel } from "./chartSummary.js";
+import {
+  burndownSummary,
+  columnSummary,
+  pairedParts,
+  scatterSummary,
+  trendSummary,
+  useChartLabel,
+} from "./chartSummary.js";
 
 const AXIS_TICK = {
   fill: "var(--fg-muted)",
@@ -74,6 +83,28 @@ function ChartTooltip({ active, payload, label, series, valueFormat, extra, min 
 }
 
 /**
+ * Caixa do gráfico: altura fixa, ou (`fill`) no mínimo `height` e crescendo até o fim do
+ * cartão (o Panel com `fill`). O gráfico fica em posição absoluta para não puxar a altura.
+ */
+function ChartBox({ height, fill, children }) {
+  if (!fill)
+    return (
+      <ResponsiveContainer width="100%" height={height}>
+        {children}
+      </ResponsiveContainer>
+    );
+  return (
+    <div className="relative min-h-0 flex-1" style={{ minHeight: height }}>
+      <div className="absolute inset-0">
+        <ResponsiveContainer width="100%" height="100%">
+          {children}
+        </ResponsiveContainer>
+      </div>
+    </div>
+  );
+}
+
+/**
  * Colunas — simples, agrupadas ou empilhadas.
  * @param {{ data: object[], series: Array<{ key: string, label: string, color: string }>,
  *   xKey?: string, stacked?: boolean, height?: number, yFormat?: (v) => string,
@@ -100,6 +131,7 @@ export function ColumnChart({
   summary,
   legendItems,
   tooltipMin,
+  fill = false,
 }) {
   const fmt = valueFormat || yFormat;
   const showLegend = legend ?? series.length > 1;
@@ -113,14 +145,17 @@ export function ColumnChart({
       ? (row) => `total ${fmt(series.reduce((s, x) => s + (Number(row[x.key]) || 0), 0))}`
       : undefined);
   return (
-    <figure className="m-0" aria-labelledby={labelledBy}>
+    <figure
+      className={fill ? "m-0 flex min-h-0 flex-1 flex-col" : "m-0"}
+      aria-labelledby={labelledBy}
+    >
       {showLegend ? (
         <Legend
           className="mb-2"
           items={legendItems ?? series.map((s) => ({ label: s.label, color: s.color }))}
         />
       ) : null}
-      <ResponsiveContainer width="100%" height={height}>
+      <ChartBox height={height} fill={fill}>
         <BarChart
           {...svgProps}
           data={data}
@@ -190,7 +225,7 @@ export function ColumnChart({
             </Bar>
           ))}
         </BarChart>
-      </ResponsiveContainer>
+      </ChartBox>
     </figure>
   );
 }
@@ -217,6 +252,7 @@ export function TrendChart({
   extra,
   legend,
   summary,
+  fill = false,
 }) {
   const fmt = valueFormat || yFormat;
   const showLegend = legend ?? series.length > 1;
@@ -225,7 +261,10 @@ export function TrendChart({
     summary ?? trendSummary({ data, series, xKey, fmt }),
   );
   return (
-    <figure className="m-0" aria-labelledby={labelledBy}>
+    <figure
+      className={fill ? "m-0 flex min-h-0 flex-1 flex-col" : "m-0"}
+      aria-labelledby={labelledBy}
+    >
       {showLegend ? (
         <Legend
           className="mb-2"
@@ -237,7 +276,7 @@ export function TrendChart({
           }))}
         />
       ) : null}
-      <ResponsiveContainer width="100%" height={height}>
+      <ChartBox height={height} fill={fill}>
         <ComposedChart {...svgProps} data={data} margin={{ top: 8, right: 8, bottom: 0, left: 0 }}>
           <CartesianGrid vertical={false} stroke="var(--line)" />
           <XAxis
@@ -315,7 +354,7 @@ export function TrendChart({
             />
           ))}
         </ComposedChart>
-      </ResponsiveContainer>
+      </ChartBox>
     </figure>
   );
 }
@@ -361,5 +400,242 @@ export function Sparkline({ data, width = 72, height = 22 }) {
       />
       <circle cx={lx} cy={ly} r="2.5" fill="var(--accent)" />
     </svg>
+  );
+}
+
+/* ── cruzamentos IA × métrica (dashboards-ia-entrega D4) ── */
+
+/** Cor da IA em todos os cards de cruzamento; a métrica usa `--series-1`. A cor nunca é o
+ * único canal: cada gráfico leva o rótulo ("IA", "SP"), a legenda tem texto e a
+ * paleta `mono` herda estas séries de propósito (ver `tokens.css`). */
+export const AI_COLOR = "var(--series-2)";
+export const METRIC_COLOR = "var(--series-1)";
+/** Cores das séries de métrica (a 1ª é a principal); `--series-3` passa de 3:1 nas 3 paletas. */
+export const METRIC_COLORS = [METRIC_COLOR, "var(--series-3)"];
+
+/**
+ * Dois gráficos de colunas de 110 px com o MESMO eixo X e eixos Y independentes (a IA em
+ * cima, a métrica embaixo): "pequenos múltiplos", nunca eixo duplo.
+ * @param {{ data: object[], ia: { key: string, label: string, short?: string, fmt?: (v) => string, axis?: (v) => string },
+ *   metric: object | object[], xKey?: string, height?: number, noun?: string, summary?: string }} props
+ *   Linha com `current: true` ganha "*" no rótulo do eixo (sprint em andamento).
+ *   `ia`/`metric`: `label` é o texto da série, `short` o rótulo curto sobre o gráfico.
+ *   `metric` em lista: o gráfico de baixo desenha uma barra por série (mesma unidade e
+ *   mesmo eixo Y, o da 1ª); cores em `METRIC_COLORS`.
+ *   Os dois SVG levam `role="img"` e um `aria-label` próprio (título do card + resumo da série).
+ */
+export function PairedColumns({
+  data,
+  ia,
+  metric,
+  xKey = "label",
+  height = 110,
+  noun = "pontos",
+  summary,
+  fill = false,
+}) {
+  const rows = data.map((r) => ({ ...r, __x: r.current ? `${r[xKey]}*` : r[xKey] }));
+  const metrics = [].concat(metric);
+  const parts = pairedParts({ data: rows, ia, metrics, xKey: "__x", noun });
+  const top = useChartLabel(summary ?? parts.top);
+  const bottom = useChartLabel(summary ?? parts.bottom);
+  const one = (list, colors, isBottom) => {
+    const s = list[0];
+    const fmt = s.fmt || identity;
+    const title = list.map((m) => m.short || m.label).join(" · ");
+    return (
+      <div
+        key={s.key}
+        data-paired={title}
+        className={fill ? "flex min-h-0 flex-1 flex-col" : undefined}
+      >
+        <div className="mono text-fg mb-0.5 text-[11px] font-normal">{title}</div>
+        <ChartBox height={height} fill={fill}>
+          <BarChart
+            {...(isBottom ? bottom : top).svgProps}
+            data={rows}
+            margin={{ top: 4, right: 4, bottom: 0, left: 0 }}
+            barCategoryGap="24%"
+          >
+            <CartesianGrid vertical={false} stroke="var(--line)" />
+            <XAxis
+              dataKey="__x"
+              hide={!isBottom}
+              tick={AXIS_TICK}
+              axisLine={{ stroke: "var(--line-strong)" }}
+              tickLine={false}
+              interval="preserveStartEnd"
+              minTickGap={10}
+            />
+            <YAxis
+              tick={AXIS_TICK}
+              axisLine={false}
+              tickLine={false}
+              width={44}
+              tickFormatter={s.axis || fmt}
+              tickCount={3}
+            />
+            <Tooltip
+              cursor={{ fill: "var(--line)" }}
+              content={
+                <ChartTooltip
+                  series={list.map((m, i) => ({ key: m.key, label: m.label, color: colors[i] }))}
+                  valueFormat={fmt}
+                />
+              }
+            />
+            {list.map((m, i) => (
+              <Bar
+                key={m.key}
+                dataKey={m.key}
+                name={m.label}
+                fill={colors[i]}
+                maxBarSize={list.length > 1 ? 16 : 24}
+                radius={[4, 4, 0, 0]}
+                isAnimationActive={false}
+              />
+            ))}
+          </BarChart>
+        </ChartBox>
+      </div>
+    );
+  };
+  return (
+    <figure
+      className={"m-0 flex flex-col gap-1" + (fill ? " min-h-0 flex-1" : "")}
+      aria-labelledby={top.labelledBy}
+    >
+      {one([ia], [AI_COLOR], false)}
+      {one(metrics, METRIC_COLORS, true)}
+    </figure>
+  );
+}
+
+/**
+ * Índices dos até `n` pontos mais extremos (mais longe do centro, em unidades
+ * normalizadas): os únicos com rótulo de texto na dispersão; a lista completa fica na
+ * tabela. Função pura.
+ * @param {Array<{ x: number, y: number }>} points
+ */
+export function scatterExtremes(points, n = 3) {
+  if (points.length <= n) return new Set(points.map((_, i) => i));
+  const range = (k) => {
+    const v = points.map((p) => p[k]);
+    const lo = Math.min(...v);
+    const hi = Math.max(...v);
+    return [lo, hi - lo || 1];
+  };
+  const [x0, dx] = range("x");
+  const [y0, dy] = range("y");
+  const ranked = points
+    .map((p, i) => ({ i, d: Math.hypot((p.x - x0) / dx - 0.5, (p.y - y0) / dy - 0.5) }))
+    .sort((a, b) => b.d - a.d);
+  return new Set(ranked.slice(0, n).map((r) => r.i));
+}
+
+/**
+ * Dispersão (Recharts): x = IA, y = métrica, um ponto por pessoa, projeto ou sprint.
+ * @param {{ points: Array<{ label: string, x: number, y: number }>,
+ *   x: { label: string, short?: string, fmt?: (v) => string }, y: { label: string, short?: string, fmt?: (v) => string },
+ *   height?: number, noun?: string, summary?: string }} props
+ */
+export function ScatterChart({
+  points,
+  x,
+  y,
+  height = 220,
+  noun = "pontos",
+  summary,
+  fill = false,
+}) {
+  const data = points.filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y));
+  const { labelledBy, svgProps } = useChartLabel(
+    summary ?? scatterSummary({ points: data, x, y, noun }),
+  );
+  const labeled = scatterExtremes(data);
+  const fx = x.fmt || identity;
+  const fy = y.fmt || identity;
+  const shape = (props) => {
+    const { cx, cy, payload } = props;
+    const idx = data.indexOf(payload);
+    return (
+      <g>
+        <circle cx={cx} cy={cy} r={5} fill={AI_COLOR} stroke="var(--bg-elev)" strokeWidth={1.5} />
+        {labeled.has(idx) ? (
+          <text
+            x={cx + 8}
+            y={cy + 4}
+            fontSize={11}
+            fontFamily="JetBrains Mono, monospace"
+            fill="var(--fg)"
+          >
+            {payload.label}
+          </text>
+        ) : null}
+      </g>
+    );
+  };
+  return (
+    <figure
+      className={fill ? "m-0 flex min-h-0 flex-1 flex-col" : "m-0"}
+      aria-labelledby={labelledBy}
+    >
+      <ChartBox height={height} fill={fill}>
+        <RechartsScatter {...svgProps} margin={{ top: 8, right: 56, bottom: 16, left: 0 }}>
+          <CartesianGrid stroke="var(--line)" />
+          <XAxis
+            type="number"
+            dataKey="x"
+            name={x.label}
+            tick={AXIS_TICK}
+            axisLine={{ stroke: "var(--line-strong)" }}
+            tickLine={false}
+            tickFormatter={fx}
+            tickCount={4}
+            label={{
+              value: x.short || x.label,
+              position: "insideBottomRight",
+              offset: -2,
+              fill: "var(--fg-muted)",
+              fontSize: 11,
+            }}
+          />
+          <YAxis
+            type="number"
+            dataKey="y"
+            name={y.label}
+            tick={AXIS_TICK}
+            axisLine={false}
+            tickLine={false}
+            width={44}
+            tickFormatter={fy}
+            tickCount={4}
+            label={{
+              value: y.short || y.label,
+              position: "insideTopLeft",
+              offset: 4,
+              fill: "var(--fg-muted)",
+              fontSize: 11,
+            }}
+          />
+          <Tooltip
+            cursor={{ strokeDasharray: "3 3", stroke: "var(--line-strong)" }}
+            content={({ active, payload }) => {
+              const p = active ? payload?.[0]?.payload : null;
+              if (!p) return null;
+              return (
+                <div className="border-line-strong bg-bg-deep shadow-soft rounded-[var(--radius-sm)] border px-3 py-2">
+                  <div className="mono text-fg mb-1 text-[12px]">{p.label}</div>
+                  <div className="mono text-fg-muted text-[11px] font-normal">
+                    {x.label}: {fx(p.x)} · {y.label}: {fy(p.y)}
+                  </div>
+                </div>
+              );
+            }}
+          />
+          <Scatter data={data} shape={shape} isAnimationActive={false} />
+        </RechartsScatter>
+      </ChartBox>
+    </figure>
   );
 }

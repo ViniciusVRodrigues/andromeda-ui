@@ -202,6 +202,7 @@ export function ReposByFailureWidget({ data: repos }) {
       <DataTable
         rowKey={(r) => r.repo}
         rows={repos}
+        scroll
         columns={[
           {
             key: "repo",

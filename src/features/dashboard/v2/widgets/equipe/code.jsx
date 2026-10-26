@@ -30,6 +30,7 @@ export function StalePrsWidget({ data }) {
         <DataTable
           rowKey={(r) => r.id}
           rows={data.rows}
+          scroll
           columns={[
             {
               key: "title",
@@ -99,6 +100,7 @@ export function ReposWidget({ data: repos }) {
       <DataTable
         rowKey={(r) => r.repo}
         rows={repos}
+        scroll
         columns={[
           {
             key: "repo",

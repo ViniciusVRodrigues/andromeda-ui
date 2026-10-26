@@ -50,15 +50,26 @@ import {
 } from "../widgets/equipe/ai.jsx";
 import {
   AiCostPerSpWidget,
+  aiCostPerSpEmpty,
   CommittedDeliveredWidget,
   PredictabilityWidget,
   selectHistory,
 } from "../widgets/equipe/history.jsx";
+import {
+  TeamIaFluxoWidget,
+  TeamIaPessoaWidget,
+  TeamIaPorPontoWidget,
+  TeamIaSprintWidget,
+  selectTeamIaPessoas,
+  selectTeamIaSprint,
+} from "../widgets/equipe/aiCross.jsx";
 import { ReworkWidget, selectRework } from "../widgets/equipe/quality.jsx";
 
 const VIEW_KEY = "equipe";
 const ALL = ["P", "M", "G", "I"];
 const TABLE = ["G", "I"];
+/* cards "IA × métrica": nunca P (dashboards-ia-entrega D4) */
+const AI_CARD = ["M", "G", "I"];
 
 /** @type {import("../catalog.js").CatalogSection[]} */
 export const sections = [
@@ -69,6 +80,14 @@ export const sections = [
     nav: "Resumo",
     title: "Resumo da sprint",
     question: "O time vai entregar o que comprometeu?",
+  },
+  {
+    viewKey: VIEW_KEY,
+    id: "ia-entrega",
+    domId: "eq-ia-entrega",
+    nav: "IA e entrega",
+    title: "IA e entrega",
+    question: "O time entrega mais ou melhor quando usa mais IA?",
   },
   {
     viewKey: VIEW_KEY,
@@ -98,9 +117,9 @@ export const sections = [
     viewKey: VIEW_KEY,
     id: "ia",
     domId: "eq-ia",
-    nav: "Uso de IA",
-    title: "Uso de IA no time",
-    question: "Quanto o time gasta com IA e como isso chega nos itens?",
+    nav: "Consumo de IA",
+    title: "Consumo de IA",
+    question: "Quanto se usa de IA, com quais modelos e onde?",
   },
   {
     viewKey: VIEW_KEY,
@@ -151,6 +170,8 @@ const widget = (name, section, title, o) => {
     sizes: o.sizes,
     defaultSize: o.size,
     default: !!o.default,
+    disabled: !!o.disabled,
+    aiEmpty: o.aiEmpty,
     skeletonHeight: o.height,
     aliases: [],
     source,
@@ -178,6 +199,7 @@ export const widgets = [
     Component: BurndownWidget,
   }),
   widget("status-tipo", "fluxo", "Itens por status e tipo", {
+    disabled: true,
     sizes: ALL,
     size: "M",
     default: true,
@@ -210,6 +232,7 @@ export const widgets = [
     Component: StalePrsWidget,
   }),
   widget("quem-revisa", "codigo", "Quem revisa", {
+    disabled: true,
     sizes: ALL,
     size: "P",
     default: true,
@@ -266,6 +289,7 @@ export const widgets = [
     Component: CommittedDeliveredWidget,
   }),
   widget("previsibilidade", "historico", "Previsibilidade", {
+    disabled: true,
     sizes: ALL,
     size: "P",
     default: true,
@@ -273,12 +297,54 @@ export const widgets = [
     select: selectHistory,
     Component: PredictabilityWidget,
   }),
-  widget("custo-ia-sp", "historico", "Custo de IA por SP", {
+  widget(
+    "ia-entrega-sprint",
+    "ia-entrega",
+    "Sprints com mais IA entregaram mais do que o planejado?",
+    {
+      sizes: AI_CARD,
+      size: "M",
+      default: true,
+      height: 360,
+      select: selectTeamIaSprint,
+      aiEmpty: (d) => d.empty,
+      Component: TeamIaSprintWidget,
+    },
+  ),
+  widget("ia-por-ponto", "ia-entrega", "Os tokens por ponto caíram ao longo das sprints?", {
+    sizes: AI_CARD,
+    size: "M",
+    default: true,
+    height: 360,
+    select: selectTeamIaSprint,
+    aiEmpty: (d) => d.empty,
+    Component: TeamIaPorPontoWidget,
+  }),
+  widget("ia-fluxo", "ia-entrega", "Em sprints com mais IA o fluxo melhorou?", {
+    sizes: AI_CARD,
+    size: "M",
+    default: true,
+    height: 360,
+    select: selectTeamIaSprint,
+    aiEmpty: (d) => d.empty,
+    Component: TeamIaFluxoWidget,
+  }),
+  widget("ia-por-pessoa", "ia-entrega", "Quem usa mais IA entrega mais pontos?", {
+    sizes: AI_CARD,
+    size: "I",
+    default: true,
+    height: 360,
+    select: selectTeamIaPessoas,
+    aiEmpty: (d) => d.empty,
+    Component: TeamIaPessoaWidget,
+  }),
+  widget("custo-ia-sp", "ia-entrega", "Custo de IA por SP", {
     sizes: ALL,
     size: "P",
     default: true,
     height: 320,
     select: selectHistory,
+    aiEmpty: aiCostPerSpEmpty,
     Component: AiCostPerSpWidget,
   }),
 
@@ -300,6 +366,7 @@ export const widgets = [
     Component: StateTimesWidget,
   }),
   widget("prs-abertos", "codigo", "Rascunhos, destino e labels", {
+    disabled: true,
     sizes: ALL,
     size: "M",
     source: "fluxo",

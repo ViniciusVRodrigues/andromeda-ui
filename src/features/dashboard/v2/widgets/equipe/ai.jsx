@@ -3,6 +3,7 @@
 import React from "react";
 import { axisUsd, fmtInt, fmtTokensM, fmtUsd } from "../../format.js";
 import { STATUS_COLOR, modelColor } from "../../kit/Badges.jsx";
+import { AiEmpty, hasAiValue } from "../../kit/AiCross.jsx";
 import { BarList, SegmentBar } from "../../kit/Bars.jsx";
 import { ColumnChart } from "../../kit/charts.jsx";
 import { Panel } from "../../kit/Panel.jsx";
@@ -10,6 +11,13 @@ import { Panel } from "../../kit/Panel.jsx";
 export const selectAiByDay = (d) => d.ai.byDay;
 
 export function AiCostByDayWidget({ data: byDay }) {
+  if (!hasAiValue(byDay, "costUsd", "inputTokens", "outputTokens")) {
+    return (
+      <Panel eyebrow="consumo diário" title="Custo de IA por dia" sources={["ia", "andromeda"]}>
+        <AiEmpty />
+      </Panel>
+    );
+  }
   return (
     <Panel
       eyebrow="consumo diário"
@@ -45,6 +53,13 @@ export function AiCostByDayWidget({ data: byDay }) {
 export const selectAiByModel = (d) => d.ai.byModel;
 
 export function AiCostByModelWidget({ data: byModel }) {
+  if (!hasAiValue(byModel, "costUsd", "tokens")) {
+    return (
+      <Panel eyebrow="modelos" title="Custo por modelo" sources={["ia", "andromeda"]}>
+        <AiEmpty />
+      </Panel>
+    );
+  }
   return (
     <Panel eyebrow="modelos" title="Custo por modelo" sources={["ia", "andromeda"]}>
       <BarList

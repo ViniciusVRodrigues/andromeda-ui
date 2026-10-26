@@ -91,6 +91,7 @@ export function ReposWidget({ data }) {
       <DataTable
         rowKey={(r) => r.repo}
         rows={repos}
+        scroll
         columns={[
           {
             key: "repo",

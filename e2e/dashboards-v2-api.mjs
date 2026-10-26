@@ -53,6 +53,29 @@ function validBody(body) {
   );
 }
 
+/**
+ * Tira de um payload os campos que só o ms novo manda (contrato da dashboards-ia-entrega):
+ * `aiTokens` no histórico da Equipe e nas sprints do Projeto, `complexity` nos itens,
+ * `doraSeries` no overview e `aiCostUsd`/`aiTokens`/`itemsWithAi` na calibração do roadmap.
+ */
+export function legacyShape(name, o) {
+  const drop = (rows, ...keys) => (rows || []).forEach((r) => keys.forEach((k) => delete r[k]));
+  if (name.startsWith("individual__")) drop(o.items, "complexity");
+  if (name.startsWith("team__")) {
+    drop(o.history, "aiTokens");
+    drop(o.agingItems, "complexity");
+  }
+  if (name.startsWith("overview__")) {
+    drop(o.sprints, "aiTokens");
+    delete o.doraSeries;
+  }
+  if (name.startsWith("roadmap__")) {
+    for (const k of ["byEffort", "byComplexity"])
+      drop(o.calibration?.[k], "aiCostUsd", "aiTokens", "itemsWithAi");
+  }
+  return o;
+}
+
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 /** Fixture do servidor falso já parseada (para um teste montar a sua variação). */
@@ -171,7 +194,8 @@ function allocationPayload(payload, variant, doneDays, reissued = new Set()) {
  * Instala o servidor falso no contexto da página.
  * @param {import("@playwright/test").Page} page
  * @param {{ permissions?: string[], layouts?: object[], me?: object, pending?: object[],
- *   allocation?: "default"|"ten"|"none"|"legacy", passthrough?: boolean }} [opts]
+ *   allocation?: "default"|"ten"|"none"|"legacy", passthrough?: boolean,
+ *   legacy?: boolean, transform?: (name: string, body: any) => any }} [opts]
  * @returns {Promise<{
  *   layouts: () => object[], saved: (viewKey?: string) => object | null,
  *   failLayouts: (methods: string[]) => void,
@@ -203,6 +227,15 @@ export async function installDashboardsApi(page, opts = {}) {
     ...(opts.me || {}),
   };
 
+  /* fixture com a transformação do teste (`opts.transform(name, objeto)`) ou, com
+   * `opts.legacy`, sem os campos aditivos da dashboards-ia-entrega (ms antigo) */
+  const fx = (name) => {
+    const text = fixture(name);
+    const transform = opts.legacy ? (n, o) => legacyShape(n, o) : opts.transform;
+    if (text == null || !transform) return text;
+    return JSON.stringify(transform(name, JSON.parse(text)));
+  };
+
   const json = (route, body, status = 200) =>
     route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
   const raw = (route, text) =>
@@ -225,7 +258,7 @@ export async function installDashboardsApi(page, opts = {}) {
     state.requests.push(`${method} ${p}${url.search}`);
 
     if (p === "/v1/auth/me") return opts.passthrough ? route.fallback() : json(route, me);
-    if (p === "/v1/projects") return raw(route, fixture("projects"));
+    if (p === "/v1/projects") return raw(route, fx("projects"));
     if (p === "/v1/ai/allocations/pending-batches")
       return json(
         route,
@@ -288,18 +321,18 @@ export async function installDashboardsApi(page, opts = {}) {
       ]);
 
     let m = /^\/v1\/projects\/([^/]+)\/sprints$/.exec(p);
-    if (m) return raw(route, fixture(`sprints__${m[1]}`));
+    if (m) return raw(route, fx(`sprints__${m[1]}`));
 
     /* sprint ausente = a atual, como no servidor */
     const sprintOf = (projectId) => {
-      const list = JSON.parse(fixture(`sprints__${projectId}`) || "[]");
+      const list = JSON.parse(fx(`sprints__${projectId}`) || "[]");
       return q.get("sprintId") || list.find((s) => s.timeFrame === "CURRENT")?.id;
     };
     if (p === "/v1/dashboards/individual" || p === "/v1/dashboards/team") {
       const projectId = q.get("projectId");
       if (!projectId) return json(route, { code: "ACCESS_DENIED" }, 403);
       const kind = p.endsWith("team") ? "team" : "individual";
-      const text = fixture(`${kind}__${projectId}__${sprintOf(projectId)}`);
+      const text = fx(`${kind}__${projectId}__${sprintOf(projectId)}`);
       const variant = opts.allocation || "default";
       if (kind === "individual" && text != null && variant !== "legacy")
         return json(
@@ -311,7 +344,7 @@ export async function installDashboardsApi(page, opts = {}) {
     if (p === "/v1/dashboards/team/flow") {
       const projectId = q.get("projectId");
       const body = await source("fluxo", () =>
-        fixture(`team-flow__${projectId}__${sprintOf(projectId)}`),
+        fx(`team-flow__${projectId}__${sprintOf(projectId)}`),
       );
       if (body == null && state.fail.fluxo) return json(route, { code: "INTERNAL_ERROR" }, 500);
       return raw(route, body);
@@ -322,13 +355,13 @@ export async function installDashboardsApi(page, opts = {}) {
       if (!["30", "90", "180", "365"].includes(days))
         return json(route, { code: "DASHBOARD_PERIOD_INVALID" }, 422);
       const src = { overview: "resumo", roadmap: "roadmap", quality: "qualidade" }[m[2]];
-      const body = await source(src, () => fixture(`${m[2]}__${m[1]}__${days}`));
+      const body = await source(src, () => fx(`${m[2]}__${m[1]}__${days}`));
       if (body == null && state.fail[src]) return json(route, { code: "INTERNAL_ERROR" }, 500);
       return raw(route, body);
     }
     if (p === "/v1/dashboards/organization")
-      return raw(route, fixture(`organization__${q.get("periodDays") || "90"}`));
-    if (p === "/v1/dashboards/integrations") return raw(route, fixture("integrations"));
+      return raw(route, fx(`organization__${q.get("periodDays") || "90"}`));
+    if (p === "/v1/dashboards/integrations") return raw(route, fx("integrations"));
 
     /* layouts (D6) */
     if (p === "/v1/dashboards/layouts" && method === "GET")

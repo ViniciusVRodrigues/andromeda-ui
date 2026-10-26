@@ -233,14 +233,14 @@ export function DashboardsPage({ onLogout, onNavigate }) {
                 <>
                   <button
                     type="button"
-                    className="btn btn-ghost btn-xs min-h-[44px] md:min-h-0"
+                    className="btn btn-ghost btn-xs min-h-[44px]"
                     onClick={() => navigate(orgRoute(ident.orgSlug, "perfil"))}
                   >
                     Perfil e conector de IA
                   </button>
                   <button
                     type="button"
-                    className="btn btn-ghost btn-xs min-h-[44px] md:min-h-0"
+                    className="btn btn-ghost btn-xs min-h-[44px]"
                     onClick={onLogout}
                   >
                     Sair

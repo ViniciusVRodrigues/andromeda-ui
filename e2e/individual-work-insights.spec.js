@@ -195,9 +195,8 @@ test("individual dashboard links sprint work to GitHub review context", async ({
     .filter({ hasText: "Histórico de alterações em área do cliente" });
   await expect(item).toContainText("#338");
 
-  const reviews = page.locator("[data-widget-id='individual.reviews']");
-  await expect(reviews).toContainText("7");
-  await expect(reviews).toContainText("Pediu mudanças");
+  /* individual.reviews está desabilitado (dashboards-ia-entrega, D6) */
+  await expect(page.locator("[data-widget-id='individual.reviews']")).toHaveCount(0);
 
   await prs.scrollIntoViewIfNeeded();
   await expect(prs).toHaveScreenshot("dashboard-individual-prs.png");

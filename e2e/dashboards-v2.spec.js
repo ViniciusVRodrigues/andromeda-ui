@@ -73,7 +73,7 @@ test("tela 3 — DASHBOARD_STRATEGIC: visão geral da organização e de cada pr
     .first()
     .click();
   await expect(page).toHaveURL(/escopo=p-pagamentos/);
-  await expect(page.getByRole("heading", { name: "DORA" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "DORA", exact: true })).toBeVisible();
   /* sem DASHBOARD_INDIVIDUAL/TEAM, o projeto só tem a visão estratégica */
   await expect(page.getByRole("radiogroup", { name: "Visão" })).toHaveCount(0);
 });
@@ -140,7 +140,7 @@ test("adaptador: DS mostra p50 com p90 ao lado, notas DORA traduzidas e mediana 
     .getByRole("radiogroup", { name: "Visão" })
     .getByRole("radio", { name: "Projeto" })
     .click();
-  await expect(page.getByRole("heading", { name: "DORA" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "DORA", exact: true })).toBeVisible();
   const dora = page.locator("#pj-dora");
   /* fixture: lead time MEDIUM, frequência ELITE, falha HIGH */
   await expect(dora.getByText("Médio", { exact: true })).toBeVisible();
@@ -375,9 +375,10 @@ test("padrão do catálogo: seções na ordem e widgets do Resumo individual", a
   await expect(page.getByRole("heading", { level: 2 })).toHaveText([
     "Uso de IA para alocar",
     "Resumo da sprint",
+    "IA e entrega",
     "Meu trabalho",
     "Código",
-    "Uso de IA",
+    "Consumo de IA",
     "Histórico",
   ]);
   for (const title of ["Burndown pessoal", "Meus itens da sprint"]) {
@@ -423,6 +424,7 @@ test("layout salvo com id desconhecido e ordem própria renderiza sem erro", asy
   await expect(page.getByRole("heading", { level: 2 })).toHaveText([
     "Uso de IA para alocar",
     "Meu trabalho",
+    "IA e entrega" /* migração: entra depois da 1ª seção salva */,
     "Resumo da sprint",
     "Código",
   ]);
@@ -446,13 +448,18 @@ const VIEW_CASES = [
     last: "Histórico",
     sections: [
       "Resumo da sprint",
+      "IA e entrega",
       "Fluxo da sprint",
       "Pessoas",
       "Código e revisão",
-      "Uso de IA no time",
+      "Consumo de IA",
       "Histórico",
     ],
-    widgets: ["Burndown do time", "Contribuição por pessoa na sprint", "Previsibilidade"],
+    widgets: [
+      "Burndown do time",
+      "Contribuição por pessoa na sprint",
+      "Itens em andamento há mais tempo",
+    ],
   },
   {
     viewKey: "projeto",
@@ -461,10 +468,11 @@ const VIEW_CASES = [
     last: "Confiabilidade dos dados",
     sections: [
       "Resumo do período",
+      "IA e entrega",
       "DORA",
       "Entrega",
       "Engenharia",
-      "Investimento em IA",
+      "Consumo de IA",
       "Confiabilidade dos dados",
     ],
     widgets: ["Itens concluídos por tipo", "Saúde por repositório", "Custo de IA por SP entregue"],
@@ -477,9 +485,10 @@ const VIEW_CASES = [
     sections: [
       "Resumo da organização",
       "Portfólio de projetos",
+      "IA e entrega",
       "Entrega",
       "Engenharia",
-      "IA na organização",
+      "Consumo de IA",
       "Integrações e dados",
     ],
     widgets: ["Projetos lado a lado", "Custo de IA por modelo", "Completude dos dados"],
@@ -572,6 +581,7 @@ test("Resumo equipe: layout salvo com id desconhecido, seção trocada e widget 
   ).toBeVisible();
   await expect(page.getByRole("heading", { level: 2 })).toHaveText([
     "Pessoas",
+    "IA e entrega",
     "Fluxo da sprint",
     "Código e revisão",
   ]);
@@ -588,7 +598,7 @@ test("Resumo equipe: layout salvo com id desconhecido, seção trocada e widget 
   expect(errors).toEqual([]);
 });
 
-test("Resumo equipe: rascunhos, destino e labels (antes coleta nova) ligados pelo /team/flow", async ({
+test("Resumo equipe: PRs abertos está desabilitado e o layout salvo com ele abre sem o widget", async ({
   page,
 }) => {
   await openAs(page, ["DASHBOARD_INDIVIDUAL", "DASHBOARD_TEAM"], "?visao=equipe", {
@@ -604,10 +614,9 @@ test("Resumo equipe: rascunhos, destino e labels (antes coleta nova) ligados pel
       },
     ],
   });
-  const cell = page.locator("[data-widget-id='equipe.prs-abertos']");
-  await expect(cell.getByRole("heading", { name: "Rascunhos, destino e labels" })).toBeVisible();
-  await expect(cell).toContainText("Destino:");
-  await expect(cell.getByText("requer coleta nova")).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Dashboard", level: 1 })).toBeVisible();
+  await expect(page.locator("[data-widget-id='equipe.prs-abertos']")).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Rascunhos, destino e labels" })).toHaveCount(0);
 });
 
 test("Resumo projeto: layout salvo com id desconhecido e widgets do Roadmap e da Qualidade", async ({
@@ -641,6 +650,7 @@ test("Resumo projeto: layout salvo com id desconhecido e widgets do Roadmap e da
   await expect(page.getByRole("heading", { name: "Progresso dos épicos" })).toBeVisible();
   await expect(page.getByRole("heading", { level: 2 })).toHaveText([
     "Épicos e features",
+    "IA e entrega",
     "Bugs",
     "Engenharia",
   ]);
@@ -650,7 +660,7 @@ test("Resumo projeto: layout salvo com id desconhecido e widgets do Roadmap e da
   await expect(
     page.locator("#pj-bugs").getByRole("heading", { name: "Bugs criados × fechados" }),
   ).toBeVisible();
-  await expect(page.getByRole("heading", { name: "DORA" })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "DORA", exact: true })).toHaveCount(0);
   expect(errors).toEqual([]);
 });
 
@@ -682,7 +692,8 @@ test("Resumo org: layout salvo com id desconhecido renderiza sem erro e o portf�
   });
   await expect(page.getByRole("heading", { level: 2 })).toHaveText([
     "Portfólio de projetos",
-    "IA na organização",
+    "IA e entrega",
+    "Consumo de IA",
   ]);
   await expect(page.getByRole("heading", { name: "Interações por editor" })).toBeVisible();
   await page

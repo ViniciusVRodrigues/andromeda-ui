@@ -104,6 +104,7 @@ export function AgingWidget({ data }) {
         <DataTable
           rowKey={(r) => r.id}
           rows={items}
+          scroll
           columns={[
             {
               key: "title",

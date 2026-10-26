@@ -24,6 +24,7 @@
  * @typedef {"P"|"M"|"G"|"I"} WidgetSize
  * @typedef {{ viewKey: string, id: string, domId: string, title: string, question?: string }} CatalogSection
  * @typedef {{ id: string, viewKey: string, section: string, title: string, sizes: WidgetSize[],
+ *   disabled?: boolean, aiEmpty?: (data: any) => boolean, vcsUnlinked?: (data: any) => boolean,
  *   defaultSize: WidgetSize, default: boolean, skeletonHeight: number,
  *   aliases: string[], select: (payload: any) => any,
  *   Component: (props: { data: any, ctx?: object }) => any }} CatalogWidget
@@ -38,6 +39,7 @@ import {
 } from "./widgets/individual/work.jsx";
 import {
   CommitsWidget,
+  notLinked,
   PullRequestsWidget,
   ReviewsWidget,
   selectCommits,
@@ -55,7 +57,18 @@ import {
   selectTokensPerSp,
 } from "./widgets/individual/ai.jsx";
 import {
+  IaCycleWidget,
+  IaEsforcoItensWidget,
+  IaPorPontoWidget,
+  IaSprintWidget,
+  ItensComSemIaWidget,
+  selectIaItens,
+  selectIaSprint,
+  selectItensComSemIa,
+} from "./widgets/individual/aiCross.jsx";
+import {
   AiCostHistoryWidget,
+  aiCostHistoryEmpty,
   CycleTimeHistoryWidget,
   PlannedDeliveredWidget,
   selectHistory,
@@ -75,6 +88,8 @@ export const SIZES = ["P", "M", "G", "I"];
 export const VIEW_KEYS = ["individual", "equipe", "projeto", "org"];
 
 const ALL = ["P", "M", "G", "I"];
+/* cards "IA × métrica": nunca P (o gráfico precisa de largura); ver dashboards-ia-entrega D4 */
+const AI_CARD_SIZES = ["M", "G", "I"];
 const TABLE = ["G", "I"];
 
 /** @type {CatalogSection[]} */
@@ -85,6 +100,13 @@ const SECTIONS = [
     domId: "ind-resumo",
     title: "Resumo da sprint",
     question: "Como está o meu ritmo nesta sprint?",
+  },
+  {
+    viewKey: "individual",
+    id: "ia-entrega",
+    domId: "ind-ia-entrega",
+    title: "IA e entrega",
+    question: "O uso de IA acompanha o que eu entrego?",
   },
   {
     viewKey: "individual",
@@ -104,8 +126,8 @@ const SECTIONS = [
     viewKey: "individual",
     id: "ia",
     domId: "ind-ia",
-    title: "Uso de IA",
-    question: "Quanto usei de IA, com quais modelos e em quais itens?",
+    title: "Consumo de IA",
+    question: "Quanto se usa de IA, com quais modelos e onde?",
   },
   {
     viewKey: "individual",
@@ -171,9 +193,11 @@ const WIDGETS = [
     skeletonHeight: 420,
     aliases: [],
     select: selectPullRequests,
+    vcsUnlinked: notLinked,
     Component: PullRequestsWidget,
   },
   {
+    disabled: true,
     id: "individual.reviews",
     viewKey: "individual",
     section: "codigo",
@@ -197,6 +221,7 @@ const WIDGETS = [
     skeletonHeight: 260,
     aliases: [],
     select: selectCommits,
+    vcsUnlinked: notLinked,
     Component: CommitsWidget,
   },
   {
@@ -278,9 +303,79 @@ const WIDGETS = [
     Component: CycleTimeHistoryWidget,
   },
   {
+    id: "individual.ia-entrega-sprint",
+    viewKey: "individual",
+    section: "ia-entrega",
+    title: "Sprints com mais IA entregaram mais do que o planejado?",
+    sizes: AI_CARD_SIZES,
+    defaultSize: "M",
+    default: true,
+    skeletonHeight: 360,
+    aliases: [],
+    select: selectIaSprint,
+    aiEmpty: (d) => d.empty,
+    Component: IaSprintWidget,
+  },
+  {
+    id: "individual.ia-por-ponto",
+    viewKey: "individual",
+    section: "ia-entrega",
+    title: "A IA ficou mais barata por ponto entregue?",
+    sizes: AI_CARD_SIZES,
+    defaultSize: "M",
+    default: true,
+    skeletonHeight: 360,
+    aliases: [],
+    select: selectIaSprint,
+    aiEmpty: (d) => d.empty,
+    Component: IaPorPontoWidget,
+  },
+  {
+    id: "individual.ia-cycle",
+    viewKey: "individual",
+    section: "ia-entrega",
+    title: "Sprints com mais IA tiveram cycle time menor?",
+    sizes: AI_CARD_SIZES,
+    defaultSize: "M",
+    default: true,
+    skeletonHeight: 360,
+    aliases: [],
+    select: selectIaSprint,
+    aiEmpty: (d) => d.empty,
+    Component: IaCycleWidget,
+  },
+  {
+    id: "individual.ia-esforco-itens",
+    viewKey: "individual",
+    section: "ia-entrega",
+    title: "Itens de mais esforço e complexidade consomem mais IA?",
+    sizes: AI_CARD_SIZES,
+    defaultSize: "M",
+    default: true,
+    skeletonHeight: 360,
+    aliases: [],
+    select: selectIaItens,
+    aiEmpty: (d) => d.empty,
+    Component: IaEsforcoItensWidget,
+  },
+  {
+    id: "individual.itens-com-sem-ia",
+    viewKey: "individual",
+    section: "ia-entrega",
+    title: "Itens com IA fecharam mais rápido?",
+    sizes: AI_CARD_SIZES,
+    defaultSize: "M",
+    default: true,
+    skeletonHeight: 360,
+    aliases: [],
+    select: selectItensComSemIa,
+    aiEmpty: (d) => d.empty,
+    Component: ItensComSemIaWidget,
+  },
+  {
     id: "individual.custo-ia-sprint",
     viewKey: "individual",
-    section: "historico",
+    section: "ia-entrega",
     title: "Custo de IA por sprint",
     sizes: ALL,
     defaultSize: "P",
@@ -288,6 +383,7 @@ const WIDGETS = [
     skeletonHeight: 300,
     aliases: [],
     select: selectHistory,
+    aiEmpty: aiCostHistoryEmpty,
     Component: AiCostHistoryWidget,
   },
 ];
@@ -295,7 +391,10 @@ const WIDGETS = [
 /** O catálogo inteiro: `{ sections, widgets }`. */
 export const CATALOG = Object.freeze({
   sections: [...SECTIONS, ...OTHER_VIEWS.flatMap((v) => v.sections)],
-  widgets: [...WIDGETS, ...OTHER_VIEWS.flatMap((v) => v.widgets)],
+  /* `disabled: true` tira o widget do padrão, do catálogo de "Adicionar widget" e do
+   * `resolveLayout` (layout salvo com o id abre sem ele). O filtro fica só aqui; para
+   * religar basta apagar a flag (o widget volta como "novo"). */
+  widgets: [...WIDGETS, ...OTHER_VIEWS.flatMap((v) => v.widgets)].filter((w) => !w.disabled),
 });
 
 /** Seções de uma visão, na ordem do catálogo. */

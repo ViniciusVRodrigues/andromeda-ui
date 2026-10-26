@@ -17,8 +17,13 @@
  */
 
 import React from "react";
-import { Section } from "./kit/Panel.jsx";
-import { packRows } from "./layout.js";
+import { useNavigate } from "react-router-dom";
+import { useIdentity } from "../../../core/auth/IdentityContext.jsx";
+import { orgRoute } from "../../../lib/orgRoutes.js";
+import { Section, useNarrowViewport } from "./kit/Panel.jsx";
+import { AiEmpty } from "./kit/AiCross.jsx";
+import { packRows, serializeLayout } from "./layout.js";
+import { useSaveLayout } from "./hooks.js";
 import { useDashboardEdit } from "./edit/EditContext.jsx";
 
 const EditGrid = React.lazy(() => import("./edit/EditGrid.jsx"));
@@ -26,7 +31,7 @@ const EditGrid = React.lazy(() => import("./edit/EditGrid.jsx"));
 export const CELL =
   "grid min-w-0 col-span-full @min-[600px]:col-[span_var(--s6)/span_var(--s6)] @min-[960px]:col-[span_var(--s12)/span_var(--s12)]";
 export const GRID =
-  "grid grid-cols-1 items-stretch gap-4 @min-[600px]:grid-cols-6 @min-[960px]:grid-cols-12";
+  "grid grid-cols-1 items-start gap-4 @min-[600px]:grid-cols-6 @min-[960px]:grid-cols-12";
 
 /** Spans de 6 e 12 colunas por widget, na ordem da seção. */
 export function withSpans(widgets) {
@@ -64,7 +69,11 @@ export function DashboardGrid({ layout, payload, ctx, skeleton = false }) {
   if (!skeleton && edit?.editing) {
     /* a grade de leitura segura o lugar enquanto o chunk do dnd-kit chega */
     return (
-      <React.Suspense fallback={<ReadGrid sections={sections} payload={payload} ctx={ctx} />}>
+      <React.Suspense
+        fallback={
+          <ReadGrid sections={sections} payload={payload} ctx={ctx} viewKey={layout.viewKey} />
+        }
+      >
         <EditGrid layout={edit.layout} payload={payload} ctx={ctx} />
       </React.Suspense>
     );
@@ -89,23 +98,144 @@ export function DashboardGrid({ layout, payload, ctx, skeleton = false }) {
     );
   }
   if (!sections.length) return <EmptyDashboard edit={edit} />;
-  return <ReadGrid sections={sections} payload={payload} ctx={ctx} />;
+  return (
+    <>
+      <MigrationNotice layout={layout} />
+      <ReadGrid sections={sections} payload={payload} ctx={ctx} viewKey={layout.viewKey} />
+    </>
+  );
 }
 
-function ReadGrid({ sections, payload, ctx }) {
+/**
+ * Aviso não modal da migração (dashboards-ia-entrega D2): o layout salvo não tinha a seção
+ * "IA e entrega" e o `resolveLayout` a pôs na 2ª posição. Não salva sozinho; **Desfazer**
+ * move a seção para o fim e salva. Some quando o layout salvo passa a ter a seção.
+ * Sem widget na seção nova (ex.: Org antes dos cards) não há o que avisar.
+ */
+function MigrationNotice({ layout }) {
+  const saver = useSaveLayout(layout.viewKey || "individual");
+  const id = layout.migrated;
+  const section = id ? layout.sections.find((s) => s.id === id) : null;
+  if (!id || !section?.widgets.length) return null;
+  const undo = async () => {
+    const sections = layout.sections.filter((s) => s.id !== id);
+    sections.push(section);
+    saver.save(serializeLayout({ ...layout, sections }));
+    await saver.flush();
+  };
+  return (
+    <div
+      data-migration-notice=""
+      role="status"
+      className="border-line-strong bg-bg-elev mx-auto mt-4 flex max-w-[1600px] flex-wrap items-center gap-x-4 gap-y-1 rounded-[var(--radius-sm)] border px-4 py-2 text-[13px]"
+    >
+      <span className="text-fg">Os gráficos de IA subiram para logo depois do resumo.</span>
+      <button
+        type="button"
+        onClick={undo}
+        className="mono text-accent-text focus-visible:outline-accent -my-[14px] inline-flex min-h-[44px] cursor-pointer items-center border-0 bg-transparent px-2 underline focus-visible:outline-2 focus-visible:outline-offset-2"
+      >
+        Desfazer
+      </button>
+    </div>
+  );
+}
+
+function ReadGrid({ sections, payload, ctx, viewKey }) {
   return (
     <div className="@container">
       <div className="mx-auto w-full max-w-[1600px]">
         {sections.map((s) => (
           <Section key={s.id} id={s.domId} title={s.title} question={s.question}>
-            <Cells
-              widgets={s.widgets}
-              render={({ entry }) => <entry.Component data={entry.select(payload)} ctx={ctx} />}
-            />
+            <SectionBody section={s} payload={payload} ctx={ctx} viewKey={viewKey} />
           </Section>
         ))}
       </div>
     </div>
+  );
+}
+
+/** Um aviso só para a seção Código da Individual sem VCS vinculado (em vez de um por card). */
+function VcsNotice() {
+  const navigate = useNavigate();
+  const ident = useIdentity();
+  return (
+    <div
+      data-vcs-notice=""
+      className="border-line bg-bg-elev flex max-h-[160px] flex-col items-start gap-1 rounded-[var(--radius-sm)] border px-5 py-4"
+    >
+      <p className="mono text-fg-muted m-0 text-[length:var(--mono-sm)] font-normal">
+        Vincule sua conta do GitHub ou do Azure Repos no perfil para ver commits, PRs e reviews.
+      </p>
+      <button
+        type="button"
+        onClick={() => navigate(orgRoute(ident.orgSlug, "perfil"))}
+        className="mono text-accent-text focus-visible:outline-accent inline-flex min-h-[44px] cursor-pointer items-center border-0 bg-transparent px-0 text-[13px] underline focus-visible:outline-2 focus-visible:outline-offset-2"
+      >
+        Abrir perfil
+      </button>
+    </div>
+  );
+}
+
+/** Seção que recebe os cruzamentos IA × métrica (regras de seção vazia e de celular). */
+const AI_SECTION = "ia-entrega";
+/** Quantos cards de IA o celular (< 600 px) mostra antes do "Mostrar mais" (D5). */
+export const MOBILE_AI_CARDS = 2;
+
+/**
+ * Corpo de uma seção. Em "IA e entrega":
+ *  - se todos os cards declaram `aiEmpty` e todos estão sem uso de IA, mostra UM aviso
+ *    (≤ 160 px) em vez de N cards repetindo a mesma frase;
+ *  - no celular mostra os 2 primeiros e o botão "Mostrar mais N gráficos de IA" (44 px,
+ *    `aria-expanded`; o foco fica no botão).
+ */
+function SectionBody({ section, payload, ctx, viewKey }) {
+  const narrow = useNarrowViewport();
+  const [expanded, setExpanded] = React.useState(false);
+  const panelId = `${section.domId}-cards`;
+  const isAi = section.id === AI_SECTION;
+  const render = ({ entry }) => <entry.Component data={entry.select(payload)} ctx={ctx} />;
+  if (isAi && section.widgets.length) {
+    const allEmpty = section.widgets.every(({ entry }) => {
+      try {
+        return entry.aiEmpty?.(entry.select(payload)) === true;
+      } catch (_) {
+        return false;
+      }
+    });
+    if (allEmpty) return <AiEmpty person={viewKey === "individual"} block />;
+  }
+  if (viewKey === "individual" && section.id === "codigo" && section.widgets.length) {
+    const unlinked = section.widgets.every(({ entry }) => {
+      try {
+        return entry.vcsUnlinked?.(entry.select(payload)) === true;
+      } catch (_) {
+        return false;
+      }
+    });
+    if (unlinked) return <VcsNotice />;
+  }
+  const limited = isAi && narrow && section.widgets.length > MOBILE_AI_CARDS;
+  const shown = limited && !expanded ? section.widgets.slice(0, MOBILE_AI_CARDS) : section.widgets;
+  const hiddenCount = section.widgets.length - MOBILE_AI_CARDS;
+  return (
+    <>
+      <div id={panelId}>
+        <Cells widgets={shown} render={render} />
+      </div>
+      {limited ? (
+        <button
+          type="button"
+          aria-expanded={expanded}
+          aria-controls={panelId}
+          onClick={() => setExpanded((v) => !v)}
+          className="mono border-fg-muted text-fg hover:border-accent focus-visible:outline-accent mt-3 inline-flex min-h-[44px] w-full cursor-pointer items-center justify-center rounded-[var(--radius-sm)] border bg-transparent px-4 text-[13px] focus-visible:outline-2 focus-visible:outline-offset-2"
+        >
+          {expanded ? "Mostrar menos" : `Mostrar mais ${hiddenCount} gráficos de IA`}
+        </button>
+      ) : null}
+    </>
   );
 }
 
