@@ -201,7 +201,7 @@ textarea.ui-field-input {
 }
 .ui-field-error {
   font-size: 11px;
-  color: var(--bad);
+  color: var(--bad-text);
 }
 /* Dica de validação do campo (ex.: "✓ Confere"); reserva a linha para não saltar. */
 .ui-field-hint {

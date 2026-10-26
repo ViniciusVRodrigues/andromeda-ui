@@ -241,7 +241,7 @@ export function TeamPage() {
       />
 
       {membersError && (
-        <div className="admin-placeholder mono" style={{ color: "var(--danger, #c0392b)" }}>
+        <div className="admin-placeholder mono" style={{ color: "var(--bad-text)" }}>
           {membersError}{" "}
           <button
             className="btn"

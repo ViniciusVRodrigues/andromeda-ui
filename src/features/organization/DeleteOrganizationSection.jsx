@@ -14,10 +14,7 @@ import { useDeleteOrganization } from "./hooks.js";
 const MSG_GENERICO = "Não foi possível excluir a organização. Nada foi alterado. Tente de novo.";
 const MSG_SEM_PERMISSAO = "Você não tem permissão para excluir esta organização.";
 
-/* Contraste local do botão de perigo (sem mexer no .btn-danger global): texto
- * var(--bg) sobre --bad nas paletas default e mono, branco na light. */
-const DANGER_TEXT = "!text-[var(--bg)] [:root[data-palette='light']_&]:!text-white";
-const BTN_CLASS = `btn btn-danger min-h-[44px] w-full shrink-0 sm:w-auto ${DANGER_TEXT}`;
+const BTN_CLASS = `btn btn-danger min-h-[44px] w-full shrink-0 sm:w-auto`;
 
 /**
  * @param {object} props
@@ -113,7 +110,6 @@ export function DeleteOrganizationSection({ name, slug }) {
             </>
           }
           error={error}
-          confirmClassName={DANGER_TEXT}
           onConfirm={excluir}
         />
       )}

@@ -30,6 +30,8 @@
   --warn-text: var(--warn);
   --good-text: var(--good);
   --bad-text: var(--bad);
+  /* texto sobre fundo --bad (.btn-danger): --bg nas escuras (default e mono), branco na light */
+  --on-bad: var(--bg);
   --shadow-soft: 0 30px 80px -40px rgba(0, 0, 0, 0.6);
   --radius: 14px;
   --radius-sm: 8px;
@@ -88,6 +90,7 @@
   --warn-text: #874a1c;
   --good-text: #3f5f44;
   --bad-text: #8f3a2f;
+  --on-bad: #ffffff;
   --shadow-soft: 0 30px 80px -40px rgba(80, 50, 20, 0.25);
   --series-1: #a65a32;
   --series-2: #2a78d6;

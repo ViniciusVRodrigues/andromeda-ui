@@ -237,10 +237,10 @@
     box-shadow 0.2s,
     background 0.2s;
 }
-:root[data-palette="mono"] .btn {
+:root[data-palette="mono"] .btn:where(:not(.btn-danger)) {
   color: #151515;
 }
-:root[data-palette="light"] .btn {
+:root[data-palette="light"] .btn:where(:not(.btn-danger)) {
   color: #fffbf1;
 }
 :root[data-palette="light"] .btn-ghost.btn,
@@ -269,6 +269,11 @@
 .btn[disabled] {
   cursor: not-allowed;
 }
+/* desabilitado esmaecido só no perigo: o primário desabilitado já aparece na baseline */
+.btn-danger:disabled,
+.btn-danger[disabled] {
+  opacity: 0.4;
+}
 .btn:disabled:hover,
 .btn[disabled]:hover {
   transform: none;
@@ -292,11 +297,11 @@
 .btn-danger {
   background: var(--bad);
   border-color: var(--bad);
-  color: #fff;
+  color: var(--on-bad);
 }
-:root[data-palette="mono"] .btn-danger,
-:root[data-palette="light"] .btn-danger {
-  color: #fff;
+.btn-danger:focus-visible {
+  outline: 2px solid var(--bad-text);
+  outline-offset: 2px;
 }
 .btn-danger:hover {
   box-shadow: 0 8px 24px -8px color-mix(in srgb, var(--bad) 60%, transparent);
@@ -315,7 +320,7 @@
  * neutra ao lado, mas precisa se declarar antes do clique */
 .btn-ghost.is-danger:hover,
 .btn-ghost.is-danger:focus-visible {
-  color: var(--bad);
+  color: var(--bad-text);
   border-color: var(--bad);
 }
 
@@ -709,7 +714,7 @@
 }
 .integration-error {
   font-size: 12px;
-  color: var(--bad, #eb5757);
+  color: var(--bad-text);
   margin-bottom: var(--spacing-sm, 8px);
 }
 
@@ -721,12 +726,12 @@
   flex-wrap: wrap;
 }
 .integration-disconnect {
-  color: var(--bad, #eb5757) !important;
-  border-color: var(--bad, #eb5757) !important;
+  color: var(--bad-text);
+  border-color: var(--bad);
   margin-left: auto;
 }
 .integration-disconnect:hover {
-  background: rgba(235, 87, 87, 0.08) !important;
+  background: rgba(235, 87, 87, 0.08);
 }
 
 /* Alert banners inside cards (expired / error) */
@@ -1108,7 +1113,7 @@
 }
 .drawer-error p {
   font-size: 12px;
-  color: var(--bad);
+  color: var(--bad-text);
 }
 
 /* Placeholder de carregamento */
@@ -2684,7 +2689,7 @@
   color: var(--fg-muted);
 }
 .signup-error {
-  color: var(--bad);
+  color: var(--bad-text);
 }
 
 .signup-select {
@@ -3754,7 +3759,7 @@
   line-height: 1.6;
 }
 .projects-error {
-  color: var(--bad);
+  color: var(--bad-text);
 }
 
 /* ─── Project detail: modal overlay ─── */
@@ -4756,8 +4761,8 @@
   transition: all 0.18s;
 }
 .member-modal-danger:hover {
-  border-color: var(--bad, #c45a47);
-  color: var(--bad, #c45a47);
+  border-color: var(--bad);
+  color: var(--bad-text);
 }
 .member-modal-danger[disabled] {
   opacity: 0.4;
@@ -4768,7 +4773,7 @@
   color: var(--fg);
 }
 .member-modal-danger--strong {
-  color: var(--bad, #c45a47);
+  color: var(--bad-text);
 }
 
 @media (max-width: 780px) {
