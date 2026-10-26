@@ -107,7 +107,7 @@ export function ItemsWidget({ data: items, ctx }) {
       info="Work items atribuídos a você na sprint. Tempo = cycle time dos concluídos ou há quanto tempo o item está em andamento. IA = custo do uso de IA que você alocou ao item (alocações validadas) e tokens por SP."
     >
       {items.length ? (
-        <DataTable rowKey={(r) => r.id} rows={items} columns={ITEM_COLUMNS} />
+        <DataTable rowKey={(r) => r.id} rows={items} columns={ITEM_COLUMNS} scroll />
       ) : (
         <Empty>Nenhum item atribuído a você nesta sprint.</Empty>
       )}
