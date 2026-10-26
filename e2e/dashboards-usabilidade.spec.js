@@ -319,17 +319,15 @@ for (const view of VIEW_NAMES)
   });
 
 for (const view of ["individual", "equipe"])
-  test(`6 · página cheia ≤ 4000 px — ${view}, 1280px`, async ({ page }) => {
-    test.fixme(
-      true,
-      "a seção IA e entrega sozinha tem 1,7 a 2,2 mil px (cartões de 520 px): o teto de 4000 px não cabe só com a rolagem das tabelas; decisão da sessão principal",
-    );
+  /* teto de 6500 px (decisão da pessoa em 2026-10-26): os cards de IA x métrica
+   * somam 1,7 a 2,2 mil px e a seção IA e entrega pode ser recolhida */
+  test(`6 · página cheia ≤ 6500 px — ${view}, 1280px`, async ({ page }) => {
     await open(page, view, { width: 1280, variant: "cheio" });
     const h = await page.evaluate(() => {
       const layer = document.querySelector(".page-layer");
       return Math.max(layer?.scrollHeight ?? 0, document.documentElement.scrollHeight);
     });
-    expect(h).toBeLessThanOrEqual(4000);
+    expect(h).toBeLessThanOrEqual(6500);
   });
 
 for (const view of VIEW_NAMES)
