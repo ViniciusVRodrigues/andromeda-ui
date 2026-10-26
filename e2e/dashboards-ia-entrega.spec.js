@@ -72,7 +72,9 @@ test("layout salvo sem a seção nova: IA e entrega em 2º, aviso visível, nada
   page,
 }) => {
   const api = await openAs(page, ["DASHBOARD_INDIVIDUAL"], "", { layouts: [OLD_INDIVIDUAL] });
+  /* a faixa "Uso de IA para alocar" (ALO1) fica acima das seções */
   await expect(page.getByRole("heading", { level: 2 })).toHaveText([
+    "Uso de IA para alocar",
     "Resumo da sprint",
     "IA e entrega",
     "Meu trabalho",
@@ -102,7 +104,9 @@ test("Desfazer manda IA e entrega para o fim e salva", async ({ page }) => {
 test("a seção antiga chama-se Consumo de IA nas quatro visões", async ({ page }) => {
   await openAs(page, ["DASHBOARD_INDIVIDUAL"]);
   await expect(page.getByRole("heading", { name: "Consumo de IA", level: 2 })).toBeVisible();
-  await expect(page.getByRole("heading", { name: "Uso de IA", level: 2 })).toHaveCount(0);
+  await expect(page.getByRole("heading", { name: "Uso de IA", exact: true, level: 2 })).toHaveCount(
+    0,
+  );
 });
 
 test("celular 360 px: sem rolagem horizontal e KPIs em 2 colunas", async ({ page }) => {
