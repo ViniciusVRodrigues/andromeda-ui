@@ -88,6 +88,7 @@ test("1. com a permissão, a seção aparece em Geral e não em Cargos/Seniorida
   await expect(secao(page)).toBeVisible();
   await expect(botaoSecao(page)).toBeVisible();
   await expect(secao(page)).toContainText(NOME);
+  await expect(secao(page)).toContainText("todos os dados da organização são apagados");
 
   for (const sub of ["cargos", "senioridade"]) {
     await gotoSection(page, SLUG, `organizacao/${sub}`);
@@ -108,6 +109,7 @@ test("3. ao abrir: diálogo nomeado, campo com foco, botão desabilitado", async
   await expect(dialog).toHaveAccessibleName(`Excluir a organização ${NOME}?`);
   await expect(dialog.getByRole("textbox")).toBeFocused();
   await expect(dialog.getByRole("button", { name: "Excluir organização" })).toBeDisabled();
+  await expect(dialog).toContainText("Todos os dados da organização são apagados");
 });
 
 test("4. só o slug exato habilita (espaços nas pontas são aceitos)", async ({ page }) => {
