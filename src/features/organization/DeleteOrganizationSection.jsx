@@ -16,9 +16,8 @@ const MSG_SEM_PERMISSAO = "Você não tem permissão para excluir esta organiza�
 
 /* Contraste local do botão de perigo (sem mexer no .btn-danger global): texto
  * var(--bg) sobre --bad nas paletas default e mono, branco na light. */
-const BTN_CLASS =
-  "btn btn-danger min-h-[44px] w-full shrink-0 sm:w-auto " +
-  "!text-[var(--bg)] [:root[data-palette='light']_&]:!text-white";
+const DANGER_TEXT = "!text-[var(--bg)] [:root[data-palette='light']_&]:!text-white";
+const BTN_CLASS = `btn btn-danger min-h-[44px] w-full shrink-0 sm:w-auto ${DANGER_TEXT}`;
 
 /**
  * @param {object} props
@@ -31,6 +30,8 @@ export function DeleteOrganizationSection({ name, slug }) {
   const del = useDeleteOrganization();
   const [open, setOpen] = React.useState(false);
   const [error, setError] = React.useState(null);
+  // Guard síncrono: dois cliques no mesmo tick leem o mesmo `isPending` de render.
+  const inflight = React.useRef(false);
 
   if (!hasOrg("ORGANIZATION_DELETE") || !slug) return null;
 
@@ -41,14 +42,18 @@ export function DeleteOrganizationSection({ name, slug }) {
   };
 
   const excluir = () => {
-    if (del.isPending) return;
+    if (inflight.current) return;
+    inflight.current = true;
     setError(null);
     del.mutate(slug, {
       onSuccess: () => {
         queryClient.clear();
         onLogout({ to: "/login", notice: `A organização ${name} foi excluída.` });
       },
-      onError: (err) => setError(err?.status === 403 ? MSG_SEM_PERMISSAO : MSG_GENERICO),
+      onError: (err) => {
+        inflight.current = false;
+        setError(err?.status === 403 ? MSG_SEM_PERMISSAO : MSG_GENERICO);
+      },
     });
   };
 
@@ -105,6 +110,7 @@ export function DeleteOrganizationSection({ name, slug }) {
             </>
           }
           error={error}
+          confirmClassName={DANGER_TEXT}
           onConfirm={excluir}
         />
       )}

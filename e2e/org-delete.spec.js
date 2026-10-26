@@ -272,3 +272,53 @@ test("10. contraste do botão de perigo >= 4,5:1 nas três paletas", async ({ pa
     expect(ratio, palette).toBeGreaterThanOrEqual(4.5);
   }
 });
+
+test("7b. duplo clique em confirmar envia exatamente um DELETE", async ({ page }) => {
+  await abrirGeral(page);
+  let liberar;
+  const gate = new Promise((r) => (liberar = r));
+  const calls = await mockDelete(page, async (route) => {
+    await gate;
+    return route.fulfill({ status: 204 });
+  });
+  const dialog = await abrirDialogo(page);
+  await dialog.getByRole("textbox").fill(SLUG);
+  await dialog.getByRole("button", { name: "Excluir organização" }).dblclick();
+  await page.waitForTimeout(300);
+  expect(calls.count).toBe(1);
+  liberar();
+  await expect(page).toHaveURL(/\/login$/);
+  expect(calls.count).toBe(1);
+});
+
+test("10b. contraste do botão de confirmar dentro do diálogo >= 4,5:1 nas três paletas", async ({
+  page,
+}) => {
+  await abrirGeral(page);
+  const dialog = await abrirDialogo(page);
+  const confirmar = dialog.getByRole("button", { name: "Excluir organização" });
+  await dialog.getByRole("textbox").fill(SLUG);
+  for (const palette of ["default", "light", "mono"]) {
+    await page.evaluate((p) => (document.documentElement.dataset.palette = p), palette);
+    await page.waitForTimeout(500);
+    const ratio = await confirmar.evaluate((el) => {
+      const cs = getComputedStyle(el);
+      const parse = (c) =>
+        c
+          .match(/[\d.]+/g)
+          .slice(0, 3)
+          .map(Number);
+      const lum = ([r, g, b]) => {
+        const f = (v) => {
+          const s = v / 255;
+          return s <= 0.03928 ? s / 12.92 : ((s + 0.055) / 1.055) ** 2.4;
+        };
+        return 0.2126 * f(r) + 0.7152 * f(g) + 0.0722 * f(b);
+      };
+      const a = lum(parse(cs.color));
+      const b = lum(parse(cs.backgroundColor));
+      return (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+    });
+    expect(ratio, palette).toBeGreaterThanOrEqual(4.5);
+  }
+});

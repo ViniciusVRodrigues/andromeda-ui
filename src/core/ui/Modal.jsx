@@ -123,6 +123,7 @@ export function ConfirmDialog({
   confirmPhraseLabel,
   busyLabel = "…",
   error,
+  confirmClassName = "",
 }) {
   // Ação irreversível pede um gesto deliberado: enquanto o texto digitado não
   // for exatamente `confirmPhrase`, o botão fica desabilitado. Sem a prop, o
@@ -164,7 +165,7 @@ export function ConfirmDialog({
           </button>
           <button
             type="button"
-            className={danger ? "btn btn-danger" : "btn"}
+            className={`${danger ? "btn btn-danger" : "btn"}${confirmClassName ? " " + confirmClassName : ""}`}
             disabled={busy || !phraseOk}
             onClick={() => {
               onConfirm();
