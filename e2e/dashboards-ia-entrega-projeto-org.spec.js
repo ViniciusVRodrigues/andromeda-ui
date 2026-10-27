@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { gotoDashboard, installDashboardsApi } from "./dashboards-v2-api.mjs";
+import { gotoDashboard, installDashboardsApi, withNewMeasures } from "./dashboards-v2-api.mjs";
 
 /* dashboards-ia-entrega UI-3: cards "IA × métrica" do Projeto (7) e da Organização (3),
  * no padrão comum (D4): pergunta, legenda com unidade, ajuda "não causa", gráfico
@@ -24,18 +24,13 @@ const VIEWS = [
         "projeto.ia-esforco-complexidade",
         "Itens maiores ou mais complexos consomem mais IA e demoram mais?",
       ],
-      ["projeto.custo-ia-sp", "Custo de IA por SP entregue"],
     ],
   },
   {
     name: "Organização",
     query: "?escopo=org",
     section: "#org-ia-entrega",
-    cards: [
-      ["org.ia-portfolio", "Os projetos que mais usam IA entregam melhor?"],
-      ["org.ia-tendencia", "Custo de IA, throughput e lead time andam juntos?"],
-      ["org.ia-adocao", "Mais gente usando IA veio com mais entrega?"],
-    ],
+    cards: [["org.ia-sprints", "Como IA e entrega evoluíram nas sprints de cada projeto?"]],
   },
 ];
 
@@ -53,7 +48,9 @@ const json = (route, body) =>
 
 async function readFixture(name) {
   const fs = await import("node:fs");
-  return JSON.parse(fs.readFileSync(`e2e/fixtures/dashboards-v2/${name}.json`, "utf8"));
+  const o = JSON.parse(fs.readFileSync(`e2e/fixtures/dashboards-v2/${name}.json`, "utf8"));
+  withNewMeasures(name, o); // campos novos (complexidade, esforço) como o ms novo manda
+  return o;
 }
 
 for (const view of VIEWS) {
@@ -79,7 +76,6 @@ for (const view of VIEWS) {
         const c = card(page, id);
         await expect(c.getByRole("heading", { level: 3, name: question })).toBeVisible();
         heights.push((await c.boundingBox()).height);
-        if (id === "projeto.custo-ia-sp") continue; // gráfico que só mudou de seção
         await expect(c).toContainText("IA ×");
         expect(question.endsWith("?")).toBe(true);
         expect(await c.innerText()).toMatch(/\([^)]{1,14}\)/); // legenda com unidade
@@ -98,11 +94,12 @@ for (const view of VIEWS) {
     });
 
     test("gráfico de baixo do par tem role=img e rótulo próprio com números", async ({ page }) => {
-      await open(page, view);
-      const c = card(
-        page,
-        view.name === "Projeto" ? "projeto.ia-entrega-sprint" : "org.ia-tendencia",
+      test.skip(
+        view.name !== "Projeto",
+        "a Organização tem 4 gráficos (complexidade-esforco-org-sprints)",
       );
+      await open(page, view);
+      const c = card(page, "projeto.ia-entrega-sprint");
       await c.scrollIntoViewIfNeeded();
       const svgs = c.locator("svg[role=img]");
       await expect(svgs).toHaveCount(2);
@@ -142,7 +139,6 @@ for (const view of VIEWS) {
     test("critério 5: a tabela gêmea traz os mesmos números do gráfico", async ({ page }) => {
       await open(page, view);
       for (const [id] of view.cards) {
-        if (id === "projeto.custo-ia-sp") continue;
         const c = card(page, id);
         const label = (await c.locator("svg[role=img]").first().getAttribute("aria-label")) || "";
         await c.getByRole("button", { name: "Tabela" }).click();
@@ -168,7 +164,7 @@ for (const view of VIEWS) {
             if (i >= 2) {
               s.aiTokens = null;
               s.aiCostUsd = null;
-              s.aiCostPerSp = null;
+              s.aiCostPerPoint = null;
             }
           });
           return json(route, body);
@@ -181,16 +177,10 @@ for (const view of VIEWS) {
           card(page, "projeto.ia-entrega-sprint").locator("svg[role=img]").first(),
         ).toBeVisible();
       } else {
-        await page.route("**/api/v1/dashboards/organization**", async (route) => {
-          const body = await readFixture("organization__90");
-          body.ai.costByBucket = body.ai.costByBucket.slice(0, 2);
-          return json(route, body);
-        });
-        await open(page, view);
-        await expect(card(page, "org.ia-tendencia")).toContainText(
-          "São precisos ao menos 3 semanas com uso de IA para comparar; há 2.",
-        );
-        await expect(card(page, "org.ia-tendencia").locator("svg[role=img]").first()).toBeVisible();
+        await open(page, view, { sprintHistory: "reduced" });
+        const c = card(page, "org.ia-sprints");
+        await expect(c).toContainText("é cedo para concluir");
+        await expect(c.locator("svg[role=img]").first()).toBeVisible();
       }
     });
 
@@ -201,7 +191,7 @@ for (const view of VIEWS) {
           body.sprints.forEach((s) => {
             s.aiTokens = 0;
             s.aiCostUsd = 0;
-            s.aiCostPerSp = 0;
+            s.aiCostPerPoint = 0;
           });
           body.ai.costByBucket.forEach((r) =>
             Object.keys(r.byModel).forEach((m) => (r.byModel[m] = 0)),
@@ -223,7 +213,7 @@ for (const view of VIEWS) {
           const body = await readFixture("organization__90");
           body.portfolio.forEach((p) => {
             p.aiCostUsd = 0;
-            p.aiCostPerSp = 0;
+            p.aiCostPerPoint = 0;
           });
           body.ai.costByBucket.forEach((r) =>
             Object.keys(r.byModel).forEach((m) => (r.byModel[m] = 0)),
@@ -231,6 +221,12 @@ for (const view of VIEWS) {
           body.kpis.activeAiUsers = 0;
           body.previous.activeAiUsers = 0;
           body.ai.adoption.activeUsers = 0;
+          body.sprintHistory?.projects?.forEach((p) =>
+            p.sprints.forEach((x) => {
+              x.aiCostUsd = 0;
+              x.aiTokens = 0;
+            }),
+          );
           return json(route, body);
         });
       }
@@ -258,22 +254,11 @@ test("Projeto: alternâncias de modo, selo estimado e custo por faixa", async ({
   const effort = card(page, "projeto.ia-esforco-complexidade");
   await effort.getByRole("button", { name: "Complexidade" }).click();
   await effort.getByRole("button", { name: "Tabela" }).click();
-  await expect(effort.getByRole("table")).toContainText("Complexidade 1");
+  await expect(effort.getByRole("table")).toContainText("1 pt");
   const sprint = card(page, "projeto.ia-entrega-sprint");
   await sprint.getByRole("button", { name: "US$" }).click();
   await sprint.getByRole("button", { name: "Tabela" }).click();
   await expect(sprint.getByRole("table")).toContainText("US$ 70,50");
-});
-
-test("Organização: adoção compara o período anterior com o atual, sem aviso de amostra", async ({
-  page,
-}) => {
-  await open(page, VIEWS[1]);
-  const c = card(page, "org.ia-adocao");
-  await expect(c).toContainText("Pessoas com IA: 18 → 20");
-  await expect(c).not.toContainText("São precisos");
-  await c.getByRole("button", { name: "Tabela" }).click();
-  await expect(c.getByRole("table")).toContainText("Período anterior");
 });
 
 test("ms antigo: cards com campo ausente mostram sem dado e os demais funcionam", async ({
@@ -283,7 +268,7 @@ test("ms antigo: cards com campo ausente mostram sem dado e os demais funcionam"
   page.on("pageerror", (e) => errors.push(e.message));
   await open(page, VIEWS[0], { legacy: true });
   await expect(card(page, "projeto.ia-entrega-sprint")).toContainText("Sem dado de tokens");
-  await expect(card(page, "projeto.ia-por-ponto")).toContainText("Sem dado de tokens");
+  await expect(card(page, "projeto.ia-por-ponto")).toContainText("Sem dado");
   await expect(card(page, "projeto.ia-dora")).toContainText("Sem DORA por intervalo");
   await expect(card(page, "projeto.ia-esforco-complexidade")).toContainText(
     "Sem custo de IA por faixa",
@@ -291,8 +276,8 @@ test("ms antigo: cards com campo ausente mostram sem dado e os demais funcionam"
   for (const id of ["projeto.ia-fluxo", "projeto.ia-qualidade", "projeto.ia-review"])
     await expect(card(page, id).locator("svg[role=img]").first()).toBeVisible();
   await gotoDashboard(page, VIEWS[1].query);
-  for (const [id] of VIEWS[1].cards)
-    await expect(card(page, id).locator("svg[role=img]").first()).toBeVisible();
+  /* ms antigo: sem `sprintHistory`, a seção mostra o aviso de IA e não quebra */
+  await expect(page.locator("#org-ia-entrega [data-ai-empty]")).toHaveCount(1);
   expect(errors).toEqual([]);
 });
 

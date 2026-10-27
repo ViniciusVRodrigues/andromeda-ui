@@ -54,16 +54,11 @@ import {
 } from "../widgets/org/integrations.jsx";
 
 import {
-  IaAdoptionWidget,
   IaPortfolioWidget,
-  IaTrendWidget,
-  iaAdoptionEmpty,
   iaPortfolioEmpty,
-  iaTrendEmpty,
-  selectIaAdoption,
   selectIaPortfolio,
-  selectIaTrend,
 } from "../widgets/org/ia-entrega.jsx";
+import { IaSprintsWidget, iaSprintsEmpty, selectIaSprints } from "../widgets/org/ia-sprints.jsx";
 
 const VIEW_KEY = "org";
 const ALL = ["P", "M", "G", "I"];
@@ -142,11 +137,11 @@ const widget = (name, sectionId, title, o) => ({
   title,
   sizes: o.sizes,
   defaultSize: o.size,
-  default: !o.disabled,
+  default: o.default ?? !o.disabled,
   disabled: !!o.disabled,
   aiEmpty: o.aiEmpty,
   skeletonHeight: o.height,
-  aliases: [],
+  aliases: o.aliases ?? [],
   select: o.select,
   Component: o.Component,
 });
@@ -171,7 +166,19 @@ export const widgets = [
     Component: PortfolioWidget,
   }),
   /* ── IA × métrica (dashboards-ia-entrega D3) ── */
+  /* complexidade-esforco D11/D12: o card por sprint é o 1º da seção e herda a posição do
+   * `ia-tendencia`; `ia-adocao` saiu; `ia-portfolio` fica no catálogo, fora do padrão. */
+  widget("ia-sprints", "ia-entrega", "Como IA e entrega evoluíram nas sprints de cada projeto?", {
+    sizes: ["G", "I"],
+    size: "I",
+    height: 760,
+    aliases: ["org.ia-tendencia"],
+    select: selectIaSprints,
+    aiEmpty: iaSprintsEmpty,
+    Component: IaSprintsWidget,
+  }),
   widget("ia-portfolio", "ia-entrega", "Os projetos que mais usam IA entregam melhor?", {
+    default: false,
     sizes: AI_SIZES,
     size: "M",
     height: 360,
@@ -179,21 +186,13 @@ export const widgets = [
     aiEmpty: iaPortfolioEmpty,
     Component: IaPortfolioWidget,
   }),
-  widget("ia-tendencia", "ia-entrega", "Custo de IA, throughput e lead time andam juntos?", {
-    sizes: AI_SIZES,
-    size: "M",
-    height: 360,
-    select: selectIaTrend,
-    aiEmpty: iaTrendEmpty,
-    Component: IaTrendWidget,
-  }),
   widget("ia-adocao", "ia-entrega", "Mais gente usando IA veio com mais entrega?", {
+    disabled: true,
     sizes: AI_SIZES,
     size: "I",
     height: 360,
-    select: selectIaAdoption,
-    aiEmpty: iaAdoptionEmpty,
-    Component: IaAdoptionWidget,
+    select: () => ({}),
+    Component: () => null,
   }),
   widget("vazao-projeto", "entrega", "Itens concluídos por projeto", {
     sizes: ALL,

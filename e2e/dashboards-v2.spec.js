@@ -475,7 +475,11 @@ const VIEW_CASES = [
       "Consumo de IA",
       "Confiabilidade dos dados",
     ],
-    widgets: ["Itens concluídos por tipo", "Saúde por repositório", "Custo de IA por SP entregue"],
+    widgets: [
+      "Itens concluídos por tipo",
+      "Saúde por repositório",
+      "Os tokens por ponto caíram ao longo das sprints?",
+    ],
   },
   {
     viewKey: "org",

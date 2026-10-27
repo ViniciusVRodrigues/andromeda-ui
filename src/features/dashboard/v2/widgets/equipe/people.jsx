@@ -3,7 +3,15 @@
  * e trocas de responsável (as duas requerem coleta nova). */
 
 import React from "react";
-import { fmtDuration, fmtInt, fmtTokensCompact, fmtUsd, nItems } from "../../format.js";
+import {
+  fmtDuration,
+  fmtHours,
+  fmtInt,
+  fmtPoints,
+  fmtTokensCompact,
+  fmtUsd,
+  nItems,
+} from "../../format.js";
 import { Tag } from "../../kit/Badges.jsx";
 import { BarList, Meter } from "../../kit/Bars.jsx";
 import { Empty, Panel } from "../../kit/Panel.jsx";
@@ -29,26 +37,28 @@ const MEMBER_COLUMNS = [
     ),
   },
   {
-    key: "sp",
-    label: "SP entregue",
+    key: "complexity",
+    label: "Complexidade entregue",
+    abbr: "Complex. entregue",
     width: "22%",
     render: (r) => (
       <div className="flex items-center gap-3">
         <span className="mono w-12 shrink-0 text-right tabular-nums">
-          {fmtInt(r.spDelivered)}
-          <span className="text-fg-muted font-normal">/{fmtInt(r.spPlanned)}</span>
+          {fmtPoints(r.complexityDelivered)}
+          <span className="text-fg-muted font-normal">/{fmtPoints(r.complexityPlanned)}</span>
         </span>
         <div className="flex-1">
           <Meter
-            value={r.spDelivered}
-            max={r.spPlanned || 1}
+            value={r.complexityDelivered}
+            max={r.complexityPlanned || 1}
             height={6}
-            label="SP entregue do planejado"
+            label="Complexidade entregue do planejado"
           />
         </div>
       </div>
     ),
   },
+  { key: "effortLogged", label: "Esforço", align: "right", format: fmtHours },
   {
     key: "itemsDone",
     label: "Itens",
@@ -65,7 +75,8 @@ const MEMBER_COLUMNS = [
   },
   { key: "reviewsGiven", label: "Reviews", align: "right", format: fmtInt },
   { key: "aiCostUsd", label: "Custo IA", align: "right", format: fmtUsd },
-  { key: "avgTokensPerSp", label: "T/SP", align: "right", format: fmtTokensCompact },
+  { key: "avgTokensPerPoint", label: "Tokens/pt", align: "right", format: fmtTokensCompact },
+  { key: "avgTokensPerHour", label: "Tokens/h", align: "right", format: fmtTokensCompact },
 ];
 
 export function MembersWidget({ data: members }) {
@@ -74,7 +85,7 @@ export function MembersWidget({ data: members }) {
       eyebrow="distribuição"
       title="Contribuição por pessoa na sprint"
       sources={["azure", "github", "ia"]}
-      info="Por pessoa: SP entregues do total planejado, itens em andamento agora, PRs e reviews (só de quem conectou o GitHub), custo de IA nas datas da sprint e tokens por SP (T/SP) dos itens dela."
+      info="Por pessoa: complexidade (pts) entregue do total planejado, esforço registrado (horas das Tasks concluídas), itens em andamento agora, PRs e reviews (só de quem conectou o GitHub), custo de IA nas datas da sprint e tokens por ponto (Tokens/pt) e por hora (Tokens/h) dos itens dela."
     >
       <DataTable
         rowKey={(r) => r.userId}

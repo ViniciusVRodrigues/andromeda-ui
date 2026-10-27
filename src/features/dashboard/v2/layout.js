@@ -56,7 +56,7 @@ const AFTER_SECTION = { org: "portfolio" };
  */
 export function resolveLayout(catalog, viewKey, saved, canSee = () => true) {
   const sectionDefs = catalog.sections.filter((s) => s.viewKey === viewKey);
-  const visible = catalog.widgets.filter((w) => w.viewKey === viewKey && canSee(w));
+  const visible = catalog.widgets.filter((w) => w.viewKey === viewKey && !w.disabled && canSee(w));
   const byId = new Map();
   for (const w of visible) {
     byId.set(w.id, w);

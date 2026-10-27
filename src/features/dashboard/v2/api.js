@@ -67,6 +67,42 @@ const spreadMap = (rows, mapKey) =>
  * trata como "sem dado" (`null` / lista vazia), nunca como zero. */
 const withComplexity = (items) =>
   (items || []).map((i) => ({ ...i, complexity: i.complexity ?? null }));
+/* Campos aditivos da change complexidade-esforco (contrato do design.md): complexidade em pontos,
+ * esforço em horas e as razões por ponto/hora. Com o ms antigo ficam ausentes e viram `null`
+ * ("sem valor"), nunca 0. Os nomes antigos (`sp*`, `*PerSp`, `remaining`/`ideal`) seguem no objeto
+ * ao lado; o ui novo não depende deles para estes valores. */
+const withNew = (o, keys, ints = []) => {
+  if (!o || typeof o !== "object") return o;
+  const out = { ...o };
+  for (const k of keys) out[k] = o[k] ?? null;
+  for (const k of ints) out[k] = o[k] ?? null;
+  return out;
+};
+const mapNew = (rows, keys, ints) => (rows ? rows.map((r) => withNew(r, keys, ints)) : rows);
+
+const K_ITEM = ["effortRolledUp", "tokensPerPoint", "tokensPerHour"];
+const K_SPRINT_STATS = [
+  "complexityPlanned",
+  "complexityDelivered",
+  "effortLogged",
+  "avgTokensPerPoint",
+  "avgTokensPerHour",
+  "aiCostPerPoint",
+  "aiCostPerHour",
+];
+const K_COVERAGE = ["unitsWithoutComplexity", "itemsWithComplexity", "tasksWithEffort"];
+const K_BURN = ["remainingPoints", "idealPoints"];
+const K_PROGRESS = ["complexityTotal", "complexityDone", "pointsPerWeek"];
+const K_PERIOD = ["complexityDelivered", "effortLogged", "aiCostPerPoint", "aiCostPerHour"];
+const K_ROW = [
+  "complexityPlanned",
+  "complexityDelivered",
+  "effortLogged",
+  "aiCostPerPoint",
+  "aiCostPerHour",
+];
+const K_SPRINT_FIG = ["complexityPlanned", "complexityDelivered", "effortLogged"];
+
 const withAiTokens = (h) => ({ ...h, aiTokens: h.aiTokens ?? null });
 
 /* ── adaptadores por visão ────────────────────────────────────────────── */
@@ -86,14 +122,15 @@ export function adaptIndividual(raw) {
       /* qualquer provedor de código vinculado (GitHub ou Azure Repos) */
       githubLinked: d.person.vcsLinked ?? d.person.githubLinked ?? false,
     },
-    kpis: flatDs(d.kpis, KPI_SPRINT),
-    previous: flatDs(d.previous, KPI_SPRINT),
-    items: withComplexity(d.items),
+    kpis: withNew(flatDs(d.kpis, KPI_SPRINT), K_SPRINT_STATS, K_COVERAGE),
+    previous: withNew(flatDs(d.previous, KPI_SPRINT), K_SPRINT_STATS, K_COVERAGE),
+    sprintStats: d.sprintStats && withNew(d.sprintStats, K_SPRINT_STATS, K_COVERAGE),
+    items: mapNew(withComplexity(d.items), K_ITEM),
     pullRequests: d.pullRequests || [],
     commitsByDay: d.commitsByDay || [],
-    burndown: d.burndown || [],
+    burndown: mapNew(d.burndown || [], K_BURN),
     history: (d.history || []).map((h) =>
-      withAiTokens(flatDs(h, [["cycleTimeHours", "avgCycleTimeHours"]])),
+      withNew(withAiTokens(flatDs(h, [["cycleTimeHours", "avgCycleTimeHours"]])), K_SPRINT_FIG),
     ),
   };
 }
@@ -102,10 +139,11 @@ export function adaptTeam(raw) {
   const d = msTimestamps(raw);
   return {
     ...d,
-    kpis: flatDs(d.kpis, KPI_SPRINT),
-    previous: flatDs(d.previous, KPI_SPRINT),
+    kpis: withNew(flatDs(d.kpis, KPI_SPRINT), K_SPRINT_STATS, K_COVERAGE),
+    previous: withNew(flatDs(d.previous, KPI_SPRINT), K_SPRINT_STATS, K_COVERAGE),
+    burndown: d.burndown ? mapNew(d.burndown, K_BURN) : d.burndown,
     members: (d.members || []).map((m) => ({
-      ...flatDs(m, [["cycleTimeHours", "avgCycleTimeHours"]]),
+      ...withNew(flatDs(m, [["cycleTimeHours", "avgCycleTimeHours"]]), K_SPRINT_STATS),
       githubLinked: m.vcsLinked ?? m.githubLinked ?? false,
     })),
     repos: (d.repos || []).map((r) => ({
@@ -115,9 +153,14 @@ export function adaptTeam(raw) {
       ]),
       repo: r.displayName ?? r.repo,
     })),
-    agingItems: d.agingItems ? withComplexity(d.agingItems) : d.agingItems,
+    agingItems: d.agingItems ? mapNew(withComplexity(d.agingItems), K_ITEM) : d.agingItems,
     history: (d.history || []).map((h) =>
-      withAiTokens(flatDs(h, [["cycleTimeHours", "avgCycleTimeHours"]])),
+      withNew(withAiTokens(flatDs(h, [["cycleTimeHours", "avgCycleTimeHours"]])), [
+        ...K_SPRINT_FIG,
+        "aiCostPerPoint",
+        "aiCostPerHour",
+        "hoursPerPoint",
+      ]),
     ),
   };
 }
@@ -133,6 +176,7 @@ export function adaptTeamFlow(raw) {
     ]);
   return {
     ...d,
+    scope: d.scope && withNew(d.scope, ["points"]),
     states: d.states || [],
     cfd: d.cfd || [],
     stateTimes: d.stateTimes && {
@@ -157,13 +201,14 @@ export function adaptProjectOverview(raw) {
   const d = msTimestamps(raw);
   return {
     ...d,
-    kpis: flatDs(d.kpis, KPI_PERIOD),
-    previous: flatDs(d.previous, KPI_PERIOD),
+    kpis: withNew(flatDs(d.kpis, KPI_PERIOD), K_PERIOD, K_COVERAGE),
+    previous: withNew(flatDs(d.previous, KPI_PERIOD), K_PERIOD, K_COVERAGE),
+    dataQuality: d.dataQuality && withNew(d.dataQuality, [], K_COVERAGE),
     dora: d.dora && {
       ...d.dora,
       leadTime: flatDs(d.dora.leadTime, [["hours", "hours"]]),
     },
-    sprints: d.sprints ? d.sprints.map(withAiTokens) : d.sprints,
+    sprints: d.sprints ? d.sprints.map((x) => withNew(withAiTokens(x), K_ROW)) : d.sprints,
     doraSeries: d.doraSeries ?? [],
     flow: (d.flow || []).map((r) => flatDs(r, FLOW_DAYS, 24)),
     prFlow: (d.prFlow || []).map((r) =>
@@ -175,9 +220,32 @@ export function adaptProjectOverview(raw) {
         ["timeToFirstReviewHours", "avgTimeToFirstReviewHours"],
       ]),
     ),
-    ai: d.ai && { ...d.ai, costByBucket: spreadMap(d.ai.costByBucket, "byModel") },
+    ai: d.ai && {
+      ...withNew(d.ai, ["tokensPerPoint", "tokensPerHour"]),
+      costByBucket: spreadMap(d.ai.costByBucket, "byModel"),
+    },
   };
 }
+
+/** `effortHours {p25,p50,p75,n}` → o mesmo objeto com números ou `null`; sem `n` > 0, `null`. */
+const effortSpread = (e) =>
+  e && typeof e === "object" && Number(e.n) > 0
+    ? {
+        p25: e.p25 ?? null,
+        p50: e.p50 ?? null,
+        p75: e.p75 ?? null,
+        n: Number(e.n),
+      }
+    : null;
+
+/** `calibration.outliers[]` (no máximo 5); `url` e `complexity` podem vir nulos. */
+const adaptOutliers = (rows) =>
+  (rows || []).slice(0, 5).map((o) => ({
+    ...o,
+    complexity: o.complexity ?? null,
+    effortHours: o.effortHours ?? null,
+    url: typeof o.url === "string" && /^https?:\/\//i.test(o.url) ? o.url : null,
+  }));
 
 export function adaptRoadmap(raw) {
   const d = msTimestamps(raw);
@@ -187,13 +255,28 @@ export function adaptRoadmap(raw) {
       aiCostUsd: r.aiCostUsd ?? null,
       aiTokens: r.aiTokens ?? null,
       itemsWithAi: r.itemsWithAi ?? 0,
+      /* complexidade-esforco MS-4: horas registradas nas tarefas (p25/p50/p75/n) por faixa */
+      effortHours: effortSpread(r.effortHours),
+      unitsWithoutEffort: r.unitsWithoutEffort ?? null,
     }));
+  const backlog = d.backlog && {
+    ...withNew(d.backlog, ["points"]),
+    forgotten: d.backlog.forgotten
+      ? mapNew(d.backlog.forgotten, ["complexity", "effortRolledUp"])
+      : d.backlog.forgotten,
+    byTag: d.backlog.byTag ? mapNew(d.backlog.byTag, ["points"]) : d.backlog.byTag,
+  };
   return {
     ...d,
+    epics: d.epics ? mapNew(d.epics, K_PROGRESS) : d.epics,
+    features: d.features ? mapNew(d.features, K_PROGRESS) : d.features,
+    backlog,
+    deliveredByTag: d.deliveredByTag ? mapNew(d.deliveredByTag, ["points"]) : d.deliveredByTag,
     calibration: d.calibration && {
       ...d.calibration,
       byEffort: cal(d.calibration.byEffort),
       byComplexity: cal(d.calibration.byComplexity),
+      outliers: adaptOutliers(d.calibration.outliers),
     },
   };
 }
@@ -209,18 +292,73 @@ const KPI_ORG = [
   ["timeToFirstReviewHours", "timeToFirstReviewHours"],
 ];
 
+/**
+ * `sprintHistory` da Organização (change complexidade-esforco, MS-4): projetos → sprints que cruzam o
+ * período. Campo aditivo: com o ms antigo vem ausente e vira `null`. O `leadTimeHours` DS ganha o
+ * p50 em dias (`leadTimeDays`) e fica inteiro em `leadTimeDs`. Não passa por `spreadMap`: os projetos
+ * são uma lista, não um mapa por chave.
+ */
+export function adaptSprintHistory(h) {
+  if (!h || !Array.isArray(h.projects)) return null;
+  const n = (v) => (v == null ? null : v);
+  return {
+    projects: h.projects.map((p) => ({
+      projectId: p.projectId,
+      name: p.name ?? "",
+      sprints: (p.sprints || []).map((s) => {
+        const lead = p50(s.leadTimeHours);
+        return {
+          sprintId: s.sprintId,
+          name: s.name ?? "",
+          startDate: n(s.startDate),
+          endDate: n(s.endDate),
+          current: !!s.current,
+          aiCostUsd: n(s.aiCostUsd),
+          aiTokens: n(s.aiTokens),
+          complexityPlanned: n(s.complexityPlanned),
+          complexityDelivered: n(s.complexityDelivered),
+          effortLogged: n(s.effortLogged),
+          aiCostPerPoint: n(s.aiCostPerPoint),
+          aiCostPerHour: n(s.aiCostPerHour),
+          hoursPerPoint: n(s.hoursPerPoint),
+          predictabilityPct: n(s.predictabilityPct),
+          leadTimeHours: lead,
+          leadTimeDays: lead == null ? null : lead / 24,
+          leadTimeDs:
+            s.leadTimeHours && typeof s.leadTimeHours === "object" ? s.leadTimeHours : null,
+          itemsDone: n(s.itemsDone),
+        };
+      }),
+    })),
+  };
+}
+
 export function adaptOrganization(raw) {
   const d = msTimestamps(raw);
   return {
     ...d,
-    kpis: flatDs(d.kpis, KPI_ORG),
-    previous: flatDs(d.previous, KPI_ORG),
-    portfolio: (d.portfolio || []).map((p) =>
-      flatDs(p, [
-        ["leadTimeHours", "leadTimeHours"],
-        ["prCycleTimeHours", "prCycleTimeHours"],
-      ]),
-    ),
+    kpis: withNew(flatDs(d.kpis, KPI_ORG), [
+      "complexityDelivered",
+      "aiCostPerPoint",
+      "aiCostPerHour",
+    ]),
+    previous: withNew(flatDs(d.previous, KPI_ORG), [
+      "complexityDelivered",
+      "aiCostPerPoint",
+      "aiCostPerHour",
+    ]),
+    portfolio: (d.portfolio || []).map((p) => {
+      const row = withNew(
+        flatDs(p, [
+          ["leadTimeHours", "leadTimeHours"],
+          ["prCycleTimeHours", "prCycleTimeHours"],
+        ]),
+        K_ROW,
+      );
+      return row.currentSprint
+        ? { ...row, currentSprint: withNew(row.currentSprint, ["pointsDone", "pointsPlanned"]) }
+        : row;
+    }),
     delivery: d.delivery && {
       ...d.delivery,
       throughputByProject: spreadMap(d.delivery.throughputByProject, "byProject"),
@@ -235,6 +373,7 @@ export function adaptOrganization(raw) {
       ),
     },
     ai: d.ai && { ...d.ai, costByBucket: spreadMap(d.ai.costByBucket, "byModel") },
+    sprintHistory: adaptSprintHistory(d.sprintHistory),
   };
 }
 

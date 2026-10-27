@@ -19,7 +19,6 @@ import {
   BacklogPriorityWidget,
   BacklogStalenessWidget,
   CycleByComplexityWidget,
-  CycleByEffortWidget,
   DeliveredByTagWidget,
   EpicsWidget,
   FeaturesWidget,
@@ -30,6 +29,8 @@ import {
   selectEpics,
   selectFeatures,
 } from "../widgets/projeto/roadmap.jsx";
+import { HorasPorPontoWidget, selectHorasPorPonto } from "../widgets/projeto/horasPorPonto.jsx";
+import { useMappingHref } from "./mappingLink.js";
 import { FetchFrame, Grid, ViewError, ViewRefresh, ViewSkeleton } from "./shared.jsx";
 
 export const ROADMAP_SECTIONS = [
@@ -40,6 +41,7 @@ export const ROADMAP_SECTIONS = [
 ];
 
 export function RoadmapView({ projectId, periodDays }) {
+  const mappingHref = useMappingHref(projectId);
   const { data, isPending, isFetching, isError, error, refetch } = useProjectRoadmap({
     projectId,
     periodDays,
@@ -60,7 +62,7 @@ export function RoadmapView({ projectId, periodDays }) {
         title="Épicos e features"
         question="O que está sendo construído e quando termina no ritmo atual?"
       >
-        <EpicsWidget data={selectEpics(d)} />
+        <EpicsWidget data={selectEpics(d)} ctx={{ mappingHref }} />
         <div className="mt-4">
           <FeaturesWidget data={selectFeatures(d)} />
         </div>
@@ -93,11 +95,13 @@ export function RoadmapView({ projectId, periodDays }) {
         title="Estimativas"
         question="Os tamanhos estimados batem com o tempo real?"
       >
-        <Grid cols="lg:grid-cols-3">
-          <CycleByEffortWidget data={calibration} />
+        <Grid cols="lg:grid-cols-2">
+          <HorasPorPontoWidget data={selectHorasPorPonto(d)} ctx={{ mappingHref }} />
           <CycleByComplexityWidget data={calibration} />
-          <ManualOverridesWidget data={calibration} />
         </Grid>
+        <div className="mt-4">
+          <ManualOverridesWidget data={calibration} />
+        </div>
       </Section>
     </FetchFrame>
   );

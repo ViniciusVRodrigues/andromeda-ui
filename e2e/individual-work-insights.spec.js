@@ -4,7 +4,7 @@ import { DASH_NOW, gotoDashboard, installDashboardsApi } from "./dashboards-v2-a
 
 async function setup(page) {
   const { orgSlug } = await loginAsAdmin(page);
-  let effort = 3;
+  let complexity = 3;
   let allocated = false;
   const split = { workItemId: "wi-1", workItemTitle: "Corrigir sincronização", percentage: 1 };
   await page.route("**/api/v1/ai/**", async (route) => {
@@ -59,8 +59,10 @@ async function setup(page) {
   });
   await page.route("**/api/v1/work-items/wi-1**", async (route) => {
     if (route.request().method() === "PATCH") {
-      effort = route.request().postDataJSON().effort;
-      await route.fulfill({ json: { id: "wi-1", effort, effortSource: "MANUAL_OVERRIDE" } });
+      complexity = route.request().postDataJSON().complexity;
+      await route.fulfill({
+        json: { id: "wi-1", complexity, complexitySource: "MANUAL_OVERRIDE" },
+      });
     } else
       await route.fulfill({
         json: {
@@ -72,13 +74,13 @@ async function setup(page) {
           sprintName: "Sprint 25",
           assignee: "dev@example.test",
           editableType: true,
-          effort: {
-            value: effort,
-            source: effort === 3 ? "AZURE_SYNC" : "MANUAL_OVERRIDE",
+          effort: { value: 2, source: "AZURE_SYNC" },
+          complexity: {
+            value: complexity,
+            source: complexity === 3 ? "AZURE_SYNC" : "MANUAL_OVERRIDE",
             mappedField: "Microsoft.VSTS.Scheduling.StoryPoints",
             fieldType: "integer",
           },
-          complexity: { value: 2, source: "AZURE_SYNC" },
         },
       });
   });
@@ -101,8 +103,8 @@ test("AI table filters, nested work item edit and allocation refresh", async ({ 
     await page.keyboard.press("Tab");
     expect(await detail.evaluate((node) => node.contains(document.activeElement))).toBe(true);
   }
-  await detail.getByRole("button", { name: "Editar esforço" }).click();
-  await detail.getByRole("spinbutton", { name: "Story Points" }).fill("8");
+  await detail.getByRole("button", { name: "Editar complexidade" }).click();
+  await detail.getByRole("spinbutton", { name: "Complexidade (campo Story Points)" }).fill("8");
   await detail.getByRole("button", { name: "Salvar", exact: true }).click();
   await expect(detail).toContainText("8 · Manual");
   await expect(detail).toHaveScreenshot("work-item-context-modal.png");
@@ -153,6 +155,7 @@ test("work item is read-only without management permission on a narrow viewport"
   await page.getByRole("button", { name: "Corrigir sincronização", exact: true }).click();
   const dialog = page.getByRole("dialog").last();
   await expect(dialog).toContainText("Seu acesso permite somente consulta.");
+  await expect(dialog.getByRole("button", { name: "Editar complexidade" })).toHaveCount(0);
   await expect(dialog.getByRole("button", { name: "Editar esforço" })).toHaveCount(0);
   const bounds = await dialog.boundingBox();
   expect(bounds.width).toBeLessThanOrEqual(390);

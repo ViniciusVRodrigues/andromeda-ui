@@ -3,31 +3,48 @@
 import React from "react";
 import { fmtDuration, fmtInt, fmtTokensCompact, fmtUsd } from "../../format.js";
 import { PrPill, StatusPill } from "../../kit/Badges.jsx";
-import { BurndownChart } from "../../kit/charts.jsx";
 import { Empty, Panel } from "../../kit/Panel.jsx";
 import { DataTable } from "../../kit/Table.jsx";
 import { ItemCell } from "../../views/shared.jsx";
+import { BurndownChart } from "../../kit/charts.jsx";
+import { burndownEmpty, burndownRows } from "./burndown.jsx";
+import { ITEM_MEASURE_COLUMNS, itemMeta } from "./itemMeasures.jsx";
+import { NoComplexityPanel } from "./noComplexity.jsx";
 
-export const selectBurndown = (d) => ({
-  burndown: d.burndown,
-  todayLabel:
-    d.sprint?.timeFrame === "CURRENT"
-      ? d.burndown.filter((p) => p.remaining != null).at(-1)?.label
-      : undefined,
-});
+export const selectBurndown = (d) => {
+  const rows = burndownRows(d.burndown);
+  return {
+    burndown: rows,
+    empty: burndownEmpty(rows),
+    todayLabel:
+      d.sprint?.timeFrame === "CURRENT"
+        ? rows.filter((p) => p.remainingPoints != null).at(-1)?.label
+        : undefined,
+  };
+};
 
-export function BurndownWidget({ data }) {
+export function BurndownWidget({ data, ctx }) {
+  if (data.empty) {
+    return (
+      <NoComplexityPanel
+        href={ctx?.mappingHref}
+        eyebrow="execução"
+        title="Burndown pessoal"
+        sources={["azure"]}
+      />
+    );
+  }
   return (
     <Panel
       eyebrow="execução"
       title="Burndown pessoal"
       sources={["azure"]}
-      info="Quanto esforço (SP) dos seus itens ainda falta concluir em cada dia útil, frente ao ritmo ideal. Itens que entraram ou saíram no meio da sprint não aparecem como mudança."
+      info="Quantos pontos de complexidade dos seus itens ainda faltam concluir em cada dia útil, frente ao ritmo ideal. Itens que entraram ou saíram no meio da sprint não aparecem como mudança."
       table={{
         columns: [
           { key: "label", label: "Dia" },
-          { key: "remaining", label: "Restante (SP)", align: "right", format: fmtInt },
-          { key: "ideal", label: "Ideal (SP)", align: "right" },
+          { key: "remainingPoints", label: "Restante (pts)", align: "right", format: fmtInt },
+          { key: "idealPoints", label: "Ideal (pts)", align: "right" },
         ],
         rows: data.burndown,
       }}
@@ -43,10 +60,12 @@ const ITEM_COLUMNS = [
   {
     key: "title",
     label: "Item",
-    render: (r) => <ItemCell type={r.type} externalId={r.externalId} title={r.title} />,
+    render: (r) => (
+      <ItemCell type={r.type} externalId={r.externalId} title={r.title} meta={itemMeta(r)} />
+    ),
   },
+  ...ITEM_MEASURE_COLUMNS,
   { key: "status", label: "Status", render: (r) => <StatusPill status={r.status} /> },
-  { key: "effort", label: "SP", align: "right", format: fmtInt },
   {
     key: "time",
     label: "Tempo",
@@ -79,7 +98,11 @@ const ITEM_COLUMNS = [
       <span>
         {fmtUsd(r.aiCostUsd)}
         <span className="text-fg-muted block text-[11px] font-normal">
-          {r.tokensPerSp ? `${fmtTokensCompact(r.tokensPerSp)} T/SP` : ""}
+          {r.tokensPerPoint
+            ? `${fmtTokensCompact(r.tokensPerPoint)} Tokens/pt`
+            : r.tokensPerHour
+              ? `${fmtTokensCompact(r.tokensPerHour)} Tokens/h`
+              : ""}
         </span>
       </span>
     ),
@@ -104,10 +127,10 @@ export function ItemsWidget({ data: items, ctx }) {
           </button>
         ) : null
       }
-      info="Work items atribuídos a você na sprint. Tempo = cycle time dos concluídos ou há quanto tempo o item está em andamento. IA = custo do uso de IA que você alocou ao item (alocações validadas) e tokens por SP."
+      info="Work items atribuídos a você na sprint. Tempo = cycle time dos concluídos ou há quanto tempo o item está em andamento. IA = custo do uso de IA que você alocou ao item (alocações validadas) e tokens por ponto de complexidade (nas Tasks, por hora de esforço). O traço (—) é sem valor no Azure: complexidade fica nas User Stories, esforço (CompletedWork) nas Tasks."
     >
       {items.length ? (
-        <DataTable rowKey={(r) => r.id} rows={items} columns={ITEM_COLUMNS} scroll />
+        <DataTable rowKey={(r) => r.id} rows={items} columns={ITEM_COLUMNS} scroll stickyFirst />
       ) : (
         <Empty>Nenhum item atribuído a você nesta sprint.</Empty>
       )}

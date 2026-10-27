@@ -14,12 +14,19 @@ import {
   fmtInt,
   fmtNum,
   fmtPct,
+  fmtPerHour,
+  fmtPerPoint,
+  fmtPoints,
   fmtTokensCompact,
   fmtUsd,
   isNum,
 } from "../../format.js";
 import { Tag } from "../../kit/Badges.jsx";
 import { AiCrossCard, hasAiValue } from "../../kit/AiCross.jsx";
+import { IaPerPointCard } from "../../kit/IaPerPoint.jsx";
+import { Panel } from "../../kit/Panel.jsx";
+import { NoComplexityPanel } from "../individual/noComplexity.jsx";
+import { noComplexityIn } from "./hasComplexity.js";
 
 /* ── peças comuns (também usadas pelos cards da Organização) ───────────── */
 
@@ -31,7 +38,8 @@ export const FMT = {
   tokens: { unit: "tokens", fmt: fmtTokensCompact, axis: axisTokensM },
   usd: { unit: "US$", fmt: fmtUsd, axis: axisUsd },
   pct: { unit: "%", fmt: fmtPct, axis: axisPct },
-  sp: { unit: "pontos", fmt: fmtInt, axis: fmtInt },
+  sp: { unit: "pts", fmt: fmtPoints, axis: fmtPoints },
+  points: { unit: "pts", fmt: fmtPoints, axis: fmtPoints },
   days: { unit: "dias", fmt: (v) => (isNum(v) ? `${fmtNum(v)} d` : "—"), axis: axisDays },
   hours: { unit: "horas", fmt: fmtDuration, axis: axisHours },
   perWeek: { unit: "por semana", fmt: fmtNum, axis: fmtNum },
@@ -94,8 +102,8 @@ export function selectIaSprint(d) {
       label: s.label ?? s.name,
       aiTokens: s.aiTokens ?? null,
       aiCostUsd: s.aiCostUsd ?? null,
-      spDelivered: s.spDelivered ?? null,
-      spPlanned: s.spPlanned ?? null,
+      complexityDelivered: s.complexityDelivered ?? null,
+      complexityPlanned: s.complexityPlanned ?? null,
       predictabilityPct: s.predictabilityPct ?? null,
     })),
     coverage: coverageOf(d),
@@ -105,11 +113,21 @@ export function selectIaSprint(d) {
 /** Sem uso de IA em nenhuma sprint (aviso único da seção). */
 export const iaSprintEmpty = (data) => !!data && !hasAiValue(data.rows, "aiTokens", "aiCostUsd");
 
-export function IaSprintWidget({ data }) {
+export function IaSprintWidget({ data, ctx }) {
   const [mode, setMode] = React.useState("tokens");
   const { rows, coverage } = data;
   const noAi = iaSprintEmpty(data);
   const noTokens = mode === "tokens" && !rows.some((r) => isNum(r.aiTokens));
+  if (!noAi && !noTokens && noComplexityIn(rows, "complexityDelivered", "complexityPlanned")) {
+    return (
+      <NoComplexityPanel
+        href={ctx?.mappingHref}
+        eyebrow="entrega"
+        title="Sprints com mais IA foram mais previsíveis?"
+        sources={["ia", "azure"]}
+      />
+    );
+  }
   const f = mode === "tokens" ? FMT.tokens : FMT.usd;
   const key = mode === "tokens" ? "aiTokens" : "aiCostUsd";
   return (
@@ -128,12 +146,22 @@ export function IaSprintWidget({ data }) {
       eyebrow="entrega"
       question="Sprints com mais IA foram mais previsíveis?"
       ia={{ key, label: mode === "tokens" ? "Tokens de IA" : "Custo de IA", short: "IA", ...f }}
-      metric={{ key: "spDelivered", label: "SP entregues", short: "SP", ...FMT.sp }}
+      metric={{
+        key: "complexityDelivered",
+        label: "Complexidade entregue",
+        short: "Pts",
+        ...FMT.points,
+      }}
       rows={rows}
       labelHeader="Sprint"
       noun="sprints"
       columns={[
-        { key: "spPlanned", label: "SP planejados", align: "right", format: fmtInt },
+        {
+          key: "complexityPlanned",
+          label: "Complexidade planejada (pts)",
+          align: "right",
+          format: fmtPoints,
+        },
         {
           key: "predictabilityPct",
           label: "Previsibilidade (%)",
@@ -141,7 +169,7 @@ export function IaSprintWidget({ data }) {
           format: fmtPct,
         },
       ]}
-      help="Compara a IA e os pontos entregues de cada sprint; a previsibilidade está na tabela."
+      help="Compara a IA e a complexidade entregue de cada sprint; a previsibilidade está na tabela."
       coverage={coverage}
       basis="uso alocado ao projeto"
       sources={["ia", "azure"]}
@@ -162,37 +190,46 @@ export function selectIaPerPoint(d) {
     rows: (d.sprints || []).map((s) => ({
       label: s.label ?? s.name,
       aiTokens: s.aiTokens ?? null,
-      tokensPerSp: ratio(s.aiTokens, s.spDelivered),
-      spDelivered: s.spDelivered ?? null,
-      aiCostPerSp: s.aiCostPerSp ?? null,
+      tokensPerPoint: ratio(s.aiTokens, s.complexityDelivered),
+      tokensPerHour: ratio(s.aiTokens, s.effortLogged),
+      complexityDelivered: s.complexityDelivered ?? null,
+      aiCostUsd: s.aiCostUsd ?? null,
+      costPerPoint: s.aiCostPerPoint ?? null,
+      costPerHour: s.aiCostPerHour ?? null,
+      aiCostPerPoint: s.aiCostPerPoint ?? null,
+      aiCostPerHour: s.aiCostPerHour ?? null,
     })),
     coverage: coverageOf(d),
   };
 }
 
-export const iaPerPointEmpty = (data) =>
-  !!data && !hasAiValue(data.rows, "aiTokens", "aiCostPerSp");
+export const iaPerPointEmpty = (data) => !!data && !hasAiValue(data.rows, "aiTokens", "aiCostUsd");
 
-export function IaPerPointWidget({ data }) {
+export function IaPerPointWidget({ data, ctx }) {
   const { rows, coverage } = data;
   const noAi = iaPerPointEmpty(data);
   const noTokens = !rows.some((r) => isNum(r.aiTokens));
+  if (!noAi && !noTokens && noComplexityIn(rows, "complexityDelivered")) {
+    return (
+      <NoComplexityPanel
+        href={ctx?.mappingHref}
+        eyebrow="entrega"
+        title="Os tokens por ponto caíram ao longo das sprints?"
+        sources={["ia", "azure"]}
+      />
+    );
+  }
   return (
-    <AiCrossCard
+    <IaPerPointCard
       eyebrow="entrega"
       question="Os tokens por ponto caíram ao longo das sprints?"
-      ia={{ key: "tokensPerSp", label: "Tokens por SP", short: "IA", ...FMT.tokens }}
-      metric={{ key: "spDelivered", label: "SP entregues", short: "SP", ...FMT.sp }}
       rows={rows}
-      labelHeader="Sprint"
-      noun="sprints"
-      columns={[{ key: "aiCostPerSp", label: "US$ por SP", align: "right", format: fmtUsd }]}
-      help="Tokens de IA divididos pelos pontos entregues, sprint a sprint, ao lado dos pontos."
-      coverage={coverage}
+      help="IA do projeto ÷ pontos de complexidade entregues, ou ÷ horas registradas nas tarefas, em tokens ou US$."
       basis="uso alocado ao projeto"
-      sources={["ia", "azure"]}
+      note={
+        isNum(coverage) ? `${Math.round(Number(coverage))}% dos dias de IA alocados a itens` : null
+      }
       noAi={noAi}
-      missing={!noAi && noTokens ? "Sem dado de tokens por sprint neste servidor." : null}
     />
   );
 }
@@ -461,6 +498,17 @@ export function IaDoraWidget({ data }) {
 
 /* ── projeto.ia-esforco-complexidade (fonte: roadmap) ──────────────────── */
 
+/** Rótulo da faixa sem a unidade que o ms antigo ainda mandava ("3 SP"); formata no ui. */
+export function bandLabel(label, raw, unit) {
+  const base = String(label ?? raw ?? "")
+    .replace(/\s*(SP|pts?|pontos?|h|horas?)\s*$/i, "")
+    .trim();
+  if (!base) return "—";
+  if (!/^[\d.,\s–\-+≥≤<>]+$/.test(base)) return base;
+  if (unit === "h") return `${base} h`;
+  return /^1$/.test(base) ? "1 pt" : `${base} pts`;
+}
+
 const bandRows = (rows, labelFn) =>
   (rows || []).map((r) => ({
     label: labelFn(r),
@@ -473,11 +521,8 @@ const bandRows = (rows, labelFn) =>
   }));
 
 export const selectIaEffort = (r) => ({
-  effort: bandRows(r.calibration?.byEffort, (b) => b.label ?? `${b.effort} SP`),
-  complexity: bandRows(
-    r.calibration?.byComplexity,
-    (b) => `Complexidade ${b.label ?? b.complexity}`,
-  ),
+  effort: bandRows(r.calibration?.byEffort, (b) => bandLabel(b.label, b.effort, "h")),
+  complexity: bandRows(r.calibration?.byComplexity, (b) => bandLabel(b.label, b.complexity, "pts")),
 });
 
 /** Nenhuma faixa com custo de IA alocado (sem uso, ou ms antigo sem o campo). */

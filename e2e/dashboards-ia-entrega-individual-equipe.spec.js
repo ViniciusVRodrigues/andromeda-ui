@@ -43,7 +43,8 @@ function typical(name, o) {
       effort,
       complexity,
       aiCostUsd: cost,
-      tokensPerSp: cost ? cost * 60000 : null,
+      tokensPerPoint: cost ? cost * 60000 : null,
+      tokensPerHour: cost ? cost * 15000 : null,
       cycleTimeHours: cycle,
       leadTimeHours: lead,
       completedAt: "2026-09-29T10:00:00.000Z",
@@ -83,7 +84,7 @@ const aiOnlyInFirst = (keep) => (name, o) => {
       if (i >= keep) {
         h.aiCostUsd = 0;
         h.aiTokens = 0;
-        if ("aiCostPerSp" in h) h.aiCostPerSp = 0;
+        if ("aiCostPerPoint" in h) h.aiCostPerPoint = 0;
       }
     });
   if (name.startsWith("individual__") || name.startsWith("team__")) wipe(o.history);
@@ -96,12 +97,13 @@ const NO_AI = (name, o) => {
     for (const h of o.history || []) {
       h.aiCostUsd = 0;
       h.aiTokens = 0;
-      if ("aiCostPerSp" in h) h.aiCostPerSp = 0;
+      if ("aiCostPerPoint" in h) h.aiCostPerPoint = 0;
     }
     for (const i of o.items || []) i.aiCostUsd = null;
     for (const m of o.members || []) {
       m.aiCostUsd = 0;
-      m.avgTokensPerSp = null;
+      m.avgTokensPerPoint = null;
+      m.avgTokensPerHour = null;
     }
   }
   return o;
@@ -210,26 +212,24 @@ for (const [view, cfg] of Object.entries(VIEWS)) {
         expect((label.match(/\d+(?:[.,]\d+)?/g) || []).length, label).toBeGreaterThanOrEqual(2);
       }
       const bottom = (await svgs.nth(1).getAttribute("aria-label")) || "";
-      expect(bottom).toContain("SP entregues");
-      expect(bottom).toContain("SP planejados");
+      expect(bottom).toContain("Complexidade entregue");
+      expect(bottom).toContain("Complexidade planejada");
+      expect(bottom).not.toMatch(/SP/);
       const paired = c.locator("[data-paired]");
-      await expect(paired.nth(1)).toContainText("SP planejados");
-      await expect(paired.nth(1)).toContainText("SP entregues");
+      await expect(paired.nth(1)).toContainText("Complexidade planejada");
+      await expect(paired.nth(1)).toContainText("Complexidade entregue");
       expect(await paired.nth(1).locator(".recharts-bar").count()).toBe(2);
-      await expect(c).toContainText("SP planejados (SP)");
+      await expect(c).toContainText("Complexidade planejada (pts)");
       await c.getByRole("button", { name: "Tabela" }).click();
       const text = await c.getByRole("table").innerText();
-      expect(text).toMatch(/SP planejados \(SP\)/i);
-      expect(text).toMatch(/SP entregues \(SP\)/i);
+      expect(text).toMatch(/Complexidade planejada \(pts\)/i);
+      expect(text).toMatch(/Complexidade entregue \(pts\)/i);
     });
 
-    test("altura única: os cards da seção e o card de custo antigo medem o mesmo (±1 px)", async ({
-      page,
-    }) => {
+    test("altura única: os cards da seção medem o mesmo (±1 px)", async ({ page }) => {
       await openAs(page, view);
-      const old = view === "equipe" ? "equipe.custo-ia-sp" : "individual.custo-ia-sprint";
       const heights = [];
-      for (const id of [...cfg.ids, old]) {
+      for (const id of cfg.ids) {
         const c = card(page, id);
         await c.scrollIntoViewIfNeeded();
         heights.push((await c.locator("> *").first().boundingBox()).height);
@@ -243,7 +243,7 @@ for (const [view, cfg] of Object.entries(VIEWS)) {
       const errors = [];
       page.on("pageerror", (e) => errors.push(e.message));
       await openAs(page, view, { transform: (n, o) => legacyShape(n, typical(n, o)) });
-      const missing = view === "equipe" ? cfg.ids.slice(0, 2) : [cfg.ids[3]];
+      const missing = view === "equipe" ? cfg.ids.slice(0, 2) : [cfg.ids[1], cfg.ids[3]];
       for (const id of missing) await expect(card(page, id), id).toContainText(/sem dado/i);
       for (const id of cfg.ids.filter((x) => !missing.includes(x))) {
         await expect(card(page, id), id).not.toContainText(/sem dado/i);

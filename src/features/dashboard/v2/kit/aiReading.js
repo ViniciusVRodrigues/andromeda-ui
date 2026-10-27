@@ -52,7 +52,7 @@ const trendWord = (pct) =>
  *   `a` = IA, `b` = métrica (no paired, na ordem do eixo X; no scatter, x e y).
  * @returns {string}
  */
-export function crossReading({ kind, points, iaName, metricName, noun = "pontos", minPoints }) {
+export function crossReading({ kind, points, iaName, metricName, noun = "valores", minPoints }) {
   const min = minPoints ?? T.minPoints;
   const pts = points.filter((p) => ok(p.a) && ok(p.b));
   if (pts.length < min) {

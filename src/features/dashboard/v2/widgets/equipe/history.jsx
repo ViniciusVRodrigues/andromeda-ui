@@ -2,10 +2,12 @@
  * leem a mesma fatia (`selectHistory`). */
 
 import React from "react";
-import { axisPct, axisUsd, fmtInt, fmtPct, fmtUsd } from "../../format.js";
-import { AI_CARD_MIN_HEIGHT, AiEmpty, hasAiValue } from "../../kit/AiCross.jsx";
+import { axisPct, fmtHours, fmtNum, fmtPct, fmtPoints, isNum } from "../../format.js";
 import { ColumnChart, TrendChart } from "../../kit/charts.jsx";
-import { Panel } from "../../kit/Panel.jsx";
+import { Empty, Panel } from "../../kit/Panel.jsx";
+import { NoComplexityPanel } from "../individual/noComplexity.jsx";
+import { median } from "../individual/aiCross.jsx";
+import { NO_EFFORT_TEXT } from "../projeto/horasPorPonto.jsx";
 
 export const selectHistory = (d) => ({
   history: d.history,
@@ -14,18 +16,34 @@ export const selectHistory = (d) => ({
     : null,
 });
 
-export function CommittedDeliveredWidget({ data }) {
+/** Sem complexidade (comprometida nem entregue) em nenhuma sprint do histórico. */
+export const committedDeliveredEmpty = (data) =>
+  !data.history.some((h) => isNum(h.complexityPlanned) || isNum(h.complexityDelivered));
+
+export function CommittedDeliveredWidget({ data, ctx }) {
+  if (committedDeliveredEmpty(data)) {
+    return (
+      <NoComplexityPanel
+        href={ctx?.mappingHref}
+        eyebrow="velocity"
+        title="Comprometido × entregue"
+        sources={["azure"]}
+      />
+    );
+  }
   return (
     <Panel
       eyebrow="velocity"
       title="Comprometido × entregue"
       note={data.partialNote}
       sources={["azure"]}
+      info="Complexidade (pts) comprometida e entregue em cada sprint, somada nas Stories, Features e Bugs. O esforço registrado (horas das Tasks concluídas) aparece na tabela."
       table={{
         columns: [
           { key: "name", label: "Sprint" },
-          { key: "spPlanned", label: "Comprometido", align: "right" },
-          { key: "spDelivered", label: "Entregue", align: "right" },
+          { key: "complexityPlanned", label: "Comprometido (pts)", align: "right", format: fmtNum },
+          { key: "complexityDelivered", label: "Entregue (pts)", align: "right", format: fmtNum },
+          { key: "effortLogged", label: "Esforço registrado", align: "right", format: fmtHours },
         ],
         rows: data.history,
       }}
@@ -35,10 +53,10 @@ export function CommittedDeliveredWidget({ data }) {
         height={180}
         yWidth={30}
         series={[
-          { key: "spPlanned", label: "Comprometido", color: "var(--line-strong)" },
-          { key: "spDelivered", label: "Entregue", color: "var(--accent)" },
+          { key: "complexityPlanned", label: "Comprometido", color: "var(--line-strong)" },
+          { key: "complexityDelivered", label: "Entregue", color: "var(--accent)" },
         ]}
-        valueFormat={(v) => `${fmtInt(v)} SP`}
+        valueFormat={(v) => fmtPoints(v, { total: true })}
       />
     </Panel>
   );
@@ -51,7 +69,7 @@ export function PredictabilityWidget({ data }) {
       title="Previsibilidade"
       note={data.partialNote}
       sources={["azure"]}
-      info="Quanto do esforço comprometido em cada sprint foi entregue. A linha tracejada marca 80%, uma referência comum de time previsível."
+      info="Quanto da complexidade comprometida em cada sprint foi entregue. A linha tracejada marca 80%, uma referência comum de time previsível."
       table={{
         columns: [
           { key: "name", label: "Sprint" },
@@ -74,45 +92,58 @@ export function PredictabilityWidget({ data }) {
   );
 }
 
-/** Sem custo de IA em nenhuma sprint do histórico (aviso único da seção). */
-export const aiCostPerSpEmpty = (data) => !hasAiValue(data.history, "aiCostUsd", "aiCostPerSp");
+/* ── equipe.horas-por-ponto (complexidade-esforco D14) ── */
 
-export function AiCostPerSpWidget({ data }) {
-  if (aiCostPerSpEmpty(data)) {
+const HPP_TITLE = "Horas por ponto, sprint a sprint";
+const fmtHpp = (v) => (isNum(v) ? `${fmtNum(v)} h/pt` : "—");
+
+/** Sprints com horas por ponto (`hoursPerPoint` não nulo). */
+export const hoursPerPointEmpty = (data) => !data.history.some((h) => isNum(h.hoursPerPoint));
+
+export function HoursPerPointWidget({ data, ctx }) {
+  if (committedDeliveredEmpty(data)) {
     return (
-      <Panel eyebrow="ia × entrega" title="Custo de IA por SP" sources={["ia", "azure"]}>
-        <AiEmpty />
+      <NoComplexityPanel
+        href={ctx?.mappingHref}
+        eyebrow="esforço × complexidade"
+        title={HPP_TITLE}
+        sources={["azure"]}
+      />
+    );
+  }
+  if (hoursPerPointEmpty(data)) {
+    return (
+      <Panel eyebrow="esforço × complexidade" title={HPP_TITLE} sources={["azure"]}>
+        <Empty>{NO_EFFORT_TEXT}</Empty>
       </Panel>
     );
   }
+  const med = median(data.history.map((h) => h.hoursPerPoint));
   return (
     <Panel
-      className={AI_CARD_MIN_HEIGHT}
-      fill
-      eyebrow="ia × entrega"
-      title="Custo de IA por SP"
+      eyebrow="esforço × complexidade"
+      title={HPP_TITLE}
       note={data.partialNote}
-      sources={["ia", "azure"]}
-      info="Custo de IA do time na sprint ÷ SP entregues na sprint."
+      sources={["azure"]}
+      info="Horas registradas nas tarefas dos itens entregues ÷ pontos entregues, em cada sprint. A linha tracejada é a mediana das sprints."
       table={{
         columns: [
           { key: "name", label: "Sprint" },
-          { key: "aiCostPerSp", label: "Custo/SP", align: "right", format: fmtUsd },
-          { key: "aiCostUsd", label: "Custo total", align: "right", format: fmtUsd },
+          { key: "effortLogged", label: "Horas registradas", align: "right", format: fmtHours },
+          { key: "complexityDelivered", label: "Entregue (pts)", align: "right", format: fmtNum },
+          { key: "hoursPerPoint", label: "Horas por ponto", align: "right", format: fmtHpp },
         ],
         rows: data.history,
       }}
     >
-      <ColumnChart
+      <TrendChart
         data={data.history}
-        height={180}
-        fill
+        height={200}
         yWidth={40}
-        series={[{ key: "aiCostPerSp", label: "Custo por SP", color: "var(--accent)" }]}
-        emphasis={(r) => r.isSelected}
-        yFormat={axisUsd}
-        valueFormat={fmtUsd}
-        extra={(row) => `total ${fmtUsd(row.aiCostUsd)}`}
+        series={[{ key: "hoursPerPoint", label: "Horas por ponto", color: "var(--accent)" }]}
+        yFormat={(v) => fmtNum(v)}
+        valueFormat={fmtHpp}
+        reference={isNum(med) ? { y: med, label: `mediana ${fmtHpp(med)}` } : undefined}
       />
     </Panel>
   );

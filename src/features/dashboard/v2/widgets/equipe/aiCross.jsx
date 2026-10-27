@@ -4,6 +4,7 @@
 import React from "react";
 import { axisPct, fmtDuration, fmtPct, fmtTokensCompact, fmtUsd, isNum } from "../../format.js";
 import { AiCrossCard } from "../../kit/AiCross.jsx";
+import { IaPerPointCard } from "../../kit/IaPerPoint.jsx";
 import { MISSING_TOKENS, SERIES, positive, selectSprintCross } from "../individual/aiCross.jsx";
 
 /* ── seletores (recebem o payload `resumo` da Equipe) ── */
@@ -21,16 +22,17 @@ const PREDICTABILITY = {
 
 /**
  * Um ponto por pessoa, com os mesmos números da tabela de contribuição
- * (`Custo IA`, `SP entregue`, `Cycle`, `T/SP`). Quem não tem custo de IA fica só na tabela.
+ * (`Custo IA`, `Complex. entregue`, `Cycle`, `Tokens/pt`). Quem não tem custo de IA fica só na tabela.
  */
 export function selectTeamIaPessoas(d) {
   const members = d.members || [];
   const rows = members.map((m) => ({
     label: m.name,
     aiCostUsd: isNum(m.aiCostUsd) ? Number(m.aiCostUsd) : null,
-    spDelivered: isNum(m.spDelivered) ? Number(m.spDelivered) : null,
+    complexityDelivered: isNum(m.complexityDelivered) ? Number(m.complexityDelivered) : null,
     cycle: isNum(m.avgCycleTimeHours) ? m.avgCycleTimeHours : null,
-    tokensPerSp: isNum(m.avgTokensPerSp) ? m.avgTokensPerSp : null,
+    tokensPerPoint: isNum(m.avgTokensPerPoint) ? m.avgTokensPerPoint : null,
+    tokensPerHour: isNum(m.avgTokensPerHour) ? m.avgTokensPerHour : null,
   }));
   return {
     rows,
@@ -54,9 +56,9 @@ export function TeamIaSprintWidget({ data }) {
       question="Sprints com mais IA entregaram mais do que o planejado?"
       kind="paired"
       ia={SERIES.tokens}
-      metric={SERIES.sprintSp}
+      metric={SERIES.sprintPoints}
       rows={data.rows}
-      help="Tokens de IA, SP entregues e SP planejados do time em cada sprint."
+      help="Tokens de IA e complexidade (pts) entregue e comprometida do time em cada sprint."
       basis="uso de IA alocado ao projeto"
       sources={["ia", "azure"]}
       noAi={data.empty}
@@ -67,18 +69,12 @@ export function TeamIaSprintWidget({ data }) {
 
 export function TeamIaPorPontoWidget({ data }) {
   return (
-    <AiCrossCard
-      eyebrow="custo por ponto"
+    <IaPerPointCard
       question="Os tokens por ponto caíram ao longo das sprints?"
-      kind="paired"
-      ia={SERIES.tokensPerSp}
-      metric={SERIES.costPerSp}
       rows={data.rows}
-      help="Tokens e US$ de IA do time divididos pelos SP entregues; sem SP entregues a razão fica em branco."
-      basis="uso de IA alocado ÷ SP entregues"
-      sources={["ia", "azure"]}
+      help="IA do time ÷ pontos de complexidade entregues, ou ÷ horas registradas nas tarefas, em tokens ou US$; sem divisor a razão fica em branco."
+      basis="uso de IA alocado ÷ complexidade entregue ou horas"
       noAi={data.empty}
-      missing={data.tokensMissing ? MISSING_TOKENS : null}
     />
   );
 }
@@ -96,7 +92,7 @@ export function TeamIaFluxoWidget({ data }) {
         { key: "cycle", label: "Cycle p50 (h ou d)", align: "right", format: fmtDuration },
         { key: "cycleP90", label: "Cycle p90 (h ou d)", align: "right", format: fmtDuration },
       ]}
-      help="Custo de IA e previsibilidade (SP entregues ÷ comprometidos) de cada sprint; cycle p50 e p90 na tabela."
+      help="Custo de IA e previsibilidade (complexidade entregue ÷ comprometida) de cada sprint; cycle p50 e p90 na tabela."
       basis="uso de IA alocado ao projeto"
       sources={["ia", "azure"]}
       noAi={data.empty}
@@ -106,11 +102,11 @@ export function TeamIaFluxoWidget({ data }) {
 
 export function TeamIaPessoaWidget({ data }) {
   const x = { key: "aiCostUsd", label: "Custo de IA", short: "US$", unit: "US$", fmt: fmtUsd };
-  const y = { ...SERIES.spDelivered, label: "SP entregues" };
+  const y = SERIES.complexityDelivered;
   return (
     <AiCrossCard
       eyebrow="pessoas"
-      question="Quem usa mais IA entrega mais pontos?"
+      question="Quem usa mais IA entrega mais pontos de complexidade?"
       kind="scatter"
       ia={x}
       metric={y}
@@ -119,9 +115,10 @@ export function TeamIaPessoaWidget({ data }) {
       labelHeader="Pessoa"
       columns={[
         { key: "cycle", label: "Cycle (h ou d)", align: "right", format: fmtDuration },
-        { key: "tokensPerSp", label: "T/SP", align: "right", format: fmtTokensCompact },
+        { key: "tokensPerPoint", label: "Tokens/pt", align: "right", format: fmtTokensCompact },
+        SERIES.tokensPerHour,
       ]}
-      help="Um ponto por pessoa: custo de IA no eixo horizontal, SP entregues no vertical; mesmos números da contribuição."
+      help="Um ponto por pessoa: custo de IA no eixo horizontal, complexidade entregue no vertical; mesmos números da contribuição."
       sample={`${data.withUsage} de ${data.rows.length} pessoas com uso de IA`}
       basis="custo de IA nas datas da sprint"
       sources={["ia", "azure"]}

@@ -4,7 +4,7 @@ import React from "react";
 import { axisUsd, fmtNum, fmtTokensCompact, fmtUsd } from "../../format.js";
 import { MODEL_TOOLTIP_MIN_USD, modelSeries } from "../../kit/Badges.jsx";
 import { AI_CARD_MIN_HEIGHT, AiEmpty, hasAiValue } from "../../kit/AiCross.jsx";
-import { ColumnChart, TrendChart } from "../../kit/charts.jsx";
+import { ColumnChart } from "../../kit/charts.jsx";
 import { KpiTile } from "../../kit/Kpi.jsx";
 import { Panel } from "../../kit/Panel.jsx";
 
@@ -61,58 +61,17 @@ export function AiCostByModelWidget({ data }) {
   );
 }
 
-export const selectAiCostPerSp = (d) => d.sprints;
-
-/** Sem custo de IA em nenhuma sprint do período (aviso único da seção). */
-export const aiCostPerSpEmpty = (sprints) => !hasAiValue(sprints, "aiCostPerSp", "aiCostUsd");
-
-export function AiCostPerSpWidget({ data: sprints }) {
-  if (aiCostPerSpEmpty(sprints)) {
-    return (
-      <Panel eyebrow="retorno" title="Custo de IA por SP entregue" sources={["ia", "azure"]}>
-        <AiEmpty />
-      </Panel>
-    );
-  }
-  return (
-    <Panel
-      className={AI_CARD_MIN_HEIGHT}
-      fill
-      eyebrow="retorno"
-      title="Custo de IA por SP entregue"
-      sources={["ia", "azure"]}
-      info="Custo de IA atribuído aos itens da sprint ÷ SP entregues na sprint."
-      table={{
-        columns: [
-          { key: "name", label: "Sprint" },
-          { key: "aiCostPerSp", label: "Custo/SP", align: "right", format: fmtUsd },
-        ],
-        rows: sprints,
-      }}
-    >
-      <TrendChart
-        data={sprints}
-        height={230}
-        fill
-        yWidth={40}
-        series={[{ key: "aiCostPerSp", label: "Custo por SP", color: "var(--accent)" }]}
-        yFormat={axisUsd}
-        valueFormat={fmtUsd}
-      />
-    </Panel>
-  );
-}
-
 export const selectAiIndicators = (d) => ({
   adoption: d.ai.adoption,
-  tokensPerSp: d.ai.tokensPerSp,
+  tokensPerPoint: d.ai.tokensPerPoint,
+  tokensPerHour: d.ai.tokensPerHour,
   sub: d.ai.subscription,
   months: d.period.days / 30,
 });
 
 /** Faixa de três indicadores de IA (um widget, inteiro). */
 export function AiIndicatorsWidget({ data }) {
-  const { adoption, tokensPerSp, sub, months } = data;
+  const { adoption, tokensPerPoint, tokensPerHour, sub, months } = data;
   return (
     <div className="grid items-stretch gap-4 md:grid-cols-3">
       <KpiTile
@@ -121,9 +80,9 @@ export function AiIndicatorsWidget({ data }) {
         hint="pessoas com uso de IA no período"
       />
       <KpiTile
-        label="Tokens por SP"
-        value={fmtTokensCompact(tokensPerSp)}
-        hint="média dos itens das sprints do período"
+        label="Tokens por ponto"
+        value={fmtTokensCompact(tokensPerPoint)}
+        hint={`média dos itens das sprints do período · ${fmtTokensCompact(tokensPerHour)} por hora`}
       />
       <KpiTile
         label="Consumo × assinatura"

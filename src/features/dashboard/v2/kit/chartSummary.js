@@ -27,9 +27,9 @@ const xOf = (data, i, xKey) => {
 /**
  * Resumo de linhas: cada série "de A (x0) a B (xn)" e, numa série só, o máximo.
  * @param {{ data: object[], series: Array<{key: string, label: string}>, xKey?: string,
- *   fmt?: (v: number, s?: object) => string }} p
+ *   fmt?: (v: number, s?: object) => string, noun?: string }} p
  */
-export function trendSummary({ data, series, xKey = "label", fmt = num }) {
+export function trendSummary({ data, series, xKey = "label", fmt = num, noun = "valores" }) {
   if (!data?.length) return "sem dados no período";
   const parts = series.map((s) => {
     const pts = values(data, s.key);
@@ -46,7 +46,7 @@ export function trendSummary({ data, series, xKey = "label", fmt = num }) {
     }
     return text;
   });
-  return `${data.length} pontos. ${parts.join("; ")}`;
+  return `${data.length} ${noun}. ${parts.join("; ")}`;
 }
 
 /**
@@ -74,19 +74,21 @@ export function columnSummary({ data, series, xKey = "label", stacked = false, f
 }
 
 /**
- * Burndown: "restam 8 de 16 SP no dia 8 de 10; ideal 3".
+ * Burndown: "restam 8 de 16 pontos de complexidade no dia 8 de 10; ideal 3".
  * O "dia" é o ponto de hoje (`todayLabel`) ou o último com valor restante.
  */
 export function burndownSummary({ data, todayLabel }) {
   if (!data?.length) return "sem dados da sprint";
-  const withValue = data.map((r, i) => (r?.remaining != null ? i : -1)).filter((i) => i >= 0);
+  const rem = (r) => r?.remainingPoints ?? r?.remaining ?? null;
+  const idl = (r) => r?.idealPoints ?? r?.ideal ?? null;
+  const withValue = data.map((r, i) => (rem(r) != null ? i : -1)).filter((i) => i >= 0);
   if (!withValue.length) return "sem dados da sprint";
   const today = data.findIndex((r) => r?.label === todayLabel);
-  const i = today >= 0 && data[today]?.remaining != null ? today : withValue[withValue.length - 1];
-  const total = Number(data[withValue[0]].remaining);
-  const ideal = data[i]?.ideal;
+  const i = today >= 0 && rem(data[today]) != null ? today : withValue[withValue.length - 1];
+  const total = Number(rem(data[withValue[0]]));
+  const ideal = idl(data[i]);
   return (
-    `restam ${num(Number(data[i].remaining))} de ${num(total)} SP no dia ${i + 1} de ${data.length}` +
+    `restam ${num(Number(rem(data[i])))} de ${num(total)} pontos de complexidade no dia ${i + 1} de ${data.length}` +
     (ideal != null ? `; ideal ${num(Number(ideal))}` : "")
   );
 }
@@ -102,7 +104,7 @@ const fmtOf = (fmt) => (v, s) => (s?.fmt ? s.fmt(v) : fmt(v, s));
  * @param {{ data: object[], ia: {key: string, label: string, fmt?: Function},
  *   metrics: Array<{key: string, label: string, fmt?: Function}>, xKey?: string, noun?: string }} p
  */
-export function pairedParts({ data, ia, metrics, xKey = "label", noun = "pontos" }) {
+export function pairedParts({ data, ia, metrics, xKey = "label", noun = "valores" }) {
   if (!data?.length) return { top: "sem dados no período", bottom: "sem dados no período" };
   const fmt = fmtOf(num);
   const part = (s) => {
@@ -123,7 +125,7 @@ export function pairedParts({ data, ia, metrics, xKey = "label", noun = "pontos"
  * @param {{ points: Array<{label: string, x: number, y: number}>, x: {label: string, fmt?: Function},
  *   y: {label: string, fmt?: Function}, noun?: string }} p
  */
-export function scatterSummary({ points, x, y, noun = "pontos" }) {
+export function scatterSummary({ points, x, y, noun = "valores" }) {
   const pts = (points || []).filter((p) => Number.isFinite(p.x) && Number.isFinite(p.y));
   if (!pts.length) return "sem dados no período";
   const fx = x.fmt || num;

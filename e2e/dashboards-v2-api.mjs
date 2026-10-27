@@ -59,6 +59,16 @@ function validBody(body) {
  * `doraSeries` no overview e `aiCostUsd`/`aiTokens`/`itemsWithAi` na calibração do roadmap.
  */
 export function legacyShape(name, o) {
+  const strip = (v) => {
+    if (Array.isArray(v)) v.forEach(strip);
+    else if (v && typeof v === "object") {
+      for (const k of Object.keys(v)) {
+        if (NEW_MEASURE_KEYS.has(k)) delete v[k];
+        else strip(v[k]);
+      }
+    }
+  };
+  strip(o);
   const drop = (rows, ...keys) => (rows || []).forEach((r) => keys.forEach((k) => delete r[k]));
   if (name.startsWith("individual__")) drop(o.items, "complexity");
   if (name.startsWith("team__")) {
@@ -69,11 +79,370 @@ export function legacyShape(name, o) {
     drop(o.sprints, "aiTokens");
     delete o.doraSeries;
   }
+  if (name.startsWith("team-flow__") && o.scope) delete o.scope.points;
   if (name.startsWith("roadmap__")) {
+    delete o.backlog?.points;
+    drop(o.backlog?.byTag, "points");
+    drop(o.deliveredByTag, "points");
+    drop(o.backlog?.forgotten, "complexity");
     for (const k of ["byEffort", "byComplexity"])
       drop(o.calibration?.[k], "aiCostUsd", "aiTokens", "itemsWithAi");
   }
   return o;
+}
+
+/**
+ * Campos novos da change complexidade-esforco (contrato do design.md), derivados dos antigos para
+ * as fixtures ficarem coerentes: complexidade = os antigos `sp*`, esforço registrado em horas,
+ * razões por ponto e por hora. Os antigos continuam no payload (D6, aditivo). Fixture do design:
+ * Story de 3 pts com Tasks de 4 h e 8 h (`effortRolledUp` 12), Bug sem complexidade, Story
+ * concluída, custo US$ 6. `legacyShape` tira tudo isto (ms antigo).
+ */
+const NEW_MEASURE_KEYS = new Set([
+  "complexityPlanned",
+  "complexityDelivered",
+  "complexityTotal",
+  "complexityDone",
+  "effortLogged",
+  "effortRolledUp",
+  "avgTokensPerPoint",
+  "avgTokensPerHour",
+  "tokensPerPoint",
+  "tokensPerHour",
+  "aiCostPerPoint",
+  "aiCostPerHour",
+  "unitsWithoutComplexity",
+  "itemsWithComplexity",
+  "tasksWithEffort",
+  "remainingPoints",
+  "idealPoints",
+  "pointsPerWeek",
+  "pointsDone",
+  "pointsPlanned",
+  "effortHours",
+  "unitsWithoutEffort",
+  "hoursPerPoint",
+  "outliers",
+]);
+export function withNewMeasures(name, o) {
+  const num = (v) => (typeof v === "number" ? v : null);
+  const hours = (pts) => (pts == null ? null : Math.round(pts * 4 * 10) / 10);
+  const stats = (r) => {
+    if (!r || typeof r !== "object") return;
+    if ("spPlanned" in r) r.complexityPlanned = num(r.spPlanned);
+    if ("spDelivered" in r) {
+      r.complexityDelivered = num(r.spDelivered);
+      r.effortLogged = hours(num(r.spDelivered));
+    }
+    if ("avgTokensPerSp" in r) {
+      r.avgTokensPerPoint = num(r.avgTokensPerSp);
+      r.avgTokensPerHour = r.avgTokensPerSp == null ? null : Math.round(r.avgTokensPerSp / 4);
+    }
+    if ("aiCostPerSp" in r) {
+      r.aiCostPerPoint = num(r.aiCostPerSp);
+      r.aiCostPerHour = r.aiCostPerSp == null ? null : Math.round((r.aiCostPerSp / 4) * 100) / 100;
+    }
+  };
+  const items = (rows) =>
+    (rows || []).forEach((i) => {
+      const isTask = i.type === "TASK";
+      const hasTasks = !isTask && i.complexity != null;
+      i.effortRolledUp = hasTasks ? 12 : null; // Story 3 pts: Tasks de 4 h e 8 h
+      if ("tokensPerSp" in i) {
+        i.tokensPerPoint = num(i.tokensPerSp);
+        i.tokensPerHour = i.tokensPerSp == null ? null : Math.round(i.tokensPerSp / 4);
+      }
+    });
+  if (name.startsWith("individual__")) {
+    stats(o.kpis);
+    stats(o.previous);
+    (o.history || []).forEach(stats);
+    (o.burndown || []).forEach((b) => {
+      b.remainingPoints = num(b.remaining);
+      b.idealPoints = num(b.ideal);
+    });
+    items(o.items);
+    if (o.kpis) o.kpis.unitsWithoutComplexity = 1;
+  }
+  if (name.startsWith("team__")) {
+    stats(o.kpis);
+    stats(o.previous);
+    (o.members || []).forEach(stats);
+    (o.history || []).forEach(stats);
+    /* h/pt por sprint (MS-4): 4,5 / 4 / 5 / 3,5 em ciclo; sem entrega fica nulo */
+    (o.history || []).forEach((h, i) => {
+      const hpp = [4.5, 4, 5, 3.5][i % 4];
+      h.effortLogged = h.complexityDelivered
+        ? Math.round(h.complexityDelivered * hpp * 10) / 10
+        : null;
+      h.hoursPerPoint = h.effortLogged == null ? null : hpp;
+    });
+    (o.burndown || []).forEach((b) => {
+      b.remainingPoints = num(b.remaining);
+      b.idealPoints = num(b.ideal);
+    });
+    items(o.agingItems);
+    if (o.kpis) o.kpis.itemsWithComplexity = o.kpis.itemsWithPoints ?? null;
+  }
+  if (name.startsWith("team-flow__") && o.scope && "atRiskSp" in o.scope)
+    o.scope.points = num(o.scope.atRiskSp);
+  if (name.startsWith("overview__")) {
+    stats(o.kpis);
+    stats(o.previous);
+    (o.sprints || []).forEach(stats);
+    if (o.ai) {
+      o.ai.tokensPerPoint = num(o.ai.tokensPerSp);
+      o.ai.tokensPerHour = o.ai.tokensPerSp == null ? null : Math.round(o.ai.tokensPerSp / 4);
+    }
+    if (o.dataQuality) {
+      o.dataQuality.itemsWithComplexity = 12;
+      o.dataQuality.tasksWithEffort = 20;
+    }
+  }
+  if (name.startsWith("roadmap__")) {
+    [...(o.epics || []), ...(o.features || [])].forEach((e) => {
+      e.complexityTotal = num(e.effortTotal);
+      e.complexityDone = num(e.effortDone);
+      e.pointsPerWeek = num(e.weeklyPace);
+    });
+    if (o.backlog) {
+      o.backlog.points = num(o.backlog.sp);
+      (o.backlog.forgotten || []).forEach((f) => {
+        f.complexity = num(f.effort);
+        f.effortRolledUp = f.complexity == null ? null : 12;
+      });
+      (o.backlog.byTag || []).forEach((t) => (t.points = num(t.sp)));
+    }
+    (o.deliveredByTag || []).forEach((t) => (t.points = num(t.sp)));
+    if (o.calibration) {
+      /* MS-4: horas registradas nas Tasks por faixa; a faixa 3 tem 6 h, 8 h e 30 h (mediana 8, n 3) */
+      const spread = {
+        1: [1.5, 2, 3, 5],
+        2: [3, 4, 5.5, 7],
+        3: [7, 8, 19, 3],
+        5: [14, 20, 26, 6],
+        8: [28, 40, 52, 4],
+        13: [40, 60, 80, 2],
+      };
+      (o.calibration.byComplexity || []).forEach((r) => {
+        const sp = spread[r.complexity];
+        r.effortHours = sp ? { p25: sp[0], p50: sp[1], p75: sp[2], n: sp[3] } : null;
+        r.unitsWithoutEffort = sp ? 1 : 0;
+      });
+      o.calibration.outliers = [
+        {
+          externalId: "4802",
+          title: "Refatorar o fluxo de pagamento",
+          type: "STORY",
+          complexity: 3,
+          effortHours: 30,
+          url: "https://dev.azure.com/orbital/_workitems/edit/4802",
+        },
+        {
+          externalId: "4811",
+          title: "Ajustar o texto do botão de envio",
+          type: "STORY",
+          complexity: 8,
+          effortHours: 6,
+          url: null,
+        },
+      ];
+    }
+  }
+  if (name.startsWith("organization__")) {
+    stats(o.kpis);
+    stats(o.previous);
+    (o.portfolio || []).forEach((p) => {
+      stats(p);
+      if (p.currentSprint) {
+        p.currentSprint.pointsDone = num(p.currentSprint.spDone);
+        p.currentSprint.pointsPlanned = num(p.currentSprint.spPlanned);
+      }
+    });
+  }
+  return o;
+}
+
+/* ── sprintHistory da Organização (complexidade-esforco MS-4, design.md "Ampliação") ───────────
+ * "rich": 3 projetos de cadências diferentes, 11 sprints, uma `current`, uma sprint sem complexidade
+ * (Portal 24) e um projeto sem IA (Pagamentos). "reduced": 1 projeto com IA e 2 sprints. Os ids são
+ * os da fixture do portfólio (o teste troca por ids reais com `opts.transform`). */
+const sprint = (id, name, start, end, o = {}) => {
+  const lead = o.lead === undefined ? 40 : o.lead;
+  return {
+    sprintId: id,
+    name,
+    startDate: start,
+    endDate: end,
+    current: !!o.current,
+    aiCostUsd: o.cost ?? null,
+    aiTokens: o.tokens ?? null,
+    complexityPlanned: o.planned ?? null,
+    complexityDelivered: o.points ?? null,
+    effortLogged: o.effort ?? null,
+    aiCostPerPoint: o.cost != null && o.points ? Math.round((o.cost / o.points) * 100) / 100 : null,
+    aiCostPerHour: o.cost != null && o.effort ? Math.round((o.cost / o.effort) * 100) / 100 : null,
+    hoursPerPoint:
+      o.effort != null && o.points ? Math.round((o.effort / o.points) * 100) / 100 : null,
+    predictabilityPct: o.pred ?? null,
+    leadTimeHours: lead == null ? null : { p50: lead, p90: lead * 2.5, n: o.items ?? 8 },
+    itemsDone: o.items ?? 8,
+  };
+};
+export function sprintHistoryFixture(kind = "rich") {
+  const portal = (list) => ({ projectId: "p-portal", name: "Portal do Cliente", sprints: list });
+  if (kind === "reduced")
+    return {
+      projects: [
+        portal([
+          sprint("p-portal-s25", "Sprint 25", "2026-08-24", "2026-09-04", {
+            cost: 120,
+            tokens: 9_200_000,
+            planned: 30,
+            points: 28,
+            effort: 112,
+            pred: 78,
+            lead: 52,
+            items: 11,
+          }),
+          sprint("p-portal-s26", "Sprint 26", "2026-09-07", "2026-09-18", {
+            cost: 210,
+            tokens: 14_800_000,
+            planned: 32,
+            points: 34,
+            effort: 140,
+            pred: 85,
+            lead: 48,
+            items: 13,
+          }),
+        ]),
+      ],
+    };
+  return {
+    projects: [
+      portal([
+        sprint("p-portal-s23", "Sprint 23", "2026-07-27", "2026-08-07", {
+          cost: 90,
+          tokens: 6_100_000,
+          planned: 28,
+          points: 25,
+          effort: 100,
+          pred: 71,
+          lead: 60,
+          items: 9,
+        }),
+        sprint("p-portal-s24", "Sprint 24", "2026-08-10", "2026-08-21", {
+          cost: 150,
+          tokens: 10_400_000,
+          planned: 30,
+          points: null,
+          effort: 96,
+          pred: null,
+          lead: 55,
+          items: 8,
+        }),
+        sprint("p-portal-s25", "Sprint 25", "2026-08-24", "2026-09-04", {
+          cost: 260,
+          tokens: 17_900_000,
+          planned: 30,
+          points: 28,
+          effort: 112,
+          pred: 78,
+          lead: 52,
+          items: 11,
+        }),
+        sprint("p-portal-s26", "Sprint 26", "2026-09-07", "2026-09-18", {
+          cost: 410,
+          tokens: 25_300_000,
+          planned: 32,
+          points: 34,
+          effort: 140,
+          pred: 85,
+          lead: 44,
+          items: 13,
+        }),
+        sprint("p-portal-s27", "Sprint 27", "2026-09-21", "2026-10-02", {
+          current: true,
+          cost: 180,
+          tokens: 11_000_000,
+          planned: 34,
+          points: 15,
+          effort: 60,
+          pred: 44,
+          lead: 40,
+          items: 6,
+        }),
+      ]),
+      {
+        projectId: "p-mobile",
+        name: "App Mobile",
+        sprints: [
+          sprint("p-mobile-s11", "Sprint 11", "2026-07-31", "2026-08-14", {
+            cost: 40,
+            tokens: 2_900_000,
+            planned: 20,
+            points: 14,
+            effort: 70,
+            pred: 63,
+            lead: 70,
+            items: 6,
+          }),
+          sprint("p-mobile-s12", "Sprint 12", "2026-08-17", "2026-08-28", {
+            cost: 75,
+            tokens: 5_300_000,
+            planned: 20,
+            points: 17,
+            effort: 80,
+            pred: 74,
+            lead: 66,
+            items: 7,
+          }),
+          sprint("p-mobile-s13", "Sprint 13", "2026-08-31", "2026-09-11", {
+            cost: 130,
+            tokens: 8_700_000,
+            planned: 22,
+            points: 21,
+            effort: 88,
+            pred: 82,
+            lead: 58,
+            items: 9,
+          }),
+          sprint("p-mobile-s14", "Sprint 14", "2026-09-14", "2026-09-25", {
+            cost: 95,
+            tokens: 6_400_000,
+            planned: 22,
+            points: 19,
+            effort: 84,
+            pred: 80,
+            lead: 61,
+            items: 8,
+          }),
+        ],
+      },
+      {
+        projectId: "p-pagamentos",
+        name: "Pagamentos",
+        sprints: [
+          sprint("p-pagamentos-s30", "Sprint 30", "2026-08-24", "2026-09-04", {
+            planned: 18,
+            points: 16,
+            effort: 70,
+            pred: 89,
+            lead: 36,
+            items: 7,
+          }),
+          sprint("p-pagamentos-s31", "Sprint 31", "2026-09-07", "2026-09-18", {
+            planned: 18,
+            points: 18,
+            effort: 72,
+            pred: 100,
+            lead: 34,
+            items: 8,
+          }),
+        ],
+      },
+    ],
+  };
 }
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
@@ -231,9 +600,14 @@ export async function installDashboardsApi(page, opts = {}) {
    * `opts.legacy`, sem os campos aditivos da dashboards-ia-entrega (ms antigo) */
   const fx = (name) => {
     const text = fixture(name);
-    const transform = opts.legacy ? (n, o) => legacyShape(n, o) : opts.transform;
-    if (text == null || !transform) return text;
-    return JSON.stringify(transform(name, JSON.parse(text)));
+    if (text == null) return text;
+    const o = JSON.parse(text);
+    if (opts.legacy) return JSON.stringify(legacyShape(name, o));
+    withNewMeasures(name, o);
+    /* `opts.sprintHistory`: "rich" (padrão) | "reduced" | "none" (sem o campo, como o ms antigo) */
+    if (name.startsWith("organization__") && opts.sprintHistory !== "none")
+      o.sprintHistory = sprintHistoryFixture(opts.sprintHistory || "rich");
+    return JSON.stringify(opts.transform ? opts.transform(name, o) : o);
   };
 
   const json = (route, body, status = 200) =>

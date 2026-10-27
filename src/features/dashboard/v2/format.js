@@ -65,7 +65,7 @@ export function axisTokensM(v) {
   return `${new Intl.NumberFormat("pt-BR", { maximumFractionDigits: m < 1 ? 2 : 1 }).format(m)}M`;
 }
 
-/** Contagem de tokens compacta para razões (T/SP): 448.363 → "448 mil". */
+/** Contagem de tokens compacta para razões (tokens por ponto): 448.363 → "448 mil". */
 export function fmtTokensCompact(v) {
   if (!isNum(v)) return "—";
   if (v >= 1e6) return `${NF1.format(v / 1e6)} mi`;
@@ -129,3 +129,47 @@ export function fmtDsSpread(ds, noun = ["item", "itens"]) {
   const p90 = isNum(ds.p90) ? `p90 ${fmtDuration(ds.p90)}` : "";
   return [p90, `${fmtInt(ds.n)} ${ds.n === 1 ? noun[0] : noun[1]}`].filter(Boolean).join(" · ");
 }
+
+/* ── Complexidade (pontos) e Esforço (horas) — change complexidade-esforco, D8 ───────────
+ * Strings puras; o valor ausente é "—". Na tela, quem quer o nome acessível "sem valor" e o
+ * "soma das tarefas" do leitor de tela usa os componentes de `kit/Measure.jsx`, que chamam
+ * estes helpers. Complexidade nunca leva "SP"; esforço é sempre em horas (D4). */
+
+/** Complexidade: "3" (valor) ou, com `{ total: true }`, "15 pts" ("1 pt"). */
+export function fmtPoints(v, { total = false } = {}) {
+  if (!isNum(v)) return "—";
+  const s = NF1.format(v);
+  return total ? `${s} ${Number(v) === 1 ? "pt" : "pts"}` : s;
+}
+
+/** Esforço registrado: "6 h". */
+export function fmtHours(v) {
+  return isNum(v) ? `${NF1.format(v)} h` : "—";
+}
+
+/** Esforço somado das Tasks de uma Story: "Σ 12 h". */
+export function fmtRolledHours(v) {
+  return isNum(v) ? `Σ ${NF1.format(v)} h` : "—";
+}
+
+/** Razão por ponto de complexidade. `unit`: "usd" → "US$ 1,99"; "tokens" → "448 mil". */
+export function fmtPerPoint(v, unit = "usd") {
+  return unit === "tokens" ? fmtTokensCompact(v) : fmtUsd(v);
+}
+
+/** Razão por hora de esforço. `unit`: "usd" | "tokens" (mesmos formatos de `fmtPerPoint`). */
+export function fmtPerHour(v, unit = "usd") {
+  return unit === "tokens" ? fmtTokensCompact(v) : fmtUsd(v);
+}
+
+/** Textos acessíveis dos formatos acima (D8). */
+export const MEASURE_A11Y = {
+  noValue: "sem valor",
+  rolledUp: "soma das tarefas",
+  points: "pontos de complexidade",
+  hours: "horas",
+  tokensPerPoint: "tokens por ponto de complexidade",
+  usdPerPoint: "dólares por ponto de complexidade",
+  tokensPerHour: "tokens por hora de esforço",
+  usdPerHour: "dólares por hora de esforço",
+};

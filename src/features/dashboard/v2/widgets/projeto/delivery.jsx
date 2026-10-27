@@ -1,10 +1,12 @@
 /* Widgets da visão Projeto — seção "Entrega" (Resumo, `buildProject`). */
 
 import React from "react";
-import { axisDays, axisPct, fmtDuration, fmtInt, fmtNum, fmtPct } from "../../format.js";
+import { axisDays, axisPct, fmtDuration, fmtNum, fmtPct, fmtPoints } from "../../format.js";
 import { TYPE_COLOR } from "../../kit/Badges.jsx";
 import { ColumnChart, TrendChart } from "../../kit/charts.jsx";
 import { Panel } from "../../kit/Panel.jsx";
+import { NoComplexityPanel } from "../individual/noComplexity.jsx";
+import { noComplexityIn } from "./hasComplexity.js";
 
 export const selectThroughput = (d) => ({ rows: d.throughput, per: d.period.granularity });
 
@@ -43,18 +45,38 @@ export function ThroughputWidget({ data }) {
 
 export const selectSprints = (d) => d.sprints;
 
-export function CommittedDeliveredWidget({ data: sprints }) {
+export function CommittedDeliveredWidget({ data: sprints, ctx }) {
+  if (noComplexityIn(sprints, "complexityPlanned", "complexityDelivered")) {
+    return (
+      <NoComplexityPanel
+        href={ctx?.mappingHref}
+        eyebrow="sprints"
+        title="Comprometido × entregue"
+        sources={["azure"]}
+      />
+    );
+  }
   return (
     <Panel
       eyebrow="sprints"
       title="Comprometido × entregue"
       sources={["azure"]}
-      info="SP comprometido e entregue em cada sprint encerrada no período."
+      info="Pontos de complexidade comprometidos e entregues em cada sprint encerrada no período."
       table={{
         columns: [
           { key: "name", label: "Sprint" },
-          { key: "spPlanned", label: "Comprometido", align: "right" },
-          { key: "spDelivered", label: "Entregue", align: "right" },
+          {
+            key: "complexityPlanned",
+            label: "Comprometido (pts)",
+            align: "right",
+            format: fmtPoints,
+          },
+          {
+            key: "complexityDelivered",
+            label: "Entregue (pts)",
+            align: "right",
+            format: fmtPoints,
+          },
           { key: "predictabilityPct", label: "%", align: "right", format: fmtPct },
         ],
         rows: sprints,
@@ -65,10 +87,10 @@ export function CommittedDeliveredWidget({ data: sprints }) {
         height={210}
         yWidth={30}
         series={[
-          { key: "spPlanned", label: "Comprometido", color: "var(--line-strong)" },
-          { key: "spDelivered", label: "Entregue", color: "var(--accent)" },
+          { key: "complexityPlanned", label: "Comprometido", color: "var(--line-strong)" },
+          { key: "complexityDelivered", label: "Entregue", color: "var(--accent)" },
         ]}
-        valueFormat={(v) => `${fmtInt(v)} SP`}
+        valueFormat={(v) => fmtPoints(v, { total: true })}
         extra={(row) => `${fmtPct(row.predictabilityPct)} do comprometido`}
       />
     </Panel>

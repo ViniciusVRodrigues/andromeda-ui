@@ -69,6 +69,12 @@ export function projectColor(projectId) {
   return i >= 0 ? `var(--series-${i + 1})` : "var(--fg-dim)";
 }
 
+/** Cor do projeto pela posição no `portfolio[]` (1..5): vale para ids reais, que `projectColor` não conhece. */
+export function projectColorByIndex(i) {
+  const n = Number.isInteger(i) && i >= 0 ? (i % 5) + 1 : 5;
+  return `var(--series-${n})`;
+}
+
 export function TypeBadge({ type }) {
   return (
     <span className="mono text-fg-muted inline-flex items-center gap-1.5 text-[11px] tracking-[0.06em] uppercase">

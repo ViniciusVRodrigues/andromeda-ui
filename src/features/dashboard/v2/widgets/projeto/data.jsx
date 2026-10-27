@@ -2,7 +2,7 @@
  * `buildProject`). `CoverageRow` também é usada pela visão Organização. */
 
 import React from "react";
-import { fmtPct } from "../../format.js";
+import { fmtInt, fmtPct, isNum } from "../../format.js";
 import { Meter } from "../../kit/Bars.jsx";
 import { Panel } from "../../kit/Panel.jsx";
 
@@ -19,6 +19,17 @@ export function CoverageRow({ label, pct, detail, info }) {
         </span>
       </div>
       <Meter value={pct ?? 0} tone={tone} height={6} label={label} />
+    </div>
+  );
+}
+
+/** Linha de cobertura em contagem (sem medidor): "N itens com complexidade". */
+function CountRow({ label, n, dataKey }) {
+  return (
+    <div className="py-2.5" data-coverage={dataKey}>
+      <span className="text-fg text-[13px]">
+        <span className="mono tabular-nums">{isNum(n) ? fmtInt(n) : "—"}</span> {label}
+      </span>
     </div>
   );
 }
@@ -40,7 +51,14 @@ export function CoverageWidget({ data }) {
           pct={(people.azureLinked / people.members) * 100}
           detail={`${people.azureLinked}/${people.members}`}
         />
-        <CoverageRow label="Itens com estimativa (SP)" pct={dataQuality.itemsWithEstimatePct} />
+        <div>
+          <CountRow
+            label="itens com complexidade"
+            n={dataQuality.itemsWithComplexity}
+            dataKey="complexity"
+          />
+          <CountRow label="tarefas com esforço" n={dataQuality.tasksWithEffort} dataKey="effort" />
+        </div>
         <CoverageRow
           label="Pessoas com GitHub vinculado"
           pct={(people.githubLinked / people.members) * 100}

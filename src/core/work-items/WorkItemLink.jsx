@@ -60,7 +60,7 @@ function FieldEditor({ itemId, field, detail, editable, onUpdated }) {
             className="flex flex-wrap gap-2"
           >
             <input
-              aria-label={mapped || label}
+              aria-label={mapped ? `${label} (campo ${mapped})` : label}
               className="ui-field-input"
               type="number"
               min="0"

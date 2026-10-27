@@ -1,7 +1,15 @@
 /* Widgets da visão Individual — seção "Uso de IA". */
 
 import React from "react";
-import { axisTokensM, fmtInt, fmtTokensCompact, fmtTokensM, fmtUsd } from "../../format.js";
+import {
+  axisTokensM,
+  fmtHours,
+  fmtInt,
+  fmtPoints,
+  fmtTokensCompact,
+  fmtTokensM,
+  fmtUsd,
+} from "../../format.js";
 import { modelColor, STATUS_COLOR } from "../../kit/Badges.jsx";
 import { BarList, SegmentBar } from "../../kit/Bars.jsx";
 import { ColumnChart } from "../../kit/charts.jsx";
@@ -89,25 +97,30 @@ export function CostByModelWidget({ data: byModel }) {
   );
 }
 
-export const selectTokensPerSp = (d) =>
+/** Tokens por item: por ponto de complexidade (principal) e, nas Tasks, por hora de esforço. */
+export const selectTokensPerPoint = (d) =>
   d.items
-    .filter((i) => i.tokensPerSp)
-    .sort((a, b) => b.tokensPerSp - a.tokensPerSp)
-    .map((i) => ({
-      key: i.id,
-      label: `#${i.externalId} ${i.title}`,
-      value: i.tokensPerSp,
-      display: fmtTokensCompact(i.tokensPerSp),
-      sub: `${fmtInt(i.effort)} SP`,
-    }));
+    .filter((i) => i.tokensPerPoint || i.tokensPerHour)
+    .map((i) => {
+      const perPoint = !!i.tokensPerPoint;
+      return {
+        key: i.id,
+        label: `#${i.externalId} ${i.title}`,
+        value: perPoint ? i.tokensPerPoint : i.tokensPerHour,
+        display: `${fmtTokensCompact(perPoint ? i.tokensPerPoint : i.tokensPerHour)} ${perPoint ? "Tokens/pt" : "Tokens/h"}`,
+        sub: perPoint ? fmtPoints(i.complexity, { total: true }) : fmtHours(i.effort),
+        perPoint,
+      };
+    })
+    .sort((a, b) => b.perPoint - a.perPoint || b.value - a.value);
 
-export function TokensPerSpWidget({ data: rows }) {
+export function TokensPerPointWidget({ data: rows }) {
   return (
     <Panel
       eyebrow="ia × entrega"
-      title="Tokens por SP em cada item"
+      title="Tokens por ponto em cada item"
       sources={["ia", "azure"]}
-      info="Tokens de IA alocados ao item (inclui alocações pendentes) divididos pelo esforço do item. Itens sem estimativa ficam de fora."
+      info="Tokens de IA alocados ao item (inclui alocações pendentes) divididos pela complexidade do item (Tokens/pt). Nas Tasks, que não têm complexidade, vale o esforço: Tokens/h. Itens sem esses valores ficam de fora."
     >
       {rows.length ? <BarList rows={rows} /> : <Empty>Nenhum item com uso de IA alocado.</Empty>}
     </Panel>

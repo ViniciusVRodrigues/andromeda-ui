@@ -4,9 +4,16 @@
  *
  * @param {{ columns: Array<{ key: string, label: string, align?: "left"|"right"|"center",
  *   render?: (row) => React.ReactNode, format?: (value) => string, width?: string,
- *   hint?: string }>, rows: Array<object>, dense?: boolean, rowKey?: (row) => string,
+ *   hint?: string, hideBelow?: 360|420|480|560|640, abbr?: string }>,
+ *   rows: Array<object>, dense?: boolean, rowKey?: (row) => string,
  *   onRowClick?: (row) => void, highlight?: (row) => boolean, caption?: string,
- *   scroll?: boolean }} props
+ *   scroll?: boolean, stickyFirst?: boolean }} props
+ *   `column.hideBelow` (complexidade-esforco, D9): a coluna some quando o card (a tabela) tem
+ *   menos que esse tanto de px de largura — container query, não a janela. Só os valores da
+ *   lista (classes estáticas do Tailwind). Quem esconde a coluna sobe o valor para a `meta`
+ *   do `ItemCell`. `column.abbr`: cabeçalho curto visível (`<abbr aria-hidden>`), com o nome
+ *   inteiro (`label`) só para o leitor de tela. `stickyFirst`: de 600 a 1023 px de janela a
+ *   primeira coluna fica fixa à esquerda enquanto o resto rola. Tudo opcional.
  *   `scroll` (prs-sprint-rolagem): caixa de altura máxima min(360px, 60svh) com rolagem
  *   interna, cabeçalho fixo, véus de "tem mais" e região rolável acessível. Sem ele o DOM
  *   é o de sempre.
@@ -14,6 +21,18 @@
 
 import React from "react";
 import { PanelTitleContext } from "./chartSummary.js";
+
+/* Classes estáticas (o Tailwind só gera o que lê no código): coluna some abaixo de N px do card. */
+const HIDE_BELOW = {
+  360: "@max-[360px]:hidden",
+  420: "@max-[420px]:hidden",
+  480: "@max-[480px]:hidden",
+  560: "@max-[560px]:hidden",
+  640: "@max-[640px]:hidden",
+};
+const STICKY_CELL =
+  "min-[600px]:max-[1023px]:sticky min-[600px]:max-[1023px]:left-0 min-[600px]:max-[1023px]:z-[1] " +
+  "min-[600px]:max-[1023px]:border-r min-[600px]:max-[1023px]:border-line";
 
 const NO_SCROLL = { y: false, x: false, top: false, bottom: false, right: false };
 
@@ -58,6 +77,7 @@ export function DataTable({
   highlight,
   caption,
   scroll = false,
+  stickyFirst = false,
 }) {
   const pad = dense ? "py-1.5" : "py-2.5";
   const panel = React.useContext(PanelTitleContext);
@@ -69,7 +89,7 @@ export function DataTable({
     ? {
         ref: boxRef,
         className:
-          "scroll-slim max-h-[min(360px,60svh)] overflow-auto focus-visible:outline-accent focus-visible:outline-2 focus-visible:outline-offset-2",
+          "@container scroll-slim max-h-[min(360px,60svh)] overflow-auto focus-visible:outline-accent focus-visible:outline-2 focus-visible:outline-offset-2",
         ...(overflowing
           ? {
               tabIndex: 0,
@@ -78,14 +98,14 @@ export function DataTable({
             }
           : {}),
       }
-    : { className: "-mx-1 overflow-x-auto" };
+    : { className: "@container scroll-slim -mx-1 overflow-x-auto" };
   const table = (
     <div {...boxProps}>
       <table className="w-full border-collapse text-left">
         {captionText ? <caption className="sr-only">{captionText}</caption> : null}
         <thead>
           <tr>
-            {columns.map((c) => (
+            {columns.map((c, ci) => (
               <th
                 key={c.key}
                 scope="col"
@@ -99,10 +119,21 @@ export function DataTable({
                         ? "shadow-[inset_0_-1px_0_var(--line),0_4px_6px_-4px_var(--bg-deep)] "
                         : "shadow-[inset_0_-1px_0_var(--line)] ")
                     : "border-line border-b ") +
-                  (c.align === "right" ? "text-right" : c.align === "center" ? "text-center" : "")
+                  (c.align === "right" ? "text-right" : c.align === "center" ? "text-center" : "") +
+                  (c.hideBelow ? ` ${HIDE_BELOW[c.hideBelow] ?? ""}` : "") +
+                  (stickyFirst && ci === 0 ? ` bg-bg-elev ${STICKY_CELL}` : "")
                 }
               >
-                {c.label}
+                {c.abbr ? (
+                  <>
+                    <abbr aria-hidden="true" title={c.label} className="no-underline">
+                      {c.abbr}
+                    </abbr>
+                    <span className="sr-only">{c.label}</span>
+                  </>
+                ) : (
+                  c.label
+                )}
               </th>
             ))}
           </tr>
@@ -133,7 +164,7 @@ export function DataTable({
                   (highlight?.(row) ? "bg-[color-mix(in_srgb,var(--accent)_7%,transparent)]" : "")
                 }
               >
-                {columns.map((c) => {
+                {columns.map((c, ci) => {
                   const raw = row[c.key];
                   const content = c.render
                     ? c.render(row)
@@ -149,7 +180,9 @@ export function DataTable({
                           ? "text-right whitespace-nowrap tabular-nums"
                           : c.align === "center"
                             ? "text-center"
-                            : "")
+                            : "") +
+                        (c.hideBelow ? ` ${HIDE_BELOW[c.hideBelow] ?? ""}` : "") +
+                        (stickyFirst && ci === 0 ? ` bg-bg-elev ${STICKY_CELL}` : "")
                       }
                     >
                       {content}

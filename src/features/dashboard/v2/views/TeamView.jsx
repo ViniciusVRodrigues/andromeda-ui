@@ -23,6 +23,7 @@ import { teamHighlights } from "../highlights.js";
 import { layoutFor, useDashboardLayouts, useTeamDashboard, useTeamFlow } from "../hooks.js";
 import { Highlights } from "../kit/Panel.jsx";
 import { resolveLayout } from "../layout.js";
+import { useMappingHref } from "./mappingLink.js";
 import { FetchFrame, SprintStrip, ViewError, ViewRefresh } from "./shared.jsx";
 
 const VIEW_KEY = "equipe";
@@ -47,7 +48,11 @@ export function TeamView({ projectId, sprintId, allowed = true }) {
   const needsFlow = layoutSources(layout).has("fluxo");
   const flow = useTeamFlow({ projectId: needsFlow ? projectId : null, sprintId });
   /* o grid não espera o fluxo: cada widget dele mostra o próprio esqueleto ou erro */
-  const ctx = React.useMemo(() => ({ sources: { fluxo: sourceState(flow) } }), [flow]);
+  const mappingHref = useMappingHref(projectId);
+  const ctx = React.useMemo(
+    () => ({ sources: { fluxo: sourceState(flow) }, mappingHref }),
+    [flow, mappingHref],
+  );
 
   if (team.isError && !team.data) return <ViewError error={team.error} onRetry={team.refetch} />;
   if (team.isPending || !team.data || layouts.isPending) {

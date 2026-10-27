@@ -1,10 +1,18 @@
-/* Cards "IA × métrica" da visão Organização — seção "IA e entrega" (dashboards-ia-entrega D3/D4). */
+/* Cards "IA × métrica" da visão Organização — seção "IA e entrega" (dashboards-ia-entrega D3/D4).
+ * `org.ia-tendencia` e `org.ia-adocao` saíram na complexidade-esforco (D12): o primeiro virou o
+ * `org.ia-sprints` (ver `ia-sprints.jsx`), o segundo foi desligado. */
 
 import React from "react";
-import { fmtInt, fmtNum, fmtUsd, isNum } from "../../format.js";
+import { fmtUsd } from "../../format.js";
 import { AiCrossCard, hasAiValue } from "../../kit/AiCross.jsx";
-import { pctChange } from "../../kit/aiReading.js";
-import { FMT, capitalize, costByStart, pluralOf } from "../projeto/ia-entrega.jsx";
+import { Panel } from "../../kit/Panel.jsx";
+import { FMT } from "../projeto/ia-entrega.jsx";
+import { NoComplexityPanel } from "../individual/noComplexity.jsx";
+import { noComplexityIn } from "../projeto/hasComplexity.js";
+
+/** Abaixo disto a dispersão não diz nada: o card troca o gráfico por uma frase. */
+export const MIN_SCATTER_PROJECTS = 3;
+const withAi = (rows) => rows.filter((r) => Number(r.aiCostUsd) > 0).length;
 
 const coverageOf = (d) => d.integrations?.coverage?.aiDaysAllocatedPct ?? null;
 
@@ -13,7 +21,8 @@ const coverageOf = (d) => d.integrations?.coverage?.aiDaysAllocatedPct ?? null;
 export const selectIaPortfolio = (d) => ({
   rows: (d.portfolio || []).map((p) => ({
     label: p.name,
-    aiCostPerSp: p.aiCostPerSp ?? null,
+    aiCostPerPoint: p.aiCostPerPoint ?? null,
+    aiCostPerHour: p.aiCostPerHour ?? null,
     aiCostUsd: p.aiCostUsd ?? null,
     predictabilityPct: p.predictabilityPct ?? null,
     leadTimeHours: p.leadTimeHours ?? null,
@@ -22,20 +31,69 @@ export const selectIaPortfolio = (d) => ({
 });
 
 export const iaPortfolioEmpty = (data) =>
-  !!data && !hasAiValue(data.rows, "aiCostUsd", "aiCostPerSp");
+  !!data && !hasAiValue(data.rows, "aiCostUsd", "aiCostPerPoint");
 
-export function IaPortfolioWidget({ data }) {
+/** Com menos de 3 projetos com IA: a frase e o link para o card de sprints (sem grade vazia). */
+function FewProjects({ n }) {
+  const jump = () => {
+    const el = document.querySelector("[data-widget-id='org.ia-sprints']");
+    if (!el) return;
+    el.scrollIntoView({ block: "start" });
+  };
+  const [has, setHas] = React.useState(false);
+  React.useEffect(() => {
+    setHas(!!document.querySelector("[data-widget-id='org.ia-sprints']"));
+  }, []);
+  return (
+    <Panel
+      eyebrow="IA × entrega"
+      title="Os projetos que mais usam IA entregam melhor?"
+      info="Compara o custo de IA por ponto e a previsibilidade de cada projeto. Precisa de ao menos 3 projetos com IA. Mostra se andam juntos, não que um causa o outro."
+      sources={["ia", "azure"]}
+    >
+      <div data-few-projects="" className="flex flex-col items-start gap-1 py-2">
+        <p className="text-fg-muted m-0 text-[13px] font-normal">
+          {n === 1 ? "Há 1 projeto" : `Há ${n} projetos`} com uso de IA; a comparação entre projetos
+          precisa de pelo menos {MIN_SCATTER_PROJECTS}.
+        </p>
+        {has ? (
+          <button
+            type="button"
+            onClick={jump}
+            className="mono text-accent-text focus-visible:outline-accent -my-[2px] inline-flex min-h-[44px] cursor-pointer items-center border-0 bg-transparent px-0 text-[13px] underline focus-visible:outline-2 focus-visible:outline-offset-2"
+          >
+            Ver a evolução por sprint
+          </button>
+        ) : null}
+      </div>
+    </Panel>
+  );
+}
+
+export function IaPortfolioWidget({ data, ctx }) {
   const { rows, coverage } = data;
+  const n = withAi(rows);
+  if (n > 0 && n < MIN_SCATTER_PROJECTS) return <FewProjects n={n} />;
+  if (!iaPortfolioEmpty(data) && noComplexityIn(rows, "aiCostPerPoint")) {
+    return (
+      <NoComplexityPanel
+        href={ctx?.mappingHref}
+        eyebrow="entrega"
+        title="Os projetos que mais usam IA entregam melhor?"
+        sources={["ia", "azure"]}
+      />
+    );
+  }
   return (
     <AiCrossCard
       eyebrow="entrega"
       kind="scatter"
       question="Os projetos que mais usam IA entregam melhor?"
       ia={{
-        key: "aiCostPerSp",
-        label: "Custo de IA por SP",
-        short: "US$/SP",
-        unit: "US$ por SP",
+        key: "aiCostPerPoint",
+        label: "Custo de IA por ponto",
+        short: "US$/pt",
+        unit: "US$ por ponto",
         fmt: fmtUsd,
         axis: FMT.usd.axis,
       }}
@@ -50,145 +108,14 @@ export function IaPortfolioWidget({ data }) {
       noun="projetos"
       columns={[
         { key: "aiCostUsd", label: "IA total (US$)", align: "right", format: fmtUsd },
+        { key: "aiCostPerHour", label: "US$ por hora", align: "right", format: fmtUsd },
         { key: "leadTimeHours", label: "Lead time", align: "right", format: FMT.hours.fmt },
       ]}
-      help="Um ponto por projeto: custo de IA por ponto entregue e previsibilidade; o lead time está na tabela."
+      help="Um ponto por projeto: custo de IA por ponto de complexidade entregue e previsibilidade; o custo por hora e o lead time está na tabela."
       coverage={coverage}
       basis="custo alocado aos projetos"
       sources={["ia", "azure"]}
       noAi={iaPortfolioEmpty(data)}
-    />
-  );
-}
-
-/* ── org.ia-tendencia ──────────────────────────────────────────────────── */
-
-export function selectIaTrend(d) {
-  const cost = costByStart(d.ai);
-  const done = new Map(
-    (d.delivery?.throughputByProject || []).map((r) => [
-      r.start,
-      Object.values(r.byProject || {}).reduce((s, v) => s + (Number(v) || 0), 0),
-    ]),
-  );
-  const lead = new Map((d.delivery?.flow || []).map((r) => [r.start, r.leadTimeDays ?? null]));
-  const base = d.ai?.costByBucket?.length ? d.ai.costByBucket : d.delivery?.throughputByProject;
-  return {
-    rows: (base || []).map((r) => ({
-      label: r.label,
-      aiCostUsd: cost.has(r.start) ? cost.get(r.start) : null,
-      throughput: done.has(r.start) ? done.get(r.start) : null,
-      leadTimeDays: lead.get(r.start) ?? null,
-    })),
-    per: d.period?.granularity ?? "semana",
-    coverage: coverageOf(d),
-  };
-}
-
-export const iaTrendEmpty = (data) => !!data && !hasAiValue(data.rows, "aiCostUsd");
-
-export function IaTrendWidget({ data }) {
-  const { rows, per, coverage } = data;
-  return (
-    <AiCrossCard
-      eyebrow="entrega"
-      question="Custo de IA, throughput e lead time andam juntos?"
-      ia={{ key: "aiCostUsd", label: "Custo de IA", short: "IA", ...FMT.usd }}
-      metric={{
-        key: "throughput",
-        label: "Itens concluídos",
-        short: "Itens",
-        unit: "itens",
-        fmt: fmtInt,
-        axis: fmtInt,
-      }}
-      rows={rows}
-      labelHeader={capitalize(per)}
-      noun={pluralOf(per)}
-      columns={[
-        { key: "leadTimeDays", label: "Lead time (dias)", align: "right", format: FMT.days.fmt },
-      ]}
-      help="Compara o custo de IA e os itens concluídos de toda a organização; o lead time está na tabela."
-      coverage={coverage}
-      basis="custo da organização"
-      sources={["ia", "azure"]}
-      noAi={iaTrendEmpty(data)}
-    />
-  );
-}
-
-/* ── org.ia-adocao: período anterior × atual (2 pontos, sem o mínimo de 3) ─ */
-
-export function selectIaAdoption(d) {
-  const row = (label, k, people) => ({
-    label,
-    people: people ?? null,
-    spDelivered: k?.spDelivered ?? null,
-    itemsDone: k?.itemsDone ?? null,
-  });
-  const hasPrev = !!d.previous && isNum(d.previous.spDelivered);
-  return {
-    rows: [
-      ...(hasPrev ? [row("Período anterior", d.previous, d.previous.activeAiUsers)] : []),
-      row("Período atual", d.kpis, d.kpis?.activeAiUsers ?? d.ai?.adoption?.activeUsers),
-    ],
-    hasPrevious: hasPrev,
-    members: d.ai?.adoption?.people ?? d.kpis?.people ?? null,
-    coverage: coverageOf(d),
-  };
-}
-
-export const iaAdoptionEmpty = (data) => !!data && !hasAiValue(data.rows, "people");
-
-/** Leitura automática (pura): variação de pessoas com IA e de pontos entregues, com os números. */
-export function adoptionReading(rows) {
-  const [a, b] = rows.length === 2 ? rows : [];
-  if (!a) return "Sem período anterior para comparar.";
-  const word = (pct) =>
-    pct == null
-      ? "sem base de comparação"
-      : Math.abs(pct) < 5
-        ? "ficou estável"
-        : `${pct > 0 ? "subiu" : "caiu"} ${fmtNum(Math.abs(pct))}%`;
-  return `Pessoas com IA: ${fmtInt(a.people)} → ${fmtInt(b.people)} (${word(pctChange(a.people, b.people))}); SP entregues: ${fmtInt(a.spDelivered)} → ${fmtInt(b.spDelivered)} (${word(pctChange(a.spDelivered, b.spDelivered))}).`;
-}
-
-export function IaAdoptionWidget({ data }) {
-  const { rows, hasPrevious, members, coverage } = data;
-  const ia = {
-    key: "people",
-    label: "Pessoas com IA",
-    short: "IA",
-    unit: "pessoas",
-    fmt: fmtInt,
-    axis: fmtInt,
-  };
-  const metric = { key: "spDelivered", label: "SP entregues", short: "SP", ...FMT.sp };
-  const sample = [
-    `${rows.length} ${rows.length === 1 ? "período" : "períodos"}`,
-    isNum(members) ? `${fmtInt(members)} pessoas na organização` : null,
-  ]
-    .filter(Boolean)
-    .join(" · ");
-  return (
-    <AiCrossCard
-      eyebrow="entrega"
-      question="Mais gente usando IA veio com mais entrega?"
-      ia={ia}
-      metric={metric}
-      rows={rows}
-      labelHeader="Período"
-      noun="períodos"
-      minPoints={2}
-      reading={adoptionReading(rows)}
-      columns={[{ key: "itemsDone", label: "Itens concluídos", align: "right", format: fmtInt }]}
-      help="Compara o período atual com o anterior: pessoas com uso de IA e pontos entregues."
-      sample={sample}
-      coverage={coverage}
-      basis="custo da organização"
-      sources={["ia", "azure"]}
-      noAi={iaAdoptionEmpty(data)}
-      missing={hasPrevious ? null : "Sem período anterior para comparar com o atual."}
     />
   );
 }

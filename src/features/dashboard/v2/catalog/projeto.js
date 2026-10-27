@@ -38,11 +38,8 @@ import {
 } from "../widgets/projeto/engineering.jsx";
 import {
   AiCostByModelWidget,
-  AiCostPerSpWidget,
-  aiCostPerSpEmpty,
   AiIndicatorsWidget,
   selectAiCostByModel,
-  selectAiCostPerSp,
   selectAiIndicators,
 } from "../widgets/projeto/ai.jsx";
 import {
@@ -76,7 +73,6 @@ import {
   BacklogPriorityWidget,
   BacklogStalenessWidget,
   CycleByComplexityWidget,
-  CycleByEffortWidget,
   DeliveredByTagWidget,
   EpicsWidget,
   FeaturesWidget,
@@ -87,6 +83,7 @@ import {
   selectEpics,
   selectFeatures,
 } from "../widgets/projeto/roadmap.jsx";
+import { HorasPorPontoWidget, selectHorasPorPonto } from "../widgets/projeto/horasPorPonto.jsx";
 import {
   BugFlowWidget,
   CommitKindsWidget,
@@ -250,7 +247,7 @@ const widget = (name, sectionId, title, o) => {
     disabled: !!o.disabled,
     aiEmpty: o.aiEmpty,
     skeletonHeight: o.height,
-    aliases: [],
+    aliases: o.aliases ?? [],
     source,
     ...render,
   };
@@ -366,6 +363,7 @@ export const widgets = [
     Component: IaSprintWidget,
   }),
   widget("ia-por-ponto", "ia-entrega", "Os tokens por ponto caíram ao longo das sprints?", {
+    aliases: ["projeto.custo-ia-sp"],
     sizes: AI_SIZES,
     size: "M",
     default: true,
@@ -428,16 +426,7 @@ export const widgets = [
       Component: IaEffortWidget,
     },
   ),
-  widget("custo-ia-sp", "ia-entrega", "Custo de IA por SP entregue", {
-    sizes: ALL,
-    size: "M",
-    default: true,
-    height: 360,
-    select: selectAiCostPerSp,
-    aiEmpty: aiCostPerSpEmpty,
-    Component: AiCostPerSpWidget,
-  }),
-  widget("ia-indicadores", "ia", "Adoção, tokens por SP e consumo × assinatura", {
+  widget("ia-indicadores", "ia", "Adoção, tokens por ponto e consumo × assinatura", {
     sizes: ["I"],
     size: "I",
     default: true,
@@ -519,13 +508,14 @@ export const widgets = [
     select: selectBacklog,
     Component: BacklogByTagWidget,
   }),
-  widget("cycle-tamanho", "estimativas", "Cycle time por tamanho", {
+  widget("horas-por-ponto", "estimativas", "Quantas horas cabem em cada ponto?", {
+    aliases: ["projeto.cycle-tamanho"],
     sizes: ALL,
-    size: "P",
+    size: "M",
     source: "roadmap",
-    height: 330,
-    select: selectCalibration,
-    Component: CycleByEffortWidget,
+    height: 400,
+    select: selectHorasPorPonto,
+    Component: HorasPorPontoWidget,
   }),
   widget("cycle-complexidade", "estimativas", "Cycle time por complexidade", {
     disabled: true,
