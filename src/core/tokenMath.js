@@ -2,7 +2,7 @@
  * Unidades de token. Provedores de IA precificam por MILHÃO de tokens
  * ($/M — ver tabela em features/ai-usage AiPricingTab), então toda grandeza
  * de tokens exibida ao usuário (totais, eixos de gráfico, tooltips) usa a
- * mesma unidade. Razões como tokens/SP ficam em tokens crus — em milhões
+ * mesma unidade. Razões como tokens por ponto de complexidade ficam em tokens crus — em milhões
  * virariam 0,0015 sem leitura útil.
  */
 

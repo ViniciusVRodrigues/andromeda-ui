@@ -29,7 +29,9 @@ export function DeltaBadge({ current, previous, goodWhen = "up", vs = "anterior"
     >
       <span aria-hidden="true">{arrow}</span>
       {text}
-      <span className="text-fg-muted font-normal whitespace-nowrap">vs {vs}</span>
+      <span className="text-fg-muted font-normal whitespace-nowrap max-[599px]:whitespace-normal">
+        vs {vs}
+      </span>
       <span className="sr-only">{good == null ? "" : good ? ", melhora" : ", piora"}</span>
     </span>
   );

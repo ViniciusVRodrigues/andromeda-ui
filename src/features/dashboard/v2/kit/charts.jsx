@@ -641,7 +641,7 @@ export function Sparkline({ data, width = 72, height = 22 }) {
 /* ── cruzamentos IA × métrica (dashboards-ia-entrega D4) ── */
 
 /** Cor da IA em todos os cards de cruzamento; a métrica usa `--series-1`. A cor nunca é o
- * único canal: cada gráfico leva o rótulo ("IA", "SP"), a legenda tem texto e a
+ * único canal: cada gráfico leva o rótulo ("IA", "pts"), a legenda tem texto e a
  * paleta `mono` herda estas séries de propósito (ver `tokens.css`). */
 export const AI_COLOR = "var(--series-2)";
 export const METRIC_COLOR = "var(--series-1)";

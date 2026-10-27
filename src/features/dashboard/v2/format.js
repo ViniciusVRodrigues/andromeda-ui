@@ -65,7 +65,7 @@ export function axisTokensM(v) {
   return `${new Intl.NumberFormat("pt-BR", { maximumFractionDigits: m < 1 ? 2 : 1 }).format(m)}M`;
 }
 
-/** Contagem de tokens compacta para razões (T/SP): 448.363 → "448 mil". */
+/** Contagem de tokens compacta para razões (tokens por ponto): 448.363 → "448 mil". */
 export function fmtTokensCompact(v) {
   if (!isNum(v)) return "—";
   if (v >= 1e6) return `${NF1.format(v / 1e6)} mi`;

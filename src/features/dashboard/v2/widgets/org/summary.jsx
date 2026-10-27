@@ -89,7 +89,7 @@ const PORTFOLIO_COLUMNS = [
     key: "health",
     label: "Saúde",
     render: (r) => (
-      <div className="max-w-[220px]">
+      <div className="max-w-[84px]">
         <HealthBadge health={r.health} />
         {r.health.reasons.length ? (
           <span
@@ -105,7 +105,7 @@ const PORTFOLIO_COLUMNS = [
   {
     key: "sprint",
     label: "Sprint atual",
-    width: "17%",
+    width: "12%",
     render: (r) =>
       r.currentSprint == null ? (
         <span className="text-fg-muted">sem sprint atual</span>
@@ -129,29 +129,42 @@ const PORTFOLIO_COLUMNS = [
         </div>
       ),
   },
-  { key: "predictabilityPct", label: "Previsib.", align: "right", format: fmtPct },
+  {
+    key: "predictabilityPct",
+    label: "Previsibilidade",
+    abbr: "Prev.",
+    align: "right",
+    format: fmtPct,
+  },
   {
     key: "throughput",
     label: "Vazão",
     align: "right",
     render: (r) => (
       <span className="inline-flex items-center gap-2">
-        <Sparkline data={r.throughputTrend} width={56} height={18} />
+        <Sparkline data={r.throughputTrend} width={28} height={18} />
         {fmtInt(r.throughput)}
       </span>
     ),
   },
-  { key: "leadTimeHours", label: "Lead time", align: "right", format: fmtDuration },
+  { key: "leadTimeHours", label: "Lead time", abbr: "Lead", align: "right", format: fmtDuration },
   {
     key: "cfrPct",
     label: "Falha",
     align: "right",
     render: (r) => <span className={r.cfrPct > 15 ? "text-bad-text" : ""}>{fmtPct(r.cfrPct)}</span>,
   },
-  { key: "prCycleTimeHours", label: "Ciclo PR", align: "right", format: fmtDuration },
+  {
+    key: "prCycleTimeHours",
+    label: "Ciclo PR",
+    abbr: "Ciclo",
+    align: "right",
+    format: fmtDuration,
+  },
   {
     key: "stalePrs",
     label: "Parados",
+    abbr: "Parad.",
     align: "right",
     render: (r) => <span className={r.stalePrs >= 3 ? "text-warn-text" : ""}>{r.stalePrs}</span>,
   },
@@ -159,11 +172,12 @@ const PORTFOLIO_COLUMNS = [
   {
     key: "complexityDelivered",
     label: "Complexidade entregue",
+    abbr: "Complex.",
     align: "right",
     format: fmtPoints,
   },
-  { key: "aiCostPerPoint", label: "IA por ponto", align: "right", format: fmtUsd },
-  { key: "aiCostPerHour", label: "IA por hora", align: "right", format: fmtUsd },
+  { key: "aiCostPerPoint", label: "IA por ponto", abbr: "IA/pt", align: "right", format: fmtUsd },
+  { key: "aiCostPerHour", label: "IA por hora", abbr: "IA/h", align: "right", format: fmtUsd },
 ];
 
 export const selectPortfolio = (d) => d.portfolio;
@@ -182,6 +196,7 @@ export function PortfolioWidget({ data: portfolio, ctx }) {
         rowKey={(r) => r.projectId}
         rows={portfolio}
         scroll
+        stickyFirst
         onRowClick={onOpenProject ? (r) => onOpenProject(r.projectId) : undefined}
         columns={PORTFOLIO_COLUMNS}
       />

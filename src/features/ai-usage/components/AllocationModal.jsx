@@ -6,6 +6,7 @@ import { getAllocationCandidates } from "../api.js";
 import { fmtTokensM } from "../../../core/tokenMath.js";
 import { Modal } from "../../../core/ui/Modal.jsx";
 import { TypeBadge } from "../../dashboard/v2/kit/Badges.jsx";
+import { fmtHours, fmtPoints } from "../../dashboard/v2/format.js";
 
 /**
  * Redistribute the change in one slider's value proportionally across the others.
@@ -42,7 +43,7 @@ function redistributeProportional(items, changedIndex, newVal) {
 
 /**
  * A single row in the add-work-item candidate list.
- * Type badge + external id + SP come from the candidates payload itself
+ * Type badge + external id + complexidade/esforço come from the candidates payload itself
  * (enriched endpoint); older backends without the fields fall back to the
  * `wi` join done by the caller. Title stays prominent, sprint as muted tag.
  * Has a left accent border on hover to signal interactivity.
@@ -50,7 +51,15 @@ function redistributeProportional(items, changedIndex, newVal) {
 function CandidateRow({ si, wi, onAdd }) {
   const type = si.type ?? wi?.type;
   const ext = si.externalId ?? wi?.externalId;
-  const sp = si.storyPoints ?? wi?.storyPoints;
+  const complexity = si.complexity ?? wi?.complexity;
+  const effort = si.effort ?? wi?.effort;
+  // "N pts" com complexidade, "N h" só com esforço, nada sem nenhum dos dois.
+  const measure =
+    complexity != null
+      ? fmtPoints(complexity, { total: true })
+      : effort != null
+        ? fmtHours(effort)
+        : null;
   return (
     <div className="border-line grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 border-b px-3 py-[10px] last:border-b-0">
       <div className="min-w-0">
@@ -58,10 +67,10 @@ function CandidateRow({ si, wi, onAdd }) {
           {/* TypeBadge é do kit do dashboard v2; reaproveitado para o tipo ter a mesma cara */}
           {type ? <TypeBadge type={type} /> : null}
           {ext ? <span>#{ext}</span> : null}
-          {si.sprintName || sp != null ? (
+          {si.sprintName || measure ? (
             <span>
               · {si.sprintName}
-              {sp != null ? `${si.sprintName ? " · " : ""}${sp} SP` : ""}
+              {measure ? `${si.sprintName ? " · " : ""}${measure}` : ""}
             </span>
           ) : null}
         </div>
@@ -87,7 +96,7 @@ function CandidateRow({ si, wi, onAdd }) {
 /**
  * @param {{
  *   batch: object,
- *   sprintItems: Array<{ workItemId: string, workItemTitle?: string, title?: string, sprintName?: string, type?: string, externalId?: string, storyPoints?: number }>,
+ *   sprintItems: Array<{ workItemId: string, workItemTitle?: string, title?: string, sprintName?: string, type?: string, externalId?: string, complexity?: number, effort?: number }>,
  *   itemsById?: Map<string, { type?: string, externalId?: string }>,
  *   onClose: () => void,
  *   onConfirm: (splits: Array<{ workItemId: string, percentage: number }>) => void,
@@ -121,7 +130,8 @@ export function AllocationModal({
       sprintName: si.sprintName || "",
       type: si.type ?? null,
       externalId: si.externalId ?? null,
-      storyPoints: si.storyPoints ?? null,
+      complexity: si.complexity ?? null,
+      effort: si.effort ?? null,
     }));
   const [items, setItems] = React.useState(() => {
     if (batch.suggestion && batch.suggestion.length > 0) {
@@ -197,11 +207,12 @@ export function AllocationModal({
         workItemId: sprintItem.workItemId,
         workItemTitle: sprintItem.workItemTitle || "",
         pct: 0,
-        // metadata carried from the candidate so the slider row keeps type/ID/SP
+        // metadata carried from the candidate so the slider row keeps type/ID/medida
         wi: {
           type: sprintItem.type ?? undefined,
           externalId: sprintItem.externalId ?? undefined,
-          storyPoints: sprintItem.storyPoints ?? undefined,
+          complexity: sprintItem.complexity ?? undefined,
+          effort: sprintItem.effort ?? undefined,
         },
       },
     ]);

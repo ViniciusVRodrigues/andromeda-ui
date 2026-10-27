@@ -149,7 +149,7 @@ function OnboardingScreen({ onDone }) {
 function StepWelcome() {
   const feats = [
     { label: "Coleta passiva", desc: "Sem preencher planilhas. Só os rastros digitais." },
-    { label: "Tokens × Story Points", desc: "Quanto custou cada entrega, em IA e em dinheiro." },
+    { label: "Tokens × complexidade", desc: "Quanto custou cada entrega, em IA e em dinheiro." },
     { label: "DORA + IA", desc: "Métricas clássicas + a nova dimensão computacional." },
   ];
   return (

@@ -74,7 +74,7 @@ export function columnSummary({ data, series, xKey = "label", stacked = false, f
 }
 
 /**
- * Burndown: "restam 8 de 16 SP no dia 8 de 10; ideal 3".
+ * Burndown: "restam 8 de 16 pontos de complexidade no dia 8 de 10; ideal 3".
  * O "dia" é o ponto de hoje (`todayLabel`) ou o último com valor restante.
  */
 export function burndownSummary({ data, todayLabel }) {

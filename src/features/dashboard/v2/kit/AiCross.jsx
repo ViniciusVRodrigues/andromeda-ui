@@ -8,7 +8,7 @@
  *     question="Quem usa mais IA entrega mais pontos?"   // h3, termina em "?"
  *     kind="paired" | "scatter"              // PairedColumns (eixo X comum) ou dispersão
  *     ia={{ key, label, short: "IA", unit, fmt, axis }}       // série da IA   (--series-2)
- *     metric={{ key, label, short: "SP", unit, fmt, axis }}   // a métrica      (--series-1)
+ *     metric={{ key, label, short: "pts", unit, fmt, axis }}   // a métrica      (--series-1)
  *       // ou uma LISTA de métricas de mesma unidade (paired): o gráfico de baixo desenha uma
  *       // barra por série (--series-1, --series-3); a leitura usa a 1ª como principal
  *     rows={[{ label: "S22", [ia.key]: 12, [metric.key]: 42, current?: true }]}

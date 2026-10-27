@@ -360,7 +360,9 @@ for (const view of VIEW_NAMES)
     expect(m.spill).toBe(0);
     /* o limite de altura é da Individual (spec dashboard-usability); as outras têm 7 tiles
      * com variação e contexto, que não cabem em 360 px sem cortar texto */
-    if (view === "individual") expect(m.h).toBeLessThanOrEqual(360);
+    /* complexidade-esforco: a Individual ganhou o tile "Esforço registrado" (7 tiles = 4 linhas
+     * em 2 colunas); eram 6 tiles em 3 linhas e 360 px. Teto de 4 linhas: 520 px. */
+    if (view === "individual") expect(m.h).toBeLessThanOrEqual(520);
   });
 
 /* ── Critério 9: alvos de 44 px ─────────────────────────────────────────────── */

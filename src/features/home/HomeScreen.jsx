@@ -211,7 +211,7 @@ function HomeScreen({ onLogin, onSignup }) {
             <ul className="metric-list">
               <li>Cycle Time por PR</li>
               <li>Velocity por squad</li>
-              <li>Story points / sprint</li>
+              <li>Complexidade entregue / sprint</li>
               <li>WIP médio</li>
             </ul>
           </div>
@@ -219,7 +219,7 @@ function HomeScreen({ onLogin, onSignup }) {
             <div className="metric-cat mono">IA</div>
             <ul className="metric-list">
               <li>Tokens por commit</li>
-              <li>Tokens por story point</li>
+              <li>Tokens por ponto de complexidade</li>
               <li>Custo BRL / feature</li>
               <li>Distribuição por provedor</li>
             </ul>

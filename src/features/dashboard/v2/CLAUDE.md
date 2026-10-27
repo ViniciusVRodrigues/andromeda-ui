@@ -89,7 +89,7 @@ configuração na aba de integrações. O `scope.atRiskSp` do `/team/flow` fica 
   accent. Saúde/classificação usa `--good/--warn/--bad` sempre com ícone + texto. Cores de estado do Azure só
   aparecem como dado (bolinha na tabela de configuração).
 - Números em pt-BR (`format.js`; eixos com `axis*`, `nItems` para "1 item/2 itens"). Tokens em milhões nos totais,
-  "mil" nas razões (T/SP).
+  "mil" nas razões (tokens por ponto de complexidade e por hora).
 
 ## Personalização (change `dashboards-customizaveis`)
 
