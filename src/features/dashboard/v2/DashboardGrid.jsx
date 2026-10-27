@@ -17,6 +17,7 @@
  */
 
 import React from "react";
+import { sectionText, useSubject } from "./subject.jsx";
 import { useNavigate } from "react-router-dom";
 import { useIdentity } from "../../../core/auth/IdentityContext.jsx";
 import { orgRoute } from "../../../lib/orgRoutes.js";
@@ -40,13 +41,15 @@ export function withSpans(widgets) {
   return widgets.map((w, i) => ({ ...w, s6: s6[i].span, s12: s12[i].span }));
 }
 
-function Cells({ widgets, render }) {
+/* `skeleton`: a silhueta não leva `data-widget-id`; senão quem procura o card (teste, âncora)
+ * o acha no esqueleto, que é trocado (desmontado) quando o dado chega. */
+function Cells({ widgets, render, skeleton = false }) {
   return (
     <div data-dashboard-grid="" className={GRID}>
       {withSpans(widgets).map((w) => (
         <div
           key={w.id}
-          data-widget-id={w.id}
+          {...(skeleton ? {} : { "data-widget-id": w.id })}
           data-size={w.size}
           className={CELL}
           style={{ "--s6": w.s6, "--s12": w.s12 }}
@@ -86,6 +89,7 @@ export function DashboardGrid({ layout, payload, ctx, skeleton = false }) {
             <div key={s.id} className="mt-10 first:mt-2">
               <div className="skeleton mb-4 h-8 w-64 max-w-full" />
               <Cells
+                skeleton
                 widgets={s.widgets}
                 render={(w) => (
                   <div className="skeleton" style={{ height: w.entry.skeletonHeight }} />
@@ -142,11 +146,12 @@ function MigrationNotice({ layout }) {
 }
 
 function ReadGrid({ sections, payload, ctx, viewKey }) {
+  const subject = useSubject();
   return (
     <div className="@container">
       <div className="mx-auto w-full max-w-[1600px]">
         {sections.map((s) => (
-          <Section key={s.id} id={s.domId} title={s.title} question={s.question}>
+          <Section key={s.id} id={s.domId} {...sectionText(s, subject)}>
             <SectionBody section={s} payload={payload} ctx={ctx} viewKey={viewKey} />
           </Section>
         ))}
@@ -157,6 +162,7 @@ function ReadGrid({ sections, payload, ctx, viewKey }) {
 
 /** Um aviso só para a seção Código da Individual sem VCS vinculado (em vez de um por card). */
 function VcsNotice() {
+  const subject = useSubject();
   const navigate = useNavigate();
   const ident = useIdentity();
   return (
@@ -165,15 +171,19 @@ function VcsNotice() {
       className="border-line bg-bg-elev flex max-h-[160px] flex-col items-start gap-1 rounded-[var(--radius-sm)] border px-5 py-4"
     >
       <p className="mono text-fg-muted m-0 text-[length:var(--mono-sm)] font-normal">
-        Vincule sua conta do GitHub ou do Azure Repos no perfil para ver commits, PRs e reviews.
+        {subject.self
+          ? "Vincule sua conta do GitHub ou do Azure Repos no perfil para ver commits, PRs e reviews."
+          : `${subject.first} ainda não vinculou a conta do GitHub ou do Azure Repos; por isso não há commits, PRs e reviews.`}
       </p>
-      <button
-        type="button"
-        onClick={() => navigate(orgRoute(ident.orgSlug, "perfil"))}
-        className="mono text-accent-text focus-visible:outline-accent inline-flex min-h-[44px] cursor-pointer items-center border-0 bg-transparent px-0 text-[13px] underline focus-visible:outline-2 focus-visible:outline-offset-2"
-      >
-        Abrir perfil
-      </button>
+      {subject.self ? (
+        <button
+          type="button"
+          onClick={() => navigate(orgRoute(ident.orgSlug, "perfil"))}
+          className="mono text-accent-text focus-visible:outline-accent inline-flex min-h-[44px] cursor-pointer items-center border-0 bg-transparent px-0 text-[13px] underline focus-visible:outline-2 focus-visible:outline-offset-2"
+        >
+          Abrir perfil
+        </button>
+      ) : null}
     </div>
   );
 }

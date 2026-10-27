@@ -1,6 +1,7 @@
 /* Widgets da visão Individual — seção "Histórico" (últimas sprints). */
 
 import React from "react";
+import { useT } from "../../subject.jsx";
 import { axisDays, fmtDuration, fmtHours, fmtNum, fmtPoints, isNum } from "../../format.js";
 import { ColumnChart, TrendChart } from "../../kit/charts.jsx";
 import { Panel } from "../../kit/Panel.jsx";
@@ -18,6 +19,7 @@ export const plannedDeliveredEmpty = (data) =>
   !data.rows.some((h) => isNum(h.complexityPlanned) || isNum(h.complexityDelivered));
 
 export function PlannedDeliveredWidget({ data, ctx }) {
+  const t = useT();
   if (plannedDeliveredEmpty(data)) {
     return (
       <NoComplexityPanel
@@ -34,7 +36,11 @@ export function PlannedDeliveredWidget({ data, ctx }) {
       title="Planejado × entregue"
       note={data.note}
       sources={["azure"]}
-      info="Soma da complexidade (pts) dos seus itens em cada sprint: planejado = todos os itens; entregue = itens concluídos. O esforço registrado (horas das Tasks concluídas) aparece na tabela."
+      info={t(
+        "Soma da complexidade (pts) dos seus itens em cada sprint: planejado = todos os itens; entregue = itens concluídos. O esforço registrado (horas das Tasks concluídas) aparece na tabela.",
+        (n) =>
+          `Soma da complexidade (pts) dos itens de ${n} em cada sprint: planejado = todos os itens; entregue = itens concluídos. O esforço registrado (horas das Tasks concluídas) aparece na tabela.`,
+      )}
       table={{
         columns: [
           { key: "name", label: "Sprint" },
@@ -60,13 +66,18 @@ export function PlannedDeliveredWidget({ data, ctx }) {
 }
 
 export function CycleTimeHistoryWidget({ data }) {
+  const t = useT();
   return (
     <Panel
       eyebrow="fluxo"
       title="Cycle time mediano"
       note={data.note}
       sources={["azure"]}
-      info="Tempo típico (mediana) entre começar e concluir os seus itens em cada sprint. Começar = a primeira vez que o item foi para Em andamento."
+      info={t(
+        "Tempo típico (mediana) entre começar e concluir os seus itens em cada sprint. Começar = a primeira vez que o item foi para Em andamento.",
+        (n) =>
+          `Tempo típico (mediana) entre começar e concluir os itens de ${n} em cada sprint. Começar = a primeira vez que o item foi para Em andamento.`,
+      )}
       table={{
         columns: [
           { key: "name", label: "Sprint" },

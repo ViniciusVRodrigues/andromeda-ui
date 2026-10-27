@@ -38,9 +38,16 @@ function pace(sprint, planned, delivered, who) {
   return null;
 }
 
-export function individualHighlights(d) {
+export function individualHighlights(d, subject = null) {
+  const other = !!subject && !subject.self;
+  const n = subject?.first;
   const out = [];
-  const p = pace(d.sprint, d.kpis.complexityPlanned, d.kpis.complexityDelivered, "Você entregou");
+  const p = pace(
+    d.sprint,
+    d.kpis.complexityPlanned,
+    d.kpis.complexityDelivered,
+    other ? `${n} entregou` : "Você entregou",
+  );
   if (p) out.push(p);
   const stale = d.pullRequests.filter((pr) => pr.stale);
   if (stale.length) {
@@ -49,15 +56,15 @@ export function individualHighlights(d) {
       tone: "warn",
       text:
         stale.length === 1
-          ? `Seu PR #${oldest.number} (${oldest.repo}) está aberto há ${fmtDuration(oldest.hoursOpen)} sem nenhuma review — vale pedir revisão.`
-          : `${stale.length} PRs seus estão sem nenhuma review; o mais antigo (#${oldest.number}, ${oldest.repo}) está aberto há ${fmtDuration(oldest.hoursOpen)}.`,
+          ? `${other ? `O PR #${oldest.number} de ${n}` : `Seu PR #${oldest.number}`} (${oldest.repo}) está aberto há ${fmtDuration(oldest.hoursOpen)} sem nenhuma review — vale pedir revisão.`
+          : `${stale.length} PRs ${other ? `de ${n}` : "seus"} estão sem nenhuma review; o mais antigo (#${oldest.number}, ${oldest.repo}) está aberto há ${fmtDuration(oldest.hoursOpen)}.`,
     });
   }
   const cyc = delta(d.kpis.avgCycleTimeHours, d.previous?.avgCycleTimeHours);
   if (cyc && Math.abs(cyc.pct) >= 10 && out.length < 3) {
     out.push({
       tone: cyc.direction === "down" ? "good" : "info",
-      text: `Seu cycle time mediano ${cyc.direction === "down" ? "caiu" : "subiu"} ${Math.abs(cyc.pct).toFixed(0)}% em relação à sprint anterior (${fmtDuration(d.previous.avgCycleTimeHours)} → ${fmtDuration(d.kpis.avgCycleTimeHours)}).`,
+      text: `${other ? `O cycle time mediano de ${n}` : "Seu cycle time mediano"} ${cyc.direction === "down" ? "caiu" : "subiu"} ${Math.abs(cyc.pct).toFixed(0)}% em relação à sprint anterior (${fmtDuration(d.previous.avgCycleTimeHours)} → ${fmtDuration(d.kpis.avgCycleTimeHours)}).`,
     });
   }
   return out.slice(0, 3);

@@ -13,6 +13,7 @@
  */
 
 import React from "react";
+import { SubjectProvider, makeSubject } from "../subject.jsx";
 import { useIdentity } from "../../../../core/auth/IdentityContext.jsx";
 import { CATALOG, catalogSections } from "../catalog.js";
 import { DashboardGrid } from "../DashboardGrid.jsx";
@@ -38,13 +39,70 @@ const canSeeWidget = () => true;
 
 /**
  * @param {{ projectId: string, sprintId: string, onNavigate?: (tab: string) => void,
- *   onReviewAi?: (() => void) | null }} props  `onReviewAi`: "Revisar" da alocação de IA
- *   (Uso de IA com a casca, painel de alocação no modo só-dashboard).
+ *   onReviewAi?: (() => void) | null, person?: { id: string, name?: string|null,
+ *   jobTitle?: string|null } | null, onBackToMine?: (() => void) | null }} props
+ *   `onReviewAi`: "Revisar" da alocação de IA (Uso de IA com a casca, painel de alocação no modo
+ *   só-dashboard). `person`: outra pessoa (individual-outra-pessoa) — textos na 3ª pessoa, faixa
+ *   de contexto e sem a alocação de IA (que é de quem a vê); `onBackToMine`: "Voltar para a minha".
  */
-export function IndividualView({ projectId, sprintId, onNavigate, onReviewAi = null }) {
+export function IndividualView({
+  projectId,
+  sprintId,
+  onNavigate,
+  onReviewAi = null,
+  person = null,
+  onBackToMine = null,
+}) {
+  const subject = React.useMemo(() => makeSubject(person), [person]);
+  return (
+    <SubjectProvider subject={subject}>
+      <IndividualBody
+        projectId={projectId}
+        sprintId={sprintId}
+        onNavigate={onNavigate}
+        onReviewAi={person ? null : onReviewAi}
+        person={person}
+        subject={subject}
+        onBackToMine={onBackToMine}
+      />
+    </SubjectProvider>
+  );
+}
+
+/** Faixa de contexto: de quem é a visão (texto, não só a borda) + volta para a própria. */
+function PersonBanner({ person, onBackToMine }) {
+  return (
+    <div
+      role="status"
+      data-person-banner=""
+      className="border-line-strong bg-bg-elev border-l-accent text-fg mt-2 mb-3 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-[var(--radius-sm)] border border-l-[3px] px-4 py-2 text-[13px]"
+    >
+      <span className="min-w-0">
+        Você está vendo a visão de <b className="font-normal underline">{person.name}</b>
+        {person.jobTitle ? ` (${person.jobTitle})` : ""}.
+      </span>
+      {onBackToMine ? (
+        <button type="button" className="btn btn-ghost btn-xs min-h-[44px]" onClick={onBackToMine}>
+          Voltar para a minha
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
+function IndividualBody({
+  projectId,
+  sprintId,
+  onNavigate,
+  onReviewAi,
+  person,
+  subject,
+  onBackToMine,
+}) {
   const { data, isPending, isFetching, isError, error, refetch } = useIndividualDashboard({
     projectId,
     sprintId,
+    userId: person?.id,
   });
   const layouts = useDashboardLayouts();
   /* enquanto o layout salvo não chega, a silhueta segue o padrão do catálogo */
@@ -63,14 +121,25 @@ export function IndividualView({ projectId, sprintId, onNavigate, onReviewAi = n
       onReviewAi,
       onOpenBacklog: canBacklog ? () => onNavigate("backlog") : null,
       mappingHref,
+      subject,
     }),
-    [onNavigate, onReviewAi, canBacklog, mappingHref],
+    [onNavigate, onReviewAi, canBacklog, mappingHref, subject],
   );
 
-  if (isError && !data) return <ViewError error={error} onRetry={refetch} />;
+  if (isError && !data)
+    return (
+      <ViewError
+        error={error}
+        onRetry={refetch}
+        otherPerson={!!person}
+        onBackToMine={onBackToMine}
+      />
+    );
+  const banner = person ? <PersonBanner person={person} onBackToMine={onBackToMine} /> : null;
   if (isPending || !data || layouts.isPending) {
     return (
       <div className="mt-2">
+        {banner}
         <div aria-hidden="true" className="skeleton mb-4 h-14" />
         <DashboardGrid layout={layout} skeleton />
       </div>
@@ -79,19 +148,22 @@ export function IndividualView({ projectId, sprintId, onNavigate, onReviewAi = n
 
   return (
     <FetchFrame fetching={isFetching}>
+      {banner}
       <ViewRefresh projectId={projectId} freshness={data.dataFreshness} />
-      <Highlights items={individualHighlights(data)} />
+      <Highlights items={individualHighlights(data, subject)} />
       <div className="mt-2">
         <SprintStrip sprint={data.sprint} />
       </div>
-      <AllocationStrip
-        key={`${projectId}:${sprintId}`}
-        ai={data.ai}
-        sprint={data.sprint}
-        items={data.items}
-        onNavigate={onNavigate}
-        onReviewAi={onReviewAi}
-      />
+      {person ? null : (
+        <AllocationStrip
+          key={`${projectId}:${sprintId}`}
+          ai={data.ai}
+          sprint={data.sprint}
+          items={data.items}
+          onNavigate={onNavigate}
+          onReviewAi={onReviewAi}
+        />
+      )}
       <DashboardGrid layout={layout} payload={data} ctx={ctx} />
     </FetchFrame>
   );

@@ -29,6 +29,17 @@ function fixture(name) {
 export const E2E_USER_ID = "u-1";
 export const SLUG = "orbital";
 
+/* Pessoas da Individual de outra pessoa (individual-outra-pessoa). O padrão é "só a própria
+ * pessoa": o seletor "Pessoa" não aparece e as telas de antes não mudam. Os testes da change
+ * passam `opts.people` (lista ou `(projectId) => lista`) com mais gente. */
+export const PEOPLE_ME = { id: E2E_USER_ID, name: "Pessoa Teste", jobTitle: "Dev pleno" };
+export const PEOPLE_TEAM = [
+  { id: "u-ana", name: "Ana Souza", jobTitle: "Dev pleno" },
+  { id: "u-bruno", name: "Bruno Lima", jobTitle: null },
+  PEOPLE_ME,
+  { id: "u-carla", name: "Carla Dias", jobTitle: "Tech Lead" },
+];
+
 /* "Agora" das fixtures (MOCK_NOW de scripts/dashboards-v2-sim/world.js). Teste com
  * screenshot congela o relógio nele antes de navegar: senão "Atualizado há…" e o dia
  * da sprint mudam com a data em que a suíte roda. */
@@ -564,12 +575,13 @@ function allocationPayload(payload, variant, doneDays, reissued = new Set()) {
  * @param {import("@playwright/test").Page} page
  * @param {{ permissions?: string[], layouts?: object[], me?: object, pending?: object[],
  *   allocation?: "default"|"ten"|"none"|"legacy", passthrough?: boolean,
+ *   people?: Array<object> | ((projectId: string) => Array<object>),
  *   legacy?: boolean, transform?: (name: string, body: any) => any }} [opts]
  * @returns {Promise<{
  *   layouts: () => object[], saved: (viewKey?: string) => object | null,
  *   failLayouts: (methods: string[]) => void,
  *   delaySource: (source: string, ms: number) => void,
- *   failSource: (source: string, on: boolean) => void,
+ *   failSource: (source: string, on: boolean) => void  (inclui "pessoas": a lista da Individual),
  *   failAllocation: (action: "accept"|"adjust"|"day", status: number|null) => void,
  *   delayAllocation: (ms: number) => void, allocated: () => string[],
  *   requests: string[] }>}
@@ -610,6 +622,17 @@ export async function installDashboardsApi(page, opts = {}) {
     return JSON.stringify(opts.transform ? opts.transform(name, o) : o);
   };
 
+  const peopleOf = (projectId) => {
+    const list = typeof opts.people === "function" ? opts.people(projectId) : opts.people;
+    return [...(list || [PEOPLE_ME])].sort((a, b) => a.name.localeCompare(b.name, "pt-BR"));
+  };
+
+  /* DASHBOARD_TEAM no projeto: o mapa do /me (`me.projectPermissions`) ou, sem ele, a organização */
+  const hasTeam = (projectId) =>
+    me.projectPermissions
+      ? (me.projectPermissions[projectId] || []).includes("DASHBOARD_TEAM")
+      : me.permissions.includes("DASHBOARD_TEAM");
+
   const json = (route, body, status = 200) =>
     route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) });
   const raw = (route, text) =>
@@ -633,6 +656,13 @@ export async function installDashboardsApi(page, opts = {}) {
 
     if (p === "/v1/auth/me") return opts.passthrough ? route.fallback() : json(route, me);
     if (p === "/v1/projects") return raw(route, fx("projects"));
+    /* quem se pode ver na Individual do projeto (DASHBOARD_TEAM); ordem alfabética */
+    if (p === "/v1/dashboards/individual/people") {
+      if (state.delay.pessoas) await sleep(state.delay.pessoas);
+      if (state.fail.pessoas) return json(route, { code: "INTERNAL_ERROR" }, 500);
+      if (!hasTeam(q.get("projectId"))) return json(route, { code: "ACCESS_DENIED" }, 403);
+      return json(route, peopleOf(q.get("projectId")));
+    }
     if (p === "/v1/ai/allocations/pending-batches")
       return json(
         route,
@@ -706,8 +736,22 @@ export async function installDashboardsApi(page, opts = {}) {
       const projectId = q.get("projectId");
       if (!projectId) return json(route, { code: "ACCESS_DENIED" }, 403);
       const kind = p.endsWith("team") ? "team" : "individual";
+      /* `userId` de outra pessoa (individual-outra-pessoa): 403 sem DASHBOARD_TEAM, 404 fora do projeto */
+      const target = kind === "individual" ? q.get("userId") : null;
+      const other = target && target !== me.userId ? target : null;
+      if (other) {
+        if (!hasTeam(projectId)) return json(route, { code: "ACCESS_DENIED" }, 403);
+        if (!peopleOf(projectId).some((x) => x.id === other))
+          return json(route, { code: "PROJECT_MEMBER_NOT_FOUND" }, 404);
+      }
       const text = fx(`${kind}__${projectId}__${sprintOf(projectId)}`);
       const variant = opts.allocation || "default";
+      if (other && text != null) {
+        const o = JSON.parse(text);
+        const who = peopleOf(projectId).find((x) => x.id === other);
+        o.person = { ...o.person, id: other, name: who.name };
+        return json(route, o);
+      }
       if (kind === "individual" && text != null && variant !== "legacy")
         return json(
           route,

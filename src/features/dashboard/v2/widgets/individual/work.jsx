@@ -1,6 +1,7 @@
 /* Widgets da visão Individual — seção "Meu trabalho". */
 
 import React from "react";
+import { useT } from "../../subject.jsx";
 import { fmtDuration, fmtInt, fmtTokensCompact, fmtUsd } from "../../format.js";
 import { PrPill, StatusPill } from "../../kit/Badges.jsx";
 import { Empty, Panel } from "../../kit/Panel.jsx";
@@ -24,6 +25,7 @@ export const selectBurndown = (d) => {
 };
 
 export function BurndownWidget({ data, ctx }) {
+  const t = useT();
   if (data.empty) {
     return (
       <NoComplexityPanel
@@ -39,7 +41,11 @@ export function BurndownWidget({ data, ctx }) {
       eyebrow="execução"
       title="Burndown pessoal"
       sources={["azure"]}
-      info="Quantos pontos de complexidade dos seus itens ainda faltam concluir em cada dia útil, frente ao ritmo ideal. Itens que entraram ou saíram no meio da sprint não aparecem como mudança."
+      info={t(
+        "Quantos pontos de complexidade dos seus itens ainda faltam concluir em cada dia útil, frente ao ritmo ideal. Itens que entraram ou saíram no meio da sprint não aparecem como mudança.",
+        (n) =>
+          `Quantos pontos de complexidade dos itens de ${n} ainda faltam concluir em cada dia útil, frente ao ritmo ideal. Itens que entraram ou saíram no meio da sprint não aparecem como mudança.`,
+      )}
       table={{
         columns: [
           { key: "label", label: "Dia" },
@@ -111,10 +117,11 @@ const ITEM_COLUMNS = [
 
 /** @param {{ data: Array<object>, ctx?: { onOpenBacklog?: (() => void) | null } }} props */
 export function ItemsWidget({ data: items, ctx }) {
+  const t = useT();
   return (
     <Panel
       eyebrow="composição"
-      title="Meus itens da sprint"
+      title={t("Meus itens da sprint", (n) => `Itens de ${n} na sprint`)}
       sources={["azure", "github", "ia"]}
       actions={
         ctx?.onOpenBacklog ? (
@@ -127,12 +134,21 @@ export function ItemsWidget({ data: items, ctx }) {
           </button>
         ) : null
       }
-      info="Work items atribuídos a você na sprint. Tempo = cycle time dos concluídos ou há quanto tempo o item está em andamento. IA = custo do uso de IA que você alocou ao item (alocações validadas) e tokens por ponto de complexidade (nas Tasks, por hora de esforço). O traço (—) é sem valor no Azure: complexidade fica nas User Stories, esforço (CompletedWork) nas Tasks."
+      info={t(
+        "Work items atribuídos a você na sprint. Tempo = cycle time dos concluídos ou há quanto tempo o item está em andamento. IA = custo do uso de IA que você alocou ao item (alocações validadas) e tokens por ponto de complexidade (nas Tasks, por hora de esforço). O traço (—) é sem valor no Azure: complexidade fica nas User Stories, esforço (CompletedWork) nas Tasks.",
+        (n) =>
+          `Work items atribuídos a ${n} na sprint. Tempo = cycle time dos concluídos ou há quanto tempo o item está em andamento. IA = custo do uso de IA que ${n} alocou ao item (alocações validadas) e tokens por ponto de complexidade (nas Tasks, por hora de esforço). O traço (—) é sem valor no Azure: complexidade fica nas User Stories, esforço (CompletedWork) nas Tasks.`,
+      )}
     >
       {items.length ? (
         <DataTable rowKey={(r) => r.id} rows={items} columns={ITEM_COLUMNS} scroll stickyFirst />
       ) : (
-        <Empty>Nenhum item atribuído a você nesta sprint.</Empty>
+        <Empty>
+          {t(
+            "Nenhum item atribuído a você nesta sprint.",
+            (n) => `Nenhum item atribuído a ${n} nesta sprint.`,
+          )}
+        </Empty>
       )}
     </Panel>
   );

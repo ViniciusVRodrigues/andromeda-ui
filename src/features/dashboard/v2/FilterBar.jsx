@@ -3,8 +3,9 @@
  *
  * Três arranjos pela largura útil da página (medida no próprio elemento — com a casca, a
  * barra lateral come parte da viewport):
- *  - < 600 px (celular): `[Escopo][Filtros]` + sub-abas; visão, sprint/período e as seções
- *    ficam no Drawer "Filtros" (≤ 15% da altura em 390×844);
+ *  - < 600 px (celular): `[Escopo][Filtros]` (+ uma 2ª linha fixa só com a Pessoa, quando
+ *    há troca de pessoa) + sub-abas; visão, sprint/período e as seções ficam no Drawer
+ *    "Filtros" (≤ 15% da altura em 390×844);
  *  - ≥ 600 px: duas linhas — filtros (escopo, visão, sprint/período) numa, sub-abas +
  *    seções na outra (uma faixa só, rola na horizontal se não couber).
  * Todo alvo tem ≥ 44 px (o html tem 13 px: use px, nunca `min-h-11`) e ≥ 8 px entre
@@ -251,6 +252,7 @@ export function SectionNav({ sections, onPick = goToSection, wrap = false }) {
  *   className: string, scope: string, scopeOptions: Array, onScope: (v: string) => void,
  *   views: Array<{value: string, label: string}>, view: string, onView: (v: string) => void,
  *   sprint: null | { value: string, options: Array, placeholder: string, onChange: (v: string) => void },
+ *   person: null | { value: string, options: Array, placeholder: string, disabled?: boolean, onChange: (v: string) => void },
  *   period: null | { value: number, options: Array, onChange: (v: number) => void },
  *   tabs: Array, tab: string, onTab: (v: string) => void, sections: Array }} props
  *   `views` vazio = sem segmentado de visão; `sprint`/`period` null = filtro ausente.
@@ -264,6 +266,7 @@ export function FilterBar({
   view,
   onView,
   sprint,
+  person = null,
   period,
   tabs,
   tab,
@@ -316,6 +319,17 @@ export function FilterBar({
       onChange={period.onChange}
     />
   ) : null;
+  const personControl = person ? (
+    <Combobox
+      value={person.value}
+      onValueChange={person.onChange}
+      placeholder={person.placeholder}
+      options={person.options}
+      disabled={person.disabled}
+      aria-label="Pessoa"
+      className={TRIGGER_ONE_LINE}
+    />
+  ) : null;
   const scopeControl = (
     <Combobox
       value={scope}
@@ -351,6 +365,7 @@ export function FilterBar({
               </button>
             ) : null}
           </div>
+          {personControl ? <div className="mt-[8px]">{personControl}</div> : null}
           {tabsControl ? (
             <div className="-mx-[4px] mt-[8px] [scrollbar-width:none] overflow-x-auto px-[4px]">
               {tabsControl}
@@ -396,8 +411,18 @@ export function FilterBar({
         <>
           {/* flex-wrap é só a rede de segurança: com o período curto cabe numa linha até ~600 px */}
           <div className="flex flex-wrap items-center gap-[12px]">
-            <div className="max-w-[270px] min-w-[120px] flex-1">{scopeControl}</div>
+            <div
+              className={
+                (person && width != null && width < 760 ? "max-w-[200px]" : "max-w-[270px]") +
+                " min-w-[120px] flex-1"
+              }
+            >
+              {scopeControl}
+            </div>
             {viewControl}
+            {personControl ? (
+              <div className="max-w-[240px] min-w-[150px] flex-1">{personControl}</div>
+            ) : null}
             {sprintControl ? (
               <div className="ml-auto max-w-[300px] min-w-[150px] flex-1">{sprintControl}</div>
             ) : null}

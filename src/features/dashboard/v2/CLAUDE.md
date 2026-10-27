@@ -54,7 +54,14 @@ Estado na URL: `?escopo=org|<projectId>&visao=individual|equipe|projeto&aba=&spr
 ## O que cada visão usa
 
 - **Individual · Resumo** (`/dashboards/individual`): burndown pessoal, itens, PRs e reviews, commits, uso de IA,
-  alocação, fluência, histórico. A pessoa vem sempre do JWT.
+  alocação, fluência, histórico. Sem `userId` a pessoa vem do JWT.
+  **Outra pessoa** (`individual-outra-pessoa`): com `DASHBOARD_TEAM` no projeto (`canOnProject`) a barra ganha o
+  seletor "Pessoa" (`?pessoa=<userId>`, só na Individual; lista de `GET /v1/dashboards/individual/people`; telemetria
+  `DASHBOARD_PERSON` = `outra`/`propria`, nunca o id). Quem não é membro mas tem `DASHBOARD_TEAM` vê a Individual
+  aberta na 1ª pessoa. Vendo outra pessoa: faixa de contexto com "Voltar para a minha", textos na 3ª pessoa
+  (`subject.jsx`: `SubjectProvider`/`useT`/`pickText`; o assunto também vai em `ctx.subject`), sem Personalizar,
+  sem AllocationStrip e sem o aviso global de alocação; `?pessoa=` inválido cai na própria visão com aviso
+  `role="status"`; 403/404 do servidor têm `ViewError` próprio. Nos e2e, `installDashboardsApi({ people })`.
 - **Equipe · Resumo** (`/dashboards/team`): velocity/itens/cycle/lead/estimativa, envelhecimento vs p85,
   contribuição por pessoa, PRs parados, carga de review, repositórios, IA do time (só o custo alocado ao projeto).
 - **Equipe · Fluxo e qualidade** (`/dashboards/team/flow`): fluxo cumulativo com 3 categorias (sem Resolvido),

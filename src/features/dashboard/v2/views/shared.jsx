@@ -98,20 +98,36 @@ export function Grid({ cols = "lg:grid-cols-2", className = "", children }) {
 
 /**
  * Erro ao carregar uma visão inteira: texto pelo status (403/404) e "Tentar de novo".
- * @param {{ error: { status?: number } | null, onRetry: () => void }} props
+ * Vendo outra pessoa (`otherPerson`), 403/404 dizem que a pessoa não está no projeto ou que falta
+ * permissão, e o botão é "Voltar para a minha" (`onBackToMine`, se houver a visão própria).
+ * @param {{ error: { status?: number } | null, onRetry: () => void, otherPerson?: boolean,
+ *   onBackToMine?: (() => void) | null }} props
  */
-export function ViewError({ error, onRetry }) {
+export function ViewError({ error, onRetry, otherPerson = false, onBackToMine = null }) {
   const status = error?.status;
+  const denied = status === 403 || status === 404;
   const text =
-    status === 403
-      ? "Você não tem permissão para ver este painel."
-      : status === 404
-        ? "Projeto ou sprint não encontrado."
-        : "Não foi possível carregar o dashboard.";
+    otherPerson && denied
+      ? "Esta pessoa não está neste projeto ou você não tem permissão para ver a visão dela."
+      : status === 403
+        ? "Você não tem permissão para ver este painel."
+        : status === 404
+          ? "Projeto ou sprint não encontrado."
+          : "Não foi possível carregar o dashboard.";
   return (
     <div role="alert" className="mt-2 flex flex-col items-start gap-3" data-view-state="error">
       <p className="text-fg-muted m-0">{text}</p>
-      {status === 403 || status === 404 ? null : (
+      {otherPerson && denied ? (
+        onBackToMine ? (
+          <button
+            type="button"
+            className="btn btn-ghost btn-xs min-h-[44px]"
+            onClick={onBackToMine}
+          >
+            Voltar para a minha
+          </button>
+        ) : null
+      ) : denied ? null : (
         <button type="button" className="btn btn-ghost btn-xs" onClick={onRetry}>
           Tentar de novo
         </button>

@@ -16,7 +16,11 @@
  * escondidas até existir a coleta (dashboards-customizaveis, decisão 4).
  *
  * Estado na URL (deep-link/refresh): ?escopo=org|<projectId>&visao=individual|equipe|projeto
- * &aba=<sub-aba>&sprint=<id>&periodo=30|90|180|365.
+ * &aba=<sub-aba>&sprint=<id>&periodo=30|90|180|365&pessoa=<userId>.
+ *
+ * Individual de outra pessoa (individual-outra-pessoa): com DASHBOARD_TEAM no projeto aparece o
+ * seletor "Pessoa" (`?pessoa=`; sem o parâmetro = a própria). Quem não é membro mas tem
+ * DASHBOARD_TEAM também vê a aba Individual, aberta na 1ª pessoa da lista. Gating só de UX.
  */
 
 import React from "react";
@@ -27,7 +31,13 @@ import { trackAction } from "../../../core/telemetry/index.js";
 import { dashboardFilterAction } from "../../../core/telemetry/actions.js";
 import { orgRoute } from "../../../lib/orgRoutes.js";
 import { fmtDate } from "./format.js";
-import { useDashboardProjects, usePendingAllocations, useProjectSprints } from "./hooks.js";
+import {
+  useDashboardProjects,
+  useIndividualPeople,
+  usePendingAllocations,
+  useProjectSprints,
+} from "./hooks.js";
+import { makeSubject } from "./subject.jsx";
 import PendingAllocationsBanner from "../../../components/PendingAllocationsBanner.jsx";
 import { AllocationDrawer } from "./views/AllocationDrawer.jsx";
 import { IndividualView, INDIVIDUAL_SECTIONS } from "./views/IndividualView.jsx";
@@ -131,8 +141,11 @@ export function DashboardsPage({ onLogout, onNavigate }) {
     (p) => (access.individual && p.member) || access.team(p) || access.strategic(p),
   );
 
+  /* aviso de "pessoa fora do projeto": some na próxima escolha do usuário */
+  const [personNotice, setPersonNotice] = React.useState(null);
   const update = React.useCallback(
     (patch) => {
+      setPersonNotice(null);
       const action = dashboardFilterAction(patch);
       if (action) trackAction(...action);
       setParams(
@@ -162,9 +175,13 @@ export function DashboardsPage({ onLogout, onNavigate }) {
       : scopeProjects[0]?.id || null;
   const project = scopeProjects.find((p) => p.id === scope) || null;
 
+  /* DASHBOARD_TEAM no projeto: pode ver a Individual de outra pessoa (o servidor decide de fato) */
+  const canSwitch = !!project && ident.canOnProject(project.id, "DASHBOARD_TEAM");
+  const selfAvailable = !!project && access.individual && project.member;
+
   const views = [];
   if (project) {
-    if (access.individual && project.member) views.push("individual");
+    if (selfAvailable || canSwitch) views.push("individual");
     if (access.team(project)) views.push("equipe");
     if (access.strategic(project)) views.push("projeto");
   }
@@ -186,16 +203,151 @@ export function DashboardsPage({ onLogout, onNavigate }) {
     ? Number(params.get("periodo"))
     : 90;
 
+  /* ── Individual de outra pessoa ─────────────────────────────────────────── */
+  const myId = ident.identity?.userId ?? null;
+  const switching = view === "individual" && canSwitch;
+  const people = useIndividualPeople(project?.id, switching);
+  const peopleList = React.useMemo(() => people.data || [], [people.data]);
+  const knownNames = React.useRef({});
+  for (const p of peopleList) knownNames.current[p.id] = p.name;
+  const requested = switching ? params.get("pessoa") : null;
+  const requestedOther = !!requested && requested !== myId;
+  let personId = null; /* null = a visão própria */
+  let personPending = false;
+  let personInvalid = false;
+  if (switching) {
+    if (people.isPending) {
+      personPending = requestedOther || !selfAvailable;
+    } else if (people.isError) {
+      if (requestedOther) personId = requested;
+    } else if (requestedOther && peopleList.some((p) => p.id === requested)) {
+      personId = requested;
+    } else {
+      personInvalid = requestedOther;
+      if (!selfAvailable) personId = peopleList.find((p) => p.id !== myId)?.id ?? null;
+    }
+  }
+  const noPersonToShow =
+    switching && !selfAvailable && !personPending && personId == null && !people.isPending;
+  const personEntry = personId ? peopleList.find((p) => p.id === personId) : null;
+  const person = React.useMemo(
+    () =>
+      personId
+        ? {
+            id: personId,
+            name: personEntry?.name ?? knownNames.current[personId] ?? null,
+            jobTitle: personEntry?.jobTitle ?? null,
+          }
+        : null,
+    [personId, personEntry],
+  );
+  const viewingOther = !!person;
+  const subject = React.useMemo(() => makeSubject(person), [person]);
+
+  /* parâmetro inválido (ou a própria pessoa): limpa a URL e, se inválido, avisa */
+  const projectName = project?.name;
+  const invalidName = personInvalid ? (knownNames.current[requested] ?? null) : null;
+  React.useEffect(() => {
+    if (!personInvalid && !(switching && requested && requested === myId)) return;
+    if (personInvalid) {
+      const who = invalidName || "A pessoa pedida";
+      setPersonNotice(
+        `${who} não participa de ${projectName}; ${
+          selfAvailable ? "mostrando a sua visão." : "mostrando outra pessoa do projeto."
+        }`,
+      );
+    }
+    setParams(
+      (prev) => {
+        const n = new URLSearchParams(prev);
+        n.delete("pessoa");
+        return n;
+      },
+      { replace: true },
+    );
+  }, [
+    personInvalid,
+    switching,
+    requested,
+    myId,
+    invalidName,
+    projectName,
+    selfAvailable,
+    setParams,
+  ]);
+
+  const MINE = "__minha__";
+  const ownEntry = peopleList.find((p) => p.id === myId);
+  const others = peopleList.filter((p) => p.id !== myId);
+  const personFilter = switching
+    ? (() => {
+        if (people.isPending)
+          return {
+            value: "",
+            disabled: true,
+            placeholder: "Carregando pessoas…",
+            options: [],
+            onChange: () => {},
+          };
+        if (people.isError)
+          return {
+            value: "",
+            disabled: true,
+            placeholder: "Pessoas indisponíveis",
+            options: [],
+            onChange: () => {},
+          };
+        if (selfAvailable && others.length === 0) return null;
+        return {
+          value: personId ?? MINE,
+          placeholder: "Selecionar pessoa",
+          options: [
+            ...(selfAvailable
+              ? [
+                  {
+                    value: MINE,
+                    label: ownEntry?.name ? `Você (${ownEntry.name})` : "Você",
+                    ...(ownEntry?.jobTitle ? { hint: ownEntry.jobTitle } : {}),
+                  },
+                ]
+              : []),
+            ...others.map((p) => ({
+              value: p.id,
+              label: p.name,
+              ...(p.jobTitle ? { hint: p.jobTitle } : {}),
+            })),
+          ],
+          onChange: (v) => update({ pessoa: v === MINE ? null : v }),
+        };
+      })()
+    : null;
+
+  /* "Voltar para a minha": limpa a pessoa e devolve o foco ao seletor */
+  const backToMine = React.useCallback(() => {
+    update({ pessoa: null });
+    requestAnimationFrame(() =>
+      requestAnimationFrame(() => document.querySelector('button[aria-label="Pessoa"]')?.focus()),
+    );
+  }, [update]);
+
   const scopeOptions = [
     ...(access.orgStrategic ? [{ value: "org", label: "Organização · visão geral" }] : []),
     ...scopeProjects.map((p) => ({ value: p.id, label: p.name })),
   ];
 
-  const sections = SECTIONS[`${view}/${tab}`] || [];
+  const sections = (SECTIONS[`${view}/${tab}`] || []).map((s) =>
+    viewingOther && s.label === "Meu trabalho"
+      ? { ...s, label: `Trabalho de ${subject.first}` }
+      : s,
+  );
 
   const teamName = project?.team || "time";
   const subtitle = {
-    "individual/resumo": `Seu trabalho, seu código e seu uso de IA em ${project?.name}.`,
+    "individual/resumo": viewingOther
+      ? `Trabalho, código e uso de IA de ${subject.name} em ${project?.name}.`
+      : selfAvailable
+        ? `Seu trabalho, seu código e seu uso de IA em ${project?.name}.`
+        : `Trabalho, código e uso de IA das pessoas de ${project?.name}.`,
     "equipe/resumo": `Entrega, fluxo, revisão e custo do ${teamName} em ${project?.name}.`,
     "equipe/fluxo": `Por onde o trabalho do ${teamName} passa, onde a revisão espera e quanto do concluído volta.`,
     "projeto/resumo": `Saúde, entrega e investimento de ${project?.name} ao longo do tempo.`,
@@ -208,7 +360,8 @@ export function DashboardsPage({ onLogout, onNavigate }) {
   const sprintFilter = view === "individual" || view === "equipe";
   const periodFilter = (view === "projeto" || view === "org") && tab !== "integracoes";
 
-  const editViewKey = view && SUMMARY_TAB[view] === tab ? view : null;
+  /* ao ver outra pessoa o Resumo não se personaliza (o layout é o meu) */
+  const editViewKey = view && SUMMARY_TAB[view] === tab && !viewingOther ? view : null;
   /* margem e respiro laterais em px inteiros: com o html em 13 px, -mx-1/px-1 davam ±3,25 px e
    * a barra fixa (camada própria) caía em x fracionário — o texto arredondava 1 px para um lado
    * ou para o outro conforme a execução (baselines instáveis) */
@@ -227,7 +380,7 @@ export function DashboardsPage({ onLogout, onNavigate }) {
         <header className="mb-5">
           <div className="flex flex-wrap items-center gap-3">
             <h1 className="serif text-fg m-0 text-[32px] leading-tight">Dashboard</h1>
-            {scope ? <CustomizeButton /> : null}
+            {scope && !viewingOther ? <CustomizeButton /> : null}
             <div className="ml-auto flex flex-wrap items-center gap-2">
               {onLogout ? (
                 <>
@@ -254,7 +407,9 @@ export function DashboardsPage({ onLogout, onNavigate }) {
           ) : null}
         </header>
 
-        {canReviewAi ? <PendingAllocationsBanner count={pendingCount} onReview={reviewAi} /> : null}
+        {canReviewAi && !viewingOther ? (
+          <PendingAllocationsBanner count={pendingCount} onReview={reviewAi} />
+        ) : null}
         {canReviewAi && !onNavigate ? (
           <AllocationDrawer
             open={allocationOpen}
@@ -287,10 +442,13 @@ export function DashboardsPage({ onLogout, onNavigate }) {
                 className={stickyBar}
                 scope={scope}
                 scopeOptions={scopeOptions}
-                onScope={(v) => update({ escopo: v, sprint: null })}
+                onScope={(v) =>
+                  update({ escopo: v, sprint: null, ...(v === "org" ? { pessoa: null } : {}) })
+                }
                 views={view !== "org" ? views.map((v) => ({ value: v, label: VIEW_LABEL[v] })) : []}
                 view={view}
-                onView={(v) => update({ visao: v, aba: null })}
+                onView={(v) => update({ visao: v, aba: null, pessoa: null })}
+                person={personFilter}
                 sprint={
                   sprintFilter
                     ? {
@@ -325,18 +483,44 @@ export function DashboardsPage({ onLogout, onNavigate }) {
               />
             </FiltersOrEditBar>
 
+            {personNotice ? (
+              <p
+                role="status"
+                data-person-notice=""
+                className="border-line-strong bg-bg-elev text-fg mt-0 mb-3 rounded-[var(--radius-sm)] border px-4 py-2 text-[13px]"
+              >
+                {personNotice}
+              </p>
+            ) : null}
+
             {/* com mais de uma sub-aba, o conteúdo é o tabpanel delas (aria-controls) */}
             <div
               {...(tabs.length > 1
                 ? { role: "tabpanel", id: TABPANEL_ID, "aria-labelledby": tabId(tab) }
                 : {})}
             >
-              {view === "individual" && sprintId && tab === "resumo" ? (
+              {view === "individual" && sprintId && tab === "resumo" && personPending ? (
+                <ViewSkeleton />
+              ) : null}
+              {view === "individual" && sprintId && tab === "resumo" && noPersonToShow ? (
+                <p className="text-fg-muted">
+                  {people.isError
+                    ? "Não foi possível carregar as pessoas deste projeto."
+                    : "Não há outras pessoas neste projeto para ver."}
+                </p>
+              ) : null}
+              {view === "individual" &&
+              sprintId &&
+              tab === "resumo" &&
+              !personPending &&
+              !noPersonToShow ? (
                 <IndividualView
                   projectId={scope}
                   sprintId={sprintId}
                   onNavigate={onNavigate}
                   onReviewAi={canReviewAi ? reviewAi : null}
+                  person={person}
+                  onBackToMine={person && selfAvailable ? backToMine : null}
                 />
               ) : null}
               {view === "equipe" && sprintId && tab === "resumo" ? (
