@@ -404,3 +404,18 @@ textarea.ui-field-input {
     animation: none;
   }
 }
+
+/* Wizard do mapeamento Azure: no celular quase a tela toda (margem de 8 px). */
+@media (max-width: 599px) {
+  .ui-modal.ui-modal--wizard {
+    width: calc(100% - 16px);
+    max-height: calc(100dvh - 16px);
+    padding: 16px 14px 14px;
+    gap: 14px;
+  }
+}
+@media (min-width: 600px) {
+  .ui-modal.ui-modal--wizard {
+    max-height: calc(100dvh - 48px);
+  }
+}

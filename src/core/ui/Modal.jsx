@@ -21,6 +21,7 @@ import "./ui.css";
  * @param {boolean} [props.closeOnBackdrop]  padrão fecha no fundo; formulários
  *   de edição devem passar false para não perder edição em curso
  * @param {boolean} [props.busy]  marca a caixa com aria-busy (operação em curso)
+ * @param {string} [props.bodyClassName]  classe extra na área rolável (ex.: scroll-slim)
  * @param {string} [props.className]  classe extra na caixa (pele específica da tela)
  * @param {import("react").ReactNode} [props.footer]  ação do rodapé (botões)
  */
@@ -38,6 +39,7 @@ export function Modal({
   closeOnBackdrop = true,
   busy = false,
   className = "",
+  bodyClassName = "",
   children,
   footer,
 }) {
@@ -85,7 +87,9 @@ export function Modal({
             </div>
           </div>
 
-          <div className="ui-modal-body">{children}</div>
+          <div className={`ui-modal-body${bodyClassName ? " " + bodyClassName : ""}`}>
+            {children}
+          </div>
 
           {footer ? <div className="ui-modal-foot">{footer}</div> : null}
 

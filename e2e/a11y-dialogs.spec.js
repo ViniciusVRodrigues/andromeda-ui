@@ -88,3 +88,44 @@ test("modal de criação fecha no backdrop (comportamento legado preservado)", a
   await page.mouse.click(20, 20);
   await expect(dialog).toHaveCount(0);
 });
+
+test("wizard do mapeamento Azure: focus trap, escape, nomes e foco no título do passo", async ({
+  page,
+}) => {
+  const { orgSlug } = await loginAsAdmin(page);
+  const types = ["Bug", "Epic", "Task"].map((name) => ({ name, referenceName: "X." + name }));
+  await page.route("**/api/v1/integrations/azure/bindings/b1/siblings", (r) =>
+    r.fulfill({ json: [] }),
+  );
+  await page.route("**/api/v1/integrations/azure/bindings/b1", (r) =>
+    r.fulfill({ json: { id: "b1", workflowConfig: { configSource: "DEFAULT" } } }),
+  );
+  await page.route("**/api/v1/integrations/azure/bindings/b1/process/work-item-types", (r) =>
+    r.fulfill({ json: types }),
+  );
+  await page.goto(`/${orgSlug}/projetos?wizard=start&binding=b1`);
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toBeVisible();
+  await expect(dialog).toHaveAccessibleName(/Personalize a integração/);
+
+  await dialog.getByRole("button", { name: /^Continuar/ }).click();
+  await expect(dialog.getByRole("heading", { name: "Tipos de work item" })).toBeFocused();
+
+  for (let i = 0; i < 14; i++) {
+    await page.keyboard.press("Tab");
+    const inside = await dialog.evaluate((el) => el.contains(document.activeElement));
+    expect(inside, `foco escapou do wizard na tecla ${i + 1}`).toBe(true);
+  }
+  for (const b of await dialog.getByRole("button").all()) {
+    await expect(b).toHaveAccessibleName(/.+/);
+  }
+  for (const c of await dialog.getByRole("checkbox").all()) {
+    await expect(c).toHaveAccessibleName(/.+/);
+  }
+  for (const s of await dialog.getByRole("combobox").all()) {
+    await expect(s).toHaveAccessibleName(/.+/);
+  }
+
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+});
