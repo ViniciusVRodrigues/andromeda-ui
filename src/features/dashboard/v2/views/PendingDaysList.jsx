@@ -17,6 +17,7 @@ import React from "react";
 import { AllocationModal } from "../../../ai-usage/components/AllocationModal.jsx";
 import { useAllocateDay } from "../../../ai-usage/hooks/useAllocateDay.js";
 import { fmtUsd } from "../format.js";
+import { wholePercents } from "../../../../core/allocationMath.js";
 
 /* ── formatação ─────────────────────────────────────────────────────────────── */
 
@@ -42,13 +43,6 @@ export function fmtM(tokens) {
 }
 
 export const nDias = (n) => `${n} ${n === 1 ? "dia" : "dias"}`;
-
-/** Percentuais inteiros que somam 100 (a diferença de arredondamento vai para o último). */
-export function wholePercents(splits) {
-  const p = splits.map((s) => Math.round(Number(s.percentage || 0) * 100));
-  if (p.length) p[p.length - 1] += 100 - p.reduce((a, b) => a + b, 0);
-  return p;
-}
 
 /* ── linhas a partir dos payloads ───────────────────────────────────────────── */
 

@@ -34,3 +34,21 @@ export function normalise(items) {
     i === items.length - 1 ? { ...it, pct: Math.max(0, it.pct + diff) } : it,
   );
 }
+
+/**
+ * Percentuais inteiros que somam 100, pelo maior resto: cada split fica com o piso e os pontos
+ * que faltam vão, um a um, aos de maior parte fracionária (empate: o primeiro). Antes a diferença
+ * de arredondamento ia inteira para o último split, e 231 splits de 0,43% viravam 230 × 0% e 100%
+ * no último (ALO3).
+ */
+export function wholePercents(splits) {
+  const raw = splits.map((s) => Math.max(0, Number(s.percentage || 0) * 100));
+  const p = raw.map((v) => Math.floor(v + 1e-9));
+  let missing = 100 - p.reduce((a, b) => a + b, 0);
+  if (!p.length || missing <= 0) return p;
+  const order = raw
+    .map((v, i) => ({ i, frac: v - p[i] }))
+    .sort((a, b) => b.frac - a.frac || a.i - b.i);
+  for (let k = 0; missing > 0; k = (k + 1) % order.length, missing--) p[order[k].i] += 1;
+  return p;
+}
