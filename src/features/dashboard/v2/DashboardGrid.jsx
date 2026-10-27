@@ -41,13 +41,15 @@ export function withSpans(widgets) {
   return widgets.map((w, i) => ({ ...w, s6: s6[i].span, s12: s12[i].span }));
 }
 
-function Cells({ widgets, render }) {
+/* `skeleton`: a silhueta não leva `data-widget-id`; senão quem procura o card (teste, âncora)
+ * o acha no esqueleto, que é trocado (desmontado) quando o dado chega. */
+function Cells({ widgets, render, skeleton = false }) {
   return (
     <div data-dashboard-grid="" className={GRID}>
       {withSpans(widgets).map((w) => (
         <div
           key={w.id}
-          data-widget-id={w.id}
+          {...(skeleton ? {} : { "data-widget-id": w.id })}
           data-size={w.size}
           className={CELL}
           style={{ "--s6": w.s6, "--s12": w.s12 }}
@@ -87,6 +89,7 @@ export function DashboardGrid({ layout, payload, ctx, skeleton = false }) {
             <div key={s.id} className="mt-10 first:mt-2">
               <div className="skeleton mb-4 h-8 w-64 max-w-full" />
               <Cells
+                skeleton
                 widgets={s.widgets}
                 render={(w) => (
                   <div className="skeleton" style={{ height: w.entry.skeletonHeight }} />
