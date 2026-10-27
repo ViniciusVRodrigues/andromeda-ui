@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { loginAsAdmin, gotoSection, shot } from "./auth.mjs";
-import { stubEmptyProjectData } from "./api.mjs";
+import { stubEmptyProjectData, stubUnpricedModels } from "./api.mjs";
 import { installDashboardsApi } from "./dashboards-v2-api.mjs";
 
 // Baseline visual pré-refactor (frontend-foundation, spec frontend-tooling-baseline).
@@ -62,6 +62,14 @@ test.describe("casca autenticada (admin)", () => {
       if (section === "dashboard") await installDashboardsApi(page, { passthrough: true });
       /* Backlog/Repositórios abrem com o projeto escolhido: sem dados dele no replay. */
       if (section === "backlog" || section === "repositorios") await stubEmptyProjectData(page);
+      /* Precificação lista os modelos sem preço: o replay não tem essa resposta. */
+      if (section === "uso-ia/precificacao") {
+        await stubUnpricedModels(page, [
+          { model: "gpt-5.7-sol", outputTokens: 1200000, records: 340, billable: true },
+          { model: "claude-opus-5.6", outputTokens: 48200, records: 57, billable: true },
+          { model: "auto", outputTokens: 9000, records: 12, billable: false },
+        ]);
+      }
       await gotoSection(page, orgSlug, section);
       await shot(page, `shell-${section.replace(/\//g, "-")}`);
     });

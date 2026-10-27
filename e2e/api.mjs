@@ -92,3 +92,17 @@ export async function stubEmptyProjectData(page) {
     json(route, { repos: [], dataFreshness: null }),
   );
 }
+
+/**
+ * Uso de IA · Precificação lista os modelos com uso e sem preço (GET /v1/ai/unpriced-models);
+ * o replay não tem essa resposta. Responde `body` (padrão: nenhum modelo sem preço) e deixa
+ * o resto com o replay. Passe `{ status }` para simular a falha.
+ * @param {import("@playwright/test").Page} page
+ * @param {Array<{model: string, outputTokens: number, records: number, billable: boolean}>} [body]
+ * @param {{ status?: number }} [options]
+ */
+export async function stubUnpricedModels(page, body = [], { status = 200 } = {}) {
+  await page.route("**/api/v1/ai/unpriced-models", (route) =>
+    route.fulfill({ status, contentType: "application/json", body: JSON.stringify(body) }),
+  );
+}

@@ -7,11 +7,20 @@ export function getAllocationsPending() {
 }
 
 /**
- * Replace the org's AI price table.
- * @param {Array<{model: string, pricePerKInput: number, pricePerKOutput: number}>} entries
+ * Replace the org's AI price table. `pricePerKOutput` é obrigatório (pode ser 0, modelo
+ * gratuito); `pricePerKInput` pode ser null (entrada é só referência, fora do custo).
+ * @param {Array<{model: string, pricePerKInput: number|null, pricePerKOutput: number}>} entries
  */
 export function updateAiPrices(entries) {
   return api.put("/v1/organizations/ai-prices", { entries });
+}
+
+/**
+ * Modelos com uso registrado e sem preço de saída na tabela (todo o uso, sem período).
+ * @returns {Promise<Array<{model: string, outputTokens: number, records: number, billable: boolean}>>}
+ */
+export function getUnpricedModels() {
+  return api.get("/v1/ai/unpriced-models");
 }
 
 /**

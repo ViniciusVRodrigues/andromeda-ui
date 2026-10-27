@@ -7434,98 +7434,6 @@ button.signup-perms-cargo:hover .signup-perms-cargo-edit {
   font-size: var(--mono-base, 13px);
   width: 90px;
 }
-.ai-pricing-feedback {
-  margin-top: 12px;
-  font-size: 12px;
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.ai-pricing-feedback.is-success {
-  color: var(--good);
-}
-.ai-pricing-feedback.is-error {
-  color: var(--bad);
-}
-.ai-pricing-table-wrap {
-  overflow-x: auto;
-  border: 1px solid var(--line);
-  border-radius: var(--radius-sm);
-}
-.ai-pricing-table {
-  width: 100%;
-  border-collapse: collapse;
-  min-width: 560px;
-}
-.ai-pricing-table thead th {
-  text-align: left;
-  padding: 12px 16px;
-  font-size: 11px;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  color: var(--fg-muted);
-  background: var(--bg);
-  border-bottom: 1px solid var(--line-strong);
-  white-space: nowrap;
-}
-.ai-pricing-table tbody tr {
-  transition: background 0.12s ease;
-}
-.ai-pricing-table tbody tr:hover {
-  background: color-mix(in srgb, var(--accent) 6%, transparent);
-}
-.ai-pricing-table tbody tr:not(:last-child) td {
-  border-bottom: 1px solid var(--line);
-}
-.ai-pricing-table td {
-  padding: 10px 16px;
-  vertical-align: middle;
-}
-.ai-pricing-cell-input {
-  width: 100%;
-  background: transparent;
-  border: none;
-  outline: none;
-  padding: 4px 0;
-  color: var(--fg);
-  font-family: inherit;
-  font-size: var(--mono-base, 13px);
-  border-bottom: 1px dashed transparent;
-  transition: border-color 0.12s ease;
-}
-.ai-pricing-cell-input:focus {
-  border-bottom-color: var(--accent);
-}
-.ai-pricing-row-remove {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 26px;
-  height: 26px;
-  border-radius: 50%;
-  border: 1px solid transparent;
-  color: var(--fg-muted);
-  background: transparent;
-  cursor: pointer;
-  transition:
-    border-color 0.12s ease,
-    color 0.12s ease;
-}
-.ai-pricing-row-remove:hover {
-  color: var(--bad);
-  border-color: var(--bad);
-}
-.ai-pricing-toolbar {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
-  margin-bottom: 14px;
-}
-.ai-pricing-toolbar-hint {
-  font-size: 11px;
-  color: var(--fg-dim);
-}
 .ai-pricing-import-confirm {
   padding: 12px 16px;
   border: 1px solid var(--accent);
@@ -7536,9 +7444,6 @@ button.signup-perms-cargo:hover .signup-perms-cargo-edit {
   gap: 12px;
   align-items: center;
   flex-wrap: wrap;
-}
-.ai-pricing-add-row-btn {
-  margin-top: 12px;
 }
 
 /* ── Componentes compartilhados ────────────────────────────────────────────
