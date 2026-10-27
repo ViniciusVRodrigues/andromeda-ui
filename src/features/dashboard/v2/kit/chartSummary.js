@@ -79,8 +79,8 @@ export function columnSummary({ data, series, xKey = "label", stacked = false, f
  */
 export function burndownSummary({ data, todayLabel }) {
   if (!data?.length) return "sem dados da sprint";
-  const rem = (r) => r?.remainingPoints ?? r?.remaining ?? null;
-  const idl = (r) => r?.idealPoints ?? r?.ideal ?? null;
+  const rem = (r) => r?.remainingPoints ?? null;
+  const idl = (r) => r?.idealPoints ?? null;
   const withValue = data.map((r, i) => (rem(r) != null ? i : -1)).filter((i) => i >= 0);
   if (!withValue.length) return "sem dados da sprint";
   const today = data.findIndex((r) => r?.label === todayLabel);

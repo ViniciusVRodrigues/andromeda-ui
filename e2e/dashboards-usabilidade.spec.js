@@ -24,7 +24,8 @@ const THEMES = {
 
 const rep = (arr, n, f) =>
   Array.from({ length: n }, (_, k) => arr.map((x, i) => f(structuredClone(x), k, i))).flat();
-const zeroHist = (h) => h.map((s) => ({ ...s, aiCostUsd: 0, aiTokens: 0, aiCostPerSp: null }));
+const zeroHist = (h) =>
+  h.map((s) => ({ ...s, aiCostUsd: 0, aiTokens: 0, aiCostPerPoint: null, aiCostPerHour: null }));
 
 const EMPTY = {
   individual(j) {
@@ -42,11 +43,18 @@ const EMPTY = {
     Object.assign(j.kpis, {
       aiCostUsd: 0,
       aiTokens: 0,
-      avgTokensPerSp: null,
+      avgTokensPerPoint: null,
+      avgTokensPerHour: null,
       prsMerged: 0,
       prsOpen: 0,
     });
-    j.items = j.items.map((i) => ({ ...i, aiCostUsd: null, tokensPerSp: null, pr: null }));
+    j.items = j.items.map((i) => ({
+      ...i,
+      aiCostUsd: null,
+      tokensPerPoint: null,
+      tokensPerHour: null,
+      pr: null,
+    }));
     j.history = zeroHist(j.history);
     return j;
   },
@@ -64,7 +72,8 @@ const EMPTY = {
     j.members = j.members.map((m) => ({
       ...m,
       aiCostUsd: 0,
-      avgTokensPerSp: null,
+      avgTokensPerPoint: null,
+      avgTokensPerHour: null,
       prsOpened: 0,
       prsMerged: 0,
       reviewsGiven: 0,
@@ -73,7 +82,8 @@ const EMPTY = {
     }));
     Object.assign(j.kpis, {
       aiCostUsd: 0,
-      aiCostPerSp: null,
+      aiCostPerPoint: null,
+      aiCostPerHour: null,
       prsMerged: 0,
       openPrs: 0,
       stalePrs: 0,
@@ -82,7 +92,8 @@ const EMPTY = {
     j.agingItems = j.agingItems.map((i) => ({
       ...i,
       aiCostUsd: null,
-      tokensPerSp: null,
+      tokensPerPoint: null,
+      tokensPerHour: null,
       pr: null,
     }));
     j.history = zeroHist(j.history);
@@ -94,20 +105,27 @@ const EMPTY = {
       costByBucket: [],
       adoption: { activeUsers: 0, members: j.project.memberCount },
       subscription: { consumptionUsd: 0, subscriptionUsd: null, perUserMonthUsd: null },
-      tokensPerSp: null,
+      tokensPerPoint: null,
+      tokensPerHour: null,
     };
     j.repos = [];
     j.prFlow = j.prFlow.map((b) => ({ ...b, opened: 0, merged: 0, timeToFirstReviewHours: null }));
     Object.assign(j.kpis, {
       aiCostUsd: 0,
-      aiCostPerSp: null,
+      aiCostPerPoint: null,
+      aiCostPerHour: null,
       prsMerged: 0,
       stalePrs: 0,
       commitsCount: 0,
       prCycleTimeHours: null,
       timeToFirstReviewHours: null,
     });
-    j.sprints = j.sprints.map((s) => ({ ...s, aiCostUsd: 0, aiCostPerSp: null }));
+    j.sprints = j.sprints.map((s) => ({
+      ...s,
+      aiCostUsd: 0,
+      aiCostPerPoint: null,
+      aiCostPerHour: null,
+    }));
     j.people = { ...j.people, githubLinked: 0, aiConnected: 0 };
     j.dataQuality = { ...j.dataQuality, prsLinkedPct: 0, aiDaysAllocatedPct: 0 };
     j.dora.method = "BOARDS_PROXY";
@@ -130,8 +148,19 @@ const EMPTY = {
         usersAboveSubscription: 0,
       },
     };
-    Object.assign(j.kpis, { aiCostUsd: 0, aiTokens: 0, aiCostPerSp: null, activeAiUsers: 0 });
-    j.portfolio = j.portfolio.map((p) => ({ ...p, aiCostUsd: 0, aiCostPerSp: null }));
+    Object.assign(j.kpis, {
+      aiCostUsd: 0,
+      aiTokens: 0,
+      aiCostPerPoint: null,
+      aiCostPerHour: null,
+      activeAiUsers: 0,
+    });
+    j.portfolio = j.portfolio.map((p) => ({
+      ...p,
+      aiCostUsd: 0,
+      aiCostPerPoint: null,
+      aiCostPerHour: null,
+    }));
     return j;
   },
 };

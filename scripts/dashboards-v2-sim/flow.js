@@ -215,7 +215,7 @@ export function buildTeamFlow({ projectId, sprintId }) {
       removedCount: scope.removedCount,
       carriedSp: scope.carriedSp,
       carriedCount: scope.carriedCount,
-      atRiskSp: isCurrent
+      points: isCurrent
         ? sum(
             items.filter((i) => i.status !== "DONE"),
             (i) => i.effort,

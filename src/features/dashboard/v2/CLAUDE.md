@@ -82,7 +82,7 @@ Estado na URL: `?escopo=org|<projectId>&visao=individual|equipe|projeto&aba=&spr
 **Fora até existir a coleta** (decisão 4; removidos do catálogo **e** das sub-abas fixas): quadro por coluna,
 horas restantes, trocas de responsável, escopo (entrou/saiu/transbordou), bugs por severidade, fila por revisor,
 entregue por área, matriz e tempo por severidade, motivo de fechamento, issues de bug, rate limit e a
-configuração na aba de integrações. O `scope.atRiskSp` do `/team/flow` fica sem uso até a coleta de escopo (C2).
+configuração na aba de integrações. O `scope.points` do `/team/flow` fica sem uso até a coleta de escopo (C2).
 
 ## Regras visuais
 

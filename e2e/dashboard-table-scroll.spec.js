@@ -16,7 +16,7 @@ const REPOS = ["portal-api", "portal-web", "andromeda-ms-billing-service", "infr
 
 /** 28 PRs: i%7 = 0 MERGED+stale, 1 OPEN, 2 OPEN+stale, 3 CLOSED+stale, resto MERGED. */
 function manyPayload(nPrs = 28) {
-  const base = readFixture(FIXTURE);
+  const base = readFixture(FIXTURE, { bare: true });
   const tpl = base.pullRequests[0];
   const prs = [];
   for (let i = 0; i < nPrs; i++) {

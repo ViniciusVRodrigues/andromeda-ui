@@ -57,21 +57,20 @@ test.describe("kit de medidas", () => {
     const out = await page.evaluate(async (url) => {
       const a = await import(/* @vite-ignore */ url);
       const ind = a.adaptIndividual({
-        kpis: { spPlanned: 15, complexityPlanned: 15, effortLogged: 12 },
-        burndown: [{ remaining: 5, remainingPoints: 5 }, { remaining: 4 }],
+        kpis: { complexityPlanned: 15, effortLogged: 12 },
+        burndown: [{ remainingPoints: 5 }, {}],
         items: [{ complexity: 3, effortRolledUp: 12 }, { complexity: null }],
       });
       const rm = a.adaptRoadmap({
         epics: [{ complexityTotal: 108 }],
-        backlog: { sp: 1, points: 9, forgotten: [{ effort: 5 }], byTag: [{ sp: 2 }] },
+        backlog: { points: 9, forgotten: [{ effort: 5 }], byTag: [{}] },
       });
       const org = a.adaptOrganization({
-        portfolio: [{ currentSprint: { spDone: 1, pointsDone: 1 } }],
+        portfolio: [{ currentSprint: { pointsDone: 1 } }],
       });
       return { ind, rm, org };
     }, API);
     expect(out.ind.kpis.complexityPlanned).toBe(15);
-    expect(out.ind.kpis.spPlanned).toBe(15);
     expect(out.ind.kpis.effortLogged).toBe(12);
     expect(out.ind.kpis.avgTokensPerPoint).toBeNull();
     expect(out.ind.kpis.unitsWithoutComplexity).toBeNull();
