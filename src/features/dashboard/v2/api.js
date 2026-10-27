@@ -417,11 +417,27 @@ export async function getProjectSprints(projectId) {
 
 /* ── dados das visões ─────────────────────────────────────────────────── */
 
-/** GET /v1/dashboards/individual?projectId=&sprintId= — DASHBOARD_INDIVIDUAL (a pessoa vem do JWT). */
-export async function getIndividualDashboard({ projectId, sprintId }) {
+/**
+ * GET /v1/dashboards/individual?projectId=&sprintId=&userId= — sem `userId` a pessoa vem do JWT
+ * (DASHBOARD_INDIVIDUAL); com `userId` de outra pessoa o servidor exige DASHBOARD_TEAM no projeto.
+ */
+export async function getIndividualDashboard({ projectId, sprintId, userId }) {
   return adaptIndividual(
-    await api.get(`/v1/dashboards/individual${toQuery({ projectId, sprintId })}`),
+    await api.get(`/v1/dashboards/individual${toQuery({ projectId, sprintId, userId })}`),
   );
+}
+
+/**
+ * GET /v1/dashboards/individual/people?projectId= — quem se pode ver no projeto (DASHBOARD_TEAM):
+ * `[{ id, name, jobTitle|null }]`, membros ativos, ordem alfabética.
+ */
+export async function getIndividualPeople(projectId) {
+  const list = await api.get(`/v1/dashboards/individual/people${toQuery({ projectId })}`);
+  return (Array.isArray(list) ? list : []).map((p) => ({
+    id: p.id,
+    name: p.name,
+    jobTitle: p.jobTitle ?? null,
+  }));
 }
 
 /** GET /v1/dashboards/team?projectId=&sprintId= — DASHBOARD_TEAM no projeto. */

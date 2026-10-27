@@ -14,9 +14,11 @@ import {
   fmtUsd,
 } from "../../format.js";
 import { KpiRow, KpiTile } from "../../kit/Kpi.jsx";
+import { useT } from "../../subject.jsx";
 
 /** @param {{ data: ReturnType<typeof selectKpis> }} props */
 export function KpisWidget({ data }) {
+  const t = useT();
   const { k, prev, isCurrent, vs, inProgress } = data;
   return (
     <KpiRow label="Indicadores pessoais da sprint">
@@ -43,7 +45,10 @@ export function KpisWidget({ data }) {
         label="Esforço registrado"
         value={fmtHours(k.effortLogged)}
         hint="horas das tarefas concluídas"
-        title="Soma do esforço (horas) das Tasks dos seus itens concluídos na sprint"
+        title={t(
+          "Soma do esforço (horas) das Tasks dos seus itens concluídos na sprint",
+          (n) => `Soma do esforço (horas) das Tasks dos itens concluídos por ${n} na sprint`,
+        )}
       />
       <KpiTile
         label="Itens concluídos"
@@ -55,7 +60,11 @@ export function KpisWidget({ data }) {
         label="Cycle time (mediana)"
         value={fmtDuration(k.avgCycleTimeHours)}
         hint={fmtDsSpread(k.avgCycleTimeHoursDs) || "início → conclusão"}
-        title="Mediana (p50) do tempo entre o início e a conclusão dos seus itens concluídos na sprint"
+        title={t(
+          "Mediana (p50) do tempo entre o início e a conclusão dos seus itens concluídos na sprint",
+          (n) =>
+            `Mediana (p50) do tempo entre o início e a conclusão dos itens concluídos por ${n} na sprint`,
+        )}
         delta={{
           current: k.avgCycleTimeHours,
           previous: prev?.avgCycleTimeHours,
@@ -83,8 +92,8 @@ export function KpisWidget({ data }) {
         value={fmtTokensCompact(k.avgTokensPerPoint)}
         hint={
           isNum(k.avgTokensPerHour)
-            ? `média dos seus itens · ${fmtTokensCompact(k.avgTokensPerHour)} por hora`
-            : "média dos seus itens"
+            ? `${t("média dos seus itens", (n) => `média dos itens de ${n}`)} · ${fmtTokensCompact(k.avgTokensPerHour)} por hora`
+            : t("média dos seus itens", (n) => `média dos itens de ${n}`)
         }
         delta={{
           current: k.avgTokensPerPoint,

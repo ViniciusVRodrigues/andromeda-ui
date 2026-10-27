@@ -17,6 +17,7 @@
  */
 
 import React from "react";
+import { sectionText, useSubject } from "./subject.jsx";
 import { useNavigate } from "react-router-dom";
 import { useIdentity } from "../../../core/auth/IdentityContext.jsx";
 import { orgRoute } from "../../../lib/orgRoutes.js";
@@ -142,11 +143,12 @@ function MigrationNotice({ layout }) {
 }
 
 function ReadGrid({ sections, payload, ctx, viewKey }) {
+  const subject = useSubject();
   return (
     <div className="@container">
       <div className="mx-auto w-full max-w-[1600px]">
         {sections.map((s) => (
-          <Section key={s.id} id={s.domId} title={s.title} question={s.question}>
+          <Section key={s.id} id={s.domId} {...sectionText(s, subject)}>
             <SectionBody section={s} payload={payload} ctx={ctx} viewKey={viewKey} />
           </Section>
         ))}
@@ -157,6 +159,7 @@ function ReadGrid({ sections, payload, ctx, viewKey }) {
 
 /** Um aviso só para a seção Código da Individual sem VCS vinculado (em vez de um por card). */
 function VcsNotice() {
+  const subject = useSubject();
   const navigate = useNavigate();
   const ident = useIdentity();
   return (
@@ -165,15 +168,19 @@ function VcsNotice() {
       className="border-line bg-bg-elev flex max-h-[160px] flex-col items-start gap-1 rounded-[var(--radius-sm)] border px-5 py-4"
     >
       <p className="mono text-fg-muted m-0 text-[length:var(--mono-sm)] font-normal">
-        Vincule sua conta do GitHub ou do Azure Repos no perfil para ver commits, PRs e reviews.
+        {subject.self
+          ? "Vincule sua conta do GitHub ou do Azure Repos no perfil para ver commits, PRs e reviews."
+          : `${subject.first} ainda não vinculou a conta do GitHub ou do Azure Repos; por isso não há commits, PRs e reviews.`}
       </p>
-      <button
-        type="button"
-        onClick={() => navigate(orgRoute(ident.orgSlug, "perfil"))}
-        className="mono text-accent-text focus-visible:outline-accent inline-flex min-h-[44px] cursor-pointer items-center border-0 bg-transparent px-0 text-[13px] underline focus-visible:outline-2 focus-visible:outline-offset-2"
-      >
-        Abrir perfil
-      </button>
+      {subject.self ? (
+        <button
+          type="button"
+          onClick={() => navigate(orgRoute(ident.orgSlug, "perfil"))}
+          className="mono text-accent-text focus-visible:outline-accent inline-flex min-h-[44px] cursor-pointer items-center border-0 bg-transparent px-0 text-[13px] underline focus-visible:outline-2 focus-visible:outline-offset-2"
+        >
+          Abrir perfil
+        </button>
+      ) : null}
     </div>
   );
 }

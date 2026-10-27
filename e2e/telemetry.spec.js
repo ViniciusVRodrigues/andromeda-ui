@@ -715,6 +715,8 @@ test.describe("createTracker: ACTION (VAL4)", () => {
       [{ sprint: "665f1c2e9b1e8a0012345678" }, ["DASHBOARD_SPRINT", "anterior"]],
       [{ sprint: null }, ["DASHBOARD_SPRINT", "atual"]],
       [{ periodo: 365 }, ["DASHBOARD_PERIOD", "365"]],
+      [{ pessoa: "665f1c2e9b1e8a0012345678" }, ["DASHBOARD_PERSON", "outra"]],
+      [{ pessoa: null }, ["DASHBOARD_PERSON", "propria"]],
       [
         { escopo: "665f1c2e9b1e8a0012345678", visao: "projeto", aba: null, sprint: null },
         ["DASHBOARD_SCOPE", "projeto"],

@@ -33,6 +33,7 @@
  * seção inteira mostrar UM aviso quando todos os cards estão sem uso de IA.
  */
 
+import { useSubject } from "../subject.jsx";
 import React from "react";
 import { useNavigate } from "react-router-dom";
 import { useIdentity } from "../../../../core/auth/IdentityContext.jsx";
@@ -67,11 +68,14 @@ export const AI_EMPTY_TEXT = {
 export function AiEmpty({ person = false, kind = "usage", block = false }) {
   const navigate = useNavigate();
   const ident = useIdentity();
+  const subject = useSubject();
   const text =
     kind === "subscription"
       ? AI_EMPTY_TEXT.subscription
       : person
-        ? AI_EMPTY_TEXT.person
+        ? subject.self
+          ? AI_EMPTY_TEXT.person
+          : `${subject.first} ainda não enviou uso de IA nesta sprint.`
         : AI_EMPTY_TEXT.team;
   return (
     <div
@@ -90,7 +94,7 @@ export function AiEmpty({ person = false, kind = "usage", block = false }) {
       >
         {text}
       </p>
-      {person && kind === "usage" ? (
+      {person && kind === "usage" && subject.self ? (
         <button
           type="button"
           onClick={() => navigate(orgRoute(ident.orgSlug, "perfil"))}

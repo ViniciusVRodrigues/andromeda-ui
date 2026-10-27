@@ -1,6 +1,7 @@
 /* Widgets da visão Individual — seção "Uso de IA". */
 
 import React from "react";
+import { useSubject, useT } from "../../subject.jsx";
 import {
   axisTokensM,
   fmtHours,
@@ -136,15 +137,21 @@ export const selectAllocation = (d) => {
 };
 
 export function AllocationWidget({ data }) {
+  const t = useT();
+  const subject = useSubject();
   const { allocation: a, open } = data;
   return (
     <Panel
       eyebrow="alocação"
       title="Uso de IA distribuído nos itens"
       sources={["ia", "azure"]}
-      info="Quantos dias de uso de IA desta sprint já foram para os seus itens, quantos esperam a sua alocação e quantos não têm sugestão. A alocação é feita na faixa Uso de IA para alocar, acima do Resumo."
+      info={t(
+        "Quantos dias de uso de IA desta sprint já foram para os seus itens, quantos esperam a sua alocação e quantos não têm sugestão. A alocação é feita na faixa Uso de IA para alocar, acima do Resumo.",
+        (n) =>
+          `Quantos dias de uso de IA desta sprint já foram para os itens de ${n}, quantos esperam alocação e quantos não têm sugestão.`,
+      )}
       actions={
-        open > 0 ? (
+        open > 0 && subject.self ? (
           <button
             type="button"
             onClick={focusAllocationStrip}

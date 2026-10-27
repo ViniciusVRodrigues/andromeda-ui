@@ -2,6 +2,7 @@
  * widget mostra o mesmo convite a vincular (o catálogo não tem estado por seção). */
 
 import React from "react";
+import { useT } from "../../subject.jsx";
 import { fmtDuration } from "../../format.js";
 import { PrPill } from "../../kit/Badges.jsx";
 import { SegmentBar } from "../../kit/Bars.jsx";
@@ -52,21 +53,31 @@ export const selectPullRequests = (d) => ({
 });
 
 export function PullRequestsWidget({ data }) {
+  const t = useT();
   return (
     <Panel
       eyebrow={
         data.linked && data.rows.length ? `pull requests · ${data.rows.length}` : "pull requests"
       }
-      title="Meus PRs na sprint"
+      title={t("Meus PRs na sprint", (n) => `PRs de ${n} na sprint`)}
       sources={["github", "azure"]}
-      info="PRs que você abriu ou fechou na sprint, mais os ainda abertos. Parado = aberto há mais de 24 h sem review. 1ª review = tempo até a primeira review. Work item = o AB# citado na branch, no título ou na descrição."
+      info={t(
+        "PRs que você abriu ou fechou na sprint, mais os ainda abertos. Parado = aberto há mais de 24 h sem review. 1ª review = tempo até a primeira review. Work item = o AB# citado na branch, no título ou na descrição.",
+        (n) =>
+          `PRs que ${n} abriu ou fechou na sprint, mais os ainda abertos. Parado = aberto há mais de 24 h sem review. 1ª review = tempo até a primeira review. Work item = o AB# citado na branch, no título ou na descrição.`,
+      )}
     >
       {!data.linked ? (
-        <Empty>{NOT_LINKED}</Empty>
+        <Empty>
+          {t(
+            NOT_LINKED,
+            (n) => `${n} ainda não vinculou a conta do GitHub ou do Azure Repos no perfil.`,
+          )}
+        </Empty>
       ) : data.rows.length ? (
         <DataTable rowKey={(r) => r.id} rows={data.rows} columns={PR_COLUMNS} scroll />
       ) : (
-        <Empty>Nenhum PR seu nesta sprint.</Empty>
+        <Empty>{t("Nenhum PR seu nesta sprint.", (n) => `Nenhum PR de ${n} nesta sprint.`)}</Empty>
       )}
     </Panel>
   );
@@ -75,16 +86,26 @@ export function PullRequestsWidget({ data }) {
 export const selectReviews = (d) => ({ linked: d.person.githubLinked, reviews: d.reviewsGiven });
 
 export function ReviewsWidget({ data }) {
+  const t = useT();
   const r = data.reviews;
   return (
     <Panel
       eyebrow="colaboração"
-      title="Reviews que fiz"
+      title={t("Reviews que fiz", (n) => `Reviews de ${n}`)}
       sources={["github"]}
-      info="Reviews enviadas por você em PRs do projeto durante a sprint, pelo resultado registrado no GitHub."
+      info={t(
+        "Reviews enviadas por você em PRs do projeto durante a sprint, pelo resultado registrado no GitHub.",
+        (n) =>
+          `Reviews enviadas por ${n} em PRs do projeto durante a sprint, pelo resultado registrado no GitHub.`,
+      )}
     >
       {!data.linked ? (
-        <Empty>{NOT_LINKED}</Empty>
+        <Empty>
+          {t(
+            NOT_LINKED,
+            (n) => `${n} ainda não vinculou a conta do GitHub ou do Azure Repos no perfil.`,
+          )}
+        </Empty>
       ) : (
         <>
           <div className="mb-3 flex items-baseline gap-2">
@@ -107,12 +128,16 @@ export function ReviewsWidget({ data }) {
 export const selectCommits = (d) => ({ linked: d.person.githubLinked, rows: d.commitsByDay });
 
 export function CommitsWidget({ data }) {
+  const t = useT();
   return (
     <Panel
       eyebrow="atividade"
       title="Commits por dia"
       sources={["github"]}
-      info="Commits de autoria sua nos repositórios do projeto, por dia útil da sprint."
+      info={t(
+        "Commits de autoria sua nos repositórios do projeto, por dia útil da sprint.",
+        (n) => `Commits de autoria de ${n} nos repositórios do projeto, por dia útil da sprint.`,
+      )}
       table={
         data.linked
           ? {
@@ -126,7 +151,12 @@ export function CommitsWidget({ data }) {
       }
     >
       {!data.linked ? (
-        <Empty>{NOT_LINKED}</Empty>
+        <Empty>
+          {t(
+            NOT_LINKED,
+            (n) => `${n} ainda não vinculou a conta do GitHub ou do Azure Repos no perfil.`,
+          )}
+        </Empty>
       ) : (
         <ColumnChart
           data={data.rows}

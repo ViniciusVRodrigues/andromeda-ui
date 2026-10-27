@@ -11,6 +11,7 @@ import {
   getTeamFlow,
   getDashboardProjects,
   getIndividualDashboard,
+  getIndividualPeople,
   getOrganizationDashboard,
   getProjectOverview,
   getProjectSprints,
@@ -24,7 +25,14 @@ import { getAllocationsPending } from "../../ai-usage/api.js";
 export const dashboardsKeys = {
   projects: (userId) => ["dashboards-v2", "projects", userId ?? null],
   sprints: (projectId) => ["dashboards-v2", "sprints", projectId],
-  individual: (p) => ["dashboards-v2", "individual", p.projectId, p.sprintId ?? "current"],
+  individual: (p) => [
+    "dashboards-v2",
+    "individual",
+    p.projectId,
+    p.sprintId ?? "current",
+    p.userId ?? "me",
+  ],
+  people: (projectId) => ["dashboards-v2", "individual-people", projectId],
   team: (p) => ["dashboards-v2", "team", p.projectId, p.sprintId ?? "current"],
   project: (p) => ["dashboards-v2", "project", p.projectId, p.periodDays],
   organization: (p) => ["dashboards-v2", "organization", p.periodDays],
@@ -60,6 +68,17 @@ export function useIndividualDashboard(params) {
     queryFn: () => getIndividualDashboard(params),
     enabled: !!params.projectId,
     placeholderData: keepPreviousData,
+  });
+}
+
+/** Pessoas que se pode ver na Individual do projeto; só busca com `enabled` (DASHBOARD_TEAM). */
+export function useIndividualPeople(projectId, enabled) {
+  return useQuery({
+    queryKey: dashboardsKeys.people(projectId),
+    queryFn: () => getIndividualPeople(projectId),
+    enabled: !!projectId && !!enabled,
+    staleTime: 5 * 60_000,
+    retry: false,
   });
 }
 

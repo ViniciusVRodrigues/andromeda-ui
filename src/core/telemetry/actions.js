@@ -16,6 +16,8 @@ export const ACTIONS = {
   DASHBOARD_SPRINT: "DASHBOARD_SPRINT",
   /** Período; valor = dias (30, 90, 180, 365). */
   DASHBOARD_PERIOD: "DASHBOARD_PERIOD",
+  /** Pessoa vista na Individual; valor = outra | propria (nunca o id da pessoa). */
+  DASHBOARD_PERSON: "DASHBOARD_PERSON",
   /** Abriu o detalhe de um work item (backlog ou dashboard; a tela diz onde); sem valor. */
   WORK_ITEM_OPEN: "WORK_ITEM_OPEN",
   /** Salvou um campo manual do item; valor = complexity | effort. */
@@ -50,6 +52,8 @@ export function dashboardFilterAction(patch) {
       return [ACTIONS.DASHBOARD_TAB, slug(v)];
     case "sprint":
       return [ACTIONS.DASHBOARD_SPRINT, v == null || v === "" ? "atual" : "anterior"];
+    case "pessoa":
+      return [ACTIONS.DASHBOARD_PERSON, v == null || v === "" ? "propria" : "outra"];
     case "periodo":
       return [ACTIONS.DASHBOARD_PERIOD, slug(v)];
     default:

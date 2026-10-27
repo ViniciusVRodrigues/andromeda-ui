@@ -3,6 +3,7 @@
  * `AiCrossCard`. O módulo também exporta os auxiliares que a Equipe reutiliza. */
 
 import React from "react";
+import { useT } from "../../subject.jsx";
 import {
   axisHours,
   axisTokensM,
@@ -241,6 +242,7 @@ export function withWithoutReading({ rows, nWith, nWithout }) {
 /* ── componentes ── */
 
 export function IaSprintWidget({ data }) {
+  const t = useT();
   /* tokens | US$ (herdado do antigo "Custo de IA por sprint", hoje alias deste card) */
   const [unit, setUnit] = React.useState("tokens");
   return (
@@ -263,7 +265,7 @@ export function IaSprintWidget({ data }) {
       metric={SERIES.sprintPoints}
       rows={data.rows}
       help="Tokens de IA e complexidade (pts) entregue e planejada de cada sprint."
-      basis="seu uso de IA por sprint"
+      basis={t("seu uso de IA por sprint", (n) => `uso de IA de ${n} por sprint`)}
       sources={["ia", "azure"]}
       person
       noAi={data.empty}
@@ -273,12 +275,20 @@ export function IaSprintWidget({ data }) {
 }
 
 export function IaPorPontoWidget({ data }) {
+  const t = useT();
   return (
     <IaPerPointCard
       question="A IA ficou mais barata por ponto entregue?"
       rows={data.rows}
-      help="Seu uso de IA ÷ pontos de complexidade entregues, ou ÷ horas registradas nas tarefas, em tokens ou US$; sem divisor a razão fica em branco."
-      basis="seu uso de IA ÷ complexidade entregue ou horas"
+      help={t(
+        "Seu uso de IA ÷ pontos de complexidade entregues, ou ÷ horas registradas nas tarefas, em tokens ou US$; sem divisor a razão fica em branco.",
+        (n) =>
+          `O uso de IA de ${n} ÷ pontos de complexidade entregues, ou ÷ horas registradas nas tarefas, em tokens ou US$; sem divisor a razão fica em branco.`,
+      )}
+      basis={t(
+        "seu uso de IA ÷ complexidade entregue ou horas",
+        (n) => `uso de IA de ${n} ÷ complexidade entregue ou horas`,
+      )}
       person
       noAi={data.empty}
     />
@@ -286,6 +296,7 @@ export function IaPorPontoWidget({ data }) {
 }
 
 export function IaCycleWidget({ data }) {
+  const t = useT();
   return (
     <AiCrossCard
       eyebrow="cycle time"
@@ -294,8 +305,11 @@ export function IaCycleWidget({ data }) {
       ia={SERIES.tokens}
       metric={SERIES.cycle}
       rows={data.rows}
-      help="Tokens de IA e cycle time mediano dos seus itens em cada sprint."
-      basis="seu uso de IA por sprint"
+      help={t(
+        "Tokens de IA e cycle time mediano dos seus itens em cada sprint.",
+        (n) => `Tokens de IA e cycle time mediano dos itens de ${n} em cada sprint.`,
+      )}
+      basis={t("seu uso de IA por sprint", (n) => `uso de IA de ${n} por sprint`)}
       sources={["ia", "azure"]}
       person
       noAi={data.empty}
