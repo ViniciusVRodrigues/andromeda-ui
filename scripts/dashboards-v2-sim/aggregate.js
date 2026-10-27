@@ -170,7 +170,7 @@ export function itemView(it, { w, prById }) {
     daysInProgress: it.status === "IN_PROGRESS" && it.startedAt ? (ref - it.startedAt) / DAY : null,
     aiCostUsd: it.aiCostUsd || null, // CX-001
     aiTokens: it.aiTokens || null,
-    tokensPerSp: it.effort && it.aiTokens ? it.aiTokens / it.effort : null, // CX-002
+    tokensPerPoint: it.effort && it.aiTokens ? it.aiTokens / it.effort : null, // CX-002
     pr: pr
       ? {
           number: pr.number,
@@ -222,8 +222,8 @@ function burndown(items, sprint) {
     return {
       date: dayKey(d),
       label: fmtDayMonth(d),
-      remaining: future ? null : Math.max(0, total - done),
-      ideal: Math.round(total * (1 - i / Math.max(1, days.length - 1)) * 10) / 10,
+      remainingPoints: future ? null : Math.max(0, total - done),
+      idealPoints: Math.round(total * (1 - i / Math.max(1, days.length - 1)) * 10) / 10,
     };
   });
 }
@@ -304,8 +304,8 @@ function memberSprintStats(userId, items, window, projectId, w) {
     githubLinked: person.githubLinked,
     itemsDone: done.length,
     itemsTotal: mine.length,
-    spPlanned: sum(mine, (i) => i.effort),
-    spDelivered: sum(done, (i) => i.effort),
+    complexityPlanned: sum(mine, (i) => i.effort),
+    complexityDelivered: sum(done, (i) => i.effort),
     wip: mine.filter((i) => i.status === "IN_PROGRESS").length,
     avgCycleTimeHours: avg(done, (i) => i.cycleTimeHours),
     prsOpened: person.githubLinked
@@ -324,7 +324,7 @@ function memberSprintStats(userId, items, window, projectId, w) {
       : null, // GH-048
     aiCostUsd: person.aiConnected ? sum(usage, (r) => r.costUsd) : null, // CX-006
     aiTokens: person.aiConnected ? sum(usage, (r) => r.inputTokens + r.outputTokens) : null,
-    avgTokensPerSp: avg(withSp, (i) => i.aiTokens / i.effort), // CX-003/CX-006
+    avgTokensPerPoint: avg(withSp, (i) => i.aiTokens / i.effort), // CX-003/CX-006
   };
 }
 
@@ -385,8 +385,8 @@ export function buildIndividual({ projectId, sprintId, userId = ME }) {
     const withSp = items.filter((i) => i.effort && i.aiTokens);
     const prs = w.prs.filter((p) => p.projectId === projectId && p.authorId === userId);
     return {
-      spPlanned: sum(items, (i) => i.effort),
-      spDelivered: sum(done, (i) => i.effort),
+      complexityPlanned: sum(items, (i) => i.effort),
+      complexityDelivered: sum(done, (i) => i.effort),
       itemsDone: done.length,
       itemsTotal: items.length,
       avgCycleTimeHours: avg(done, (i) => i.cycleTimeHours), // AZ-076 (da pessoa)
@@ -398,7 +398,7 @@ export function buildIndividual({ projectId, sprintId, userId = ME }) {
       ), // GH-068
       aiCostUsd: sum(usage, (r) => r.costUsd), // CX-004
       aiTokens: sum(usage, (r) => r.inputTokens + r.outputTokens),
-      avgTokensPerSp: avg(withSp, (i) => i.aiTokens / i.effort), // CX-003
+      avgTokensPerPoint: avg(withSp, (i) => i.aiTokens / i.effort), // CX-003
     };
   };
 
@@ -495,8 +495,8 @@ export function buildIndividual({ projectId, sprintId, userId = ME }) {
         name: s.name,
         isSelected: s.id === sprint.id,
         isCurrent: s.timeFrame === "CURRENT",
-        spPlanned: st.spPlanned,
-        spDelivered: st.spDelivered,
+        complexityPlanned: st.complexityPlanned,
+        complexityDelivered: st.complexityDelivered,
         avgCycleTimeHours: st.avgCycleTimeHours,
         aiCostUsd: st.aiCostUsd,
         aiTokens: st.aiTokens,
@@ -523,13 +523,13 @@ export function buildTeam({ projectId, sprintId }) {
     const usage = w.aiUsage.filter(
       (r) => members.includes(r.userId) && within(r.day, sw.start, sw.end),
     );
-    const spDelivered = sum(done, (i) => i.effort);
+    const complexityDelivered = sum(done, (i) => i.effort);
     const created = w.prs.filter(
       (p) => p.projectId === projectId && within(p.createdAt, sw.start, sw.end),
     );
     return {
-      spPlanned: sum(items, (i) => i.effort),
-      spDelivered, // AZ-075 velocity
+      complexityPlanned: sum(items, (i) => i.effort),
+      complexityDelivered, // AZ-075 velocity
       itemsDone: done.length, // AZ-078
       itemsTotal: items.length, // AZ-079
       itemsWithPoints: items.filter((i) => i.effort != null).length, // AZ-080
@@ -537,9 +537,9 @@ export function buildTeam({ projectId, sprintId }) {
       avgCycleTimeHours: avg(done, (i) => i.cycleTimeHours), // AZ-076
       avgLeadTimeHours: avg(done, (i) => i.leadTimeHours), // AZ-077
       aiCostUsd: sum(usage, (r) => r.costUsd), // CX-007
-      aiCostPerSp: ratio(
+      aiCostPerPoint: ratio(
         sum(usage, (r) => r.costUsd),
-        spDelivered,
+        complexityDelivered,
       ),
       avgTimeToFirstReviewHours: avg(created, (p) => p.timeToFirstReviewHours), // GH-066
       prsMerged: w.prs.filter(
@@ -593,7 +593,7 @@ export function buildTeam({ projectId, sprintId }) {
     p85CycleHours,
     members: members
       .map((m) => memberSprintStats(m, items, win, projectId, w))
-      .sort((a, b) => b.spDelivered - a.spDelivered),
+      .sort((a, b) => b.complexityDelivered - a.complexityDelivered),
     stalePrs: stale.map((p) => prView(p, w)), // CX-009
     repos: project.repos.map((repo) => {
       const rp = projectPrs.filter((p) => p.repo === repo);
@@ -634,12 +634,14 @@ export function buildTeam({ projectId, sprintId }) {
         name: s.name,
         isSelected: s.id === sprint.id,
         isCurrent: s.timeFrame === "CURRENT",
-        spPlanned: st.spPlanned,
-        spDelivered: st.spDelivered,
-        predictabilityPct: st.spPlanned ? (st.spDelivered / st.spPlanned) * 100 : null,
+        complexityPlanned: st.complexityPlanned,
+        complexityDelivered: st.complexityDelivered,
+        predictabilityPct: st.complexityPlanned
+          ? (st.complexityDelivered / st.complexityPlanned) * 100
+          : null,
         avgCycleTimeHours: st.avgCycleTimeHours,
         aiCostUsd: st.aiCostUsd,
-        aiCostPerSp: st.aiCostPerSp,
+        aiCostPerPoint: st.aiCostPerPoint,
       };
     }), // AZ-082 + CX-005
   };
@@ -673,7 +675,7 @@ function projectPeriodStats(projectId, start, end) {
   });
   const weeks = (end - start + 1) / (7 * DAY);
   const ai = aiByProjectDay.filter((a) => a.projectId === projectId && within(a.day, start, end));
-  const spDelivered = sum(done, (i) => i.effort);
+  const complexityDelivered = sum(done, (i) => i.effort);
   const aiCostUsd = sum(ai, (a) => a.costUsd);
   const prs = w.prs.filter((p) => p.projectId === projectId);
   return {
@@ -687,12 +689,12 @@ function projectPeriodStats(projectId, start, end) {
     cfrPct: commits.length ? (bugs.length / commits.length) * 100 : null, // GH-059 / CX-015
     predictabilityPct: avg(sprintRows, (r) => r.pct),
     throughput: done.length,
-    spDelivered,
+    complexityDelivered,
     bugSharePct: done.length
       ? (done.filter((i) => i.type === "BUG").length / done.length) * 100
       : null,
     aiCostUsd,
-    aiCostPerSp: ratio(aiCostUsd, spDelivered),
+    aiCostPerPoint: ratio(aiCostUsd, complexityDelivered),
     prsMerged: prs.filter((p) => within(p.mergedAt, start, end)).length,
     prCycleTimeHours: avg(
       prs.filter((p) => within(p.mergedAt, start, end)),
@@ -775,10 +777,10 @@ export function buildProject({ projectId, periodDays = 90 }) {
     sprints: cur.sprintRows.map((r) => ({
       label: r.s.name.replace("Sprint ", "S"),
       name: r.s.name,
-      spPlanned: r.planned,
-      spDelivered: r.delivered,
+      complexityPlanned: r.planned,
+      complexityDelivered: r.delivered,
       predictabilityPct: r.pct,
-      aiCostPerSp: ratio(
+      aiCostPerPoint: ratio(
         sum(
           ctx.aiByProjectDay.filter(
             (a) => a.projectId === projectId && within(a.day, r.s.startDate, r.s.endDate),
@@ -854,7 +856,7 @@ export function buildProject({ projectId, periodDays = 90 }) {
         subscriptionUsd: SUBSCRIPTION_COST_PER_USER_USD * members.length * months,
         perUserMonthUsd: SUBSCRIPTION_COST_PER_USER_USD,
       }, // IA-100
-      tokensPerSp: avg(
+      tokensPerPoint: avg(
         sprintItemsInRange.filter((i) => i.effort && i.aiTokens),
         (i) => i.aiTokens / i.effort,
       ), // CX-002
@@ -915,7 +917,7 @@ export function buildOrganization({ periodDays = 90 }) {
     const cost = sum(usage, (r) => r.costUsd);
     return {
       itemsDone: done.length,
-      spDelivered: sp,
+      complexityDelivered: sp,
       leadTimeHours: avg(done, (i) => i.leadTimeHours),
       cycleTimeHours: avg(done, (i) => i.cycleTimeHours),
       cfrPct: commits.length ? (bugs.length / commits.length) * 100 : null,
@@ -927,7 +929,7 @@ export function buildOrganization({ periodDays = 90 }) {
       ),
       aiCostUsd: cost, // IA-102 (todo o uso da organização)
       aiTokens: sum(usage, (r) => r.inputTokens + r.outputTokens),
-      aiCostPerSp: ratio(cost, sp),
+      aiCostPerPoint: ratio(cost, sp),
       activeAiUsers: new Set(usage.map((r) => r.userId)).size,
     };
   };
@@ -944,21 +946,27 @@ export function buildOrganization({ periodDays = 90 }) {
     const last = list[list.length - 2];
     const curItems = itemsBySprint[current.id] || [];
     const lastItems = itemsBySprint[last.id] || [];
-    const spPlanned = sum(curItems, (i) => i.effort);
-    const spDone = sum(
+    const complexityPlanned = sum(curItems, (i) => i.effort);
+    const pointsDoneNow = sum(
       curItems.filter((i) => i.status === "DONE"),
       (i) => i.effort,
     );
     const meta = sprintMeta(current);
     const elapsedPct = (meta.dayIndex / meta.dayCount) * 100;
-    const progressPct = spPlanned ? (spDone / spPlanned) * 100 : 0;
+    const progressPct = complexityPlanned ? (pointsDoneNow / complexityPlanned) * 100 : 0;
     const lastPlanned = sum(lastItems, (i) => i.effort);
     const row = {
       projectId: p.id,
       name: p.name,
       team: p.team,
       memberCount: p.memberIds.length,
-      currentSprint: { name: current.name, spDone, spPlanned, progressPct, elapsedPct },
+      currentSprint: {
+        name: current.name,
+        pointsDone: pointsDoneNow,
+        pointsPlanned: complexityPlanned,
+        progressPct,
+        elapsedPct,
+      },
       currentProgressGapPct: elapsedPct - progressPct,
       lastPredictabilityPct: lastPlanned
         ? (sum(
@@ -970,13 +978,13 @@ export function buildOrganization({ periodDays = 90 }) {
         : null,
       predictabilityPct: st.predictabilityPct,
       throughput: st.throughput,
-      spDelivered: st.spDelivered,
+      complexityDelivered: st.complexityDelivered,
       leadTimeHours: st.leadTimeHours,
       cfrPct: st.cfrPct,
       prCycleTimeHours: st.prCycleTimeHours,
       stalePrs: st.stalePrs,
       aiCostUsd: st.aiCostUsd, // CX-001 agregado por projeto
-      aiCostPerSp: st.aiCostPerSp,
+      aiCostPerPoint: st.aiCostPerPoint,
       throughputTrend: buckets.map(
         (b) => st.done.filter((i) => within(i.completedAt, b.start, b.end)).length,
       ),

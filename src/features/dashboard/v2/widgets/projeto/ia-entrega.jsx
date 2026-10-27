@@ -38,7 +38,6 @@ export const FMT = {
   tokens: { unit: "tokens", fmt: fmtTokensCompact, axis: axisTokensM },
   usd: { unit: "US$", fmt: fmtUsd, axis: axisUsd },
   pct: { unit: "%", fmt: fmtPct, axis: axisPct },
-  sp: { unit: "pts", fmt: fmtPoints, axis: fmtPoints },
   points: { unit: "pts", fmt: fmtPoints, axis: fmtPoints },
   days: { unit: "dias", fmt: (v) => (isNum(v) ? `${fmtNum(v)} d` : "—"), axis: axisDays },
   hours: { unit: "horas", fmt: fmtDuration, axis: axisHours },

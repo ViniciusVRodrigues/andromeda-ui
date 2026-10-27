@@ -56,7 +56,7 @@ test("projeto: DORA diz de onde vem o número (method) e a taxa de falha já vem
   await page.clock.setFixedTime(DASH_NOW);
   let method = "VCS_PROXY";
   await page.route("**/api/v1/dashboards/projects/p-portal/overview**", (route) => {
-    const body = readFixture("overview__p-portal__90");
+    const body = readFixture("overview__p-portal__90", { bare: true });
     body.dora.method = method;
     return json(route, body);
   });

@@ -92,9 +92,9 @@ export function legacyShape(name, o) {
 }
 
 /**
- * Campos novos da change complexidade-esforco (contrato do design.md), derivados dos antigos para
- * as fixtures ficarem coerentes: complexidade = os antigos `sp*`, esforço registrado em horas,
- * razões por ponto e por hora. Os antigos continuam no payload (D6, aditivo). Fixture do design:
+ * Complemento dos campos da change complexidade-esforco que as fixtures não trazem (esforço rolado
+ * das Stories, h/pt por sprint, calibração, qualidade de dados). Os campos de complexidade, esforço
+ * e razões por ponto/hora já vêm nas fixtures. Fixture do design:
  * Story de 3 pts com Tasks de 4 h e 8 h (`effortRolledUp` 12), Bug sem complexidade, Story
  * concluída, custo US$ 6. `legacyShape` tira tudo isto (ms antigo).
  */
@@ -125,50 +125,17 @@ const NEW_MEASURE_KEYS = new Set([
   "outliers",
 ]);
 export function withNewMeasures(name, o) {
-  const num = (v) => (typeof v === "number" ? v : null);
-  const hours = (pts) => (pts == null ? null : Math.round(pts * 4 * 10) / 10);
-  const stats = (r) => {
-    if (!r || typeof r !== "object") return;
-    if ("spPlanned" in r) r.complexityPlanned = num(r.spPlanned);
-    if ("spDelivered" in r) {
-      r.complexityDelivered = num(r.spDelivered);
-      r.effortLogged = hours(num(r.spDelivered));
-    }
-    if ("avgTokensPerSp" in r) {
-      r.avgTokensPerPoint = num(r.avgTokensPerSp);
-      r.avgTokensPerHour = r.avgTokensPerSp == null ? null : Math.round(r.avgTokensPerSp / 4);
-    }
-    if ("aiCostPerSp" in r) {
-      r.aiCostPerPoint = num(r.aiCostPerSp);
-      r.aiCostPerHour = r.aiCostPerSp == null ? null : Math.round((r.aiCostPerSp / 4) * 100) / 100;
-    }
-  };
   const items = (rows) =>
     (rows || []).forEach((i) => {
       const isTask = i.type === "TASK";
       const hasTasks = !isTask && i.complexity != null;
       i.effortRolledUp = hasTasks ? 12 : null; // Story 3 pts: Tasks de 4 h e 8 h
-      if ("tokensPerSp" in i) {
-        i.tokensPerPoint = num(i.tokensPerSp);
-        i.tokensPerHour = i.tokensPerSp == null ? null : Math.round(i.tokensPerSp / 4);
-      }
     });
   if (name.startsWith("individual__")) {
-    stats(o.kpis);
-    stats(o.previous);
-    (o.history || []).forEach(stats);
-    (o.burndown || []).forEach((b) => {
-      b.remainingPoints = num(b.remaining);
-      b.idealPoints = num(b.ideal);
-    });
     items(o.items);
     if (o.kpis) o.kpis.unitsWithoutComplexity = 1;
   }
   if (name.startsWith("team__")) {
-    stats(o.kpis);
-    stats(o.previous);
-    (o.members || []).forEach(stats);
-    (o.history || []).forEach(stats);
     /* h/pt por sprint (MS-4): 4,5 / 4 / 5 / 3,5 em ciclo; sem entrega fica nulo */
     (o.history || []).forEach((h, i) => {
       const hpp = [4.5, 4, 5, 3.5][i % 4];
@@ -177,43 +144,16 @@ export function withNewMeasures(name, o) {
         : null;
       h.hoursPerPoint = h.effortLogged == null ? null : hpp;
     });
-    (o.burndown || []).forEach((b) => {
-      b.remainingPoints = num(b.remaining);
-      b.idealPoints = num(b.ideal);
-    });
     items(o.agingItems);
-    if (o.kpis) o.kpis.itemsWithComplexity = o.kpis.itemsWithPoints ?? null;
   }
-  if (name.startsWith("team-flow__") && o.scope && "atRiskSp" in o.scope)
-    o.scope.points = num(o.scope.atRiskSp);
-  if (name.startsWith("overview__")) {
-    stats(o.kpis);
-    stats(o.previous);
-    (o.sprints || []).forEach(stats);
-    if (o.ai) {
-      o.ai.tokensPerPoint = num(o.ai.tokensPerSp);
-      o.ai.tokensPerHour = o.ai.tokensPerSp == null ? null : Math.round(o.ai.tokensPerSp / 4);
-    }
-    if (o.dataQuality) {
-      o.dataQuality.itemsWithComplexity = 12;
-      o.dataQuality.tasksWithEffort = 20;
-    }
+  if (name.startsWith("overview__") && o.dataQuality) {
+    o.dataQuality.itemsWithComplexity = 12;
+    o.dataQuality.tasksWithEffort = 20;
   }
   if (name.startsWith("roadmap__")) {
-    [...(o.epics || []), ...(o.features || [])].forEach((e) => {
-      e.complexityTotal = num(e.effortTotal);
-      e.complexityDone = num(e.effortDone);
-      e.pointsPerWeek = num(e.weeklyPace);
+    (o.backlog?.forgotten || []).forEach((f) => {
+      f.effortRolledUp = f.complexity == null ? null : 12;
     });
-    if (o.backlog) {
-      o.backlog.points = num(o.backlog.sp);
-      (o.backlog.forgotten || []).forEach((f) => {
-        f.complexity = num(f.effort);
-        f.effortRolledUp = f.complexity == null ? null : 12;
-      });
-      (o.backlog.byTag || []).forEach((t) => (t.points = num(t.sp)));
-    }
-    (o.deliveredByTag || []).forEach((t) => (t.points = num(t.sp)));
     if (o.calibration) {
       /* MS-4: horas registradas nas Tasks por faixa; a faixa 3 tem 6 h, 8 h e 30 h (mediana 8, n 3) */
       const spread = {
@@ -248,17 +188,6 @@ export function withNewMeasures(name, o) {
         },
       ];
     }
-  }
-  if (name.startsWith("organization__")) {
-    stats(o.kpis);
-    stats(o.previous);
-    (o.portfolio || []).forEach((p) => {
-      stats(p);
-      if (p.currentSprint) {
-        p.currentSprint.pointsDone = num(p.currentSprint.spDone);
-        p.currentSprint.pointsPlanned = num(p.currentSprint.spPlanned);
-      }
-    });
   }
   return o;
 }
@@ -447,11 +376,46 @@ export function sprintHistoryFixture(kind = "rich") {
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-/** Fixture do servidor falso já parseada (para um teste montar a sua variação). */
-export function readFixture(name) {
+/* Nomes de medida que as fixtures trazem para complexidade, esforço e razões por ponto/hora. Uma
+ * baseline gravada sem eles (ms antigo, "sem complexidade") pede a fixture `bare`. */
+const MEASURE_NAMES = new Set([
+  "complexityPlanned",
+  "complexityDelivered",
+  "complexityTotal",
+  "complexityDone",
+  "effortLogged",
+  "avgTokensPerPoint",
+  "avgTokensPerHour",
+  "tokensPerPoint",
+  "tokensPerHour",
+  "aiCostPerPoint",
+  "aiCostPerHour",
+  "itemsWithComplexity",
+  "remainingPoints",
+  "idealPoints",
+  "pointsPerWeek",
+  "pointsDone",
+  "pointsPlanned",
+  "points",
+]);
+function bareMeasures(v) {
+  if (Array.isArray(v)) v.forEach(bareMeasures);
+  else if (v && typeof v === "object") {
+    for (const k of Object.keys(v)) {
+      if (MEASURE_NAMES.has(k)) delete v[k];
+      else bareMeasures(v[k]);
+    }
+  }
+  return v;
+}
+
+/** Fixture do servidor falso já parseada (para um teste montar a sua variação). Com
+ * `{ bare: true }`, sem os campos de complexidade/esforço/razões (o que o ms antigo mandava). */
+export function readFixture(name, { bare = false } = {}) {
   const text = fixture(name);
   if (text == null) throw new Error(`fixture dashboards-v2/${name}.json não existe`);
-  return JSON.parse(text);
+  const o = JSON.parse(text);
+  return bare ? bareMeasures(o) : o;
 }
 
 /* ── Alocação de IA (alocacao-no-dashboard, contrato.md) ─────────────────────────

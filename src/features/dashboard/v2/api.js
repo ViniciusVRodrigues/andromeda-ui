@@ -69,8 +69,8 @@ const withComplexity = (items) =>
   (items || []).map((i) => ({ ...i, complexity: i.complexity ?? null }));
 /* Campos aditivos da change complexidade-esforco (contrato do design.md): complexidade em pontos,
  * esforço em horas e as razões por ponto/hora. Com o ms antigo ficam ausentes e viram `null`
- * ("sem valor"), nunca 0. Os nomes antigos (`sp*`, `*PerSp`, `remaining`/`ideal`) seguem no objeto
- * ao lado; o ui novo não depende deles para estes valores. */
+ * ("sem valor"), nunca 0. O ms não manda mais os nomes antigos (`sp*`, `*PerSp`,
+ * `remaining`/`ideal`). */
 const withNew = (o, keys, ints = []) => {
   if (!o || typeof o !== "object") return o;
   const out = { ...o };

@@ -593,8 +593,8 @@ export function TrendChart({
 export function BurndownChart({ data, todayLabel, height = 220 }) {
   const rows = (data || []).map((r) => ({
     ...r,
-    remainingPoints: r?.remainingPoints ?? r?.remaining ?? null,
-    idealPoints: r?.idealPoints ?? r?.ideal ?? null,
+    remainingPoints: r?.remainingPoints ?? null,
+    idealPoints: r?.idealPoints ?? null,
   }));
   /* o resumo diz quanto falta no dia de hoje — a leitura que o gráfico existe para dar */
   return (

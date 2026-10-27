@@ -220,8 +220,11 @@ function flow(f) {
         ...st(h),
       })),
     },
-    rework: { ...f.rework, reopened: f.rework.reopened.map(itemView) },
-    scope: { atRiskSp: f.scope?.atRiskSp ?? null },
+    rework: {
+      ...f.rework,
+      reopened: f.rework.reopened.map((i) => omit(itemView(i), "tokensPerPoint")),
+    },
+    scope: { points: f.scope?.points ?? null },
     reviewQueue: omit({ ...f.reviewQueue }, "byReviewer"),
     asOf: Date.parse("2026-09-30T15:00:00Z"),
     dataFreshness: freshness(),
@@ -266,10 +269,11 @@ function project(p) {
     throughput: withStart(p.throughput),
     sprints: p.sprints.map((s, i) => ({
       sprintId: `${p.project.id}-hist-${i}`,
-      aiCostUsd: s.aiCostPerSp != null ? round1(s.aiCostPerSp * (s.spDelivered || 0)) : null,
+      aiCostUsd:
+        s.aiCostPerPoint != null ? round1(s.aiCostPerPoint * (s.complexityDelivered || 0)) : null,
       ...s,
       aiTokens: tokensOf(
-        s.aiCostPerSp != null ? round1(s.aiCostPerSp * (s.spDelivered || 0)) : null,
+        s.aiCostPerPoint != null ? round1(s.aiCostPerPoint * (s.complexityDelivered || 0)) : null,
       ),
     })),
     doraSeries: withStart(p.flow).map((r, i, rows) => ({
@@ -577,13 +581,74 @@ function sprintsResponse(projectId) {
   ];
 }
 
+/* Campos derivados dos nomes novos (complexidade-esforco): esforço registrado em horas e as razões
+ * por hora, a 4 h por ponto; contagem de itens com complexidade; ritmo do roadmap. Os nomes antigos
+ * (`sp*`, `*PerSp`, `remaining`/`ideal`) não existem mais no contrato. */
+const numOrNull = (v) => (typeof v === "number" ? v : null);
+function withDerived(name, o) {
+  const stats = (r) => {
+    if (!r || typeof r !== "object") return;
+    if ("complexityDelivered" in r)
+      r.effortLogged =
+        numOrNull(r.complexityDelivered) == null
+          ? null
+          : Math.round(r.complexityDelivered * 4 * 10) / 10;
+    if ("avgTokensPerPoint" in r)
+      r.avgTokensPerHour = r.avgTokensPerPoint == null ? null : Math.round(r.avgTokensPerPoint / 4);
+    if ("aiCostPerPoint" in r)
+      r.aiCostPerHour =
+        r.aiCostPerPoint == null ? null : Math.round((r.aiCostPerPoint / 4) * 100) / 100;
+  };
+  const perHour = (r) => {
+    if (r && "tokensPerPoint" in r)
+      r.tokensPerHour = r.tokensPerPoint == null ? null : Math.round(r.tokensPerPoint / 4);
+  };
+  if (name.startsWith("individual__")) {
+    stats(o.kpis);
+    stats(o.previous);
+    (o.history || []).forEach(stats);
+    (o.items || []).forEach(perHour);
+  }
+  if (name.startsWith("team__")) {
+    stats(o.kpis);
+    stats(o.previous);
+    (o.members || []).forEach(stats);
+    (o.history || []).forEach(stats);
+    (o.agingItems || []).forEach(perHour);
+    if (o.kpis) o.kpis.itemsWithComplexity = o.kpis.itemsWithPoints ?? null;
+  }
+  if (name.startsWith("overview__")) {
+    stats(o.kpis);
+    stats(o.previous);
+    (o.sprints || []).forEach(stats);
+    perHour(o.ai);
+  }
+  if (name.startsWith("roadmap__")) {
+    [...(o.epics || []), ...(o.features || [])].forEach((e) => {
+      e.complexityTotal = numOrNull(e.effortTotal);
+      e.complexityDone = numOrNull(e.effortDone);
+      e.pointsPerWeek = numOrNull(e.weeklyPace);
+    });
+    (o.backlog?.forgotten || []).forEach((x) => (x.complexity = numOrNull(x.effort)));
+  }
+  if (name.startsWith("organization__")) {
+    stats(o.kpis);
+    stats(o.previous);
+    (o.portfolio || []).forEach(stats);
+  }
+  return o;
+}
+
 /* ── escrita ──────────────────────────────────────────────────────────── */
 
 fs.rmSync(OUT, { recursive: true, force: true });
 fs.mkdirSync(OUT, { recursive: true });
 let count = 0;
 const write = (name, body) => {
-  fs.writeFileSync(path.join(OUT, `${name}.json`), JSON.stringify(isoTimestamps(body)) + "\n");
+  fs.writeFileSync(
+    path.join(OUT, `${name}.json`),
+    JSON.stringify(isoTimestamps(withDerived(name, body))) + "\n",
+  );
   count += 1;
 };
 

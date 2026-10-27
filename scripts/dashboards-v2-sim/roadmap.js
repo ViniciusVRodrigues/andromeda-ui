@@ -35,10 +35,6 @@ function progressOf(children, start, end) {
     itemsTotal: children.length,
     itemsDone: children.filter(isDone).length,
     unestimated: children.filter((c) => c.effort == null).length,
-    spDoneInPeriod: sum(
-      children.filter((c) => within(doneAt(c), start, end)),
-      (c) => c.effort,
-    ),
     weeklyPace: perWeek || null,
     forecastWeeks: remaining <= 0 ? 0 : perWeek ? remaining / perWeek : null,
     lastActivityAt: children.length
@@ -94,14 +90,16 @@ export function buildRoadmap({ projectId, periodDays = 90 }) {
     const m = {};
     for (const it of list)
       for (const t of it.tags)
-        ((m[t] ||= { tag: t, count: 0, sp: 0 }), (m[t].count += 1), (m[t].sp += it.effort || 0));
-    return Object.values(m).sort((a, b) => b.sp - a.sp);
+        ((m[t] ||= { tag: t, count: 0, points: 0 }),
+          (m[t].count += 1),
+          (m[t].points += it.effort || 0));
+    return Object.values(m).sort((a, b) => b.points - a.points);
   };
   const areas = {};
   for (const it of done) {
     const a = it.areaPath.split("\\").pop();
-    (areas[a] ||= { area: a, count: 0, sp: 0 }).count += 1;
-    areas[a].sp += it.effort || 0;
+    (areas[a] ||= { area: a, count: 0, points: 0 }).count += 1;
+    areas[a].points += it.effort || 0;
   }
   const sprintItems = w.items.filter(
     (i) => i.projectId === projectId && within(i.completedAt, range.start, range.end),
@@ -164,7 +162,7 @@ export function buildRoadmap({ projectId, periodDays = 90 }) {
       ),
     backlog: {
       count: backlog.length,
-      sp: sum(backlog, (b) => b.effort),
+      points: sum(backlog, (b) => b.effort),
       unestimatedPct: backlog.length
         ? (backlog.filter((b) => b.effort == null).length / backlog.length) * 100
         : null,
@@ -204,7 +202,7 @@ export function buildRoadmap({ projectId, periodDays = 90 }) {
       byTag: tagCount(backlog).slice(0, 8),
     },
     deliveredByTag: tagCount(done).slice(0, 8),
-    deliveredByArea: Object.values(areas).sort((a, b) => b.sp - a.sp),
+    deliveredByArea: Object.values(areas).sort((a, b) => b.points - a.points),
     calibration: {
       byEffort: FIB.map((e) => {
         const list = sprintItems.filter((i) => i.effort === e);

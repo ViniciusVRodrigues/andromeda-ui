@@ -144,7 +144,8 @@ test("sem uso de IA: um aviso na seção, sem '0M' nem '—/pessoa/mês'", async
       if (name.startsWith("team__")) {
         for (const h of o.history || []) {
           h.aiCostUsd = 0;
-          h.aiCostPerSp = 0;
+          h.aiCostPerPoint = 0;
+          h.aiCostPerHour = 0;
           h.aiTokens = 0;
         }
       }
