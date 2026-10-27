@@ -5,6 +5,7 @@ import {
   gotoDashboard,
   installDashboardsApi,
 } from "./dashboards-v2-api.mjs";
+import { wholePercents } from "../src/core/allocationMath.js";
 
 /* Faixa "Uso de IA para alocar" no dashboard individual (alocacao-no-dashboard, UI-1):
  * critérios 1 a 16 do ux-ui.md. O servidor falso (dashboards-v2-api.mjs) devolve 2 dias
@@ -327,6 +328,27 @@ test("a 360px nenhum chip corta o último item da sugestão de 3", async ({ page
   const b = await chip.boundingBox();
   expect(b.x + b.width).toBeLessThanOrEqual(360);
   expect(b.x).toBeGreaterThanOrEqual(0);
+});
+
+/* ── ALO3: percentuais inteiros pelo maior resto ──────────────────────────────── */
+
+test("percentuais: a sobra do arredondamento não cai inteira no último split", () => {
+  const even = (n) => {
+    const e = Number((1 / n).toFixed(4));
+    return Array.from({ length: n }, (_, i) => ({
+      percentage: i === n - 1 ? Number((1 - (n - 1) * e).toFixed(4)) : e,
+    }));
+  };
+  /* 231 splits de 0,43% (o 30/08 do ALO3): antes 230 × 0% e 100% no último */
+  const many = wholePercents(even(231));
+  expect(many.reduce((a, b) => a + b, 0)).toBe(100);
+  expect(Math.max(...many)).toBe(1);
+  /* os casos de hoje não mudam */
+  expect(wholePercents(even(3))).toEqual([33, 33, 34]);
+  expect(wholePercents(even(2))).toEqual([50, 50]);
+  expect(wholePercents([{ percentage: 1 }])).toEqual([100]);
+  expect(wholePercents([{ percentage: 0.125 }, { percentage: 0.875 }])).toEqual([13, 87]);
+  expect(wholePercents([])).toEqual([]);
 });
 
 /* ── 13: só-dashboard ─────────────────────────────────────────────────────────── */
