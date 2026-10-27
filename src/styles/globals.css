@@ -270,3 +270,36 @@
     animation-iteration-count: 1 !important;
   }
 }
+
+/* Barras de rolagem do app inteiro, nos dois eixos (SCR1, change scroll-slim-global):
+ * 8 px, trilho transparente, polegar em --line-strong. Chromium e Safari usam os
+ * pseudo-elementos — sem scrollbar-width/scrollbar-color aqui, que desligam o
+ * ::-webkit-scrollbar no Chromium (vira o "thin" de 10 px com setas) e, por herança,
+ * nos filhos. O hover fica no polegar: no contêiner, acenderia todo ancestral
+ * rolável sob o ponteiro. Firefox, sem os pseudo-elementos, recebe o padrão. */
+@layer base {
+  ::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+  }
+  ::-webkit-scrollbar-track,
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: var(--line-strong);
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: var(--fg-dim);
+  }
+  ::-webkit-scrollbar-thumb:active {
+    background: var(--fg-muted);
+  }
+  @supports not selector(::-webkit-scrollbar) {
+    * {
+      scrollbar-width: thin;
+      scrollbar-color: var(--line-strong) transparent;
+    }
+  }
+}

@@ -69,7 +69,17 @@ function installContrastHelpers() {
 
 async function setPalette(page, palette) {
   await page.evaluate((p) => (document.documentElement.dataset.palette = p), palette);
-  await page.waitForTimeout(500); // .btn anima as cores; mede depois da transição
+  /* .btn anima as cores; mede depois da transição. Espera o fim das transições em vez
+   * de um tempo fixo: no Docker o 1º quadro após a troca leva 200–400 ms para sair. */
+  await page.evaluate(async () => {
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    await Promise.all(
+      document
+        .getAnimations()
+        .filter((a) => a instanceof CSSTransition)
+        .map((a) => a.finished.catch(() => {})),
+    );
+  });
 }
 
 test("botão de confirmar do diálogo de excluir organização >= 4,5:1 nas três paletas", async ({

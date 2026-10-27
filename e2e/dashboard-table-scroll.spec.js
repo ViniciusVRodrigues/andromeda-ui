@@ -171,10 +171,13 @@ test("modo Personalizar mantém o card ≤ 520", async ({ page }) => {
   expect((await prs.boundingBox()).height).toBeLessThanOrEqual(520);
 });
 
+/* A barra fina agora é global (scroll-slim-global): no Chromium vem só dos
+ * ::-webkit-scrollbar, e scrollbar-width precisa ficar "auto" para não desligá-los.
+ * A espessura real (8 px) é medida em scrollbars.spec.js, com as barras visíveis. */
 test("barras de rolagem finas (scroll-slim) na caixa", async ({ page }) => {
   const prs = await open(page);
   await expect(box(prs)).toHaveClass(/scroll-slim/);
-  expect(await box(prs).evaluate((el) => getComputedStyle(el).scrollbarWidth)).toBe("thin");
+  expect(await box(prs).evaluate((el) => getComputedStyle(el).scrollbarWidth)).toBe("auto");
 });
 
 test("baselines da rolagem de PRs", async ({ page }) => {

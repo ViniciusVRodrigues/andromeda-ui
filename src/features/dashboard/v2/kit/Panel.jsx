@@ -243,7 +243,7 @@ export function Highlights({ items }) {
   const icon = { warn: "!", good: "✓", info: "→" };
   return (
     <ul
-      className="focus-visible:outline-accent relative m-0 mb-2 grid list-none gap-2 p-0 focus-visible:outline-2 focus-visible:outline-offset-2 max-[599px]:flex max-[599px]:snap-x max-[599px]:snap-mandatory max-[599px]:[scrollbar-width:thin] max-[599px]:overflow-x-auto md:grid-cols-2 xl:grid-cols-3"
+      className="focus-visible:outline-accent relative m-0 mb-2 grid list-none gap-2 p-0 focus-visible:outline-2 focus-visible:outline-offset-2 max-[599px]:flex max-[599px]:snap-x max-[599px]:snap-mandatory max-[599px]:overflow-x-auto md:grid-cols-2 xl:grid-cols-3"
       aria-label={
         items.length > 1 && narrow ? `Destaques (${items.length}, role para o lado)` : "Destaques"
       }

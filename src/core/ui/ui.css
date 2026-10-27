@@ -134,16 +134,6 @@
   overflow-y: auto;
   padding-right: 4px;
 }
-.ui-modal-body::-webkit-scrollbar {
-  width: 8px;
-}
-.ui-modal-body::-webkit-scrollbar-thumb {
-  background: var(--line-strong);
-  border-radius: 4px;
-}
-.ui-modal-body::-webkit-scrollbar-track {
-  background: transparent;
-}
 
 .ui-modal-foot {
   display: flex;
