@@ -125,6 +125,14 @@ async function mountBacklog(page, { orphans = [ORPHAN], childrenHandler } = {}) 
         ...r,
         parentExternalId: r.parentExternalId || "555",
       }));
+      rows.push({
+        ...epics[0],
+        id: "f1",
+        externalId: "9001",
+        title: "Épico filho",
+        parentExternalId: "101",
+        parentMissing: false,
+      });
       return json(route, {
         page: 0,
         size: 20,
@@ -237,7 +245,8 @@ test("filtro: lista plana com 'em #', sem rótulos, sem seção e sem barra", as
   await mountBacklog(page);
   await expect(page.getByText("Épico 1", { exact: true })).toBeVisible();
   await page.getByRole("searchbox", { name: /Buscar work items/ }).fill("Épico");
-  await expect(page.getByText("em #7153").first()).toBeVisible();
+  await expect(page.getByText("em #101", { exact: true })).toBeVisible();
+  await expect(page.getByText("em #7153")).toHaveCount(0); // o chip já diz o pai ausente
   await expect(page.getByText("pai #7153 fora da sincronização").first()).toBeVisible();
   await expect(page.getByText(/EPIC · /)).toHaveCount(0);
   await expect(page.getByText("Hierarquia a revisar")).toHaveCount(0);

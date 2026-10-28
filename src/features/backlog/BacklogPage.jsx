@@ -127,7 +127,7 @@ const META_CHIP = "mono text-xs text-fg-muted";
 /** `rowMode`: "filtered" mostra "em #pai"; "orphan" mostra "pai #N · tipo do pai". */
 function WorkItemRow({ item, onItemChanged, toggle, rowMode }) {
   const showParentMissing = !!item.parentMissing && !!item.parentExternalId;
-  const showIn = rowMode === "filtered" && !!item.parentExternalId;
+  const showIn = rowMode === "filtered" && !!item.parentExternalId && !item.parentMissing;
   const showOrphanParent = rowMode === "orphan" && !!item.parentExternalId;
   const hasMeta =
     showParentMissing ||
@@ -169,7 +169,22 @@ function WorkItemRow({ item, onItemChanged, toggle, rowMode }) {
                   className={`${META_CHIP} border-line rounded-sm border px-1.5 py-0.5 max-sm:order-last max-sm:basis-full`}
                   title={PARENT_MISSING_TITLE(item.parentExternalId)}
                 >
-                  <span aria-hidden="true">↥ </span>
+                  <svg
+                    width="10"
+                    height="10"
+                    viewBox="0 0 16 16"
+                    fill="none"
+                    aria-hidden="true"
+                    className="mr-1 inline-block align-[-1px]"
+                  >
+                    <path
+                      d="M3 2h10M8 14V5M4.5 8.5 8 5l3.5 3.5"
+                      stroke="currentColor"
+                      strokeWidth="1.6"
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                    />
+                  </svg>
                   pai #{item.parentExternalId} fora da sincronização
                 </span>
               )}
@@ -393,7 +408,7 @@ const TreeNode = React.memo(function TreeNode({
             </li>
           )}
           {!loading && error && (
-            <li className="backlog-children-error mono">
+            <li className="backlog-children-error mono max-sm:flex-col max-sm:items-start">
               {error}
               <button type="button" className="btn-ghost btn" onClick={loadChildren}>
                 Tentar novamente
@@ -1108,7 +1123,7 @@ export function BacklogPage({ onOpenHierarchyWizard }) {
             <h3 className="serif backlog-section-title">Hierarquia a revisar</h3>
             <span className="backlog-section-count mono">{orphansTotal}</span>
           </div>
-          <p className="backlog-section-hint">
+          <p className="backlog-section-hint max-w-[68ch]">
             Estes itens têm um pai de nível abaixo do deles no mapeamento (por exemplo, uma Feature
             filha de uma Story). Corrija o vínculo no Azure DevOps ou ajuste a ordem da hierarquia.
           </p>
