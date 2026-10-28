@@ -22,6 +22,11 @@ export function nItems(n) {
   return `${fmtInt(n)} ${n === 1 ? "item" : "itens"}`;
 }
 
+/** Singular ou plural pelo número: `plural(2, "PR", "PRs")` → "2 PRs". Sem "(s)" na tela. */
+export function plural(n, singular, pluralForm) {
+  return `${fmtInt(n)} ${Number(n) === 1 ? singular : pluralForm}`;
+}
+
 export function fmtNum(v) {
   return isNum(v) ? NF1.format(v) : "—";
 }
@@ -36,10 +41,11 @@ export function fmtPct(v) {
   return isNum(v) ? `${NF0.format(v)}%` : "—";
 }
 
-/** Duração a partir de horas: "14 h" abaixo de um dia, "2,3 d" acima. */
+/** Duração a partir de horas: "14 h" abaixo de um dia, "2,3 d" acima, "< 1 min" abaixo de um minuto. */
 export function fmtDuration(hours) {
   if (!isNum(hours)) return "—";
-  if (hours < 1) return `${NF0.format(Math.max(1, hours * 60))} min`;
+  if (hours * 60 < 1) return "< 1 min";
+  if (hours < 1) return `${NF0.format(hours * 60)} min`;
   if (hours < 24) return `${NF1.format(hours)} h`;
   return `${NF1.format(hours / 24)} d`;
 }
@@ -47,14 +53,31 @@ export function fmtDuration(hours) {
 /** Rótulos curtos de eixo, com vírgula decimal: "$0,7", "$12", "1,5d", "35%". */
 export function axisUsd(v) {
   if (!isNum(v)) return "";
-  return Math.abs(v) < 10 ? `$${NF1.format(v)}` : `$${NF0.format(v)}`;
+  return Math.abs(v) < 10 ? `US$ ${NF1.format(v)}` : `US$ ${NF0.format(v)}`;
 }
+/** Eixo de duração em dias, 1 casa ("1,5d"); com o máximo do domínio use `axisDays.forMax(max)`. */
 export function axisDays(v) {
-  return isNum(v) ? `${NF1.format(v)}d` : "";
+  return isNum(v) ? `${NF1.format(v)} d` : "";
 }
+/** Eixo de duração em horas ("12h"); com o máximo do domínio use `axisHours.forMax(max)`. */
 export function axisHours(v) {
-  return isNum(v) ? `${NF0.format(v)}h` : "";
+  return isNum(v) ? `${NF0.format(v)} h` : "";
 }
+
+/* Os eixos de duração escolhem a unidade pelo máximo do domínio: `axisDays.forMax(max)` devolve o
+ * formatador (`(v) => string`) já na unidade certa. Os gráficos (`kit/charts.jsx`) chamam o
+ * `forMax` com o maior valor dos dados; o Recharts passa o índice como 2º argumento do
+ * formatador, por isso o máximo NÃO é um parâmetro de `axisDays`/`axisHours`. */
+axisDays.forMax = (max) => (v) => {
+  if (!isNum(v)) return "";
+  if (isNum(max) && max < 1) return axisHours.forMax(max * 24)(v * 24);
+  return `${(isNum(max) && max >= 3 ? NF0 : NF1).format(v)} d`;
+};
+axisHours.forMax = (max) => (v) => {
+  if (!isNum(v)) return "";
+  if (isNum(max) && max < 1) return `${NF0.format(v * 60)} min`;
+  return `${(isNum(max) && max < 10 ? NF1 : NF0).format(v)} h`;
+};
 export function axisPct(v) {
   return isNum(v) ? `${NF0.format(v)}%` : "";
 }
@@ -97,15 +120,43 @@ export function fmtIn(ms, now) {
   return fmtAgo(now - Math.max(0, ms - now), now).replace("há", "em");
 }
 
+/** Base mínima do período anterior por unidade: abaixo dela a variação não tem o que comparar. */
+export const DELTA_MIN_BASE = { count: 3, hours: 1, usd: 1, points: 1 };
+/** Duração: amostras mínimas (`n`) de cada lado, quando o payload as informa. */
+export const DELTA_MIN_SAMPLES = 3;
+/** Acima disto (em %) a variação vira razão ("16×"). */
+export const DELTA_RATIO_ABOVE_PCT = 500;
+
 /**
- * Variação entre período atual e anterior.
- * @returns {{ pct: number, direction: "up"|"down"|"flat" } | null}
+ * Variação entre período atual e anterior — a única regra, usada por KPIs, destaques e
+ * leituras de IA × métrica.
+ * `unit`: "count" | "hours" | "usd" | "points" (base mínima), "duration" (amostras `nCur`/`nPrev`),
+ * ou nada (percentuais e razões, só descarta anterior nulo/0).
+ * @returns {{ pct: number, direction: "up"|"down"|"flat", ratio?: number } | null}
+ *   `ratio` (atual ÷ anterior) vem quando a alta passa de 500%.
  */
-export function delta(current, previous) {
-  if (!isNum(current) || !isNum(previous) || previous === 0) return null;
+export function delta(current, previous, { unit, nCur, nPrev } = {}) {
+  if (!isNum(current) || !isNum(previous) || Number(previous) === 0) return null;
+  const min = DELTA_MIN_BASE[unit];
+  if (min != null && Math.abs(previous) < min) return null;
+  if (unit === "duration" && [nCur, nPrev].some((n) => isNum(n) && n < DELTA_MIN_SAMPLES))
+    return null;
   const pct = ((current - previous) / Math.abs(previous)) * 100;
   if (Math.abs(pct) < 1) return { pct: 0, direction: "flat" };
+  if (pct > DELTA_RATIO_ABOVE_PCT) return { pct, direction: "up", ratio: current / previous };
   return { pct, direction: pct > 0 ? "up" : "down" };
+}
+
+/** Razão pt-BR: "16×", "2,5×" (1 casa abaixo de 10). */
+export function fmtRatio(r) {
+  return `${(r < 10 ? NF1 : NF0).format(r)}×`;
+}
+
+/** Texto curto de uma variação de `delta`: "estável", "16×" ou "19%" (sem sinal; a seta diz o sentido). */
+export function fmtDelta(d) {
+  if (!d) return "";
+  if (d.direction === "flat") return "estável";
+  return d.ratio != null ? fmtRatio(d.ratio) : fmtPct(Math.abs(d.pct));
 }
 
 export const TYPE_LABEL = {
@@ -142,9 +193,23 @@ export function fmtPoints(v, { total = false } = {}) {
   return total ? `${s} ${Number(v) === 1 ? "pt" : "pts"}` : s;
 }
 
-/** Esforço registrado: "6 h". */
+/** Esforço registrado: "6 h"; abaixo de 1 h ainda 1 casa pt-BR ("0,2 h"). */
 export function fmtHours(v) {
   return isNum(v) ? `${NF1.format(v)} h` : "—";
+}
+
+/** Regra da taxa de falha de mudança (o `?` do selo e dos cartões): o que conta como correção. */
+export const CHANGE_FAILURE_RULE =
+  "PRs que corrigem produção: ligados a Bug, título começando com Revert ou branch hotfix/. Menos de 5 mudanças: —.";
+
+/** Complemento "1ª review em 4 h"; sem medida, "1ª review — sem review registrada" (o "—" com o motivo). */
+export function fmtFirstReview(hours) {
+  return isNum(hours) ? `1ª review em ${fmtDuration(hours)}` : "1ª review — sem review registrada";
+}
+
+/** Decimal pt-BR com `digits` casas fixas (no lugar de `toFixed`, que sai com ponto). */
+export function fmtFixed(v, digits = 1) {
+  return isNum(v) ? nf(digits, digits).format(v) : "—";
 }
 
 /** Esforço somado das Tasks de uma Story: "Σ 12 h". */

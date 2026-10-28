@@ -75,7 +75,7 @@ export function SyncRunsWidget({ data }) {
     <Panel
       eyebrow="sincronização · 14 dias"
       title="Execuções de sync por resultado"
-      sources={["azure", "github"]}
+      sources={["azure", "code"]}
       info="Quantas sincronizações com o Azure DevOps e o GitHub deram certo, falharam ou ficaram parciais (parte dos itens falhou). Conta as agendadas, as manuais e as por webhook."
       table={{
         columns: [
@@ -108,11 +108,11 @@ export function CoverageWidget({ data }) {
     <Panel
       eyebrow="cobertura"
       title="Completude dos dados"
-      sources={["azure", "github", "ia", "andromeda"]}
+      sources={["azure", "code", "ia", "andromeda"]}
       info="O que falta ligar para os números ficarem completos: pessoa sem conta ligada não tem trabalho atribuído; item sem estimativa fica fora da velocity; PR sem AB# não se liga à entrega; uso sem divisão não chega aos projetos."
     >
       <CoverageRow label="Pessoas com Azure DevOps vinculado" pct={c.azureLinkedPct} />
-      <CoverageRow label="Pessoas com GitHub vinculado" pct={c.githubLinkedPct} />
+      <CoverageRow label="Pessoas com conta de código vinculada" pct={c.githubLinkedPct} />
       <CoverageRow label="Pessoas com conector de IA" pct={c.aiConnectedPct} />
       <CoverageRow label="Itens de sprint com estimativa" pct={c.itemsWithEstimatePct} />
       <CoverageRow label="PRs que citam um work item" pct={c.prsLinkedPct} />
@@ -127,7 +127,7 @@ export function SourcesWidget({ data }) {
     <Panel
       eyebrow="vínculos"
       title="Projetos e fontes sincronizadas"
-      sources={["azure", "github", "andromeda"]}
+      sources={["azure", "code", "andromeda"]}
       info="O projeto do Azure DevOps e os repositórios ligados a cada projeto da Andrômeda, com o último sync. Repositório com sync desligado não recebe commits nem PRs novos."
     >
       <DataTable
@@ -149,7 +149,7 @@ export function SourcesWidget({ data }) {
           },
           {
             key: "repos",
-            label: "Repositórios GitHub",
+            label: "Repositórios",
             render: (r) => (
               <div className="flex flex-wrap gap-x-5 gap-y-1">
                 {r.repos.map((b) => (

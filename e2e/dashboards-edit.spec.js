@@ -161,7 +161,7 @@ test("catálogo no Drawer: contador, busca e switch religam o widget no fim da s
   const drawer = page.getByRole("dialog", { name: "Adicionar widgets" });
   await expect(drawer).toContainText("15 de 16 visíveis");
   await expect(drawer.getByRole("searchbox")).toBeFocused();
-  await drawer.getByRole("searchbox").fill("custo");
+  await drawer.getByRole("searchbox").fill("custo por modelo");
   await expect(drawer.locator("[data-catalog-item]")).toHaveCount(1);
   const sw = drawer.getByRole("switch", { name: "Mostrar Custo por modelo" });
   await expect(sw).toHaveAttribute("aria-checked", "false");

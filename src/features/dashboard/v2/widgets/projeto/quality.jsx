@@ -190,7 +190,7 @@ export function CommitKindsWidget({ data }) {
     <Panel
       eyebrow={`commits por ${per}`}
       title="Tipo dos commits"
-      sources={["github"]}
+      sources={["code"]}
       info="Tipo pelo prefixo da mensagem (convenção feat:, fix:, refactor:…). Mensagens fora da convenção ficam de fora."
       note={`${fmtInt(commits)} commits no período · ${fmtNum(fixPct)}% de correção`}
       table={{

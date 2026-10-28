@@ -80,7 +80,7 @@ const withNew = (o, keys, ints = []) => {
 };
 const mapNew = (rows, keys, ints) => (rows ? rows.map((r) => withNew(r, keys, ints)) : rows);
 
-const K_ITEM = ["effortRolledUp", "tokensPerPoint", "tokensPerHour"];
+const K_ITEM = ["effortRolledUp", "tokensPerPoint", "tokensPerHour", "aiCostPerPoint"];
 const K_SPRINT_STATS = [
   "complexityPlanned",
   "complexityDelivered",
@@ -221,7 +221,7 @@ export function adaptProjectOverview(raw) {
       ]),
     ),
     ai: d.ai && {
-      ...withNew(d.ai, ["tokensPerPoint", "tokensPerHour"]),
+      ...withNew(d.ai, ["tokensPerPoint", "tokensPerHour", "costPerPoint"]),
       costByBucket: spreadMap(d.ai.costByBucket, "byModel"),
     },
   };

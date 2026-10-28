@@ -100,6 +100,15 @@ const NO_AI = (name, o) => {
       if ("aiCostPerPoint" in h) h.aiCostPerPoint = 0;
     }
     for (const i of o.items || []) i.aiCostUsd = null;
+    /* sem IA de verdade: nem consumo do período (senão o aviso diz quanto ficou sem atribuir) */
+    if (o.kpis) {
+      o.kpis.aiCostUsd = 0;
+      o.kpis.unallocatedAiCostUsd = 0;
+    }
+    if (o.ai) {
+      o.ai.byModel = [];
+      o.ai.byDay = [];
+    }
     for (const m of o.members || []) {
       m.aiCostUsd = 0;
       m.avgTokensPerPoint = null;

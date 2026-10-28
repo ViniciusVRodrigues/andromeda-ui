@@ -148,8 +148,8 @@ test("repositórios: janela de datas, review e entrega do repositório", async (
   expect((Date.parse(endDate) - Date.parse(startDate)) / 86_400_000).toBe(90);
 
   await expect(page.getByText("Cycle time de PR (mediana)")).toBeVisible();
-  await expect(page.getByText("18.5h")).toBeVisible();
-  await expect(page.getByText("15.0%")).toBeVisible(); // CFR já em %, sem ×100
+  await expect(page.getByText("18,5h")).toBeVisible();
+  await expect(page.getByText("15,0%")).toBeVisible(); // CFR já em %, sem ×100
   await expect(page.getByText("estimado a partir de PRs").first()).toBeVisible();
   const review = page.getByTestId("review-stats");
   await expect(review).toContainText("85");

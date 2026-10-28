@@ -1,5 +1,5 @@
 import React from "react";
-import { DurationStat } from "./DurationStat.jsx";
+import { DurationStat, fixed1 } from "./DurationStat.jsx";
 
 /**
  * DeliveryMetrics — métricas de entrega estilo DORA (spec `delivery-metrics`).
@@ -23,10 +23,10 @@ export function deliveryMethodLabel(method) {
 }
 
 const CLASS_META = {
-  ELITE: { label: "Elite", color: "var(--accent)" },
-  HIGH: { label: "Alto", color: "var(--good)" },
-  MEDIUM: { label: "Médio", color: "var(--warn)" },
-  LOW: { label: "Baixo", color: "var(--bad)" },
+  ELITE: { label: "Desempenho elite", color: "var(--accent)" },
+  HIGH: { label: "Desempenho alto", color: "var(--good)" },
+  MEDIUM: { label: "Desempenho médio", color: "var(--warn)" },
+  LOW: { label: "Desempenho baixo", color: "var(--bad)" },
 };
 
 /** Metadados de exibição de uma classificação (ou null). */
@@ -36,7 +36,7 @@ export function deliveryClass(cls) {
 
 /** CFR em %, já em percentual no contrato — nunca multiplicar por 100. */
 export function formatCfr(value) {
-  return value == null ? null : `${Number(value).toFixed(1)}%`;
+  return value == null ? null : `${fixed1(value)}%`;
 }
 
 /** Selo com a origem do dado. */
@@ -57,6 +57,8 @@ function ClassTag({ cls }) {
   if (!meta) return null;
   return (
     <div
+      role="img"
+      aria-label={meta.label}
       className="mt-1 font-mono text-[11px] tracking-[0.18em] uppercase"
       style={{ color: meta.color }}
     >
@@ -127,14 +129,14 @@ export function DeliveryMetricsGrid({ delivery, showMethod = true }) {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <ValueStat
           label="Change Fail Rate"
-          value={cfr == null ? null : Number(cfr).toFixed(1)}
+          value={cfr == null ? null : fixed1(cfr)}
           unit="%"
           cls={delivery?.changeFailRateClass}
           hint={cfrHint}
         />
         <ValueStat
           label={vcs ? "Merges na branch de produção" : "Entregas"}
-          value={freq == null ? null : Number(freq).toFixed(1)}
+          value={freq == null ? null : fixed1(freq)}
           unit="/sem"
           cls={delivery?.deploymentFrequencyClass}
         />

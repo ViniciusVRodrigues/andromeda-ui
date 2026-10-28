@@ -12,9 +12,19 @@ import React from "react";
  * @typedef {{ p50: number | null, p90: number | null, n: number }} DurationStatValue
  */
 
-/** Horas com uma casa, ou null quando não há valor. */
+const ONE_DECIMAL = new Intl.NumberFormat("pt-BR", {
+  minimumFractionDigits: 1,
+  maximumFractionDigits: 1,
+});
+
+/** Decimal pt-BR com uma casa ("0,2", "21,0"); nunca `toFixed`, que sai com ponto. */
+export function fixed1(value) {
+  return ONE_DECIMAL.format(Number(value));
+}
+
+/** Horas com uma casa pt-BR, ou null quando não há valor. */
 export function formatHours(value) {
-  return value == null ? null : Number(value).toFixed(1);
+  return value == null ? null : fixed1(value);
 }
 
 /** Há medição? Objeto ausente, `n = 0` ou p50 nulo contam como "sem dado". */
@@ -22,7 +32,7 @@ export function hasDuration(stat) {
   return !!stat && stat.p50 != null && (stat.n == null || stat.n > 0);
 }
 
-/** Texto do detalhe: "p90 21.0 h · n 5" (ou null sem dado). */
+/** Texto do detalhe: "p90 21,0 h · n 5" (ou null sem dado). */
 export function durationDetail(stat, unit = "h") {
   if (!hasDuration(stat)) return null;
   const p90 = formatHours(stat.p90);

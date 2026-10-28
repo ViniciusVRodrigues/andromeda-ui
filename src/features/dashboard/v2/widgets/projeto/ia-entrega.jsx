@@ -20,6 +20,7 @@ import {
   fmtTokensCompact,
   fmtUsd,
   isNum,
+  plural,
 } from "../../format.js";
 import { Tag } from "../../kit/Badges.jsx";
 import { AiCrossCard, hasAiValue } from "../../kit/AiCross.jsx";
@@ -213,7 +214,7 @@ export function IaPerPointWidget({ data, ctx }) {
       <NoComplexityPanel
         href={ctx?.mappingHref}
         eyebrow="entrega"
-        title="Os tokens por ponto caíram ao longo das sprints?"
+        title="O custo de IA por ponto caiu ao longo das sprints?"
         sources={["ia", "azure"]}
       />
     );
@@ -221,7 +222,7 @@ export function IaPerPointWidget({ data, ctx }) {
   return (
     <IaPerPointCard
       eyebrow="entrega"
-      question="Os tokens por ponto caíram ao longo das sprints?"
+      question="O custo de IA por ponto caiu ao longo das sprints?"
       rows={rows}
       help="IA do projeto ÷ pontos de complexidade entregues, ou ÷ horas registradas nas tarefas, em tokens ou US$."
       basis="uso alocado ao projeto"
@@ -301,13 +302,27 @@ export const selectIaReview = (d) => ({
     opened: r.opened ?? null,
     merged: r.merged ?? null,
   })),
+  repoCount: (d.repos || []).length,
   ...bucketNote(d),
 });
 export const iaReviewEmpty = noBucketAi;
 
+/**
+ * Por que não há "1ª review" no card IA × Review — três estados distintos:
+ * sem repositório vinculado · PRs sem revisão registrada · sem PRs no período.
+ * `null` quando há review para comparar.
+ */
+export function reviewMissingReason(rows, repoCount) {
+  if (rows.some((r) => isNum(r.reviewHours))) return null;
+  if (repoCount === 0)
+    return "Sem repositório vinculado ao projeto. Vincule um para comparar a IA com a review.";
+  const prs = rows.reduce((s, r) => s + (Number(r.opened) || 0) + (Number(r.merged) || 0), 0);
+  return prs > 0 ? "Os PRs do período não têm revisão registrada." : "Nenhum PR no período.";
+}
+
 export function IaReviewWidget({ data }) {
-  const { rows, per, coverage } = data;
-  const noPr = !rows.some((r) => isNum(r.reviewHours));
+  const { rows, per, coverage, repoCount } = data;
+  const reason = reviewMissingReason(rows, repoCount);
   const noAi = noBucketAi(data);
   return (
     <AiCrossCard
@@ -330,13 +345,9 @@ export function IaReviewWidget({ data }) {
       help="Compara o custo de IA de cada intervalo com o tempo até a 1ª review dos PRs."
       coverage={coverage}
       basis="custo alocado ao projeto"
-      sources={["ia", "github"]}
+      sources={["ia", "code"]}
       noAi={noAi}
-      missing={
-        !noAi && noPr
-          ? "Sem pull requests com review no período. Vincule um repositório ao projeto."
-          : null
-      }
+      missing={!noAi ? reason : null}
     />
   );
 }
@@ -484,7 +495,7 @@ export function IaDoraWidget({ data }) {
       help="Compara o custo de IA de cada intervalo com o DORA estimado pelos merges do período."
       coverage={coverage}
       basis="custo alocado ao projeto"
-      sources={["ia", "github"]}
+      sources={["ia", "code"]}
       noAi={noAi}
       missing={
         !noAi && none
@@ -532,6 +543,7 @@ export function IaEffortWidget({ data }) {
   const [mode, setMode] = React.useState("effort");
   const rows = data[mode];
   const none = iaEffortEmpty(data);
+  const usableBands = rows.filter((r) => isNum(r.aiPerItem) && isNum(r.cycleDays)).length;
   return (
     <AiCrossCard
       actions={
@@ -559,7 +571,7 @@ export function IaEffortWidget({ data }) {
         { key: "count", label: "Itens concluídos", align: "right", format: fmtInt },
       ]}
       help="Compara o custo de IA por item de cada faixa com o cycle time; os totais estão na tabela."
-      sample={`${rows.length} faixas`}
+      sample={`${usableBands} de ${plural(rows.length, "faixa", "faixas")} com valor`}
       basis="uso alocado aos itens concluídos"
       sources={["ia", "azure"]}
       missing={none ? "Sem custo de IA por faixa: nenhum item concluído tem uso alocado." : null}

@@ -42,7 +42,7 @@ export function CoverageWidget({ data }) {
     <Panel
       eyebrow="cobertura"
       title="O que está vinculado e o que fica de fora"
-      sources={["azure", "github", "ia", "andromeda"]}
+      sources={["azure", "code", "ia", "andromeda"]}
       info="Métricas de pessoa e de custo dependem de contas ligadas, itens estimados e PRs que citam o work item. Cobertura baixa = números acima menores do que a realidade."
     >
       <div className="grid gap-x-10 md:grid-cols-2">
@@ -60,7 +60,7 @@ export function CoverageWidget({ data }) {
           <CountRow label="tarefas com esforço" n={dataQuality.tasksWithEffort} dataKey="effort" />
         </div>
         <CoverageRow
-          label="Pessoas com GitHub vinculado"
+          label="Pessoas com conta de código vinculada"
           pct={(people.githubLinked / people.members) * 100}
           detail={`${people.githubLinked}/${people.members}`}
         />

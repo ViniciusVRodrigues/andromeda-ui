@@ -3,7 +3,9 @@
 
 import React from "react";
 import {
+  CHANGE_FAILURE_RULE,
   fmtDuration,
+  isNum,
   fmtInt,
   fmtNum,
   fmtPct,
@@ -12,6 +14,7 @@ import {
   fmtUsd,
 } from "../../format.js";
 import { GradeBadge } from "../../kit/Badges.jsx";
+import { InfoTip } from "../../kit/Panel.jsx";
 import { KpiRow, KpiTile } from "../../kit/Kpi.jsx";
 
 export const selectKpis = (d) => ({
@@ -19,17 +22,25 @@ export const selectKpis = (d) => ({
   p: d.previous,
   vs: "período anterior",
   trend: d.throughput.map((b) => b.STORY + b.BUG + b.TASK),
+  period: d.period,
 });
 
+/** Itens concluídos ÷ semanas do período (`period.days / 7`), não a frequência de deploy do DORA. */
+export function throughputHint(items, period) {
+  const weeks = Number(period?.days) / 7;
+  if (!isNum(items) || !(weeks > 0)) return undefined;
+  return `${fmtNum(items / weeks)} por semana`;
+}
+
 export function KpisWidget({ data }) {
-  const { k, p, vs, trend } = data;
+  const { k, p, vs, trend, period } = data;
   return (
     <KpiRow label="Indicadores do projeto no período">
       <KpiTile
         label="Itens entregues"
         value={fmtInt(k.throughput)}
-        hint={`${fmtNum(k.deployFreqPerWeek)} por semana`}
-        delta={{ current: k.throughput, previous: p.throughput, vs }}
+        hint={throughputHint(k.throughput, period)}
+        delta={{ current: k.throughput, previous: p.throughput, vs, unit: "count" }}
         trend={trend}
       />
       <KpiTile
@@ -37,7 +48,12 @@ export function KpisWidget({ data }) {
         value={fmtPoints(k.complexityDelivered)}
         unit="pts"
         hint={k.complexityDelivered == null ? "sem complexidade nos itens do período" : undefined}
-        delta={{ current: k.complexityDelivered, previous: p.complexityDelivered, vs }}
+        delta={{
+          current: k.complexityDelivered,
+          previous: p.complexityDelivered,
+          vs,
+          unit: "points",
+        }}
       />
       <KpiTile
         label="Previsibilidade"
@@ -50,7 +66,15 @@ export function KpisWidget({ data }) {
         label="Lead time (mediana)"
         value={fmtDuration(k.leadTimeHours)}
         hint={`cycle time ${fmtDuration(k.cycleTimeHours)}`}
-        delta={{ current: k.leadTimeHours, previous: p.leadTimeHours, goodWhen: "down", vs }}
+        delta={{
+          current: k.leadTimeHours,
+          previous: p.leadTimeHours,
+          goodWhen: "down",
+          vs,
+          unit: "duration",
+          nCur: k.leadTimeHoursDs?.n,
+          nPrev: p.leadTimeHoursDs?.n,
+        }}
       />
       <KpiTile
         label="Bugs entre as entregas"
@@ -67,18 +91,22 @@ export function KpisWidget({ data }) {
           previous: p.aiCostPerPoint,
           goodWhen: "neutral",
           vs: "custo por ponto anterior",
+          unit: "usd",
         }}
       />
     </KpiRow>
   );
 }
 
-function DoraCard({ title, value, unit, grade, estimated, description }) {
+function DoraCard({ title, value, unit, grade, estimated, description, info }) {
   return (
     <div className="border-line bg-bg-elev rounded-[var(--radius-sm)] border px-5 py-4">
       <div className="mb-3 flex items-start justify-between gap-2">
         <span className="mono text-fg-muted text-[11px] tracking-[0.12em] uppercase">{title}</span>
-        <GradeBadge grade={grade} estimated={estimated} />
+        <span className="inline-flex items-center gap-2">
+          <GradeBadge grade={grade} estimated={estimated} />
+          {info ? <InfoTip label={title}>{info}</InfoTip> : null}
+        </span>
       </div>
       <div className="flex items-baseline gap-1.5">
         <span className="serif text-fg text-[34px] leading-none">{value}</span>
@@ -134,7 +162,8 @@ export function DoraChangeFailureWidget({ data }) {
       value={fmtPct(data.dora.changeFailureRate.pct)}
       grade={data.dora.changeFailureRate.grade}
       estimated={data.dora.changeFailureRate.estimated}
-      description="Parte das mudanças do período que precisaram de correção: PRs de remediação (ligados a bug, com prefixo de correção ou revert) sobre os merges."
+      info={CHANGE_FAILURE_RULE}
+      description="Parte das mudanças do período que precisaram de correção: PRs que corrigem produção sobre os merges."
     />
   );
 }

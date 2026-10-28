@@ -12,7 +12,7 @@
  */
 
 import React from "react";
-import { axisUsd, fmtPerHour, fmtPerPoint, fmtTokensCompact, isNum } from "../format.js";
+import { axisUsd, fmtPerHour, fmtPerPoint, fmtTokensCompact, isNum, plural } from "../format.js";
 import { Segmented } from "../FilterBar.jsx";
 import { AI_CARD_MIN_HEIGHT, AiEmpty } from "./AiCross.jsx";
 import { pctChange } from "./aiReading.js";
@@ -50,19 +50,27 @@ const unitFmt = (unit, base) =>
     ? (v) => fmtTokensCompact(v)
     : (v) => (base === "hour" ? fmtPerHour(v, "usd") : fmtPerPoint(v, "usd"));
 
-/** Frase de leitura: primeiro → último valor da série, sem afirmar causa. */
+/** Frase de leitura: primeiro → último valor da série, sem afirmar causa. A sprint em andamento
+ * (parcial) fica de fora quando há ao menos 2 fechadas. */
 export function perPointReading(rows, key, fmt, name) {
-  const v = rows.filter((r) => isNum(r[key]));
+  const withValue = rows.filter((r) => isNum(r[key]));
+  const closed = withValue.filter((r) => !r.current);
+  const v = closed.length >= 2 && closed.length < withValue.length ? closed : withValue;
   if (v.length < 3)
-    return `Há ${v.length} sprint(s) com valor; são precisas ao menos 3 para ver a tendência.`;
+    return `Há ${plural(v.length, "sprint com valor", "sprints com valor")}; são precisas ao menos 3 para ver a tendência.`;
   const first = v[0];
   const last = v[v.length - 1];
-  const change = pctChange(first[key], last[key]);
+  if (!(Number(first[key]) > 0) && !(Number(last[key]) > 0))
+    return `${v.length} sprints: sem valores para comparar.`;
+  const change = pctChange(first[key], last[key], {
+    unit: key.startsWith("tokens") ? "count" : "usd",
+  });
   const trend =
     change == null || Math.abs(change) < 5
       ? "estável"
       : `${change > 0 ? "+" : "−"}${Math.round(Math.abs(change))}%`;
-  return `${name}: ${fmt(first[key])} em ${first.label} e ${fmt(last[key])} em ${last.label} (${trend}).`;
+  const partial = v.length < withValue.length ? " A sprint em andamento fica de fora." : "";
+  return `${name}: ${fmt(first[key])} em ${first.label} e ${fmt(last[key])} em ${last.label} (${trend}).${partial}`;
 }
 
 export function IaPerPointCard({
@@ -77,12 +85,9 @@ export function IaPerPointCard({
   note,
 }) {
   const [base, setBase] = React.useState("point");
-  /* ms sem tokens por sprint, mas com custo: abre direto em US$, em vez de um card vazio */
+  /* abre em US$ (a medida do card) sempre que houver custo; tokens ficam na outra opção e na tabela */
   const [unit, setUnit] = React.useState(() =>
-    !rows.some((r) => isNum(r.tokensPerPoint) || isNum(r.tokensPerHour)) &&
-    rows.some((r) => isNum(r.costPerPoint) || isNum(r.costPerHour))
-      ? "usd"
-      : "tokens",
+    rows.some((r) => isNum(r.costPerPoint) || isNum(r.costPerHour)) ? "usd" : "tokens",
   );
   const id = `${unit}-${base}`;
   const key = KEYS[id];
@@ -94,7 +99,12 @@ export function IaPerPointCard({
     unit === "tokens" &&
     !rows.some((r) => isNum(r.tokensPerPoint) || isNum(r.tokensPerHour)) &&
     rows.some((r) => isNum(r.costPerPoint) || isNum(r.costPerHour));
-  const parts = [`${rows.length} sprints`, basis ? `base: ${basis}` : null, note].filter(Boolean);
+  const parts = [
+    plural(rows.length, "sprint", "sprints"),
+    basis ? `base: ${basis}` : null,
+    rows.some((r) => r.current) ? "* em andamento" : null,
+    note,
+  ].filter(Boolean);
   const table = noAi
     ? undefined
     : {

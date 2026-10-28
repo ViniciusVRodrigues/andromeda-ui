@@ -67,7 +67,12 @@ export function useIndividualDashboard(params) {
     queryKey: dashboardsKeys.individual(params),
     queryFn: () => getIndividualDashboard(params),
     enabled: !!params.projectId,
-    placeholderData: keepPreviousData,
+    /* o dado anterior só segura a tela quando é da MESMA pessoa e do mesmo projeto; ao trocar de
+       pessoa não se mostra o painel de outra com o nome da nova (vira esqueleto) */
+    placeholderData: (prev, prevQuery) => {
+      const k = prevQuery?.queryKey;
+      return k && k[2] === params.projectId && k[4] === (params.userId ?? "me") ? prev : undefined;
+    },
   });
 }
 

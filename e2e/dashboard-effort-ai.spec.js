@@ -61,7 +61,7 @@ test("equipe: comprometido × entregue por sprint e custo de IA por ponto", asyn
   await expect(s22).toContainText("79");
   await expect(s22).toContainText("70");
   await expect(
-    page.getByRole("heading", { name: "Os tokens por ponto caíram ao longo das sprints?" }),
+    page.getByRole("heading", { name: "O custo de IA por ponto caiu ao longo das sprints?" }),
   ).toBeVisible();
   /* o título antigo não aparece em lugar nenhum */
   await expect(page.getByText("Velocity por Sprint")).toHaveCount(0);

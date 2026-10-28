@@ -124,8 +124,8 @@ test.describe("individual", () => {
     await expect(task.getByRole("cell").nth(1).locator("[aria-label='sem valor']")).toHaveText("—");
     await expect(task.getByRole("cell").nth(2)).toHaveText("6 h");
     /* a razão da Task é por hora; a da Story, por ponto */
-    await expect(task.getByRole("cell").last()).toContainText("Tokens/h");
-    await expect(story.getByRole("cell").last()).toContainText("Tokens/pt");
+    await expect(task.getByRole("cell").last()).toContainText("tokens/h");
+    await expect(story.getByRole("cell").last()).toContainText("tokens/pt");
 
     const bug = itens.getByRole("row").filter({ hasText: "Bug sem medidas" });
     await expect(bug.locator("[aria-label='sem valor']")).toHaveCount(2);
@@ -173,7 +173,7 @@ test.describe("individual", () => {
     await expect(
       kpis.getByRole("listitem").filter({ hasText: "Esforço registrado" }),
     ).toContainText(" h");
-    await expect(kpis.getByRole("listitem").filter({ hasText: "Tokens por ponto" })).toBeVisible();
+    await expect(kpis.getByRole("listitem").filter({ hasText: "US$ por ponto" })).toBeVisible();
     const svg = page.locator("svg.recharts-surface[aria-label*='restam']").first();
     await expect(svg).toHaveAttribute(
       "aria-label",

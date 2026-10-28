@@ -5,6 +5,8 @@
  * descreve o que os números mostram; nunca afirma causa.
  */
 
+import { DELTA_RATIO_ABOVE_PCT, delta, fmtRatio } from "../format.js";
+
 export const AI_READING_THRESHOLDS = {
   minPoints: 3, // menos que isso: "não dá para concluir"
   flatPct: 5, // variação (primeiro → último) abaixo disso é "estável"
@@ -15,11 +17,27 @@ const T = AI_READING_THRESHOLDS;
 const nf = (v) => (Math.round(v * 10) / 10).toLocaleString("pt-BR");
 const ok = (v) => v != null && Number.isFinite(Number(v));
 
-/** Variação percentual de `a` para `b` (null se `a` for 0 ou faltar dado). */
-export function pctChange(a, b) {
-  if (!ok(a) || !ok(b) || Number(a) === 0) return null;
-  return ((Number(b) - Number(a)) / Math.abs(Number(a))) * 100;
+/**
+ * Variação percentual de `a` para `b` — a regra única de `delta` (format.js): null se `a` for 0,
+ * faltar dado ou a base for pequena demais (`opts.unit`, ver `delta`).
+ */
+export function pctChange(a, b, opts) {
+  return delta(b, a, opts)?.pct ?? null;
 }
+
+/** Unidade da série para a base mínima da variação, pelo nome da chave (usd/points/hours/duration/count). */
+export function unitOfKey(key = "") {
+  const k = String(key);
+  if (/cost|usd|price/i.test(k)) return "usd";
+  if (/cycle|lead|review|duration|latency|wait/i.test(k)) return "duration";
+  if (/complex|point|velocity|delivered|planned/i.test(k)) return "points";
+  if (/effort|hours/i.test(k)) return "hours";
+  return "count";
+}
+
+/** Nome da série no meio da frase: minúscula na 1ª letra, salvo siglas ("IA", "DORA"). */
+const mid = (name) =>
+  /^[A-ZÀ-Ú][a-zà-ú]/.test(String(name ?? "")) ? name[0].toLowerCase() + name.slice(1) : name;
 
 /** Correlação de Pearson de pares com os dois valores; null com menos de 3 pares ou sem variância. */
 export function pearson(pairs) {
@@ -39,12 +57,27 @@ export function pearson(pairs) {
   return sxy / Math.sqrt(sxx * syy);
 }
 
-const trendWord = (pct) =>
-  pct == null
-    ? null
-    : Math.abs(pct) < T.flatPct
-      ? "ficou estável"
-      : `${pct > 0 ? "subiu" : "caiu"} ${nf(Math.abs(pct))}%`;
+/** "subiu 16×" acima de +500%; senão "subiu 12%" / "caiu 8%" (pt-BR). */
+const trendWord = (pct) => {
+  if (pct == null) return null;
+  if (Math.abs(pct) < T.flatPct) return "ficou estável";
+  if (pct > DELTA_RATIO_ABOVE_PCT) return `subiu ${fmtRatio(pct / 100 + 1)}`;
+  return `${pct > 0 ? "subiu" : "caiu"} ${nf(Math.abs(pct))}%`;
+};
+
+/**
+ * Os pontos que a leitura usa (a mesma contagem vai para o texto, o rodapé e o aviso do card):
+ * os que têm os dois valores e, na série por sprint (`paired`), sem o ponto `current` (sprint em
+ * andamento, ainda parcial) quando há ao menos 2 pontos fechados — comparar com uma sprint
+ * aberta dá "caiu 100%" que não existe.
+ * @param {Array<{ a: number|null, b: number|null, current?: boolean }>} points
+ */
+export function readablePoints(points, kind = "paired") {
+  const pts = points.filter((p) => ok(p.a) && ok(p.b));
+  if (kind !== "paired") return pts;
+  const closed = pts.filter((p) => !p.current);
+  return closed.length >= 2 && closed.length < pts.length ? closed : pts;
+}
 
 /**
  * @param {{ kind: "paired"|"scatter", points: Array<{ label?: string, a: number|null, b: number|null }>,
@@ -52,9 +85,18 @@ const trendWord = (pct) =>
  *   `a` = IA, `b` = métrica (no paired, na ordem do eixo X; no scatter, x e y).
  * @returns {string}
  */
-export function crossReading({ kind, points, iaName, metricName, noun = "valores", minPoints }) {
+export function crossReading({
+  kind,
+  points,
+  iaName,
+  metricName,
+  iaKey,
+  metricKey,
+  noun = "valores",
+  minPoints,
+}) {
   const min = minPoints ?? T.minPoints;
-  const pts = points.filter((p) => ok(p.a) && ok(p.b));
+  const pts = readablePoints(points, kind);
   if (pts.length < min) {
     return `Com ${pts.length} ${noun} com dado não dá para concluir; são precisos ao menos ${min}.`;
   }
@@ -71,8 +113,16 @@ export function crossReading({ kind, points, iaName, metricName, noun = "valores
   }
   const first = pts[0];
   const last = pts[pts.length - 1];
-  const ia = trendWord(pctChange(first.a, last.a));
-  const me = trendWord(pctChange(first.b, last.b));
+  /* primeiro e último sem valor (0 → 0) não é variação: não há o que dizer, e nunca "de US$ 0,00 para US$ 0,00" */
+  if (
+    Number(first.a) === 0 &&
+    Number(last.a) === 0 &&
+    Number(first.b) === 0 &&
+    Number(last.b) === 0
+  )
+    return `${pts.length} ${noun}: sem valores para comparar.`;
+  const ia = trendWord(pctChange(first.a, last.a, { unit: unitOfKey(iaKey) }));
+  const me = trendWord(pctChange(first.b, last.b, { unit: unitOfKey(metricKey) }));
   if (!ia || !me) return `${pts.length} ${noun}: sem base para calcular a variação.`;
-  return `Do primeiro ao último dos ${pts.length} ${noun}, ${iaName} ${ia} e ${metricName} ${me}.`;
+  return `Entre o primeiro e o último ponto (${pts.length} ${noun}), ${mid(iaName)} ${ia} e ${mid(metricName)} ${me}.`;
 }

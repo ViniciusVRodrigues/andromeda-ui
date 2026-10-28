@@ -3,7 +3,9 @@
 
 import React from "react";
 import {
+  CHANGE_FAILURE_RULE,
   fmtDuration,
+  fmtFirstReview,
   fmtInt,
   fmtPct,
   fmtPerPoint,
@@ -28,37 +30,52 @@ export function KpisWidget({ data }) {
         label="Itens entregues"
         value={fmtInt(k.itemsDone)}
         hint={`${fmtPoints(k.complexityDelivered, { total: true })} de complexidade em ${k.projects} projetos`}
-        delta={{ current: k.itemsDone, previous: p.itemsDone, vs }}
+        delta={{ current: k.itemsDone, previous: p.itemsDone, vs, unit: "count" }}
       />
       <KpiTile
         label="Lead time (mediana)"
         value={fmtDuration(k.leadTimeHours)}
         hint={`cycle time ${fmtDuration(k.cycleTimeHours)}`}
-        delta={{ current: k.leadTimeHours, previous: p.leadTimeHours, goodWhen: "down", vs }}
+        delta={{
+          current: k.leadTimeHours,
+          previous: p.leadTimeHours,
+          goodWhen: "down",
+          vs,
+          unit: "duration",
+          nCur: k.leadTimeHoursDs?.n,
+          nPrev: p.leadTimeHoursDs?.n,
+        }}
       />
       <KpiTile
         label="Taxa de falha"
         value={fmtPct(k.cfrPct)}
         hint="merges que precisaram de correção (proxy)"
+        title={CHANGE_FAILURE_RULE}
         delta={{ current: k.cfrPct, previous: p.cfrPct, goodWhen: "down", vs }}
       />
       <KpiTile
         label="PRs mergeados"
         value={fmtInt(k.prsMerged)}
-        hint={`${fmtInt(k.commits)} commits · 1ª review em ${fmtDuration(k.timeToFirstReviewHours)}`}
-        delta={{ current: k.prsMerged, previous: p.prsMerged, vs }}
+        hint={`${fmtInt(k.commits)} commits · ${fmtFirstReview(k.timeToFirstReviewHours)}`}
+        delta={{ current: k.prsMerged, previous: p.prsMerged, vs, unit: "count" }}
       />
       <KpiTile
         label="Custo de IA"
         value={fmtUsd(k.aiCostUsd)}
         hint={`${fmtTokensM(k.aiTokens)} tokens · ${fmtPerPoint(k.aiCostPerPoint)} por ponto`}
-        delta={{ current: k.aiCostUsd, previous: p.aiCostUsd, goodWhen: "neutral", vs }}
+        delta={{
+          current: k.aiCostUsd,
+          previous: p.aiCostUsd,
+          goodWhen: "neutral",
+          vs,
+          unit: "usd",
+        }}
       />
       <KpiTile
         label="Adoção de IA"
         value={`${k.activeAiUsers}/${k.people}`}
         hint="pessoas com uso no período"
-        delta={{ current: k.activeAiUsers, previous: p.activeAiUsers, vs }}
+        delta={{ current: k.activeAiUsers, previous: p.activeAiUsers, vs, unit: "count" }}
       />
     </KpiRow>
   );
@@ -189,7 +206,7 @@ export function PortfolioWidget({ data: portfolio, ctx }) {
     <Panel
       eyebrow="comparação"
       title="Projetos lado a lado"
-      sources={["azure", "github", "ia"]}
+      sources={["azure", "code", "ia"]}
       info="Sprint atual: pontos de complexidade entregues ÷ comprometidos; a marca mostra quanto do tempo já passou. As outras colunas usam o período escolhido. Saúde: Atenção com 1 alerta, Em risco com 2 ou mais. Alertas: previsibilidade abaixo de 70%, sprint 25 p.p. atrás do tempo, 3+ PRs parados ou taxa de falha acima de 15%. Clique num projeto para abrir a visão dele."
     >
       <DataTable

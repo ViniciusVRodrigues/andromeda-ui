@@ -60,7 +60,7 @@ export function PullRequestsWidget({ data }) {
         data.linked && data.rows.length ? `pull requests · ${data.rows.length}` : "pull requests"
       }
       title={t("Meus PRs na sprint", (n) => `PRs de ${n} na sprint`)}
-      sources={["github", "azure"]}
+      sources={["code", "azure"]}
       info={t(
         "PRs que você abriu ou fechou na sprint, mais os ainda abertos. Parado = aberto há mais de 24 h sem review. 1ª review = tempo até a primeira review. Work item = o AB# citado na branch, no título ou na descrição.",
         (n) =>
@@ -92,11 +92,11 @@ export function ReviewsWidget({ data }) {
     <Panel
       eyebrow="colaboração"
       title={t("Reviews que fiz", (n) => `Reviews de ${n}`)}
-      sources={["github"]}
+      sources={["code"]}
       info={t(
-        "Reviews enviadas por você em PRs do projeto durante a sprint, pelo resultado registrado no GitHub.",
+        "Reviews enviadas por você em PRs do projeto durante a sprint, pelo resultado registrado no provedor de código.",
         (n) =>
-          `Reviews enviadas por ${n} em PRs do projeto durante a sprint, pelo resultado registrado no GitHub.`,
+          `Reviews enviadas por ${n} em PRs do projeto durante a sprint, pelo resultado registrado no provedor de código.`,
       )}
     >
       {!data.linked ? (
@@ -133,7 +133,7 @@ export function CommitsWidget({ data }) {
     <Panel
       eyebrow="atividade"
       title="Commits por dia"
-      sources={["github"]}
+      sources={["code"]}
       info={t(
         "Commits de autoria sua nos repositórios do projeto, por dia útil da sprint.",
         (n) => `Commits de autoria de ${n} nos repositórios do projeto, por dia útil da sprint.`,

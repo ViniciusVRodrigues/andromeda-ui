@@ -4,12 +4,12 @@ import React from "react";
 import { useSubject, useT } from "../../subject.jsx";
 import {
   axisTokensM,
-  fmtHours,
   fmtInt,
+  fmtPerPoint,
   fmtPoints,
-  fmtTokensCompact,
   fmtTokensM,
   fmtUsd,
+  isNum,
 } from "../../format.js";
 import { modelColor, STATUS_COLOR } from "../../kit/Badges.jsx";
 import { BarList, SegmentBar } from "../../kit/Bars.jsx";
@@ -99,29 +99,39 @@ export function CostByModelWidget({ data: byModel }) {
 }
 
 /** Tokens por item: por ponto de complexidade (principal) e, nas Tasks, por hora de esforço. */
+/** US$ por ponto do item: campo do ms ou custo ÷ complexidade. */
+export const itemCostPerPoint = (i) =>
+  isNum(i.aiCostPerPoint)
+    ? Number(i.aiCostPerPoint)
+    : isNum(i.aiCostUsd) && isNum(i.complexity) && Number(i.complexity) > 0
+      ? Number(i.aiCostUsd) / Number(i.complexity)
+      : null;
+
 export const selectTokensPerPoint = (d) =>
   d.items
-    .filter((i) => i.tokensPerPoint || i.tokensPerHour)
+    .filter((i) => isNum(itemCostPerPoint(i)) || i.tokensPerHour || i.aiCostUsd != null)
     .map((i) => {
-      const perPoint = !!i.tokensPerPoint;
+      const cost = itemCostPerPoint(i);
+      const useCost = isNum(cost);
       return {
         key: i.id,
         label: `#${i.externalId} ${i.title}`,
-        value: perPoint ? i.tokensPerPoint : i.tokensPerHour,
-        display: `${fmtTokensCompact(perPoint ? i.tokensPerPoint : i.tokensPerHour)} ${perPoint ? "Tokens/pt" : "Tokens/h"}`,
-        sub: perPoint ? fmtPoints(i.complexity, { total: true }) : fmtHours(i.effort),
-        perPoint,
+        value: useCost ? cost : 0,
+        /* o ranking é só em US$/pt; item sem custo não vira tokens (dashboards-numeros D10) */
+        display: useCost ? `${fmtPerPoint(cost)}/pt` : "— sem custo alocado",
+        sub: useCost ? fmtPoints(i.complexity, { total: true }) : "",
+        useCost,
       };
     })
-    .sort((a, b) => b.perPoint - a.perPoint || b.value - a.value);
+    .sort((a, b) => b.useCost - a.useCost || b.value - a.value);
 
 export function TokensPerPointWidget({ data: rows }) {
   return (
     <Panel
       eyebrow="ia × entrega"
-      title="Tokens por ponto em cada item"
+      title="Custo de IA por ponto em cada item"
       sources={["ia", "azure"]}
-      info="Tokens de IA alocados ao item (inclui alocações pendentes) divididos pela complexidade do item (Tokens/pt). Nas Tasks, que não têm complexidade, vale o esforço: Tokens/h. Itens sem esses valores ficam de fora."
+      info="Custo de IA alocado ao item (inclui alocações pendentes) dividido pela complexidade do item (US$/pt). Os tokens por ponto ficam na tabela. Nas Tasks, que não têm complexidade, vale o esforço: tokens/h. Itens sem esses valores ficam de fora."
     >
       {rows.length ? <BarList rows={rows} /> : <Empty>Nenhum item com uso de IA alocado.</Empty>}
     </Panel>

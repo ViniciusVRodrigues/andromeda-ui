@@ -3,11 +3,14 @@
 import React from "react";
 import {
   fmtDsSpread,
+  fmtFirstReview,
+  plural,
   fmtDuration,
   fmtInt,
   isNum,
   fmtHours,
   fmtPct,
+  fmtPerPoint,
   fmtPoints,
   fmtTokensCompact,
   fmtTokensM,
@@ -20,6 +23,13 @@ import { useT } from "../../subject.jsx";
 export function KpisWidget({ data }) {
   const t = useT();
   const { k, prev, isCurrent, vs, inProgress } = data;
+  const perPoint = (x) =>
+    isNum(x?.aiCostPerPoint)
+      ? Number(x.aiCostPerPoint)
+      : Number(x?.aiCostUsd) > 0 && Number(x?.complexityDelivered) > 0
+        ? Number(x.aiCostUsd) / Number(x.complexityDelivered)
+        : null;
+  const costPerPoint = perPoint(k);
   return (
     <KpiRow label="Indicadores pessoais da sprint">
       <KpiTile
@@ -38,7 +48,12 @@ export function KpisWidget({ data }) {
         delta={
           isCurrent
             ? null
-            : { current: k.complexityDelivered, previous: prev?.complexityDelivered, vs }
+            : {
+                current: k.complexityDelivered,
+                previous: prev?.complexityDelivered,
+                vs,
+                unit: "points",
+              }
         }
       />
       <KpiTile
@@ -70,12 +85,23 @@ export function KpisWidget({ data }) {
           previous: prev?.avgCycleTimeHours,
           goodWhen: "down",
           vs,
+          unit: "duration",
+          nCur: k.avgCycleTimeHoursDs?.n,
+          nPrev: prev?.avgCycleTimeHoursDs?.n,
         }}
       />
       <KpiTile
         label="PRs mergeados"
         value={fmtInt(k.prsMerged)}
-        hint={`${fmtInt(k.prsOpen)} aberto(s) · 1ª review em ${fmtDuration(k.avgTimeToFirstReviewHours)}`}
+        hint={
+          <>
+            {plural(k.prsOpen, "aberto", "abertos")} ·{" "}
+            {/* espaço não separável só em "1ª review" e no número com a unidade: quebra entre palavras, nunca corta */}
+            {fmtFirstReview(k.avgTimeToFirstReviewHours)
+              .replace(/^1ª /, "1ª ")
+              .replace(/(\d) (h|d|min)$/, "$1 $2")}
+          </>
+        }
       />
       <KpiTile
         label="Custo de IA"
@@ -84,22 +110,33 @@ export function KpisWidget({ data }) {
         delta={
           isCurrent
             ? null
-            : { current: k.aiCostUsd, previous: prev?.aiCostUsd, goodWhen: "neutral", vs }
+            : {
+                current: k.aiCostUsd,
+                previous: prev?.aiCostUsd,
+                goodWhen: "neutral",
+                vs,
+                unit: "usd",
+              }
         }
       />
       <KpiTile
-        label="Tokens por ponto"
-        value={fmtTokensCompact(k.avgTokensPerPoint)}
+        label="US$ por ponto"
+        value={fmtPerPoint(costPerPoint)}
         hint={
-          isNum(k.avgTokensPerHour)
-            ? `${t("média dos seus itens", (n) => `média dos itens de ${n}`)} · ${fmtTokensCompact(k.avgTokensPerHour)} por hora`
-            : t("média dos seus itens", (n) => `média dos itens de ${n}`)
+          !isNum(costPerPoint)
+            ? Number(k.complexityDelivered) > 0
+              ? "sem custo de IA na sprint"
+              : "sem pontos entregues"
+            : isNum(k.avgTokensPerPoint)
+              ? `${t("média dos seus itens", (n) => `média dos itens de ${n}`)} · ${fmtTokensCompact(k.avgTokensPerPoint)} tokens por ponto`
+              : t("média dos seus itens", (n) => `média dos itens de ${n}`)
         }
         delta={{
-          current: k.avgTokensPerPoint,
-          previous: prev?.avgTokensPerPoint,
+          current: costPerPoint,
+          previous: perPoint(prev),
           goodWhen: "neutral",
           vs,
+          unit: "usd",
         }}
       />
     </KpiRow>

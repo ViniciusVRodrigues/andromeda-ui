@@ -102,7 +102,7 @@ export function CommitActivityWidget({ data }) {
     <Panel
       eyebrow={`commits por ${per}`}
       title="Atividade de commits"
-      sources={["github"]}
+      sources={["code"]}
       table={{
         columns: [
           { key: "label", label: per },
@@ -127,7 +127,7 @@ export function PrFlowWidget({ data }) {
     <Panel
       eyebrow={`pull requests por ${per}`}
       title="Abertos × mergeados"
-      sources={["github"]}
+      sources={["code"]}
       table={{
         columns: [
           { key: "label", label: per },
@@ -156,7 +156,7 @@ export function FirstReviewWidget({ data }) {
     <Panel
       eyebrow={`revisão por ${per}`}
       title="Tempo até a 1ª review"
-      sources={["github"]}
+      sources={["code"]}
       info="Média do tempo entre abrir o PR e a primeira review (qualquer resultado), pelos PRs abertos em cada intervalo."
       table={{
         columns: [
@@ -196,7 +196,7 @@ export function ReposByFailureWidget({ data: repos }) {
     <Panel
       eyebrow="repositórios"
       title="Repositórios por taxa de falha"
-      sources={["github"]}
+      sources={["code"]}
       info="Taxa de falha = issues de bug ou hotfix abertas ÷ commits, nos últimos 30 dias (issues 'not planned' e duplicadas não contam). Do repositório com mais falha para o com menos."
     >
       <DataTable

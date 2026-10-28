@@ -5,7 +5,21 @@
  * Limiares nomeados em HIGHLIGHT_THRESHOLDS para ficarem auditáveis.
  */
 
-import { delta, fmtDuration, fmtPct, fmtPoints, fmtUsd, isNum } from "./format.js";
+import {
+  delta,
+  fmtDelta,
+  fmtDuration,
+  fmtFixed,
+  fmtInt,
+  fmtPct,
+  fmtPoints,
+  fmtUsd,
+  isNum,
+  plural,
+} from "./format.js";
+
+/** "caiu 12%", "subiu 16×" — a mesma regra do selo do KPI (`delta`): sem base não há frase. */
+const moved = (d) => `${d.direction === "down" ? "caiu" : "subiu"} ${fmtDelta(d)}`;
 
 export const HIGHLIGHT_THRESHOLDS = {
   paceGapPct: 15, // p.p. entre % do tempo corrido e % entregue
@@ -26,7 +40,7 @@ function pace(sprint, planned, delivered, who) {
   if (elapsed - done >= T.paceGapPct) {
     return {
       tone: "warn",
-      text: `${who} ${fmtPct(done)} da complexidade planejada com ${fmtPct(elapsed)} da sprint corrida — faltam ${fmtPoints(planned - delivered, { total: true })} de complexidade para ${restantes} dia(s) útil(eis).`,
+      text: `${who} ${fmtPct(done)} da complexidade planejada com ${fmtPct(elapsed)} da sprint corrida — faltam ${fmtPoints(planned - delivered, { total: true })} de complexidade para ${restantes === 1 ? "1 dia útil" : `${fmtInt(restantes)} dias úteis`}.`,
     };
   }
   if (done - elapsed >= 5) {
@@ -60,11 +74,15 @@ export function individualHighlights(d, subject = null) {
           : `${stale.length} PRs ${other ? `de ${n}` : "seus"} estão sem nenhuma review; o mais antigo (#${oldest.number}, ${oldest.repo}) está aberto há ${fmtDuration(oldest.hoursOpen)}.`,
     });
   }
-  const cyc = delta(d.kpis.avgCycleTimeHours, d.previous?.avgCycleTimeHours);
+  const cyc = delta(d.kpis.avgCycleTimeHours, d.previous?.avgCycleTimeHours, {
+    unit: "duration",
+    nCur: d.kpis.avgCycleTimeHoursDs?.n,
+    nPrev: d.previous?.avgCycleTimeHoursDs?.n,
+  });
   if (cyc && Math.abs(cyc.pct) >= 10 && out.length < 3) {
     out.push({
       tone: cyc.direction === "down" ? "good" : "info",
-      text: `${other ? `O cycle time mediano de ${n}` : "Seu cycle time mediano"} ${cyc.direction === "down" ? "caiu" : "subiu"} ${Math.abs(cyc.pct).toFixed(0)}% em relação à sprint anterior (${fmtDuration(d.previous.avgCycleTimeHours)} → ${fmtDuration(d.kpis.avgCycleTimeHours)}).`,
+      text: `${other ? `O cycle time mediano de ${n}` : "Seu cycle time mediano"} ${moved(cyc)} em relação à sprint anterior (${fmtDuration(d.previous.avgCycleTimeHours)} → ${fmtDuration(d.kpis.avgCycleTimeHours)}).`,
     });
   }
   return out.slice(0, 3);
@@ -78,7 +96,7 @@ export function teamHighlights(d) {
     const oldest = d.stalePrs[0];
     out.push({
       tone: "warn",
-      text: `${d.stalePrs.length} PR(s) parado(s) sem review; o mais antigo (#${oldest.number}, ${oldest.author === "Você" ? "seu" : `de ${oldest.author}`}) está aberto há ${fmtDuration(oldest.hoursOpen)}.`,
+      text: `${d.stalePrs.length === 1 ? "1 PR parado" : `${fmtInt(d.stalePrs.length)} PRs parados`} sem review; o mais antigo (#${oldest.number}, ${oldest.author === "Você" ? "seu" : `de ${oldest.author}`}) está aberto há ${fmtDuration(oldest.hoursOpen)}.`,
     });
   }
   const aging = d.agingItems.filter(
@@ -87,7 +105,7 @@ export function teamHighlights(d) {
   if (aging.length) {
     out.push({
       tone: "warn",
-      text: `${aging.length} item(ns) em andamento há mais que o p85 do cycle time do time (${fmtDuration(d.p85CycleHours)}) — candidatos a bloqueio.`,
+      text: `${plural(aging.length, "item", "itens")} em andamento há mais que o p85 do cycle time do time (${fmtDuration(d.p85CycleHours)}) — candidatos a bloqueio.`,
     });
   }
   const wip = d.members.filter((m) => m.wip > 0);
@@ -96,7 +114,7 @@ export function teamHighlights(d) {
   if (heavy && out.length < 3) {
     out.push({
       tone: "info",
-      text: `${heavy.isMe ? "Você está" : `${heavy.name} está`} com ${heavy.wip} itens em andamento ao mesmo tempo — ${(heavy.wip / avgWip).toFixed(1)}× a média do time.`,
+      text: `${heavy.isMe ? "Você está" : `${heavy.name} está`} com ${heavy.wip} itens em andamento ao mesmo tempo — ${fmtFixed(heavy.wip / avgWip, 1)}× a média do time.`,
     });
   }
   const reviews = d.members.reduce((s, m) => s + (m.reviewsGiven || 0), 0);
@@ -121,7 +139,7 @@ export function teamHighlights(d) {
   if (cov < T.estimateCoveragePct && out.length < 3) {
     out.push({
       tone: "info",
-      text: `${d.kpis.itemsTotal - d.kpis.itemsWithComplexity} item(ns) da sprint sem complexidade — eles ficam fora da velocity e do custo de IA por ponto.`,
+      text: `${plural(d.kpis.itemsTotal - d.kpis.itemsWithComplexity, "item", "itens")} da sprint sem complexidade — eles ficam fora da velocity e do custo de IA por ponto.`,
     });
   }
   return out.slice(0, 3);
@@ -141,18 +159,22 @@ export function projectHighlights(d) {
       text: `Previsibilidade alta: ${fmtPct(pred)} do planejado entregue por sprint, em média.`,
     });
   }
-  const lead = delta(d.kpis.leadTimeHours, d.previous.leadTimeHours);
+  const lead = delta(d.kpis.leadTimeHours, d.previous.leadTimeHours, {
+    unit: "duration",
+    nCur: d.kpis.leadTimeHoursDs?.n,
+    nPrev: d.previous.leadTimeHoursDs?.n,
+  });
   if (lead && Math.abs(lead.pct) >= 10) {
     out.push({
       tone: lead.direction === "down" ? "good" : "warn",
-      text: `Lead time ${lead.direction === "down" ? "caiu" : "subiu"} ${Math.abs(lead.pct).toFixed(0)}% vs o período anterior (${fmtDuration(d.previous.leadTimeHours)} → ${fmtDuration(d.kpis.leadTimeHours)}).`,
+      text: `Lead time ${moved(lead)} vs o período anterior (${fmtDuration(d.previous.leadTimeHours)} → ${fmtDuration(d.kpis.leadTimeHours)}).`,
     });
   }
-  const cps = delta(d.kpis.aiCostPerPoint, d.previous.aiCostPerPoint);
+  const cps = delta(d.kpis.aiCostPerPoint, d.previous.aiCostPerPoint, { unit: "usd" });
   if (cps && Math.abs(cps.pct) >= T.costChangePct && out.length < 3) {
     out.push({
       tone: "info",
-      text: `Custo de IA por ponto entregue foi de ${fmtUsd(d.previous.aiCostPerPoint)} para ${fmtUsd(d.kpis.aiCostPerPoint)} (${cps.direction === "up" ? "+" : "−"}${Math.abs(cps.pct).toFixed(0)}%).`,
+      text: `Custo de IA por ponto entregue foi de ${fmtUsd(d.previous.aiCostPerPoint)} para ${fmtUsd(d.kpis.aiCostPerPoint)} (${cps.direction === "up" ? "+" : "−"}${fmtDelta(cps)}).`,
     });
   }
   if (
@@ -177,11 +199,11 @@ export function organizationHighlights(d) {
       text: `${p.name} está em risco: ${p.health.reasons.slice(0, 2).join("; ")}.`,
     });
   }
-  const cost = delta(d.kpis.aiCostUsd, d.previous.aiCostUsd);
+  const cost = delta(d.kpis.aiCostUsd, d.previous.aiCostUsd, { unit: "usd" });
   if (cost && Math.abs(cost.pct) >= T.costChangePct) {
     out.push({
       tone: "info",
-      text: `Gasto com IA ${cost.direction === "up" ? "subiu" : "caiu"} ${Math.abs(cost.pct).toFixed(0)}% vs o período anterior (${fmtUsd(d.previous.aiCostUsd)} → ${fmtUsd(d.kpis.aiCostUsd)}); custo por ponto ${fmtUsd(d.previous.aiCostPerPoint)} → ${fmtUsd(d.kpis.aiCostPerPoint)}.`,
+      text: `Gasto com IA ${moved(cost)} vs o período anterior (${fmtUsd(d.previous.aiCostUsd)} → ${fmtUsd(d.kpis.aiCostUsd)}); custo por ponto ${fmtUsd(d.previous.aiCostPerPoint)} → ${fmtUsd(d.kpis.aiCostPerPoint)}.`,
     });
   }
   const unalloc = (d.ai.costByProject || []).find((c) => c.projectId == null);
@@ -198,7 +220,7 @@ export function organizationHighlights(d) {
   if (out.length < 3 && d.ai.subscription.usersAboveSubscription > 0) {
     out.push({
       tone: "info",
-      text: `${d.ai.subscription.usersAboveSubscription} pessoa(s) consomem mais por token do que a assinatura de ${fmtUsd(d.ai.subscription.perUserMonthUsd)}/mês.`,
+      text: `${d.ai.subscription.usersAboveSubscription === 1 ? "1 pessoa consome mais" : `${fmtInt(d.ai.subscription.usersAboveSubscription)} pessoas consomem mais`} por token do que a assinatura de ${fmtUsd(d.ai.subscription.perUserMonthUsd)}/mês.`,
     });
   }
   return out.slice(0, 3);
@@ -240,14 +262,14 @@ export function roadmapHighlights(d) {
   if (soonest) {
     out.push({
       tone: "good",
-      text: `${soonest.title} está em ${fmtPct(soonest.pctDone)}; no ritmo atual termina em ~${Math.ceil(soonest.forecastWeeks)} semana(s).`,
+      text: `${soonest.title} está em ${fmtPct(soonest.pctDone)}; no ritmo atual termina em ~${plural(Math.ceil(soonest.forecastWeeks), "semana", "semanas")}.`,
     });
   }
   const staleTop = d.backlog.byPriority.slice(0, 2).reduce((s, p) => s + p.stale, 0);
   if (staleTop)
     out.push({
       tone: "warn",
-      text: `${staleTop} item(ns) de prioridade 1–2 no backlog sem alteração há 60+ dias.`,
+      text: `${plural(staleTop, "item", "itens")} de prioridade 1–2 no backlog sem alteração há 60+ dias.`,
     });
   return out.slice(0, 3);
 }

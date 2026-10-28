@@ -3,10 +3,12 @@
 import React from "react";
 import {
   fmtDsSpread,
+  fmtFirstReview,
   fmtDuration,
   fmtHours,
   fmtInt,
   fmtPct,
+  plural,
   fmtPoints,
   fmtUsd,
   isNum,
@@ -43,7 +45,12 @@ export function KpisWidget({ data }) {
         delta={
           isCurrent
             ? null
-            : { current: k.complexityDelivered, previous: prev?.complexityDelivered, vs }
+            : {
+                current: k.complexityDelivered,
+                previous: prev?.complexityDelivered,
+                vs,
+                unit: "points",
+              }
         }
       />
       <KpiTile
@@ -56,7 +63,7 @@ export function KpisWidget({ data }) {
         label="Itens concluídos"
         value={fmtInt(k.itemsDone)}
         unit={`de ${fmtInt(k.itemsTotal)}`}
-        hint={k.unassigned ? `${k.unassigned} sem responsável` : "todos com responsável"}
+        hint={k.unassigned ? `${fmtInt(k.unassigned)} sem responsável` : "todos com responsável"}
       />
       <KpiTile
         label="Cycle time (mediana)"
@@ -68,6 +75,9 @@ export function KpisWidget({ data }) {
           previous: prev?.avgCycleTimeHours,
           goodWhen: "down",
           vs,
+          unit: "duration",
+          nCur: k.avgCycleTimeHoursDs?.n,
+          nPrev: prev?.avgCycleTimeHoursDs?.n,
         }}
       />
       <KpiTile
@@ -80,6 +90,9 @@ export function KpisWidget({ data }) {
           previous: prev?.avgLeadTimeHours,
           goodWhen: "down",
           vs,
+          unit: "duration",
+          nCur: k.avgLeadTimeHoursDs?.n,
+          nPrev: prev?.avgLeadTimeHoursDs?.n,
         }}
       />
       <KpiTile
@@ -91,7 +104,7 @@ export function KpisWidget({ data }) {
         )}
         hint={
           isNum(k.itemsWithComplexity)
-            ? `${k.itemsWithComplexity} de ${k.itemsTotal} itens com complexidade`
+            ? `${fmtInt(k.itemsWithComplexity)} de ${plural(k.itemsTotal, "item", "itens")} com complexidade`
             : "sem complexidade nos itens"
         }
         tone={
@@ -109,6 +122,7 @@ export function KpisWidget({ data }) {
           previous: prev?.aiCostPerPoint,
           goodWhen: "neutral",
           vs: "custo/ponto anterior",
+          unit: "usd",
         }}
       />
       <KpiTile
@@ -117,7 +131,7 @@ export function KpisWidget({ data }) {
         hint={
           k.openPrs == null
             ? "só na sprint atual"
-            : `de ${k.openPrs} abertos · 1ª review em ${fmtDuration(k.avgTimeToFirstReviewHours)}`
+            : `de ${fmtInt(k.openPrs)} abertos · ${fmtFirstReview(k.avgTimeToFirstReviewHours)}`
         }
         tone={k.stalePrs > 0 ? "warn" : undefined}
       />
