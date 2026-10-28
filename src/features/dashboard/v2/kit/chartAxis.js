@@ -66,10 +66,10 @@ export function yAxisProps(yFormat, max, maxCount = 5) {
     : { tickFormatter: fmt, ...width };
 }
 
-/** Largura do eixo Y para o rótulo do topo ("1.000 h", "US$ 14") não cortar: só cresce (mínimo 40 px). */
+/** Largura do eixo Y para nenhum rótulo ("1.000 h", "US$ 14", o intermediário "US$ 0,5") cortar: só cresce (mínimo 40 px). */
 export function axisWidth(fmt, max) {
   if (!isNum(max) || typeof fmt !== "function") return {};
-  const chars = Math.max(String(fmt(max)).length, String(fmt(max * 0.5)).length);
+  const chars = Math.max(...[1, 0.75, 0.5, 0.25].map((f) => String(fmt(max * f)).length));
   const w = Math.ceil(chars * 6.8 + 10);
   return w > 40 ? { width: w } : {};
 }

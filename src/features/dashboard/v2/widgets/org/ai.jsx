@@ -166,7 +166,7 @@ export function EditorsWidget({ data: byEditor }) {
   if (!hasAiValue(byEditor, "interactions")) {
     return (
       <Panel eyebrow="ferramentas" title="Interações por editor" sources={["ia"]}>
-        <AiEmpty />
+        <AiEmpty kind="editor" />
       </Panel>
     );
   }

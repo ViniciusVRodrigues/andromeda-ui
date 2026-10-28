@@ -30,7 +30,13 @@ const AZURE_CONNECTION_KEY = ["integrations", "azure", "connection"];
  * cache (o objeto inteiro) e só diferem no `select`. 404 = sem conexão. */
 const azureConnectionQuery = {
   queryKey: AZURE_CONNECTION_KEY,
-  queryFn: () => getAzureConnection().then((d) => d || { status: "DISCONNECTED" }),
+  queryFn: () =>
+    getAzureConnection()
+      .then((d) => d || { status: "DISCONNECTED" })
+      .catch((e) => {
+        if (e?.status === 404) return { status: "DISCONNECTED" };
+        throw e;
+      }),
 };
 
 /**

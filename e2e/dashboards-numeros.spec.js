@@ -300,8 +300,8 @@ test("Individual: US$ por ponto sem pontos entregues diz o motivo", async ({ pag
 });
 
 test("eixos em pt-BR: 'US$ 2', '50 h', '3 d'", () => {
-  expect(axisUsd(2)).toBe("US$ 2");
-  expect(axisUsd(14)).toBe("US$ 14");
+  expect(axisUsd(2)).toBe("US$ 2");
+  expect(axisUsd(14)).toBe("US$ 14");
   expect(axisHours(50)).toBe("50 h");
   expect(axisDays.forMax(8)(3)).toBe("3 d");
 });

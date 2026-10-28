@@ -17,5 +17,10 @@ export function fmtTokensM(value) {
   const m = Number(value) / 1e6;
   if (m === 0) return "0";
   const decimals = m >= 10 ? 1 : m >= 1 ? 2 : 3;
-  return `${m.toFixed(decimals).replace(".", ",")}M`;
+  const txt = new Intl.NumberFormat("pt-BR", {
+    minimumFractionDigits: decimals,
+    maximumFractionDigits: decimals,
+    useGrouping: "always",
+  }).format(m);
+  return `${txt}M`;
 }
