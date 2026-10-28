@@ -25,7 +25,9 @@ import {
   XAxis,
   YAxis,
 } from "recharts";
+import { fmtNum } from "../format.js";
 import { Legend } from "./Bars.jsx";
+import { maxOf, yAxisProps } from "./chartAxis.js";
 import {
   burndownSummary,
   columnSummary,
@@ -177,8 +179,15 @@ export function ColumnChart({
             axisLine={false}
             tickLine={false}
             width={yWidth}
-            tickFormatter={yFormat}
             allowDecimals={false}
+            {...yAxisProps(
+              yFormat,
+              maxOf(
+                data,
+                series.map((x) => x.key),
+                stacked,
+              ),
+            )}
           />
           <Tooltip
             cursor={{ fill: "var(--line)" }}
@@ -377,8 +386,14 @@ function TimeTrendChart({
             axisLine={false}
             tickLine={false}
             width={yWidth}
-            tickFormatter={yFormat}
             domain={yDomain || [0, "auto"]}
+            {...yAxisProps(
+              yFormat,
+              maxOf(
+                series.flatMap((x) => x.points || []),
+                ["value"],
+              ),
+            )}
           />
           <Tooltip
             shared={false}
@@ -521,8 +536,14 @@ export function TrendChart({
             axisLine={false}
             tickLine={false}
             width={yWidth}
-            tickFormatter={yFormat}
             domain={yDomain || [0, "auto"]}
+            {...yAxisProps(
+              yFormat,
+              maxOf(
+                data,
+                series.map((x) => x.key),
+              ),
+            )}
           />
           <Tooltip
             cursor={{ stroke: "var(--line-strong)", strokeWidth: 1 }}
@@ -606,7 +627,7 @@ export function BurndownChart({ data, todayLabel, height = 220 }) {
         { key: "remainingPoints", label: "Restante (pts)", color: "var(--accent)" },
         { key: "idealPoints", label: "Ideal", color: "var(--fg-muted)", dashed: true },
       ]}
-      valueFormat={(v) => `${Math.round(v * 10) / 10} pts`}
+      valueFormat={(v) => `${fmtNum(v)} pts`}
       reference={todayLabel ? { x: todayLabel, label: "hoje" } : undefined}
       summary={burndownSummary({ data: rows, todayLabel })}
     />
@@ -707,8 +728,15 @@ export function PairedColumns({
               axisLine={false}
               tickLine={false}
               width={44}
-              tickFormatter={s.axis || fmt}
               tickCount={3}
+              {...yAxisProps(
+                s.axis || fmt,
+                maxOf(
+                  rows,
+                  list.map((m) => m.key),
+                ),
+                3,
+              )}
             />
             <Tooltip
               cursor={{ fill: "var(--line)" }}

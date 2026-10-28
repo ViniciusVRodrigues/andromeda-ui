@@ -121,7 +121,13 @@ export function PrPill({ status, stale }) {
 
 /* notas DORA do servidor (DeliveryMetricsCalculator) */
 const GRADE_TONE = { ELITE: "good", HIGH: "good", MEDIUM: "warn", LOW: "bad" };
-export const GRADE_LABEL = { ELITE: "Elite", HIGH: "Alto", MEDIUM: "Médio", LOW: "Baixo" };
+/* "Baixo" sozinho lê como risco baixo: o selo fala do desempenho ("Desempenho baixo") */
+export const GRADE_LABEL = {
+  ELITE: "Desempenho elite",
+  HIGH: "Desempenho alto",
+  MEDIUM: "Desempenho médio",
+  LOW: "Desempenho baixo",
+};
 export function GradeBadge({ grade, estimated }) {
   if (!grade) return null;
   const tone = GRADE_TONE[grade];
@@ -133,6 +139,8 @@ export function GradeBadge({ grade, estimated }) {
   return (
     <span className="inline-flex items-center gap-2">
       <span
+        role="img"
+        aria-label={GRADE_LABEL[grade] ?? grade}
         className={`mono rounded-full border px-2 py-0.5 text-[11px] tracking-[0.06em] uppercase ${cls}`}
       >
         {GRADE_LABEL[grade] ?? grade}

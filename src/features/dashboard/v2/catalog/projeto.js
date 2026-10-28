@@ -362,7 +362,7 @@ export const widgets = [
     aiEmpty: iaSprintEmpty,
     Component: IaSprintWidget,
   }),
-  widget("ia-por-ponto", "ia-entrega", "Os tokens por ponto caíram ao longo das sprints?", {
+  widget("ia-por-ponto", "ia-entrega", "O custo de IA por ponto caiu ao longo das sprints?", {
     aliases: ["projeto.custo-ia-sp"],
     sizes: AI_SIZES,
     size: "M",

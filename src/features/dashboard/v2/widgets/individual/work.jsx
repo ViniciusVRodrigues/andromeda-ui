@@ -122,7 +122,7 @@ export function ItemsWidget({ data: items, ctx }) {
     <Panel
       eyebrow="composição"
       title={t("Meus itens da sprint", (n) => `Itens de ${n} na sprint`)}
-      sources={["azure", "github", "ia"]}
+      sources={["azure", "code", "ia"]}
       actions={
         ctx?.onOpenBacklog ? (
           <button

@@ -70,10 +70,10 @@ export function IndividualView({
 }
 
 /** Faixa de contexto: de quem é a visão (texto, não só a borda) + volta para a própria. */
-function PersonBanner({ person, onBackToMine }) {
+function PersonBanner({ person, onBackToMine, loading = false }) {
   return (
     <div
-      role="status"
+      role={loading ? undefined : "status"}
       data-person-banner=""
       className="border-line-strong bg-bg-elev border-l-accent text-fg mt-2 mb-3 flex flex-wrap items-center gap-x-4 gap-y-1 rounded-[var(--radius-sm)] border border-l-[3px] px-4 py-2 text-[13px]"
     >
@@ -135,11 +135,21 @@ function IndividualBody({
         onBackToMine={onBackToMine}
       />
     );
-  const banner = person ? <PersonBanner person={person} onBackToMine={onBackToMine} /> : null;
-  if (isPending || !data || layouts.isPending) {
+  /* dado de outra pessoa (resposta que chegou depois da troca) conta como carregando */
+  const wrongPerson = !!person?.id && !!data?.person?.id && data.person.id !== person.id;
+  const loading = isPending || !data || wrongPerson || layouts.isPending;
+  const banner = person ? (
+    <PersonBanner person={person} onBackToMine={onBackToMine} loading={loading} />
+  ) : null;
+  if (loading) {
     return (
-      <div className="mt-2">
+      <div className="mt-2" aria-busy="true">
         {banner}
+        {person ? (
+          <p role="status" className="sr-only">
+            Carregando o painel de {person.name}
+          </p>
+        ) : null}
         <div aria-hidden="true" className="skeleton mb-4 h-14" />
         <DashboardGrid layout={layout} skeleton />
       </div>

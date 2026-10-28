@@ -59,7 +59,8 @@ export function AiCostByModelWidget({ data }) {
 
 export const selectAiCostByProject = (d) => ({
   rows: d.ai.costByProject,
-  total: d.kpis.aiCostUsd,
+  /* a base do percentual é a soma de TODAS as linhas (alocado + não alocado), nunca só o alocado */
+  total: (d.ai.costByProject || []).reduce((s, c) => s + (Number(c.costUsd) || 0), 0),
 });
 
 export function AiCostByProjectWidget({ data }) {

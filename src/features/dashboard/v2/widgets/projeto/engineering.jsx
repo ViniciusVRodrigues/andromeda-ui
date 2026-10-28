@@ -14,7 +14,7 @@ export function PrFlowWidget({ data }) {
     <Panel
       eyebrow={`pull requests por ${per}`}
       title="Abertos × mergeados"
-      sources={["github"]}
+      sources={["code"]}
       info="PRs abertos e mergeados em cada intervalo nos repositórios do projeto. Abertos acima de mergeados por vários intervalos = fila crescendo."
       table={{
         columns: [
@@ -44,7 +44,7 @@ export function FirstReviewWidget({ data }) {
     <Panel
       eyebrow={`revisão por ${per}`}
       title="Tempo até a 1ª review"
-      sources={["github"]}
+      sources={["code"]}
       info="Média do tempo entre abrir o PR e a primeira review (qualquer resultado), pelos PRs abertos em cada intervalo. É a espera que mais pesa no cycle time de PR."
       table={{
         columns: [
@@ -85,7 +85,7 @@ export function ReposWidget({ data }) {
     <Panel
       eyebrow="repositórios"
       title="Saúde por repositório"
-      sources={["github"]}
+      sources={["code"]}
       info="Por repositório: commits, PRs mergeados, tempo até o merge e até a 1ª review no período; PRs abertos e parados agora; taxa de falha nos últimos 30 dias; situação do sync."
     >
       <DataTable

@@ -21,8 +21,8 @@ import { sectionText, useSubject } from "./subject.jsx";
 import { useNavigate } from "react-router-dom";
 import { useIdentity } from "../../../core/auth/IdentityContext.jsx";
 import { orgRoute } from "../../../lib/orgRoutes.js";
-import { Section, useNarrowViewport } from "./kit/Panel.jsx";
-import { AiEmpty } from "./kit/AiCross.jsx";
+import { CodeProvidersContext, Section, codeProvidersOf, useNarrowViewport } from "./kit/Panel.jsx";
+import { AiConsumptionContext, AiEmpty, aiConsumptionOf } from "./kit/AiCross.jsx";
 import { packRows, serializeLayout } from "./layout.js";
 import { useSaveLayout } from "./hooks.js";
 import { useDashboardEdit } from "./edit/EditContext.jsx";
@@ -66,7 +66,26 @@ function Cells({ widgets, render, skeleton = false }) {
  *   skeleton?: boolean }} props
  *   `skeleton` desenha a silhueta do layout (alturas de `skeletonHeight`) sem dado.
  */
-export function DashboardGrid({ layout, payload, ctx, skeleton = false }) {
+export function DashboardGrid(props) {
+  const { layout, payload, skeleton = false } = props;
+  const consumption = React.useMemo(
+    () => (skeleton ? null : aiConsumptionOf(layout.viewKey, payload)),
+    [skeleton, layout.viewKey, payload],
+  );
+  const providers = React.useMemo(
+    () => (skeleton ? [] : codeProvidersOf(payload)),
+    [skeleton, payload],
+  );
+  return (
+    <AiConsumptionContext.Provider value={consumption}>
+      <CodeProvidersContext.Provider value={providers}>
+        <DashboardGridBody {...props} />
+      </CodeProvidersContext.Provider>
+    </AiConsumptionContext.Provider>
+  );
+}
+
+function DashboardGridBody({ layout, payload, ctx, skeleton = false }) {
   const edit = useDashboardEdit();
   const sections = layout.sections.filter((s) => s.widgets.length);
   if (!skeleton && edit?.editing) {

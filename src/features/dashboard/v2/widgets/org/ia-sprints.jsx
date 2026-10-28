@@ -74,6 +74,7 @@ export function sprintsReading(projects) {
   const span = (key, fmt, label) => {
     const vals = base.filter((s) => isNum(s[key]));
     if (vals.length < 2) return null;
+    if (!Number(vals[0][key]) && !Number(vals[vals.length - 1][key])) return null;
     return `${label} de ${fmt(vals[0][key])} para ${fmt(vals[vals.length - 1][key])}`;
   };
   const parts = [
@@ -82,7 +83,7 @@ export function sprintsReading(projects) {
     span("predictabilityPct", fmtPct, "previsibilidade"),
   ].filter(Boolean);
   const head = parts.length
-    ? `${top.name}: ${parts.join("; ")} em ${base.length} sprints.`
+    ? `${top.name}: ${parts.join("; ")} em ${base.length} sprints${base.length < sp.length ? " (a em andamento fica de fora)" : ""}.`
     : `${top.name}: ${sp.length} ${sp.length === 1 ? "sprint" : "sprints"} no período, ainda sem sequência para comparar.`;
   const tail = [];
   if (sp.length < MIN_SPRINTS)

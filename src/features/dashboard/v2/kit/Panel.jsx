@@ -12,9 +12,41 @@ import { PanelTitleContext } from "./chartSummary.js";
 const SOURCE_LABEL = {
   azure: "Azure DevOps",
   github: "GitHub",
+  azurerepos: "Azure Repos",
   ia: "Conector de IA",
   andromeda: "Andrômeda",
 };
+
+const PROVIDER_LABEL = { GITHUB: "GitHub", AZURE_REPOS: "Azure Repos" };
+
+/**
+ * Provedores de código que aparecem no payload (`repos[].provider`, `pullRequests[].provider`,
+ * `stalePrs[].provider`…), na ordem GitHub, Azure Repos. Varre o payload (raso) uma vez.
+ * @returns {string[]} chaves de `PROVIDER_LABEL`
+ */
+export function codeProvidersOf(payload) {
+  const found = new Set();
+  const walk = (v, depth) => {
+    if (!v || typeof v !== "object" || depth > 4) return;
+    if (Array.isArray(v)) {
+      for (const x of v) walk(x, depth + 1);
+      return;
+    }
+    if (typeof v.provider === "string" && PROVIDER_LABEL[v.provider]) found.add(v.provider);
+    for (const x of Object.values(v)) walk(x, depth + 1);
+  };
+  walk(payload, 0);
+  return Object.keys(PROVIDER_LABEL).filter((k) => found.has(k));
+}
+
+/** Rótulo de "Fonte" do código: "GitHub", "Azure Repos", "GitHub e Azure Repos" ou "Repositórios". */
+export function codeSourceLabel(providers) {
+  const names = (providers || []).map((p) => PROVIDER_LABEL[p]).filter(Boolean);
+  return names.length ? names.join(" e ") : "Repositórios";
+}
+
+/** Provedores dos repositórios do recorte, postos pela grade para o `"code"` das fontes. */
+export const CodeProvidersContext = React.createContext([]);
 
 /** Bloco temático da página: título, uma linha do que ele responde, e o grid. */
 export function Section({ id, title, question, children }) {
@@ -73,10 +105,13 @@ export function InfoTip({ label, children }) {
 }
 
 function SourceLine({ sources }) {
+  const providers = React.useContext(CodeProvidersContext);
   if (!sources?.length) return null;
+  /* "code" = o código do recorte; nomeia o provedor real (nunca "GitHub" fixo) */
+  const label = (s) => (s === "code" ? codeSourceLabel(providers) : SOURCE_LABEL[s] || s);
   return (
     <p className="mono text-fg-muted m-0 mt-4 text-[11px] font-normal tracking-wide">
-      Fonte: {sources.map((s) => SOURCE_LABEL[s] || s).join(" · ")}
+      Fonte: {sources.map(label).join(" · ")}
     </p>
   );
 }

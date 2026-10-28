@@ -1,7 +1,7 @@
 /* Widgets da visão Projeto — seção "Investimento em IA" (Resumo, `buildProject`). */
 
 import React from "react";
-import { axisUsd, fmtNum, fmtTokensCompact, fmtUsd } from "../../format.js";
+import { axisUsd, fmtNum, fmtPerPoint, fmtTokensCompact, fmtUsd, isNum } from "../../format.js";
 import { MODEL_TOOLTIP_MIN_USD, modelSeries } from "../../kit/Badges.jsx";
 import { AI_CARD_MIN_HEIGHT, AiEmpty, hasAiValue } from "../../kit/AiCross.jsx";
 import { ColumnChart } from "../../kit/charts.jsx";
@@ -64,6 +64,7 @@ export function AiCostByModelWidget({ data }) {
 export const selectAiIndicators = (d) => ({
   adoption: d.ai.adoption,
   tokensPerPoint: d.ai.tokensPerPoint,
+  costPerPoint: d.ai.costPerPoint,
   tokensPerHour: d.ai.tokensPerHour,
   sub: d.ai.subscription,
   months: d.period.days / 30,
@@ -71,7 +72,7 @@ export const selectAiIndicators = (d) => ({
 
 /** Faixa de três indicadores de IA (um widget, inteiro). */
 export function AiIndicatorsWidget({ data }) {
-  const { adoption, tokensPerPoint, tokensPerHour, sub, months } = data;
+  const { adoption, tokensPerPoint, costPerPoint, tokensPerHour, sub, months } = data;
   return (
     <div className="grid items-stretch gap-4 md:grid-cols-3">
       <KpiTile
@@ -80,9 +81,9 @@ export function AiIndicatorsWidget({ data }) {
         hint="pessoas com uso de IA no período"
       />
       <KpiTile
-        label="Tokens por ponto"
-        value={fmtTokensCompact(tokensPerPoint)}
-        hint={`média dos itens das sprints do período · ${fmtTokensCompact(tokensPerHour)} por hora`}
+        label={isNum(costPerPoint) ? "US$ por ponto" : "Tokens por ponto"}
+        value={isNum(costPerPoint) ? fmtPerPoint(costPerPoint) : fmtTokensCompact(tokensPerPoint)}
+        hint={`média dos itens das sprints do período · ${fmtTokensCompact(tokensPerPoint)} tokens por ponto · ${fmtTokensCompact(tokensPerHour)} por hora`}
       />
       <KpiTile
         label="Consumo × assinatura"

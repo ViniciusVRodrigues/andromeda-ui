@@ -146,7 +146,7 @@ export function IntegrationsView() {
         <Panel
           eyebrow="identidades"
           title="Vínculos de cada pessoa"
-          sources={["azure", "github", "ia", "andromeda"]}
+          sources={["azure", "code", "ia", "andromeda"]}
           info="Quais contas de cada pessoa estão ligadas. Sem Azure, os itens dela só são encontrados pelo e-mail; sem GitHub, commits, PRs e reviews ficam sem dono; sem conector, o uso de IA não aparece."
         >
           <DataTable
@@ -230,7 +230,7 @@ export function IntegrationsView() {
           <Panel
             eyebrow="vinculados"
             title="Repositórios e vínculos"
-            sources={["github", "andromeda"]}
+            sources={["code", "andromeda"]}
             info="Repositórios ligados a projetos e como está o sync de cada um. Os que o token enxerga, mas ninguém ligou a um projeto, aparecem na tela Repositórios."
           >
             <DataTable
@@ -265,7 +265,7 @@ export function IntegrationsView() {
           <Panel
             eyebrow="últimos 30 dias"
             title="Commits sem usuário vinculado"
-            sources={["github"]}
+            sources={["code"]}
             info="Commits cujo autor não está ligado a ninguém da Andrômeda (pessoas sem a conta conectada e bots), agrupados pelo login. Contam nas métricas do repositório, mas não nas de nenhuma pessoa."
           >
             <div className="mb-3 flex items-baseline gap-2">
@@ -307,7 +307,7 @@ export function IntegrationsView() {
           <Panel
             eyebrow="14 dias"
             title="Duração média de cada sync"
-            sources={["azure", "github"]}
+            sources={["azure", "code"]}
             info="Tempo médio de cada execução de sync por dia. Picos costumam vir de rate limit ou de muitas mudanças de uma vez."
             table={{
               columns: [
@@ -344,7 +344,7 @@ export function IntegrationsView() {
           <Panel
             eyebrow="falhas e parciais"
             title="Últimos problemas de sync"
-            sources={["azure", "github"]}
+            sources={["azure", "code"]}
             info="Execuções que falharam ou terminaram parciais, com o código de erro e o status HTTP devolvido pela integração."
           >
             {d.sync.problems.length ? (

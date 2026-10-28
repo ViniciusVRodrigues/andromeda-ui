@@ -114,7 +114,7 @@ export function AgingWidget({ data }) {
     <Panel
       eyebrow="envelhecimento"
       title="Itens em andamento há mais tempo"
-      sources={["azure", "github"]}
+      sources={["azure", "code"]}
       info={`Itens em andamento, do que começou há mais tempo para o mais recente. A marca na barra é o tempo em que 85% dos itens das últimas 6 sprints ficaram prontos (${fmtDuration(p85)}): passou dela, o item pode estar bloqueado ou grande demais. O traço (—) é sem valor no Azure: complexidade fica nas User Stories, esforço (CompletedWork) nas Tasks.`}
     >
       {items.length ? (

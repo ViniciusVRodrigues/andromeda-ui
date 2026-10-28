@@ -173,7 +173,7 @@ test.describe("individual", () => {
     await expect(
       kpis.getByRole("listitem").filter({ hasText: "Esforço registrado" }),
     ).toContainText(" h");
-    await expect(kpis.getByRole("listitem").filter({ hasText: "Tokens por ponto" })).toBeVisible();
+    await expect(kpis.getByRole("listitem").filter({ hasText: "US$ por ponto" })).toBeVisible();
     const svg = page.locator("svg.recharts-surface[aria-label*='restam']").first();
     await expect(svg).toHaveAttribute(
       "aria-label",

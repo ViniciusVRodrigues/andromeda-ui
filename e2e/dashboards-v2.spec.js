@@ -143,9 +143,9 @@ test("adaptador: DS mostra p50 com p90 ao lado, notas DORA traduzidas e mediana 
   await expect(page.getByRole("heading", { name: "DORA", exact: true })).toBeVisible();
   const dora = page.locator("#pj-dora");
   /* fixture: lead time MEDIUM, frequência ELITE, falha HIGH */
-  await expect(dora.getByText("Médio", { exact: true })).toBeVisible();
-  await expect(dora.getByText("Elite", { exact: true })).toBeVisible();
-  await expect(dora.getByText("Alto", { exact: true })).toBeVisible();
+  await expect(dora.getByText("Desempenho médio", { exact: true })).toBeVisible();
+  await expect(dora.getByText("Desempenho elite", { exact: true })).toBeVisible();
+  await expect(dora.getByText("Desempenho alto", { exact: true })).toBeVisible();
   await expect(dora.getByText("MEDIUM", { exact: true })).toHaveCount(0);
 });
 
@@ -478,7 +478,7 @@ const VIEW_CASES = [
     widgets: [
       "Itens concluídos por tipo",
       "Saúde por repositório",
-      "Os tokens por ponto caíram ao longo das sprints?",
+      "O custo de IA por ponto caiu ao longo das sprints?",
     ],
   },
   {

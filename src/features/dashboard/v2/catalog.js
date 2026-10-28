@@ -252,7 +252,7 @@ const WIDGETS = [
     id: "individual.tokens-sp",
     viewKey: "individual",
     section: "ia",
-    title: "Tokens por ponto em cada item",
+    title: "Custo de IA por ponto em cada item",
     sizes: ALL,
     defaultSize: "P",
     default: true,

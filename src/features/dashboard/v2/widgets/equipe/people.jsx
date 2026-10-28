@@ -29,8 +29,11 @@ const MEMBER_COLUMNS = [
         {r.name}
         {r.isMe ? <Tag tone="accent">você</Tag> : null}
         {!r.githubLinked ? (
-          <Tag tone="warn" title="Sem GitHub vinculado: commits, PRs e reviews não são atribuídos">
-            sem GitHub
+          <Tag
+            tone="warn"
+            title="Sem conta de código vinculada (GitHub ou Azure Repos): commits, PRs e reviews não são atribuídos"
+          >
+            sem conta de código
           </Tag>
         ) : null}
       </span>
@@ -84,8 +87,8 @@ export function MembersWidget({ data: members }) {
     <Panel
       eyebrow="distribuição"
       title="Contribuição por pessoa na sprint"
-      sources={["azure", "github", "ia"]}
-      info="Por pessoa: complexidade (pts) entregue do total planejado, esforço registrado (horas das Tasks concluídas), itens em andamento agora, PRs e reviews (só de quem conectou o GitHub), custo de IA nas datas da sprint e tokens por ponto (Tokens/pt) e por hora (Tokens/h) dos itens dela."
+      sources={["azure", "code", "ia"]}
+      info="Por pessoa: complexidade (pts) entregue do total planejado, esforço registrado (horas das Tasks concluídas), itens em andamento agora, PRs e reviews (só de quem vinculou a conta de código), custo de IA nas datas da sprint e tokens por ponto (Tokens/pt) e por hora (Tokens/h) dos itens dela."
     >
       <DataTable
         rowKey={(r) => r.userId}

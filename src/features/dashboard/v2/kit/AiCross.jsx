@@ -38,9 +38,10 @@ import React from "react";
 import { useNavigate } from "react-router-dom";
 import { useIdentity } from "../../../../core/auth/IdentityContext.jsx";
 import { orgRoute } from "../../../../lib/orgRoutes.js";
+import { fmtUsd } from "../format.js";
 import { Legend } from "./Bars.jsx";
 import { AI_COLOR, METRIC_COLOR, METRIC_COLORS, PairedColumns, ScatterChart } from "./charts.jsx";
-import { crossReading, AI_READING_THRESHOLDS } from "./aiReading.js";
+import { crossReading, readablePoints, AI_READING_THRESHOLDS } from "./aiReading.js";
 import { Empty, Panel } from "./Panel.jsx";
 
 /**
@@ -61,6 +62,53 @@ export const AI_EMPTY_TEXT = {
 };
 
 /**
+ * Consumo total de IA do recorte da tela (US$ no período), posto pela grade (`DashboardGrid`) para
+ * que o vazio de IA nunca diga "ninguém enviou uso" quando há consumo (só não há alocação).
+ * `{ usd, scope }`; `scope`: "projeto" | "time" | "organização" | "pessoa".
+ */
+export const AiConsumptionContext = React.createContext(null);
+
+const sumUsd = (rows) => (rows || []).reduce((s, r) => s + (Number(r?.costUsd) || 0), 0);
+
+/** Consumo de IA do payload de cada visão (alocado + não alocado + o que ficou sem item). */
+export function aiConsumptionOf(viewKey, payload) {
+  if (!payload) return null;
+  const k = payload.kpis || {};
+  const ai = payload.ai || {};
+  const alloc = Number(k.aiCostUsd) || 0;
+  if (viewKey === "projeto" || viewKey === "org")
+    return {
+      usd: Number(ai.subscription?.consumptionUsd) || 0,
+      scope: viewKey === "org" ? "organização" : "projeto",
+    };
+  if (viewKey === "equipe")
+    return {
+      usd: Math.max(alloc + (Number(k.unallocatedAiCostUsd) || 0), sumUsd(ai.byModel)),
+      scope: "time",
+    };
+  if (viewKey === "individual")
+    return { usd: Math.max(alloc, sumUsd(ai.byModel), sumUsd(ai.byDay)), scope: "pessoa" };
+  return null;
+}
+
+/** "US$ 17,37 de IA no período; nada atribuído a este projeto." */
+export function aiNoAllocationText(consumption, subject) {
+  const usd = fmtUsd(consumption.usd);
+  switch (consumption.scope) {
+    case "projeto":
+      return `${usd} de IA no período; nada atribuído a este projeto.`;
+    case "time":
+      return `${usd} de IA no período; nada atribuído a este time.`;
+    case "organização":
+      return `${usd} de IA no período; nada atribuído a projetos.`;
+    default:
+      return subject && !subject.self
+        ? `${usd} de IA na sprint; nada atribuído aos itens de ${subject.first}.`
+        : `${usd} de IA na sprint; nada atribuído aos seus itens.`;
+  }
+}
+
+/**
  * Estado vazio de IA: o que falta e onde resolver. Nunca um eixo de zeros nem corpo em branco.
  * @param {{ person?: boolean, kind?: "usage"|"subscription", block?: boolean }} props
  *   `person`: Individual (texto com o link do conector); `block`: aviso único da seção.
@@ -69,14 +117,19 @@ export function AiEmpty({ person = false, kind = "usage", block = false }) {
   const navigate = useNavigate();
   const ident = useIdentity();
   const subject = useSubject();
+  const consumption = React.useContext(AiConsumptionContext);
+  /* há consumo, só falta alocação: o vazio "ninguém enviou" seria falso */
+  const unallocated = kind === "usage" && consumption && consumption.usd > 0;
   const text =
     kind === "subscription"
       ? AI_EMPTY_TEXT.subscription
-      : person
-        ? subject.self
-          ? AI_EMPTY_TEXT.person
-          : `${subject.first} ainda não enviou uso de IA nesta sprint.`
-        : AI_EMPTY_TEXT.team;
+      : unallocated
+        ? aiNoAllocationText(consumption, subject)
+        : person
+          ? subject.self
+            ? AI_EMPTY_TEXT.person
+            : `${subject.first} ainda não enviou uso de IA nesta sprint.`
+          : AI_EMPTY_TEXT.team;
   return (
     <div
       data-ai-empty=""
@@ -94,7 +147,7 @@ export function AiEmpty({ person = false, kind = "usage", block = false }) {
       >
         {text}
       </p>
-      {person && kind === "usage" && subject.self ? (
+      {person && kind === "usage" && subject.self && !unallocated ? (
         <button
           type="button"
           onClick={() => navigate(orgRoute(ident.orgSlug, "perfil"))}
@@ -142,20 +195,28 @@ export function AiCrossCard({
   const metrics = [].concat(metric);
   const main = metrics[0];
   const usable = rows.filter((r) => ok(r[ia.key]) && ok(r[main.key]));
+  /* a mesma contagem no texto, no rodapé e no aviso: os pontos da leitura (sem a sprint em andamento) */
+  const readCount = readablePoints(
+    rows.map((r) => ({ a: r[ia.key], b: r[main.key], current: !!r.current })),
+    kind,
+  ).length;
   const showChart = !noAi && !missing;
   const info = `${help ? help + " " : ""}${DISCLAIMER}`.slice(0, HELP_MAX);
   const reading =
     readingText ??
     crossReading({
       kind,
-      points: rows.map((r) => ({ a: r[ia.key], b: r[main.key] })),
+      points: rows.map((r) => ({ a: r[ia.key], b: r[main.key], current: !!r.current })),
       iaName: ia.label,
       metricName: main.label,
       noun,
       minPoints: min,
     });
   const noteParts = [
-    sample ?? `${rows.length} ${noun}`,
+    sample ??
+      (readCount === rows.length
+        ? `${rows.length} ${noun}`
+        : `${readCount} de ${rows.length} ${noun} lidas (sem a em andamento)`),
     ok(coverage) ? `${Math.round(Number(coverage))}% dos dias de IA alocados a itens` : null,
     basis ? `base: ${basis}` : null,
   ].filter(Boolean);
@@ -225,9 +286,9 @@ export function AiCrossCard({
               }
             />
           )}
-          {usable.length < min ? (
+          {readCount < min ? (
             <p className="text-warn-text m-0 text-[12px] font-normal">
-              São precisos ao menos {min} {noun} com uso de IA para comparar; há {usable.length}.
+              São precisos ao menos {min} {noun} com uso de IA para comparar; há {readCount}.
             </p>
           ) : null}
           {kind === "scatter" ? (

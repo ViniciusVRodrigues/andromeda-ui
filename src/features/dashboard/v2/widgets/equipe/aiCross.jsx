@@ -70,7 +70,7 @@ export function TeamIaSprintWidget({ data }) {
 export function TeamIaPorPontoWidget({ data }) {
   return (
     <IaPerPointCard
-      question="Os tokens por ponto caíram ao longo das sprints?"
+      question="O custo de IA por ponto caiu ao longo das sprints?"
       rows={data.rows}
       help="IA do time ÷ pontos de complexidade entregues, ou ÷ horas registradas nas tarefas, em tokens ou US$; sem divisor a razão fica em branco."
       basis="uso de IA alocado ÷ complexidade entregue ou horas"

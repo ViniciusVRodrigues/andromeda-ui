@@ -21,7 +21,7 @@ export function StalePrsWidget({ data }) {
     <Panel
       eyebrow="fila"
       title="PRs parados"
-      sources={["github"]}
+      sources={["code"]}
       info="PRs abertos há mais de 24 h sem nenhuma review, do mais antigo para o mais novo."
     >
       {!data.isCurrent ? (
@@ -68,7 +68,7 @@ export function ReviewersWidget({ data: reviewers }) {
     <Panel
       eyebrow="carga de revisão"
       title="Quem revisa"
-      sources={["github"]}
+      sources={["code"]}
       info="Reviews enviadas por cada pessoa em PRs do projeto durante a sprint. Revisão concentrada em poucas pessoas vira gargalo."
     >
       {reviewers.length ? (
@@ -94,7 +94,7 @@ export function ReposWidget({ data: repos }) {
     <Panel
       eyebrow="repositórios"
       title="Saúde dos repositórios"
-      sources={["github"]}
+      sources={["code"]}
       info="Por repositório do projeto: PRs abertos e parados agora; PRs mergeados, tempo até o merge e até a 1ª review nesta sprint; commits no período."
     >
       <DataTable
@@ -136,7 +136,7 @@ export function CommitsWidget({ data: commitsByDay }) {
     <Panel
       eyebrow="atividade"
       title="Commits por dia"
-      sources={["github"]}
+      sources={["code"]}
       info="Commits do time nos repositórios do projeto, por dia útil da sprint."
       table={{
         columns: [
@@ -165,7 +165,7 @@ export function OpenPrsWidget({ data: q }) {
     <Panel
       eyebrow="pull requests abertos"
       title="Rascunhos, destino e labels"
-      sources={["github"]}
+      sources={["code"]}
       info="PRs abertos agora no projeto. Rascunhos ainda não pedem review; a branch de destino mostra PRs fora do fluxo principal (develop, release). As labels contam os PRs criados na sprint."
     >
       {q.open == null ? (

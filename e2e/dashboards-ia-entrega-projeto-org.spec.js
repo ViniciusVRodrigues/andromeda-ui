@@ -15,7 +15,7 @@ const VIEWS = [
     section: "#pj-ia-entrega",
     cards: [
       ["projeto.ia-entrega-sprint", "Sprints com mais IA foram mais previsíveis?"],
-      ["projeto.ia-por-ponto", "Os tokens por ponto caíram ao longo das sprints?"],
+      ["projeto.ia-por-ponto", "O custo de IA por ponto caiu ao longo das sprints?"],
       ["projeto.ia-fluxo", "Períodos com mais IA tiveram lead e cycle menores?"],
       ["projeto.ia-qualidade", "Mais IA veio com mais bugs ou mais retrabalho?"],
       ["projeto.ia-review", "PRs de períodos com mais IA esperaram mais review?"],

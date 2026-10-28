@@ -5,15 +5,35 @@
  */
 
 import React from "react";
-import { delta as computeDelta } from "../format.js";
+import { delta as computeDelta, fmtDelta, isNum } from "../format.js";
 import { Sparkline } from "./charts.jsx";
 
+/** Texto do KPI sem base de comparação (anterior ausente, 0 ou pequeno): some o selo, fica o motivo. */
+export const NO_BASE_HINT = "sem período anterior para comparar";
+
 /**
- * @param {{ current: number, previous: number, goodWhen?: "up"|"down"|"neutral", vs?: string }} props
+ * `unit`/`nCur`/`nPrev`: a base mínima da variação (ver `delta` em format.js). Sem base, em vez do
+ * selo aparece "sem período anterior para comparar".
+ * @param {{ current: number, previous: number, goodWhen?: "up"|"down"|"neutral", vs?: string,
+ *   unit?: "count"|"hours"|"usd"|"points"|"duration", nCur?: number, nPrev?: number }} props
  */
-export function DeltaBadge({ current, previous, goodWhen = "up", vs = "anterior" }) {
-  const d = computeDelta(current, previous);
-  if (!d) return null;
+export function DeltaBadge({
+  current,
+  previous,
+  goodWhen = "up",
+  vs = "anterior",
+  unit,
+  nCur,
+  nPrev,
+}) {
+  const d = computeDelta(current, previous, { unit, nCur, nPrev });
+  if (!d && !isNum(current)) return null;
+  if (!d)
+    return (
+      <span data-no-delta="" className="mono text-fg-muted text-[12px] font-normal">
+        {NO_BASE_HINT}
+      </span>
+    );
   /* goodWhen "neutral": a direção não é boa nem ruim por si (ex.: gasto de IA) */
   const good =
     d.direction === "flat" || goodWhen === "neutral"
@@ -21,7 +41,7 @@ export function DeltaBadge({ current, previous, goodWhen = "up", vs = "anterior"
       : (d.direction === "up") === (goodWhen === "up");
   const arrow = d.direction === "up" ? "▲" : d.direction === "down" ? "▼" : "■";
   const tone = good == null ? "text-fg-muted" : good ? "text-good-text" : "text-bad-text";
-  const text = d.direction === "flat" ? "estável" : `${Math.abs(d.pct).toFixed(0)}%`;
+  const text = fmtDelta(d);
   return (
     <span
       className={`mono inline-flex flex-wrap items-center gap-x-1 text-[12px] ${tone}`}

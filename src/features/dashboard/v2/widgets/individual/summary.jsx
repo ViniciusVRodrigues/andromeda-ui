@@ -3,11 +3,14 @@
 import React from "react";
 import {
   fmtDsSpread,
+  fmtFirstReview,
+  plural,
   fmtDuration,
   fmtInt,
   isNum,
   fmtHours,
   fmtPct,
+  fmtPerPoint,
   fmtPoints,
   fmtTokensCompact,
   fmtTokensM,
@@ -38,7 +41,12 @@ export function KpisWidget({ data }) {
         delta={
           isCurrent
             ? null
-            : { current: k.complexityDelivered, previous: prev?.complexityDelivered, vs }
+            : {
+                current: k.complexityDelivered,
+                previous: prev?.complexityDelivered,
+                vs,
+                unit: "points",
+              }
         }
       />
       <KpiTile
@@ -70,12 +78,15 @@ export function KpisWidget({ data }) {
           previous: prev?.avgCycleTimeHours,
           goodWhen: "down",
           vs,
+          unit: "duration",
+          nCur: k.avgCycleTimeHoursDs?.n,
+          nPrev: prev?.avgCycleTimeHoursDs?.n,
         }}
       />
       <KpiTile
         label="PRs mergeados"
         value={fmtInt(k.prsMerged)}
-        hint={`${fmtInt(k.prsOpen)} aberto(s) · 1ª review em ${fmtDuration(k.avgTimeToFirstReviewHours)}`}
+        hint={`${plural(k.prsOpen, "aberto", "abertos")} · ${fmtFirstReview(k.avgTimeToFirstReviewHours)}`}
       />
       <KpiTile
         label="Custo de IA"
@@ -84,22 +95,29 @@ export function KpisWidget({ data }) {
         delta={
           isCurrent
             ? null
-            : { current: k.aiCostUsd, previous: prev?.aiCostUsd, goodWhen: "neutral", vs }
+            : {
+                current: k.aiCostUsd,
+                previous: prev?.aiCostUsd,
+                goodWhen: "neutral",
+                vs,
+                unit: "usd",
+              }
         }
       />
       <KpiTile
-        label="Tokens por ponto"
-        value={fmtTokensCompact(k.avgTokensPerPoint)}
+        label="US$ por ponto"
+        value={fmtPerPoint(k.aiCostPerPoint)}
         hint={
-          isNum(k.avgTokensPerHour)
-            ? `${t("média dos seus itens", (n) => `média dos itens de ${n}`)} · ${fmtTokensCompact(k.avgTokensPerHour)} por hora`
+          isNum(k.avgTokensPerPoint)
+            ? `${t("média dos seus itens", (n) => `média dos itens de ${n}`)} · ${fmtTokensCompact(k.avgTokensPerPoint)} tokens por ponto`
             : t("média dos seus itens", (n) => `média dos itens de ${n}`)
         }
         delta={{
-          current: k.avgTokensPerPoint,
-          previous: prev?.avgTokensPerPoint,
+          current: k.aiCostPerPoint,
+          previous: prev?.aiCostPerPoint,
           goodWhen: "neutral",
           vs,
+          unit: "usd",
         }}
       />
     </KpiRow>
