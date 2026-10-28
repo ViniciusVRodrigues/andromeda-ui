@@ -96,7 +96,10 @@ export function KpisWidget({ data }) {
         hint={
           <>
             {plural(k.prsOpen, "aberto", "abertos")} ·{" "}
-            <span className="whitespace-nowrap">{fmtFirstReview(k.avgTimeToFirstReviewHours)}</span>
+            {/* espaço não separável só em "1ª review" e no número com a unidade: quebra entre palavras, nunca corta */}
+            {fmtFirstReview(k.avgTimeToFirstReviewHours)
+              .replace(/^1ª /, "1ª ")
+              .replace(/(\d) (h|d|min)$/, "$1 $2")}
           </>
         }
       />

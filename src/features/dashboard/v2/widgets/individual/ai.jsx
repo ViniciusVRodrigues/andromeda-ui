@@ -4,11 +4,9 @@ import React from "react";
 import { useSubject, useT } from "../../subject.jsx";
 import {
   axisTokensM,
-  fmtHours,
   fmtInt,
   fmtPerPoint,
   fmtPoints,
-  fmtTokensCompact,
   fmtTokensM,
   fmtUsd,
   isNum,
@@ -115,22 +113,17 @@ export const selectTokensPerPoint = (d) =>
     .map((i) => {
       const cost = itemCostPerPoint(i);
       const useCost = isNum(cost);
-      const perHour = !useCost && !!i.tokensPerHour;
       return {
         key: i.id,
         label: `#${i.externalId} ${i.title}`,
-        value: useCost ? cost : perHour ? i.tokensPerHour : 0,
-        display: useCost
-          ? `${fmtPerPoint(cost)}/pt`
-          : perHour
-            ? `${fmtTokensCompact(i.tokensPerHour)} tokens/h`
-            : "— sem custo alocado",
-        sub: useCost ? fmtPoints(i.complexity, { total: true }) : perHour ? fmtHours(i.effort) : "",
+        value: useCost ? cost : 0,
+        /* o ranking é só em US$/pt; item sem custo não vira tokens (dashboards-numeros D10) */
+        display: useCost ? `${fmtPerPoint(cost)}/pt` : "— sem custo alocado",
+        sub: useCost ? fmtPoints(i.complexity, { total: true }) : "",
         useCost,
-        perHour,
       };
     })
-    .sort((a, b) => b.useCost - a.useCost || b.perHour - a.perHour || b.value - a.value);
+    .sort((a, b) => b.useCost - a.useCost || b.value - a.value);
 
 export function TokensPerPointWidget({ data: rows }) {
   return (
