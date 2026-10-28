@@ -16,6 +16,7 @@ export default function Checkbox({
   disabled = false,
   id,
   "aria-label": ariaLabel,
+  "data-track": dataTrack,
   className = "",
 }) {
   const generatedId = React.useId();
@@ -28,6 +29,7 @@ export default function Checkbox({
       onCheckedChange={onCheckedChange}
       disabled={disabled}
       aria-label={label ? undefined : ariaLabel}
+      data-track={dataTrack}
       className="cbx-box"
     >
       <RadixCheckbox.Indicator className="cbx-indicator">✓</RadixCheckbox.Indicator>

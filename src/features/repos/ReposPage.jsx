@@ -242,6 +242,12 @@ export function ReposPage() {
   }, [repoId, status, author]);
 
   const selectedRepo = repos.find((r) => repoKey(r) === repoId) || null;
+  const prodBranch = selectedRepo
+    ? (selectedRepo.productionBranch ?? selectedRepo.defaultBranch ?? null)
+    : null;
+  const extraBranches = Math.max(0, (selectedRepo?.branches ?? []).length - 1);
+  const syncPending =
+    selectedRepo?.syncState === "PENDING" || selectedRepo?.syncState === "RUNNING";
   const authors = React.useMemo(() => {
     const set = new Set(prPage.content.map((pr) => pr.authorLogin).filter(Boolean));
     return [...set].sort();
@@ -328,8 +334,23 @@ export function ReposPage() {
           <div className="mb-4 flex flex-wrap items-center gap-3" data-testid="repo-identity">
             <ProviderBadge provider={selectedRepo.provider} />
             <span className="mono text-fg">{repoDisplayName(selectedRepo)}</span>
-            {selectedRepo.defaultBranch ? (
-              <span className="mono text-fg-muted">· {selectedRepo.defaultBranch}</span>
+            {prodBranch ? (
+              <span className="mono text-fg-muted">· produção: {prodBranch}</span>
+            ) : null}
+            {extraBranches > 0 ? (
+              <span className="mono text-fg-muted" title={(selectedRepo.branches ?? []).join(", ")}>
+                +{extraBranches} {extraBranches === 1 ? "branch" : "branches"}
+              </span>
+            ) : null}
+            {selectedRepo.filterPullRequestsByBranch && (selectedRepo.branches ?? []).length > 0 ? (
+              <span className="mono text-fg-muted">
+                Só PRs para {(selectedRepo.branches ?? []).join(", ")}
+              </span>
+            ) : null}
+            {syncPending ? (
+              <span role="status" className="mono text-warn-text">
+                Sincronizando… os números podem estar incompletos
+              </span>
             ) : null}
           </div>
           <MetricGrid>
@@ -349,7 +370,7 @@ export function ReposPage() {
               label="Change Fail Rate"
               value={formatCfr(selectedRepo.delivery?.changeFailRatePercent)}
               hint={deliveryMethodLabel(selectedRepo.delivery?.method)}
-              title="PRs de remediação ÷ PRs mergeados na branch padrão, no período"
+              title={`PRs de remediação ÷ PRs mergeados na branch de produção${prodBranch ? ` (${prodBranch})` : ""}, no período`}
             />
             <MetricCard
               label="Merges / semana"
@@ -359,7 +380,7 @@ export function ReposPage() {
                   : Number(selectedRepo.delivery.deploymentsPerWeek).toFixed(1)
               }
               hint={deliveryMethodLabel(selectedRepo.delivery?.method)}
-              title="PRs mergeados na branch padrão por semana (proxy de frequência de deploy)"
+              title={`PRs mergeados na branch de produção${prodBranch ? ` (${prodBranch})` : ""} por semana (proxy de frequência de deploy)`}
             />
           </MetricGrid>
 

@@ -199,8 +199,15 @@ export function triggerGithubSync() {
 
 /**
  * @typedef {"GITHUB" | "AZURE_REPOS"} VcsProvider
+ * @typedef {"PENDING" | "RUNNING" | "OK" | "FAILED"} RepoSyncState
  * @typedef {{ id: string, projectId: string, repositoryId: string, provider: VcsProvider,
- *   displayName: string, syncEnabled: boolean, lastSyncAt: string | null }} RepoBinding
+ *   displayName: string, syncEnabled: boolean, lastSyncAt: string | null,
+ *   defaultBranch?: string | null, branches?: string[], productionBranch?: string | null,
+ *   branchesConfigured?: boolean, filterPullRequestsByBranch?: boolean,
+ *   missingBranches?: string[], syncState?: RepoSyncState, maxBranches?: number,
+ *   backfillDays?: number, resynced?: boolean }} RepoBinding
+ * @typedef {{ name: string, isDefault: boolean }} RepoBranch
+ * @typedef {{ branches: RepoBranch[], total: number, truncated: boolean }} RepoBranchList
  */
 
 /**
@@ -231,11 +238,60 @@ export function getProjectRepoBindings(projectId) {
  * @param {{ provider: VcsProvider, externalRepoId?: string, fullName?: string, syncEnabled: boolean }} body
  * @returns {Promise<RepoBinding>}
  */
-export function bindRepository(projectId, { provider, externalRepoId, fullName, syncEnabled }) {
+export function bindRepository(
+  projectId,
+  {
+    provider,
+    externalRepoId,
+    fullName,
+    syncEnabled,
+    branches,
+    productionBranch,
+    filterPullRequestsByBranch,
+  },
+) {
   const body = { provider, syncEnabled };
   if (externalRepoId) body.externalRepoId = externalRepoId;
   if (fullName) body.fullName = fullName;
+  // branches opcionais (branches-por-vinculo): sem elas o servidor segue a branch padrão.
+  if (branches) {
+    body.branches = branches;
+    body.productionBranch = productionBranch;
+    body.filterPullRequestsByBranch = Boolean(filterPullRequestsByBranch);
+  }
   return api.post(`/v1/repos/projects/${projectId}/bindings`, body);
+}
+
+/**
+ * Edita um vínculo: `syncEnabled`, `branches`, `productionBranch` e
+ * `filterPullRequestsByBranch` (todos opcionais). Trocar o conjunto de branches
+ * ou o filtro apaga e ressincroniza (`resynced: true`); trocar só a produção não.
+ * Rejeita com 409 `REPO_SYNC_RUNNING`, 422 `REPO_BRANCHES_INVALID` ou 422
+ * `REPO_BRANCH_NOT_FOUND` (`err.body.code`).
+ * @param {string} bindingId
+ * @param {{ syncEnabled?: boolean, branches?: string[], productionBranch?: string, filterPullRequestsByBranch?: boolean }} patch
+ * @returns {Promise<RepoBinding>}
+ */
+export function updateRepoBinding(bindingId, patch) {
+  return api.patch(`/v1/repos/bindings/${bindingId}`, patch);
+}
+
+/**
+ * Branches de um repositório ainda não vinculado (GitHub aceita `fullName`).
+ * @param {{ provider: VcsProvider, externalRepoId?: string, fullName?: string }} params
+ * @returns {Promise<RepoBranchList>}
+ */
+export function getAvailableRepoBranches({ provider, externalRepoId, fullName }) {
+  return api.get(`/v1/repos/available/branches${toQuery({ provider, externalRepoId, fullName })}`);
+}
+
+/**
+ * Branches de um repositório já vinculado.
+ * @param {string} bindingId
+ * @returns {Promise<RepoBranchList>}
+ */
+export function getBindingBranches(bindingId) {
+  return api.get(`/v1/repos/bindings/${bindingId}/branches`);
 }
 
 /**
