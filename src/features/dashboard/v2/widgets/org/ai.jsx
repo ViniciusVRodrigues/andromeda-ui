@@ -1,7 +1,7 @@
 /* Widgets da visão Organização — seção "IA na organização" (`buildOrganization`). */
 
 import React from "react";
-import { axisUsd, fmtInt, fmtNum, fmtPct, fmtTokensM, fmtUsd } from "../../format.js";
+import { axisUsd, fmtInt, fmtNum, fmtPct, fmtTokensM, fmtUsd, plural } from "../../format.js";
 import { MODEL_TOOLTIP_MIN_USD, modelSeries, projectColor } from "../../kit/Badges.jsx";
 import { AiEmpty, hasAiValue } from "../../kit/AiCross.jsx";
 import { BarList, SegmentBar } from "../../kit/Bars.jsx";
@@ -153,7 +153,8 @@ export function SubscriptionWidget({ data }) {
       />
       <p className="mono text-fg-muted m-0 mt-3 text-[12px] font-normal">
         Assinatura de {fmtUsd(sub.perUserMonthUsd)}/pessoa/mês × {people} pessoas × {fmtNum(months)}{" "}
-        meses. {sub.usersAboveSubscription} pessoa(s) consomem mais que a assinatura.
+        meses. {plural(sub.usersAboveSubscription, "pessoa consome", "pessoas consomem")} mais que a
+        assinatura.
       </p>
     </Panel>
   );

@@ -22,8 +22,22 @@ const ok = (v) => v != null && Number.isFinite(Number(v));
  * faltar dado ou a base for pequena demais (`opts.unit`, ver `delta`).
  */
 export function pctChange(a, b, opts) {
-  return delta(a, b, opts)?.pct ?? null;
+  return delta(b, a, opts)?.pct ?? null;
 }
+
+/** Unidade da série para a base mínima da variação, pelo nome da chave (usd/points/hours/duration/count). */
+export function unitOfKey(key = "") {
+  const k = String(key);
+  if (/cost|usd|price/i.test(k)) return "usd";
+  if (/cycle|lead|review|duration|latency|wait/i.test(k)) return "duration";
+  if (/complex|point|velocity|delivered|planned/i.test(k)) return "points";
+  if (/effort|hours/i.test(k)) return "hours";
+  return "count";
+}
+
+/** Nome da série no meio da frase: minúscula na 1ª letra, salvo siglas ("IA", "DORA"). */
+const mid = (name) =>
+  /^[A-ZÀ-Ú][a-zà-ú]/.test(String(name ?? "")) ? name[0].toLowerCase() + name.slice(1) : name;
 
 /** Correlação de Pearson de pares com os dois valores; null com menos de 3 pares ou sem variância. */
 export function pearson(pairs) {
@@ -71,7 +85,16 @@ export function readablePoints(points, kind = "paired") {
  *   `a` = IA, `b` = métrica (no paired, na ordem do eixo X; no scatter, x e y).
  * @returns {string}
  */
-export function crossReading({ kind, points, iaName, metricName, noun = "valores", minPoints }) {
+export function crossReading({
+  kind,
+  points,
+  iaName,
+  metricName,
+  iaKey,
+  metricKey,
+  noun = "valores",
+  minPoints,
+}) {
   const min = minPoints ?? T.minPoints;
   const pts = readablePoints(points, kind);
   if (pts.length < min) {
@@ -98,8 +121,8 @@ export function crossReading({ kind, points, iaName, metricName, noun = "valores
     Number(last.b) === 0
   )
     return `${pts.length} ${noun}: sem valores para comparar.`;
-  const ia = trendWord(pctChange(first.a, last.a));
-  const me = trendWord(pctChange(first.b, last.b));
+  const ia = trendWord(pctChange(first.a, last.a, { unit: unitOfKey(iaKey) }));
+  const me = trendWord(pctChange(first.b, last.b, { unit: unitOfKey(metricKey) }));
   if (!ia || !me) return `${pts.length} ${noun}: sem base para calcular a variação.`;
-  return `Do primeiro ao último dos ${pts.length} ${noun}, ${iaName} ${ia} e ${metricName} ${me}.`;
+  return `Entre o primeiro e o último ponto (${pts.length} ${noun}), ${mid(iaName)} ${ia} e ${mid(metricName)} ${me}.`;
 }

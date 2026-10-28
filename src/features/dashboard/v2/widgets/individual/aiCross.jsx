@@ -16,6 +16,7 @@ import {
   fmtUsd,
   isNum,
   nItems,
+  plural,
 } from "../../format.js";
 import { AI_CARD_MIN_HEIGHT, AiCrossCard, AiEmpty } from "../../kit/AiCross.jsx";
 import { Segmented } from "../../FilterBar.jsx";
@@ -223,7 +224,7 @@ export function selectItensComSemIa(d) {
 /** Frase de leitura de "com IA × sem IA" (função pura; só descreve, nunca afirma causa). */
 export function withWithoutReading({ rows, nWith, nWithout }) {
   if (!nWith || !nWithout) {
-    return `Há ${nWith} item(ns) concluído(s) com IA e ${nWithout} sem; são precisos dos dois grupos para comparar.`;
+    return `Há ${plural(nWith, "item concluído", "itens concluídos")} com IA e ${nWithout} sem; são precisos dos dois grupos para comparar.`;
   }
   const cyc = rows[0];
   if (!isNum(cyc.withAi) || !isNum(cyc.withoutAi)) {

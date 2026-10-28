@@ -23,6 +23,13 @@ import { useT } from "../../subject.jsx";
 export function KpisWidget({ data }) {
   const t = useT();
   const { k, prev, isCurrent, vs, inProgress } = data;
+  const perPoint = (x) =>
+    isNum(x?.aiCostPerPoint)
+      ? Number(x.aiCostPerPoint)
+      : Number(x?.aiCostUsd) > 0 && Number(x?.complexityDelivered) > 0
+        ? Number(x.aiCostUsd) / Number(x.complexityDelivered)
+        : null;
+  const costPerPoint = perPoint(k);
   return (
     <KpiRow label="Indicadores pessoais da sprint">
       <KpiTile
@@ -86,7 +93,12 @@ export function KpisWidget({ data }) {
       <KpiTile
         label="PRs mergeados"
         value={fmtInt(k.prsMerged)}
-        hint={`${plural(k.prsOpen, "aberto", "abertos")} · ${fmtFirstReview(k.avgTimeToFirstReviewHours)}`}
+        hint={
+          <>
+            {plural(k.prsOpen, "aberto", "abertos")} ·{" "}
+            <span className="whitespace-nowrap">{fmtFirstReview(k.avgTimeToFirstReviewHours)}</span>
+          </>
+        }
       />
       <KpiTile
         label="Custo de IA"
@@ -106,15 +118,19 @@ export function KpisWidget({ data }) {
       />
       <KpiTile
         label="US$ por ponto"
-        value={fmtPerPoint(k.aiCostPerPoint)}
+        value={fmtPerPoint(costPerPoint)}
         hint={
-          isNum(k.avgTokensPerPoint)
-            ? `${t("média dos seus itens", (n) => `média dos itens de ${n}`)} · ${fmtTokensCompact(k.avgTokensPerPoint)} tokens por ponto`
-            : t("média dos seus itens", (n) => `média dos itens de ${n}`)
+          !isNum(costPerPoint)
+            ? Number(k.complexityDelivered) > 0
+              ? "sem custo de IA na sprint"
+              : "sem pontos entregues"
+            : isNum(k.avgTokensPerPoint)
+              ? `${t("média dos seus itens", (n) => `média dos itens de ${n}`)} · ${fmtTokensCompact(k.avgTokensPerPoint)} tokens por ponto`
+              : t("média dos seus itens", (n) => `média dos itens de ${n}`)
         }
         delta={{
-          current: k.aiCostPerPoint,
-          previous: prev?.aiCostPerPoint,
+          current: costPerPoint,
+          previous: perPoint(prev),
           goodWhen: "neutral",
           vs,
           unit: "usd",

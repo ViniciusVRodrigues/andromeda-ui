@@ -2,6 +2,7 @@ import { test, expect } from "@playwright/test";
 import { DASH_NOW, gotoDashboard, installDashboardsApi } from "./dashboards-v2-api.mjs";
 import {
   axisDays,
+  axisUsd,
   axisHours,
   delta,
   fmtDelta,
@@ -208,4 +209,99 @@ test("Projeto: só Azure Repos, a fonte diz Azure Repos e não GitHub", async ({
   await expect(page.getByRole("heading", { name: /Resumo/ }).first()).toBeVisible();
   const body = await page.locator("main").innerText();
   expect(body).not.toMatch(/Fonte:[^\n]*GitHub/);
+});
+
+/* ── ajustes pós-validação ────────────────────────────────────────────────────── */
+
+for (const [view, query] of [
+  ["Individual", INDIVIDUAL],
+  ["Equipe", "?visao=equipe&escopo=p-portal"],
+  ["Projeto", "?visao=projeto&escopo=p-portal"],
+  ["Organização", "?escopo=org"],
+]) {
+  test(`${view}: sem "(s)" nem número repetido ("6 6 sprints") no texto da tela`, async ({
+    page,
+  }) => {
+    await open(page, query);
+    await page.waitForLoadState("networkidle");
+    const text = await page.locator("main").innerText();
+    expect(text).not.toMatch(/\((s|ns)\)/);
+    expect(text).not.toMatch(/\b(\d+) \1 (sprints?|semanas?|faixas?|itens?)\b/);
+    expect(text).not.toMatch(/\b\d+ Há \d+/);
+  });
+}
+
+test("leitura cruzada: abaixo da base mínima não há variação (US$ 0,10 → 5 não é 50×)", () => {
+  const text = crossReading({
+    kind: "paired",
+    points: [
+      { label: "S1", a: 0.1, b: 10 },
+      { label: "S2", a: 2, b: 11 },
+      { label: "S3", a: 5, b: 12 },
+    ],
+    iaName: "Custo de IA",
+    metricName: "Complexidade entregue",
+    iaKey: "aiCostUsd",
+    metricKey: "complexityDelivered",
+    noun: "sprints",
+  });
+  expect(text).not.toMatch(/50×/);
+  expect(text).toContain("sem base");
+});
+
+test("leitura cruzada: concordância no meio da frase", () => {
+  const text = crossReading({
+    kind: "paired",
+    points: [
+      { label: "a", a: 10, b: 10 },
+      { label: "b", a: 12, b: 11 },
+      { label: "c", a: 20, b: 12 },
+    ],
+    iaName: "Tokens de IA",
+    metricName: "Cycle time (mediana)",
+    iaKey: "aiTokens",
+    metricKey: "cycleTimeHours",
+    noun: "semanas",
+  });
+  expect(text).toContain("Entre o primeiro e o último ponto (3 semanas), tokens de IA subiu");
+  expect(text).not.toMatch(/dos \d+ (semanas|faixas)/);
+});
+
+test("Individual: US$ por ponto cai para custo ÷ complexidade quando o ms não manda o campo", async ({
+  page,
+}) => {
+  await open(page, INDIVIDUAL, {
+    transform: individualWith((o) => {
+      delete o.kpis.aiCostPerPoint;
+      o.kpis.aiCostUsd = 20;
+      o.kpis.complexityDelivered = 5; // US$ 4,00 por ponto
+    }),
+  });
+  const tile = page
+    .getByRole("list", { name: "Indicadores pessoais da sprint" })
+    .getByRole("listitem")
+    .filter({ hasText: "US$ por ponto" });
+  await expect(tile).toContainText("US$ 4,00");
+  await expect(tile).not.toContainText("—");
+});
+
+test("Individual: US$ por ponto sem pontos entregues diz o motivo", async ({ page }) => {
+  await open(page, INDIVIDUAL, {
+    transform: individualWith((o) => {
+      delete o.kpis.aiCostPerPoint;
+      o.kpis.complexityDelivered = 0;
+    }),
+  });
+  const tile = page
+    .getByRole("list", { name: "Indicadores pessoais da sprint" })
+    .getByRole("listitem")
+    .filter({ hasText: "US$ por ponto" });
+  await expect(tile).toContainText("sem pontos entregues");
+});
+
+test("eixos em pt-BR: 'US$ 2', '50 h', '3 d'", () => {
+  expect(axisUsd(2)).toBe("US$ 2");
+  expect(axisUsd(14)).toBe("US$ 14");
+  expect(axisHours(50)).toBe("50 h");
+  expect(axisDays.forMax(8)(3)).toBe("3 d");
 });

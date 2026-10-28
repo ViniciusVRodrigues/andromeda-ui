@@ -57,12 +57,14 @@ export function perPointReading(rows, key, fmt, name) {
   const closed = withValue.filter((r) => !r.current);
   const v = closed.length >= 2 && closed.length < withValue.length ? closed : withValue;
   if (v.length < 3)
-    return `${plural(v.length, "Há 1 sprint com valor", `Há ${v.length} sprints com valor`)}; são precisas ao menos 3 para ver a tendência.`;
+    return `Há ${plural(v.length, "sprint com valor", "sprints com valor")}; são precisas ao menos 3 para ver a tendência.`;
   const first = v[0];
   const last = v[v.length - 1];
   if (!(Number(first[key]) > 0) && !(Number(last[key]) > 0))
     return `${v.length} sprints: sem valores para comparar.`;
-  const change = pctChange(first[key], last[key]);
+  const change = pctChange(first[key], last[key], {
+    unit: key.startsWith("tokens") ? "count" : "usd",
+  });
   const trend =
     change == null || Math.abs(change) < 5
       ? "estável"
@@ -98,7 +100,7 @@ export function IaPerPointCard({
     !rows.some((r) => isNum(r.tokensPerPoint) || isNum(r.tokensPerHour)) &&
     rows.some((r) => isNum(r.costPerPoint) || isNum(r.costPerHour));
   const parts = [
-    plural(rows.length, "1 sprint", `${rows.length} sprints`),
+    plural(rows.length, "sprint", "sprints"),
     basis ? `base: ${basis}` : null,
     rows.some((r) => r.current) ? "* em andamento" : null,
     note,

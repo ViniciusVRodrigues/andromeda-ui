@@ -756,7 +756,18 @@ export function PairedColumns({
                 maxBarSize={list.length > 1 ? 16 : 24}
                 radius={[4, 4, 0, 0]}
                 isAnimationActive={false}
-              />
+              >
+                {/* sprint em andamento: preenchimento claro e contorno tracejado (forma, não só cor) */}
+                {rows.map((r, j) => (
+                  <Cell
+                    key={j}
+                    fill={colors[i]}
+                    fillOpacity={r.current ? 0.35 : 1}
+                    stroke={r.current ? colors[i] : undefined}
+                    strokeDasharray={r.current ? "4 3" : undefined}
+                  />
+                ))}
+              </Bar>
             ))}
           </BarChart>
         </ChartBox>
@@ -818,6 +829,9 @@ export function ScatterChart({
   const labeled = scatterExtremes(data);
   const fx = x.fmt || identity;
   const fy = y.fmt || identity;
+  /* eixos com o formato curto ("US$ 14"), tooltip com o completo */
+  const ax = x.axis || fx;
+  const ay = y.axis || fy;
   const shape = (props) => {
     const { cx, cy, payload, xAxis } = props;
     const idx = data.indexOf(payload);
@@ -858,7 +872,7 @@ export function ScatterChart({
             tick={AXIS_TICK}
             axisLine={{ stroke: "var(--line-strong)" }}
             tickLine={false}
-            tickFormatter={fx}
+            tickFormatter={ax}
             tickCount={4}
             label={{
               value: x.short || x.label,
@@ -876,8 +890,11 @@ export function ScatterChart({
             tick={AXIS_TICK}
             axisLine={false}
             tickLine={false}
-            width={44}
-            tickFormatter={fy}
+            width={Math.max(
+              44,
+              Math.ceil(String(ay(maxOf(data, ["y"]) * 1.15 || 0)).length * 6.8 + 10),
+            )}
+            tickFormatter={ay}
             tickCount={4}
             label={{
               value: y.short || y.label,

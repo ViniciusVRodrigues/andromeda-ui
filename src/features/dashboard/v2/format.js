@@ -53,15 +53,15 @@ export function fmtDuration(hours) {
 /** Rótulos curtos de eixo, com vírgula decimal: "$0,7", "$12", "1,5d", "35%". */
 export function axisUsd(v) {
   if (!isNum(v)) return "";
-  return Math.abs(v) < 10 ? `$${NF1.format(v)}` : `$${NF0.format(v)}`;
+  return Math.abs(v) < 10 ? `US$ ${NF1.format(v)}` : `US$ ${NF0.format(v)}`;
 }
 /** Eixo de duração em dias, 1 casa ("1,5d"); com o máximo do domínio use `axisDays.forMax(max)`. */
 export function axisDays(v) {
-  return isNum(v) ? `${NF1.format(v)}d` : "";
+  return isNum(v) ? `${NF1.format(v)} d` : "";
 }
 /** Eixo de duração em horas ("12h"); com o máximo do domínio use `axisHours.forMax(max)`. */
 export function axisHours(v) {
-  return isNum(v) ? `${NF0.format(v)}h` : "";
+  return isNum(v) ? `${NF0.format(v)} h` : "";
 }
 
 /* Os eixos de duração escolhem a unidade pelo máximo do domínio: `axisDays.forMax(max)` devolve o
@@ -71,12 +71,12 @@ export function axisHours(v) {
 axisDays.forMax = (max) => (v) => {
   if (!isNum(v)) return "";
   if (isNum(max) && max < 1) return axisHours.forMax(max * 24)(v * 24);
-  return `${(isNum(max) && max >= 3 ? NF0 : NF1).format(v)}d`;
+  return `${(isNum(max) && max >= 3 ? NF0 : NF1).format(v)} d`;
 };
 axisHours.forMax = (max) => (v) => {
   if (!isNum(v)) return "";
-  if (isNum(max) && max < 1) return `${NF0.format(v * 60)}min`;
-  return `${(isNum(max) && max < 10 ? NF1 : NF0).format(v)}h`;
+  if (isNum(max) && max < 1) return `${NF0.format(v * 60)} min`;
+  return `${(isNum(max) && max < 10 ? NF1 : NF0).format(v)} h`;
 };
 export function axisPct(v) {
   return isNum(v) ? `${NF0.format(v)}%` : "";

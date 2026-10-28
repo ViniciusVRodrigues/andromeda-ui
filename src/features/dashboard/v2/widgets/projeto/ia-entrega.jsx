@@ -20,6 +20,7 @@ import {
   fmtTokensCompact,
   fmtUsd,
   isNum,
+  plural,
 } from "../../format.js";
 import { Tag } from "../../kit/Badges.jsx";
 import { AiCrossCard, hasAiValue } from "../../kit/AiCross.jsx";
@@ -542,6 +543,7 @@ export function IaEffortWidget({ data }) {
   const [mode, setMode] = React.useState("effort");
   const rows = data[mode];
   const none = iaEffortEmpty(data);
+  const usableBands = rows.filter((r) => isNum(r.aiPerItem) && isNum(r.cycleDays)).length;
   return (
     <AiCrossCard
       actions={
@@ -569,7 +571,7 @@ export function IaEffortWidget({ data }) {
         { key: "count", label: "Itens concluídos", align: "right", format: fmtInt },
       ]}
       help="Compara o custo de IA por item de cada faixa com o cycle time; os totais estão na tabela."
-      sample={`${rows.length} faixas`}
+      sample={`${usableBands} de ${plural(rows.length, "faixa", "faixas")} com valor`}
       basis="uso alocado aos itens concluídos"
       sources={["ia", "azure"]}
       missing={none ? "Sem custo de IA por faixa: nenhum item concluído tem uso alocado." : null}

@@ -111,26 +111,26 @@ export const itemCostPerPoint = (i) =>
 
 export const selectTokensPerPoint = (d) =>
   d.items
-    .filter((i) => i.tokensPerPoint || i.tokensPerHour || isNum(itemCostPerPoint(i)))
+    .filter((i) => isNum(itemCostPerPoint(i)) || i.tokensPerHour || i.aiCostUsd != null)
     .map((i) => {
       const cost = itemCostPerPoint(i);
-      const perPoint = isNum(cost) || !!i.tokensPerPoint;
       const useCost = isNum(cost);
+      const perHour = !useCost && !!i.tokensPerHour;
       return {
         key: i.id,
         label: `#${i.externalId} ${i.title}`,
-        value: perPoint ? (useCost ? cost : i.tokensPerPoint) : i.tokensPerHour,
-        display: perPoint
-          ? useCost
-            ? `${fmtPerPoint(cost)}/pt`
-            : `${fmtTokensCompact(i.tokensPerPoint)} tokens/pt`
-          : `${fmtTokensCompact(i.tokensPerHour)} tokens/h`,
-        sub: perPoint ? fmtPoints(i.complexity, { total: true }) : fmtHours(i.effort),
-        perPoint,
+        value: useCost ? cost : perHour ? i.tokensPerHour : 0,
+        display: useCost
+          ? `${fmtPerPoint(cost)}/pt`
+          : perHour
+            ? `${fmtTokensCompact(i.tokensPerHour)} tokens/h`
+            : "— sem custo alocado",
+        sub: useCost ? fmtPoints(i.complexity, { total: true }) : perHour ? fmtHours(i.effort) : "",
         useCost,
+        perHour,
       };
     })
-    .sort((a, b) => b.perPoint - a.perPoint || b.useCost - a.useCost || b.value - a.value);
+    .sort((a, b) => b.useCost - a.useCost || b.perHour - a.perHour || b.value - a.value);
 
 export function TokensPerPointWidget({ data: rows }) {
   return (

@@ -209,6 +209,8 @@ export function AiCrossCard({
       points: rows.map((r) => ({ a: r[ia.key], b: r[main.key], current: !!r.current })),
       iaName: ia.label,
       metricName: main.label,
+      iaKey: ia.key,
+      metricKey: main.key,
       noun,
       minPoints: min,
     });

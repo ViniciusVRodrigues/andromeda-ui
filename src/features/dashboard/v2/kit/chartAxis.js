@@ -52,9 +52,24 @@ export function maxOf(rows, keys, stacked = false) {
  */
 export function yAxisProps(yFormat, max, maxCount = 5) {
   const fmt = axisFormatFor(yFormat, max);
-  if (typeof yFormat?.forMax !== "function") return { tickFormatter: fmt };
+  const width = axisWidth(fmt, max);
+  if (typeof yFormat?.forMax !== "function") return { tickFormatter: fmt, ...width };
   const ticks = uniqueTicks(max, fmt, maxCount);
   return ticks
-    ? { tickFormatter: fmt, ticks, domain: [0, ticks[ticks.length - 1]], allowDecimals: true }
-    : { tickFormatter: fmt };
+    ? {
+        tickFormatter: fmt,
+        ticks,
+        domain: [0, ticks[ticks.length - 1]],
+        allowDecimals: true,
+        ...axisWidth(fmt, ticks[ticks.length - 1]),
+      }
+    : { tickFormatter: fmt, ...width };
+}
+
+/** Largura do eixo Y para o rótulo do topo ("1.000 h", "US$ 14") não cortar: só cresce (mínimo 40 px). */
+export function axisWidth(fmt, max) {
+  if (!isNum(max) || typeof fmt !== "function") return {};
+  const chars = Math.max(String(fmt(max)).length, String(fmt(max * 0.5)).length);
+  const w = Math.ceil(chars * 6.8 + 10);
+  return w > 40 ? { width: w } : {};
 }

@@ -105,9 +105,9 @@ const ITEM_COLUMNS = [
         {fmtUsd(r.aiCostUsd)}
         <span className="text-fg-muted block text-[11px] font-normal">
           {r.tokensPerPoint
-            ? `${fmtTokensCompact(r.tokensPerPoint)} Tokens/pt`
+            ? `${fmtTokensCompact(r.tokensPerPoint)} tokens/pt`
             : r.tokensPerHour
-              ? `${fmtTokensCompact(r.tokensPerHour)} Tokens/h`
+              ? `${fmtTokensCompact(r.tokensPerHour)} tokens/h`
               : ""}
         </span>
       </span>
