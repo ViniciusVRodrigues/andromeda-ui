@@ -53,7 +53,7 @@ export function fmtDuration(hours) {
 /** Rótulos curtos de eixo, com vírgula decimal: "$0,7", "$12", "1,5d", "35%". */
 export function axisUsd(v) {
   if (!isNum(v)) return "";
-  return Math.abs(v) < 10 ? `US$ ${NF1.format(v)}` : `US$ ${NF0.format(v)}`;
+  return Math.abs(v) < 10 ? `US$ ${NF1.format(v)}` : `US$ ${NF0.format(v)}`;
 }
 /** Eixo de duração em dias, 1 casa ("1,5d"); com o máximo do domínio use `axisDays.forMax(max)`. */
 export function axisDays(v) {
@@ -85,7 +85,7 @@ export function axisPct(v) {
 export function axisTokensM(v) {
   if (!isNum(v)) return "";
   const m = v / 1e6;
-  return `${new Intl.NumberFormat("pt-BR", { maximumFractionDigits: m < 1 ? 2 : 1 }).format(m)}M`;
+  return `${new Intl.NumberFormat("pt-BR", { maximumFractionDigits: m < 1 ? 2 : 1, useGrouping: "always" }).format(m)}M`;
 }
 
 /** Contagem de tokens compacta para razões (tokens por ponto): 448.363 → "448 mil". */

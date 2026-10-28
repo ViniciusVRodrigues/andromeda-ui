@@ -263,7 +263,7 @@ export function ShellLayout() {
         </aside>
 
         <main className="admin-main">
-          {can("integrations") && connectionStatus !== "CONNECTED" && !bannerDismissed && (
+          {can("integrations") && connectionStatus === "DISCONNECTED" && !bannerDismissed && (
             <div className="integration-banner">
               <span className="integration-banner-text">
                 Configure o Azure DevOps para ativar a coleta automática de métricas de sprint e

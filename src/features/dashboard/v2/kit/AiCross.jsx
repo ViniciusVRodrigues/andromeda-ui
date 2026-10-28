@@ -59,6 +59,7 @@ export const AI_EMPTY_TEXT = {
     "Você ainda não enviou uso de IA nesta sprint. O conector fica em Perfil e conector de IA.",
   team: "Ninguém do time enviou uso de IA neste período.",
   subscription: "Assinatura não configurada na organização.",
+  editor: "O editor só é registrado nos envios novos do conector.",
 };
 
 /**
@@ -123,13 +124,15 @@ export function AiEmpty({ person = false, kind = "usage", block = false }) {
   const text =
     kind === "subscription"
       ? AI_EMPTY_TEXT.subscription
-      : unallocated
-        ? aiNoAllocationText(consumption, subject)
-        : person
-          ? subject.self
-            ? AI_EMPTY_TEXT.person
-            : `${subject.first} ainda não enviou uso de IA nesta sprint.`
-          : AI_EMPTY_TEXT.team;
+      : kind === "editor" && consumption && consumption.usd > 0
+        ? AI_EMPTY_TEXT.editor
+        : unallocated
+          ? aiNoAllocationText(consumption, subject)
+          : person
+            ? subject.self
+              ? AI_EMPTY_TEXT.person
+              : `${subject.first} ainda não enviou uso de IA nesta sprint.`
+            : AI_EMPTY_TEXT.team;
   return (
     <div
       data-ai-empty=""

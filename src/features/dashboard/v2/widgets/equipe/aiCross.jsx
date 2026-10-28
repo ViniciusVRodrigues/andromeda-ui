@@ -2,7 +2,15 @@
  * Seletores puros + componentes sobre o `AiCrossCard`. */
 
 import React from "react";
-import { axisPct, fmtDuration, fmtPct, fmtTokensCompact, fmtUsd, isNum } from "../../format.js";
+import {
+  axisPct,
+  axisUsd,
+  fmtDuration,
+  fmtPct,
+  fmtTokensCompact,
+  fmtUsd,
+  isNum,
+} from "../../format.js";
 import { AiCrossCard } from "../../kit/AiCross.jsx";
 import { IaPerPointCard } from "../../kit/IaPerPoint.jsx";
 import { MISSING_TOKENS, SERIES, positive, selectSprintCross } from "../individual/aiCross.jsx";
@@ -101,7 +109,14 @@ export function TeamIaFluxoWidget({ data }) {
 }
 
 export function TeamIaPessoaWidget({ data }) {
-  const x = { key: "aiCostUsd", label: "Custo de IA", short: "US$", unit: "US$", fmt: fmtUsd };
+  const x = {
+    key: "aiCostUsd",
+    label: "Custo de IA",
+    short: "US$",
+    unit: "US$",
+    fmt: fmtUsd,
+    axis: axisUsd,
+  };
   const y = SERIES.complexityDelivered;
   return (
     <AiCrossCard

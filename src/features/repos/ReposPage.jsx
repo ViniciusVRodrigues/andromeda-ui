@@ -17,6 +17,7 @@ import { WorkItemLink } from "../../core/work-items/WorkItemLink.jsx";
 import React from "react";
 import { Link } from "react-router-dom";
 import { useIdentity } from "../../core/auth/IdentityContext.jsx";
+import { fmtFixed } from "../dashboard/v2/format.js";
 import { orgRoute } from "../../lib/orgRoutes.js";
 import Combobox from "../../core/ui/Combobox.jsx";
 import StickyPageHeader from "../../core/ui/StickyPageHeader.jsx";
@@ -377,7 +378,7 @@ export function ReposPage() {
               value={
                 selectedRepo.delivery?.deploymentsPerWeek == null
                   ? null
-                  : Number(selectedRepo.delivery.deploymentsPerWeek).toFixed(1)
+                  : fmtFixed(Number(selectedRepo.delivery.deploymentsPerWeek), 1)
               }
               hint={deliveryMethodLabel(selectedRepo.delivery?.method)}
               title={`PRs mergeados na branch de produção${prodBranch ? ` (${prodBranch})` : ""} por semana (proxy de frequência de deploy)`}
