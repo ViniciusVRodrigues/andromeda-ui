@@ -452,7 +452,7 @@ export function ProjectsPage() {
 
       {/* ── Painel de detalhe ── */}
       {editingProject && (
-        <div className="project-detail-overlay" onClick={closeProject}>
+        <div className="project-detail-overlay max-[600px]:!p-3" onClick={closeProject}>
           <div
             className="project-detail-panel project-detail-panel--modal"
             onClick={(e) => e.stopPropagation()}

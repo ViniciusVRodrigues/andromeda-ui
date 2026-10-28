@@ -4728,9 +4728,6 @@
   .member-modal-actions {
     grid-template-columns: 1fr;
   }
-  .project-links {
-    grid-template-columns: 1fr;
-  }
   .role-list--cols {
     grid-template-columns: 1fr;
   }

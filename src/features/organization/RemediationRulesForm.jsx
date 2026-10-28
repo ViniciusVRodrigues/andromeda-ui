@@ -108,7 +108,7 @@ export function RemediationRulesForm() {
         description={
           <>
             A taxa de falha (<strong>Change Fail Rate</strong>) sai dos PRs: é a fração dos PRs
-            mergeados na branch padrão que corrigem uma falha. Defina aqui o que conta como
+            mergeados na branch de produção que corrigem uma falha. Defina aqui o que conta como
             correção. Vale para todos os projetos.
           </>
         }

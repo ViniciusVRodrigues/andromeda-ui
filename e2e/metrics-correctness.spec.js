@@ -66,7 +66,9 @@ test("projeto: DORA diz de onde vem o número (method) e a taxa de falha já vem
   const lead = page.locator("[data-widget-id='projeto.dora-lead-time']");
   const freq = page.locator("[data-widget-id='projeto.dora-frequencia']");
   const cfr = page.locator("[data-widget-id='projeto.dora-falha']");
-  await expect(lead).toContainText("pelos merges na branch padrão dos repositórios vinculados");
+  await expect(lead).toContainText(
+    "pelos merges na branch de produção dos repositórios vinculados",
+  );
   await expect(freq).toContainText("estimado");
   await expect(cfr).toContainText("5%");
 

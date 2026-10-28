@@ -122,6 +122,13 @@ test("projeto: vincula um repositório do Azure Repos pelo projeto ADO do Boards
         displayName: "Payments/payments-api",
         syncEnabled: true,
         lastSyncAt: null,
+        defaultBranch: "main",
+        branches: body.branches,
+        productionBranch: body.productionBranch,
+        filterPullRequestsByBranch: body.filterPullRequestsByBranch,
+        branchesConfigured: true,
+        missingBranches: [],
+        syncState: "PENDING",
       };
       bindings = [...bindings, created];
       return json(route, created, 201);
@@ -163,12 +170,18 @@ test("projeto: vincula um repositório do Azure Repos pelo projeto ADO do Boards
       provider: "AZURE_REPOS",
       externalRepoId: "0f6e1c1a-0000-4000-8000-000000000002",
       syncEnabled: true,
+      branches: ["main"], // refs/heads/ sai da branch padrão
+      productionBranch: "main",
+      filterPullRequestsByBranch: false,
     },
   ]);
 
   // Vínculos mistos: cada um com o seu selo.
   await expect(section.getByText("Payments/payments-api")).toBeVisible();
   await expect(section.getByTestId("provider-badge")).toHaveText(["GitHub", "Azure Repos"]);
+  const azureRow = section.getByTestId("repo-binding-row").filter({ hasText: "payments-api" });
+  await expect(azureRow).toContainText("produção: main");
+  await expect(azureRow).toContainText("Sincronizando…");
 
   await section.scrollIntoViewIfNeeded();
   await expect(section).toHaveScreenshot("project-repo-bindings-azure.png");
@@ -327,4 +340,66 @@ test("integrações: corrige a URL da organização sem reautorizar", async ({ p
 
   await expect(card).toContainText("● Conectado");
   expect(puts).toEqual([{ azureOrgUrl: ORG_URL }]);
+});
+
+test("projeto: Alterar as branches do Azure Repos antes de vincular e aviso de escopo na lista", async ({
+  page,
+}) => {
+  const { orgSlug } = await loginAsAdmin(page);
+  await mockConnectedOrg(page);
+  await page.route("**/api/v1/repos/available**", (route) => {
+    const provider = new URL(route.request().url()).searchParams.get("provider");
+    return json(route, provider === "AZURE_REPOS" ? AZURE_AVAILABLE : []);
+  });
+  let scopeMissing = true;
+  await page.route("**/api/v1/repos/available/branches**", (route) =>
+    scopeMissing
+      ? json(route, { code: "AZURE_REPOS_SCOPE_MISSING" }, 403)
+      : json(route, {
+          branches: [
+            { name: "main", isDefault: true },
+            { name: "release/1", isDefault: false },
+          ],
+          total: 2,
+          truncated: false,
+        }),
+  );
+  const binds = [];
+  await page.route("**/api/v1/repos/projects/*/bindings", (route) => {
+    const req = route.request();
+    if (req.method() === "POST") {
+      binds.push(req.postDataJSON());
+      return json(route, { id: "bind-az", provider: "AZURE_REPOS" }, 201);
+    }
+    return json(route, []);
+  });
+
+  const section = await openBaselineProject(page, orgSlug);
+  await section
+    .getByRole("radiogroup", { name: "Provedor do repositório" })
+    .getByRole("radio", { name: "Azure Repos" })
+    .click();
+  await section.getByRole("combobox", { name: "Selecionar repositório do Azure Repos" }).click();
+  await page.getByRole("option", { name: /payments-api/ }).click();
+  await section.getByRole("button", { name: "Alterar as branches do repositório" }).click();
+
+  const dialog = page.getByRole("dialog", { name: "Branches sincronizadas" });
+  await expect(dialog.getByTestId("azure-repos-scope-missing")).toContainText("Code (Read)");
+  await dialog.getByRole("button", { name: "Cancelar" }).click();
+
+  scopeMissing = false;
+  await section.getByRole("button", { name: "Alterar as branches do repositório" }).click();
+  await dialog.getByRole("checkbox", { name: "release/1" }).click();
+  await dialog.getByRole("button", { name: "Vincular e sincronizar" }).click();
+  await expect(dialog).toHaveCount(0);
+  expect(binds).toEqual([
+    {
+      provider: "AZURE_REPOS",
+      externalRepoId: "0f6e1c1a-0000-4000-8000-000000000002",
+      syncEnabled: true,
+      branches: ["main", "release/1"],
+      productionBranch: "main",
+      filterPullRequestsByBranch: false,
+    },
+  ]);
 });

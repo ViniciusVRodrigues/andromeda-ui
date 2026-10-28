@@ -5,7 +5,7 @@ import { DurationStat } from "./DurationStat.jsx";
  * DeliveryMetrics — métricas de entrega estilo DORA (spec `delivery-metrics`).
  *
  * Sem dados de deploy, os números são proxies: CFR = PRs de remediação ÷ PRs
- * mergeados na branch padrão (em %), frequência = merges por semana, lead time
+ * mergeados na branch de produção (em %), frequência = merges por semana, lead time
  * de mudança = 1º commit → merge. O `method` diz de onde vieram e a UI tem de
  * mostrar isso sempre — um proxy apresentado como DORA "de verdade" engana.
  * Com `UNAVAILABLE`, valores e classes são null: traço, sem classe.
@@ -133,7 +133,7 @@ export function DeliveryMetricsGrid({ delivery, showMethod = true }) {
           hint={cfrHint}
         />
         <ValueStat
-          label={vcs ? "Merges na branch padrão" : "Entregas"}
+          label={vcs ? "Merges na branch de produção" : "Entregas"}
           value={freq == null ? null : Number(freq).toFixed(1)}
           unit="/sem"
           cls={delivery?.deploymentFrequencyClass}

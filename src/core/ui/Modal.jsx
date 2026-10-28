@@ -128,6 +128,7 @@ export function ConfirmDialog({
   busyLabel = "…",
   error,
   confirmClassName = "",
+  stacked = false,
 }) {
   // Ação irreversível pede um gesto deliberado: enquanto o texto digitado não
   // for exatamente `confirmPhrase`, o botão fica desabilitado. Sem a prop, o
@@ -155,6 +156,7 @@ export function ConfirmDialog({
       eyebrow={eyebrow}
       title={title}
       size="confirm"
+      stacked={stacked}
       closeDisabled={busy}
       busy={busy}
       footer={

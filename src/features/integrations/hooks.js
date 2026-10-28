@@ -16,6 +16,9 @@ import {
   getAvailableRepos,
   bindRepository,
   toggleRepoBindingSync,
+  updateRepoBinding,
+  getAvailableRepoBranches,
+  getBindingBranches,
   unbindRepository,
   getWorkItemLinkSettings,
   updateWorkItemLinkSettings,
@@ -235,12 +238,50 @@ export function useRepoBindings() {
   });
 }
 
-/** Vínculos de um projeto (todos os provedores). */
+/** Intervalo de releitura dos vínculos enquanto algum sync está pendente. */
+const BINDINGS_POLL_MS = 5000;
+
+/** Vínculos de um projeto (todos os provedores). Relê a cada 5 s só enquanto algum
+ *  vínculo está PENDING ou RUNNING (branches-por-vinculo). */
 export function useProjectRepoBindings(projectId, { enabled = true } = {}) {
   return useQuery({
     queryKey: [...REPO_BINDINGS_KEY, "project", projectId],
     queryFn: () => getProjectRepoBindings(projectId).then((d) => (Array.isArray(d) ? d : [])),
     enabled: !!projectId && enabled,
+    refetchInterval: (query) =>
+      (query.state.data ?? []).some((b) => b.syncState === "PENDING" || b.syncState === "RUNNING")
+        ? BINDINGS_POLL_MS
+        : false,
+  });
+}
+
+/** Branches de um repositório ainda não vinculado (`params` de `getAvailableRepoBranches`). */
+export function useAvailableRepoBranches(params, { enabled = true } = {}) {
+  return useQuery({
+    queryKey: [
+      "integrations",
+      "repo-branches",
+      "available",
+      params?.provider,
+      params?.externalRepoId ?? params?.fullName,
+    ],
+    queryFn: () => getAvailableRepoBranches(params),
+    enabled: !!params?.provider && (!!params.externalRepoId || !!params.fullName) && enabled,
+    retry: false,
+    staleTime: 0,
+    gcTime: 0,
+  });
+}
+
+/** Branches de um repositório já vinculado. */
+export function useBindingBranches(bindingId, { enabled = true } = {}) {
+  return useQuery({
+    queryKey: ["integrations", "repo-branches", "binding", bindingId],
+    queryFn: () => getBindingBranches(bindingId),
+    enabled: !!bindingId && enabled,
+    retry: false,
+    staleTime: 0,
+    gcTime: 0,
   });
 }
 
@@ -267,6 +308,27 @@ export function useBindRepository(projectId) {
   return useMutation({
     mutationFn: (body) => bindRepository(projectId, body),
     onSuccess: invalidate,
+  });
+}
+
+/** Edita as branches, a produção e o filtro de um vínculo. vars: `{ bindingId, ...patch }`. */
+export function useUpdateRepoBinding(projectId) {
+  const queryClient = useQueryClient();
+  const invalidate = useInvalidateRepoBindings();
+  const key = [...REPO_BINDINGS_KEY, "project", projectId];
+  return useMutation({
+    mutationFn: ({ bindingId, ...patch }) => updateRepoBinding(bindingId, patch),
+    onSuccess: (updated) => {
+      // Mostra o estado novo (PENDING…) já, sem esperar a releitura.
+      if (updated?.id) {
+        queryClient.setQueryData(key, (list) =>
+          Array.isArray(list)
+            ? list.map((b) => (b.id === updated.id ? { ...b, ...updated } : b))
+            : list,
+        );
+      }
+    },
+    onSettled: invalidate,
   });
 }
 

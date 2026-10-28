@@ -11,39 +11,12 @@
 
 import React from "react";
 import Combobox from "../../core/ui/Combobox.jsx";
-import { azurePatPageUrl } from "../../lib/azureOrg.js";
-import { useAvailableRepos, useBindRepository } from "../integrations/hooks.js";
+import { useAvailableRepos } from "../integrations/hooks.js";
+import { AzureReposScopeNotice } from "./AzureReposScopeNotice.jsx";
+import { BindButton, BranchChoice, useBindFlow } from "./BindFlow.jsx";
+import { SCOPE_MISSING } from "./repoErrors.js";
 
-const SCOPE_MISSING = "AZURE_REPOS_SCOPE_MISSING";
-
-/**
- * Orientação para reemitir o PAT com Code (Read). O Boards segue funcionando
- * com o PAT atual — só os repositórios dependem do escopo.
- * @param {{ orgUrl?: string | null }} props
- */
-export function AzureReposScopeNotice({ orgUrl }) {
-  return (
-    <div
-      role="alert"
-      data-testid="azure-repos-scope-missing"
-      className="border-warn text-fg my-2 rounded-md border px-3 py-2 text-sm"
-    >
-      <p className="m-0">
-        O token do Azure DevOps não tem permissão para ler repositórios. Gere um novo PAT com o
-        escopo <strong>Code (Read)</strong> e reconecte em Integrações — sprints e work items
-        continuam sincronizando com o token atual.
-      </p>
-      <a
-        className="integration-pat-link mt-2 inline-block"
-        href={azurePatPageUrl(orgUrl)}
-        target="_blank"
-        rel="noopener noreferrer"
-      >
-        Abrir tokens da organização no Azure DevOps ↗
-      </a>
-    </div>
-  );
-}
+export { AzureReposScopeNotice };
 
 /** Motivo para um repositório não poder ser escolhido (ou `null` se pode). */
 function unavailableReason(repo, projectId) {
@@ -51,14 +24,6 @@ function unavailableReason(repo, projectId) {
   if (repo.boundToProjectId) return "vinculado a outro projeto";
   if (repo.bindable === false) return repo.defaultBranch ? "indisponível" : "sem branch padrão";
   return null;
-}
-
-function bindErrorMessage(code) {
-  if (code === "REPO_ALREADY_BOUND") return "Este repositório já está vinculado a outro projeto.";
-  if (code === "VCS_CONNECTION_NOT_FOUND")
-    return "O Azure DevOps não está conectado. Reconecte em Integrações.";
-  if (code === "REPO_ID_INVALID") return "Repositório inválido ou inacessível para a conexão.";
-  return "Não foi possível vincular o repositório. Tente novamente.";
 }
 
 /** Agrupa os repositórios por projeto ADO, em ordem alfabética. */
@@ -82,7 +47,6 @@ function groupByAdoProject(repos) {
  */
 export function AzureRepoPicker({ projectId, boardsProjectId, orgUrl }) {
   const availableQuery = useAvailableRepos("AZURE_REPOS");
-  const bind = useBindRepository(projectId);
   const [adoProject, setAdoProject] = React.useState(null);
   const [selected, setSelected] = React.useState("");
 
@@ -97,6 +61,16 @@ export function AzureRepoPicker({ projectId, boardsProjectId, orgUrl }) {
     groups.find((g) => g.id === boardsProjectId) ??
     groups[0] ??
     null;
+
+  const selectedRepo = (currentProject?.repos ?? []).find(
+    (r) => String(r.externalRepoId) === selected,
+  );
+  const flow = useBindFlow({
+    projectId,
+    provider: "AZURE_REPOS",
+    repo: selectedRepo,
+    onBound: () => setSelected(""),
+  });
 
   const errorCode = availableQuery.error?.body?.code;
   if (errorCode === SCOPE_MISSING) return <AzureReposScopeNotice orgUrl={orgUrl} />;
@@ -132,15 +106,6 @@ export function AzureRepoPicker({ projectId, boardsProjectId, orgUrl }) {
     };
   });
 
-  const handleBind = () => {
-    if (!selected) return;
-    bind.mutate(
-      { provider: "AZURE_REPOS", externalRepoId: selected, syncEnabled: true },
-      { onSuccess: () => setSelected("") },
-    );
-  };
-
-  const bindCode = bind.error?.body?.code;
   const loading = availableQuery.isLoading;
 
   return (
@@ -171,23 +136,9 @@ export function AzureRepoPicker({ projectId, boardsProjectId, orgUrl }) {
           aria-label="Selecionar repositório do Azure Repos"
           className="gh-binding-add-select"
         />
-        <button
-          type="button"
-          className="btn"
-          onClick={handleBind}
-          disabled={bind.isPending || !selected}
-        >
-          {bind.isPending ? "Vinculando…" : "Vincular"}
-        </button>
+        <BindButton flow={flow} />
       </div>
-      {bind.isError &&
-        (bindCode === SCOPE_MISSING ? (
-          <AzureReposScopeNotice orgUrl={orgUrl} />
-        ) : (
-          <p className="mono integration-error" role="alert">
-            {bindErrorMessage(bindCode)}
-          </p>
-        ))}
+      <BranchChoice flow={flow} provider="AZURE_REPOS" azureOrgUrl={orgUrl} />
     </>
   );
 }

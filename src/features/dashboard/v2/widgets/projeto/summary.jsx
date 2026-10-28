@@ -94,7 +94,7 @@ function DoraCard({ title, value, unit, grade, estimated, description }) {
 export const selectDora = (d) => ({ dora: d.dora });
 
 const DORA_METHOD = {
-  VCS_PROXY: "pelos merges na branch padrão dos repositórios vinculados",
+  VCS_PROXY: "pelos merges na branch de produção dos repositórios vinculados",
   BOARDS_PROXY: "pelos work items concluídos (sem repositório vinculado)",
   UNAVAILABLE: null,
 };

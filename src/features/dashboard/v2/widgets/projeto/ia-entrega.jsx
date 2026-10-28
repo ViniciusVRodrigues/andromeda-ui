@@ -412,7 +412,7 @@ export function IaQualityWidget({ data }) {
 /* projeto.ia-dora */
 
 const DORA_METHOD = {
-  VCS_PROXY: "pelos merges na branch padrão dos repositórios vinculados",
+  VCS_PROXY: "pelos merges na branch de produção dos repositórios vinculados",
   BOARDS_PROXY: "pelos work items concluídos (sem repositório vinculado)",
 };
 
