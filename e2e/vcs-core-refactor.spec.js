@@ -647,6 +647,52 @@ test("branches: branch apagada no provedor aparece marcada no diálogo", async (
   await expect(chosen.getByRole("checkbox", { name: "release/antiga" })).toBeChecked();
 });
 
+test("branches: ajustes visuais (linha ausente a 390, ConfirmDialog 44 px, resumo acima do Vincular, checkbox claro)", async ({
+  page,
+}) => {
+  const { orgSlug } = await loginAsAdmin(page);
+  await mockRepoEnv(page, {
+    bindings: [
+      mkBinding({ branches: ["main", "release/antiga"], missingBranches: ["release/antiga"] }),
+    ],
+    branches: branchList(["main", "develop"]),
+    available: GH_AVAILABLE,
+  });
+  const section = await openBaselineProject(page, gotoSection, orgSlug);
+
+  // (c) o resumo de branches fica entre o combobox e o Vincular.
+  await section.getByRole("combobox", { name: "Selecionar repositório disponível" }).click();
+  await page.getByRole("option", { name: /andromeda-ui/ }).click();
+  const summary = await section.getByTestId("bind-branch-summary").boundingBox();
+  const bind = await section.getByRole("button", { name: "Vincular", exact: true }).boundingBox();
+  expect(summary.y).toBeLessThan(bind.y);
+
+  // (a) a 390 px a linha da branch ausente não é esmagada.
+  await page.setViewportSize({ width: 390, height: 900 });
+  const dialog = await openEditDialog(page, section);
+  const row = dialog.locator("label", { hasText: "release/antiga" });
+  expect((await row.boundingBox()).height).toBeLessThanOrEqual(72);
+
+  // (d) paleta clara: o checkbox marcado difere do desmarcado.
+  await page.evaluate(() => document.documentElement.setAttribute("data-palette", "light"));
+  await page.waitForTimeout(400); // transição de 0,15 s do fundo
+  const bg = (loc) => loc.evaluate((el) => getComputedStyle(el).backgroundColor);
+  const checkedBg = await bg(dialog.getByRole("checkbox", { name: "release/antiga" }));
+  const uncheckedBg = await bg(dialog.getByRole("checkbox", { name: "develop" }));
+  expect(checkedBg).not.toBe(uncheckedBg);
+  expect(checkedBg).toBe("rgb(166, 102, 71)");
+
+  // (b) botões do ConfirmDialog com 44 px a 1280.
+  await page.setViewportSize({ width: 1280, height: 900 });
+  await dialog.getByRole("checkbox", { name: "develop" }).click();
+  await dialog.getByRole("button", { name: /^Salvar/ }).click();
+  const confirm = page.getByRole("dialog", { name: "Apagar e sincronizar de novo?" });
+  for (const b of await confirm.getByRole("button").all()) {
+    const box = await b.boundingBox();
+    if (box && box.width > 60) expect(box.height).toBeGreaterThanOrEqual(44);
+  }
+});
+
 test("branches: o teclado escolhe, salva e devolve o foco ao botão da linha", async ({ page }) => {
   const { orgSlug } = await loginAsAdmin(page);
   const env = await mockRepoEnv(page, {

@@ -288,12 +288,16 @@ export function BranchSelectionDialog({
                 disabled={only}
                 title={only ? "Pelo menos uma branch" : undefined}
               >
-                <span className="mono text-fg min-w-0 flex-1 text-sm break-all">{name}</span>
-                {name === defaultName && <span className="chip">padrão</span>}
-                {name === production && <span className="chip">produção</span>}
-                {missing.has(name) && (
-                  <span className="text-warn-text text-xs">não existe mais no repositório</span>
-                )}
+                <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-2">
+                  <span className="mono text-fg min-w-0 text-sm break-words">{name}</span>
+                  {name === defaultName && <span className="chip">padrão</span>}
+                  {name === production && <span className="chip">produção</span>}
+                  {missing.has(name) && (
+                    <span className="text-warn-text basis-full text-xs min-[600px]:basis-auto">
+                      não existe mais no repositório
+                    </span>
+                  )}
+                </div>
               </CheckRow>
             );
           })}

@@ -136,9 +136,11 @@ export function AzureRepoPicker({ projectId, boardsProjectId, orgUrl }) {
           aria-label="Selecionar repositório do Azure Repos"
           className="gh-binding-add-select"
         />
-        <BindButton flow={flow} />
       </div>
       <BranchChoice flow={flow} provider="AZURE_REPOS" azureOrgUrl={orgUrl} />
+      <div className="mt-1">
+        <BindButton flow={flow} />
+      </div>
     </>
   );
 }

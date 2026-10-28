@@ -111,9 +111,11 @@ function AddRepository({ projectId, provider }) {
           aria-label="Selecionar repositório disponível"
           className="gh-binding-add-select"
         />
-        <BindButton flow={flow} />
       </div>
       <BranchChoice flow={flow} provider={provider} />
+      <div className="mt-1">
+        <BindButton flow={flow} />
+      </div>
     </>
   );
 }
@@ -170,7 +172,7 @@ function BindingRow({ b, canConfigure, onToggleSync, onUnbind, onEditBranches })
         </span>
         {canConfigure && (
           <div className="flex min-w-0 flex-wrap items-center gap-2 max-[599px]:w-full">
-            <label className="flex min-h-[44px] cursor-pointer items-center gap-2 pr-2">
+            <label className="flex min-h-[44px] cursor-pointer items-center gap-2 pr-2 max-[599px]:basis-full">
               <Checkbox
                 checked={b.syncEnabled}
                 onCheckedChange={onToggleSync}

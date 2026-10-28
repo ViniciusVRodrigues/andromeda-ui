@@ -163,7 +163,7 @@ export function ConfirmDialog({
         <>
           <button
             type="button"
-            className="btn-ghost btn"
+            className="btn-ghost btn min-h-[44px]"
             disabled={busy}
             onClick={() => onOpenChange(false)}
           >
@@ -171,7 +171,7 @@ export function ConfirmDialog({
           </button>
           <button
             type="button"
-            className={`${danger ? "btn btn-danger" : "btn"}${confirmClassName ? " " + confirmClassName : ""}`}
+            className={`min-h-[44px] ${danger ? "btn btn-danger" : "btn"}${confirmClassName ? " " + confirmClassName : ""}`}
             disabled={busy || !phraseOk}
             onClick={() => {
               onConfirm();
