@@ -76,7 +76,7 @@ export default function PairingDialog({ code, onClose, onCodeChange }) {
   const loadErr = q.error ? pairingErrorMessage(q.error) : null;
   const wait = useCountdown(
     loadErr?.retryAfterSeconds ?? actionError?.retryAfterSeconds ?? null,
-    q.errorUpdatedAt,
+    loadErr ? q.errorUpdatedAt : actionError?.at,
   );
   const data = q.data;
   const left = data ? minutesLeft(data.expiresAt, now) : null;
@@ -86,12 +86,30 @@ export default function PairingDialog({ code, onClose, onCodeChange }) {
 
   const close = (extra) => onClose(extra);
 
-  // Foco inicial no código grande (depois do foco automático do Radix).
+  // Foco inicial: o código grande (ou o título, enquanto ele não chegou). Pelo
+  // onOpenAutoFocus do Radix, sem corrida; se o dado chega depois, foca o código uma vez.
+  const focusedCode = React.useRef(false);
   React.useEffect(() => {
-    if (!pending) return undefined;
-    const t = setTimeout(() => codeRef.current?.focus(), 0);
-    return () => clearTimeout(t);
+    if (!pending || focusedCode.current) return;
+    if (codeRef.current) {
+      codeRef.current.focus();
+      focusedCode.current = true;
+    }
   }, [pending]);
+  const onOpenAutoFocus = (e) => {
+    e.preventDefault();
+    if (codeRef.current) {
+      codeRef.current.focus();
+      focusedCode.current = true;
+    } else {
+      const h =
+        e.currentTarget?.querySelector?.("h3") || document.querySelector('[role="dialog"] h3');
+      if (h) {
+        h.setAttribute("tabindex", "-1");
+        h.focus();
+      }
+    }
+  };
 
   // Ao expirar com o diálogo aberto, o foco vai para o título.
   React.useEffect(() => {
@@ -109,7 +127,7 @@ export default function PairingDialog({ code, onClose, onCodeChange }) {
       const r = await approve.mutateAsync(code);
       setResult({ kind: "approved", machineName: r?.machineName || data?.machineName });
     } catch (e) {
-      setActionError(pairingErrorMessage(e));
+      setActionError({ ...pairingErrorMessage(e), at: Date.now() + Math.random() });
     }
   };
 
@@ -119,7 +137,7 @@ export default function PairingDialog({ code, onClose, onCodeChange }) {
       await deny.mutateAsync(code);
       setResult({ kind: "denied" });
     } catch (e) {
-      setActionError(pairingErrorMessage(e));
+      setActionError({ ...pairingErrorMessage(e), at: Date.now() + Math.random() });
     }
   };
 
@@ -312,6 +330,7 @@ export default function PairingDialog({ code, onClose, onCodeChange }) {
       eyebrow="Conector de IA"
       title={TITLE}
       busy={busy}
+      onOpenAutoFocus={onOpenAutoFocus}
       closeDisabled={busy}
       bodyClassName="scroll-slim"
       footer={footer}

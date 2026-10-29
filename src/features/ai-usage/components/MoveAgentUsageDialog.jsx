@@ -128,23 +128,27 @@ export function MoveAgentUsageDialog({ allocation, day, onClose, onMoved }) {
               >
                 <input
                   type="checkbox"
-                  className="h-5 w-5 shrink-0"
+                  className="h-5 w-5 shrink-0 accent-[var(--accent)]"
                   checked={!unchecked.has(g.key)}
                   onChange={() => toggle(g.key)}
                   disabled={move.isPending}
                 />
-                <span className="min-w-0 flex-1 text-sm">
-                  <span className="mono">{g.hour}</span>
-                  {" · "}
-                  {g.repository || "sem repositório"}
-                  {" · "}
-                  <span className="break-words">
-                    {g.branch ? `${g.branch}${g.approximate ? " (aproximada)" : ""}` : "sem branch"}
+                <div className="flex min-w-0 flex-1 flex-col gap-1 sm:flex-row sm:items-center sm:gap-3">
+                  <span className="min-w-0 flex-1 text-sm">
+                    <span className="mono">{g.hour}</span>
+                    {" · "}
+                    {g.repository || "sem repositório"}
+                    {" · "}
+                    <span className="break-words">
+                      {g.branch
+                        ? `${g.branch}${g.approximate ? " (aproximada)" : ""}`
+                        : "sem branch"}
+                    </span>
                   </span>
-                </span>
-                <span className="text-fg-muted mono shrink-0 text-xs">
-                  {num(g.outputTokens)} tokens de saída
-                </span>
+                  <span className="text-fg-muted mono shrink-0 text-xs">
+                    {num(g.outputTokens)} tokens de saída
+                  </span>
+                </div>
               </label>
             ))}
           </div>
@@ -177,7 +181,7 @@ export function MoveAgentUsageDialog({ allocation, day, onClose, onMoved }) {
                 <input
                   type="radio"
                   name="move-target"
-                  className="h-5 w-5 shrink-0"
+                  className="h-5 w-5 shrink-0 accent-[var(--accent)]"
                   checked={target === o.workItemId}
                   onChange={() => setTarget(o.workItemId)}
                   disabled={move.isPending}

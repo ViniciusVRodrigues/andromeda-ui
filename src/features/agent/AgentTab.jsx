@@ -59,7 +59,7 @@ export default function AgentTab({ orgSlug, onCheckCode }) {
               <h3
                 id="agent-connect-title"
                 tabIndex={-1}
-                className="admin-row-label mb-3 outline-none"
+                className="text-fg-muted mb-3 font-mono text-[11px] tracking-[0.22em] uppercase outline-none"
               >
                 Conectar um computador
               </h3>

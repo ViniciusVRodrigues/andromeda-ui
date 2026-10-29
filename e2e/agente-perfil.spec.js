@@ -112,6 +112,7 @@ async function mockAgent(page, init = {}) {
     devicesDelay: 0,
     pairings: {},
     approveResult: null,
+    approve429: false,
     calls: [],
     ...init,
   };
@@ -144,6 +145,7 @@ async function mockAgent(page, init = {}) {
     if (pr) {
       const code = decodeURIComponent(pr[1]);
       if (pr[2] === "/approve") {
+        if (S.approve429) return json(route, {}, 429, { "Retry-After": "1" });
         const r = S.approveResult || { deviceId: "dev-new", machineName: "NOTEBOOK-VINI" };
         S.devices = [...S.devices, device({ id: r.deviceId, machineName: r.machineName })];
         return json(route, r);
@@ -435,6 +437,37 @@ test.describe("pareamento", () => {
       await expect(d.getByRole("button", { name: /Aprovar/ })).toHaveCount(0);
       await expect(d.getByRole("button", { name: /Recusar/ })).toHaveCount(0);
       await fechar(d);
+    }
+  });
+
+  test("foco inicial no código, sem espera, em 3 aberturas seguidas", async ({ page }) => {
+    const slug = await open(page);
+    await mockAgent(page, { pairings: { "BCDF-GHJK": { body: pairing() } } });
+    await gotoPerfil(page, slug);
+    for (let i = 0; i < 3; i++) {
+      const d = await conferir(page, "BCDF-GHJK");
+      await d.waitFor();
+      const tag = await page.evaluate(() => {
+        const a = document.activeElement;
+        return a ? a.tagName + ":" + (a.getAttribute("data-testid") || "") : "";
+      });
+      expect(tag.startsWith("BUTTON")).toBe(false);
+      await expect(d.getByTestId("pairing-code")).toBeFocused();
+      await page.keyboard.press("Escape");
+      await expect(d).toHaveCount(0);
+    }
+  });
+
+  test("429 repetido ao aprovar reinicia a contagem", async ({ page }) => {
+    const slug = await open(page);
+    await mockAgent(page, { pairings: { "BCDF-GHJK": { body: pairing() } }, approve429: true });
+    await gotoPerfil(page, slug);
+    const d = await conferir(page, "BCDF-GHJK");
+    const aprovar = d.getByRole("button", { name: "Aprovar →" });
+    for (let i = 0; i < 2; i++) {
+      await aprovar.click();
+      await expect(aprovar).toBeDisabled();
+      await expect(aprovar).toBeEnabled({ timeout: 5000 });
     }
   });
 

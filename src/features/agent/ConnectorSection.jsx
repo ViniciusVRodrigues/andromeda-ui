@@ -101,7 +101,10 @@ export default function ConnectorSection({ orgSlug, hasOrg }) {
       <Tabs tabs={tabs} value={tab} onChange={onTab} label="Forma de envio do uso de IA" />
 
       <section aria-labelledby="dados-ia-title" className="mt-6 min-w-0">
-        <h3 id="dados-ia-title" className="admin-row-label mb-1">
+        <h3
+          id="dados-ia-title"
+          className="text-fg-muted mb-1 font-mono text-[11px] tracking-[0.22em] uppercase"
+        >
           Dados de uso de IA
         </h3>
         <p className="text-fg-muted m-0 max-w-[72ch] text-xs">

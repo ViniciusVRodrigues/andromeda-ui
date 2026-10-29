@@ -12,11 +12,16 @@ export function isSafePostLoginPath(p) {
 }
 
 /** Lê e apaga o destino guardado antes do login; null se ausente ou inseguro. */
+export const POST_LOGIN_TTL_MS = 15 * 60 * 1000;
+
 export function takePostLoginPath() {
   try {
-    const p = sessionStorage.getItem(POST_LOGIN_KEY);
+    const raw = sessionStorage.getItem(POST_LOGIN_KEY);
     sessionStorage.removeItem(POST_LOGIN_KEY);
-    return isSafePostLoginPath(p) ? p : null;
+    if (!raw) return null;
+    const v = JSON.parse(raw); // formato antigo (string pura) não é JSON válido: inválido
+    if (!v || typeof v.at !== "number" || Date.now() - v.at > POST_LOGIN_TTL_MS) return null;
+    return isSafePostLoginPath(v.path) ? v.path : null;
   } catch (_) {
     return null;
   }
@@ -37,7 +42,10 @@ export function PairRedirect() {
 
   if (valid) {
     try {
-      sessionStorage.setItem(POST_LOGIN_KEY, "/parear" + query);
+      sessionStorage.setItem(
+        POST_LOGIN_KEY,
+        JSON.stringify({ path: "/parear" + query, at: Date.now() }),
+      );
     } catch (_) {
       /* sem storage: o login segue sem destino guardado */
     }

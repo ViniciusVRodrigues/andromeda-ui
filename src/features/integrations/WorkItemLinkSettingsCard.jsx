@@ -20,9 +20,9 @@ function Summary({ seesOrg, orgSlug }) {
 
   return (
     <div className="integration-card" data-testid="work-item-link-settings">
-      <div className="integration-card-head">
-        <span className="integration-card-name">Vínculo de PR com work item</span>
-        <div className="integration-card-badges">
+      <div className="integration-card-head flex-wrap gap-2">
+        <span className="integration-card-name min-w-[10rem]">Vínculo de PR com work item</span>
+        <div className="integration-card-badges flex-wrap">
           {server ? (
             <span
               className={
@@ -60,11 +60,14 @@ function Summary({ seesOrg, orgSlug }) {
 
       {server ? (
         <div className="integration-meta">
-          <div className="integration-meta-row">
+          <div className="integration-meta-row flex-col min-[480px]:flex-row">
             <span className="meta-label">Padrões</span>
             <ul className="m-0 flex list-none flex-wrap gap-2 p-0">
               {(server.patterns || []).map((p) => (
-                <li key={p.regex} className="chip font-mono normal-case">
+                <li
+                  key={p.regex}
+                  className="chip max-w-full font-mono break-words whitespace-normal normal-case"
+                >
                   {friendlyPatternLabel(p)}
                 </li>
               ))}
@@ -80,7 +83,7 @@ function Summary({ seesOrg, orgSlug }) {
               </Link>
             </p>
           ) : (
-            <p className="text-fg-dim mt-3 font-mono text-[length:var(--mono-sm)]">
+            <p className="text-fg-muted mt-3 font-mono text-[length:var(--mono-sm)]">
               Só quem configura repositórios (REPOS_CONFIGURE) pode alterar.
             </p>
           )}

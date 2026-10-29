@@ -140,7 +140,7 @@ export default function DeviceList({ devices, isLoading, error, onRetry }) {
         id="agent-devices-title"
         ref={titleRef}
         tabIndex={-1}
-        className="admin-row-label mb-2 outline-none"
+        className="text-fg-muted mb-2 font-mono text-[11px] tracking-[0.22em] uppercase outline-none"
       >
         Seus computadores{!isLoading && !error ? ` (${list.length})` : ""}
       </h3>

@@ -61,7 +61,10 @@ export default function ActiveTasks({ meta, orgSlug }) {
 
   return (
     <section aria-labelledby="agent-task-title" className="mb-6 min-w-0">
-      <h3 id="agent-task-title" className="admin-row-label mb-2">
+      <h3
+        id="agent-task-title"
+        className="text-fg-muted mb-2 font-mono text-[11px] tracking-[0.22em] uppercase"
+      >
         Tarefa ativa agora
       </h3>
 
@@ -124,7 +127,7 @@ export default function ActiveTasks({ meta, orgSlug }) {
         {meta?.taskClearCommand ? (
           <>
             {" "}
-            Para tirar: <code className="font-mono break-all">{meta.taskClearCommand}</code>
+            Para tirar: <code className="font-mono whitespace-nowrap">{meta.taskClearCommand}</code>
           </>
         ) : null}
       </p>

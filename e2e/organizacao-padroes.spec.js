@@ -562,6 +562,14 @@ test("Integrações: resumo em leitura com link para Organização → Geral", a
   await expect(c).toContainText("task-123");
   await expect(c).toContainText("Ligado");
   await expect(c.getByRole("textbox")).toHaveCount(0);
+  await page.setViewportSize({ width: 390, height: 844 });
+  const estouro = await c.evaluate((el) => {
+    const r = el.getBoundingClientRect().right;
+    return [...el.querySelectorAll("*")].filter((n) => n.getBoundingClientRect().right > r + 0.5)
+      .length;
+  });
+  expect(estouro).toBe(0);
+  await page.setViewportSize({ width: 1280, height: 800 });
   const link = c.getByRole("link", { name: /Editar em Organização/ });
   await expect(link).toHaveAttribute("href", `/${orgSlug}/organizacao`);
   expect(oldCalls).toBe(0);

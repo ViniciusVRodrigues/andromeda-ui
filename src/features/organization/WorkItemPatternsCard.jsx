@@ -426,7 +426,7 @@ export function WorkItemPatternsCard({ className = "" }) {
                 ) : null}
               </div>
             ) : (
-              <p className={`text-fg-dim mt-4 ${MONO}`}>
+              <p className={`text-fg-muted mt-4 ${MONO}`}>
                 Só quem configura repositórios (REPOS_CONFIGURE) pode alterar.
               </p>
             )}

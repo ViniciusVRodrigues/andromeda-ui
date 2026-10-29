@@ -57,12 +57,37 @@ test("sem sessão: passa pelo login e volta ao perfil com o código", async ({ p
   expect(await page.evaluate(() => sessionStorage.getItem("andromeda_pos_login"))).toBeNull();
 });
 
+for (const [nome, guardado] of [
+  [
+    "mais de 15 minutos",
+    JSON.stringify({ path: "/parear?codigo=BCDF-GHJK", at: FIXED_NOW.getTime() - 16 * 60 * 1000 }),
+  ],
+  ["formato antigo (string)", "/parear?codigo=BCDF-GHJK"],
+]) {
+  test(`destino guardado vencido é descartado: ${nome}`, async ({ page }) => {
+    await stubAgent(page);
+    await installApiLayer(page.context());
+    await page.clock.setFixedTime(FIXED_NOW);
+    await page.goto("/login");
+    await page.evaluate((v) => sessionStorage.setItem("andromeda_pos_login", v), guardado);
+    await loginPelaUi(page);
+    await page.waitForURL((u) => !u.pathname.endsWith("/login"));
+    expect(page.url()).not.toContain("codigo=");
+    expect(await page.evaluate(() => sessionStorage.getItem("andromeda_pos_login"))).toBeNull();
+  });
+}
+
 test("destino malicioso guardado é ignorado no login", async ({ page }) => {
   await stubAgent(page);
   await installApiLayer(page.context());
   await page.clock.setFixedTime(FIXED_NOW);
   await page.goto("/login");
-  await page.evaluate(() => sessionStorage.setItem("andromeda_pos_login", "//evil.example/x"));
+  await page.evaluate(() =>
+    sessionStorage.setItem(
+      "andromeda_pos_login",
+      JSON.stringify({ path: "//evil.example/x", at: Date.now() }),
+    ),
+  );
   await loginPelaUi(page);
   await page.waitForURL((u) => !u.pathname.endsWith("/login"));
   expect(new URL(page.url()).host).toBe(
