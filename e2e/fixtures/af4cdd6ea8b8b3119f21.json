@@ -1,0 +1,6 @@
+{
+  "request": "GET /api/v1/organizations/me/work-item-patterns",
+  "status": 200,
+  "contentType": "application/json",
+  "body": "{\"enabled\":true,\"mode\":\"DEFAULT\",\"patterns\":[{\"regex\":\"(?i)QAB#E(d+)(?!d)\",\"preset\":\"AB_HASH\",\"alsoInText\":true}],\"defaults\":[{\"regex\":\"(?i)QAB#E(d+)(?!d)\",\"preset\":\"AB_HASH\",\"alsoInText\":true}],\"presets\":[{\"id\":\"AB_HASH\",\"regex\":\"(?i)QAB#E(d+)(?!d)\"},{\"id\":\"JIRA_KEY\",\"regex\":\"(?i)\\b([a-z][a-z0-9]+-d+)\\b\"},{\"id\":\"NUMBER\",\"regex\":\"(?i)(?:^|/)(?:[a-z]+[-_])?(d{2,7})(?=[-_/.]|$)\"}],\"confirmedBy\":null,\"confirmedAt\":null,\"detection\":null}"
+}
