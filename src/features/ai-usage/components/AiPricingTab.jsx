@@ -19,58 +19,69 @@ import { useUnpricedModels, UNPRICED_MODELS_KEY } from "../hooks/useUnpricedMode
 /* Presets = tabela oficial vigente por MILHÃO de tokens (unidade que os
  * provedores publicam), IDs validados contra o que a ingestão realmente
  * reporta (distinct de ai_usages.model). Fonte e critérios de exclusão em
- * docs/ai-price-sources.md (workspace). Re-verificar trimestralmente ou
- * quando o conector reportar ID novo — atualizar PRESETS_VERIFIED_AT junto. */
-export const PRESETS_VERIFIED_AT = "2026-10-27";
+ * docs/ai-price-sources.md (workspace), seção "Verificação de 2026-10-29":
+ * entrada, saída, leitura e escrita de cache, lidos nas páginas oficiais.
+ * Escrita 0 = o provedor não cobra; vazio (null) = ninguém informou.
+ * Re-verificar trimestralmente ou quando o conector reportar ID novo —
+ * atualizar PRESETS_VERIFIED_AT junto. */
+export const PRESETS_VERIFIED_AT = "2026-10-29";
+
+const P = (model, priceMInput, priceMOutput, priceMCacheRead, priceMCacheWrite) => ({
+  model,
+  priceMInput,
+  priceMOutput,
+  priceMCacheRead,
+  priceMCacheWrite,
+});
 
 export const PRESET_MODELS = [
   // Anthropic — forma observada na ingestão usa PONTO (claude-opus-4.8), não hífen
-  { model: "claude-fable-5.1", priceMInput: 10, priceMOutput: 50 },
-  { model: "claude-fable-5", priceMInput: 10, priceMOutput: 50 },
-  { model: "claude-opus-5.5", priceMInput: 4, priceMOutput: 20 },
-  { model: "claude-opus-5", priceMInput: 5, priceMOutput: 25 },
-  { model: "claude-opus-4.8", priceMInput: 5, priceMOutput: 25 },
-  { model: "claude-opus-4.7", priceMInput: 5, priceMOutput: 25 },
-  { model: "claude-opus-4.6", priceMInput: 5, priceMOutput: 25 },
-  { model: "claude-sonnet-5.5", priceMInput: 2, priceMOutput: 10 },
-  { model: "claude-sonnet-5", priceMInput: 2, priceMOutput: 10 },
-  { model: "claude-sonnet-4.6", priceMInput: 3, priceMOutput: 15 },
-  { model: "claude-haiku-5.5", priceMInput: 0.1, priceMOutput: 0.5 },
-  { model: "claude-haiku-4.5", priceMInput: 1, priceMOutput: 5 },
-  // OpenAI — série 6.x e 5.x corrente + 4.1/4o ainda na tabela padrão (gpt-4-turbo/3.5/o1 excluídos)
-  { model: "gpt-6-astra", priceMInput: 10, priceMOutput: 50 },
-  { model: "gpt-6.1-sol", priceMInput: 2, priceMOutput: 10 },
-  { model: "gpt-6.1-terra", priceMInput: 1, priceMOutput: 5 },
-  { model: "gpt-6-sol", priceMInput: 2, priceMOutput: 10 },
-  { model: "gpt-6-luna", priceMInput: 0.1, priceMOutput: 0.5 },
-  { model: "gpt-5.6-sol", priceMInput: 4, priceMOutput: 20 },
-  { model: "gpt-5.6-terra", priceMInput: 2, priceMOutput: 12 },
-  { model: "gpt-5.6-luna", priceMInput: 0.2, priceMOutput: 1.2 },
-  { model: "gpt-5.5", priceMInput: 5, priceMOutput: 30 },
-  { model: "gpt-5.4", priceMInput: 2.5, priceMOutput: 15 },
-  { model: "gpt-5.4-mini", priceMInput: 0.75, priceMOutput: 4.5 },
-  { model: "gpt-5.4-nano", priceMInput: 0.2, priceMOutput: 1.25 },
-  { model: "gpt-5.2", priceMInput: 1.75, priceMOutput: 14 },
-  { model: "gpt-5.1", priceMInput: 1.25, priceMOutput: 10 },
-  { model: "gpt-5", priceMInput: 1.25, priceMOutput: 10 },
-  { model: "gpt-5-mini", priceMInput: 0.25, priceMOutput: 2 },
-  { model: "gpt-5-nano", priceMInput: 0.05, priceMOutput: 0.4 },
-  { model: "gpt-4.1", priceMInput: 2, priceMOutput: 8 },
-  { model: "gpt-4.1-mini", priceMInput: 0.4, priceMOutput: 1.6 },
-  { model: "gpt-4.1-nano", priceMInput: 0.1, priceMOutput: 0.4 },
-  { model: "gpt-4o", priceMInput: 2.5, priceMOutput: 10 },
-  { model: "gpt-4o-mini", priceMInput: 0.15, priceMOutput: 0.6 },
-  // Google — geração 4/3.x corrente + 2.5 ainda listado
-  { model: "gemini-4-argon", priceMInput: 2, priceMOutput: 10 },
-  { model: "gemini-3.8-flash", priceMInput: 0.75, priceMOutput: 3.75 },
-  { model: "gemini-3.6-flash", priceMInput: 0.75, priceMOutput: 3.75 },
-  { model: "gemini-3.5-flash-lite", priceMInput: 0.3, priceMOutput: 2.5 },
-  { model: "gemini-3.1-flash-lite", priceMInput: 0.25, priceMOutput: 1.5 },
-  { model: "gemini-3-flash-preview", priceMInput: 0.5, priceMOutput: 3 },
-  { model: "gemini-3.1-pro-preview", priceMInput: 2, priceMOutput: 12 },
-  { model: "gemini-2.5-pro", priceMInput: 1.25, priceMOutput: 10 },
-  { model: "gemini-2.5-flash", priceMInput: 0.3, priceMOutput: 2.5 },
-  { model: "gemini-2.5-flash-lite", priceMInput: 0.1, priceMOutput: 0.4 },
+  P("claude-fable-5.1", 10, 50, 0.25, 12.5),
+  P("claude-fable-5", 10, 50, 1, 12.5),
+  P("claude-opus-5.5", 4, 20, 0.2, 5),
+  P("claude-opus-5", 5, 25, 0.5, 6.25),
+  P("claude-opus-4.8", 5, 25, 0.5, 6.25),
+  P("claude-opus-4.7", 5, 25, 0.5, 6.25),
+  P("claude-opus-4.6", 5, 25, 0.5, 6.25),
+  P("claude-sonnet-5.5", 2, 10, 0.1, 2.5),
+  P("claude-sonnet-5", 2, 10, 0.2, 2.5),
+  P("claude-sonnet-4.6", 3, 15, 0.3, 3.75),
+  P("claude-haiku-5.5", 0.1, 0.5, 0.01, 0.125),
+  P("claude-haiku-4.5", 1, 5, 0.1, 1.25),
+  // OpenAI (escrita 0 = o provedor não cobra escrita à parte)
+  P("gpt-6-astra", 10, 50, 1, 12.5),
+  P("gpt-6.1-sol", 2, 10, 0.1, 2.5),
+  P("gpt-6.1-terra", 1, 5, 0.05, 1.25),
+  P("gpt-6-sol", 2, 10, 0.2, 2.5),
+  P("gpt-6-luna", 0.1, 0.5, 0.01, 0.125),
+  P("gpt-5.6-sol", 4, 20, 0.4, 5),
+  P("gpt-5.6-terra", 2, 12, 0.2, 2.5),
+  P("gpt-5.6-luna", 0.2, 1.2, 0.02, 0.25),
+  P("gpt-5.5", 5, 30, 0.5, 0),
+  P("gpt-5.4", 2.5, 15, 0.25, 0),
+  P("gpt-5.4-mini", 0.75, 4.5, 0.075, 0),
+  P("gpt-5.4-nano", 0.2, 1.25, 0.02, 0),
+  P("gpt-5.2", 1.75, 14, 0.175, 0),
+  P("gpt-5.1", 1.25, 10, 0.125, 0),
+  P("gpt-5", 1.25, 10, 0.125, 0),
+  P("gpt-5-mini", 0.25, 2, 0.025, 0),
+  P("gpt-5-nano", 0.05, 0.4, 0.005, 0),
+  P("gpt-4.1", 2, 8, 0.5, 0),
+  P("gpt-4.1-mini", 0.4, 1.6, 0.1, 0),
+  P("gpt-4.1-nano", 0.1, 0.4, 0.025, 0),
+  P("gpt-4o", 2.5, 10, 1.25, 0),
+  P("gpt-4o-mini", 0.15, 0.6, 0.075, 0),
+  // Google (escrita 0 = o provedor não cobra escrita à parte)
+  P("gemini-4-argon", 2, 10, 0.1, 0),
+  P("gemini-3.8-flash", 0.75, 3.75, 0.075, 0),
+  P("gemini-3.6-flash", 0.75, 3.75, 0.075, 0),
+  P("gemini-3.5-flash-lite", 0.3, 2.5, 0.03, 0),
+  P("gemini-3.1-flash-lite", 0.25, 1.5, 0.025, 0),
+  P("gemini-3-flash-preview", 0.5, 3, 0.05, 0),
+  P("gemini-3.1-pro-preview", 2, 12, 0.2, 0),
+  P("gemini-2.5-pro", 1.25, 10, 0.125, 0),
+  P("gemini-2.5-flash", 0.3, 2.5, 0.03, 0),
+  P("gemini-2.5-flash-lite", 0.1, 0.4, 0.01, 0),
 ];
 
 /* O backend armazena e calcula custo por 1K (pricePerKInput/pricePerKOutput em
@@ -92,15 +103,26 @@ function mToK(perM) {
 const newKey = () => Math.random().toString(36).slice(2);
 
 function emptyRow() {
-  return { _key: newKey(), model: "", priceMInput: "", priceMOutput: "" };
+  return {
+    _key: newKey(),
+    model: "",
+    priceMInput: "",
+    priceMCacheRead: "",
+    priceMCacheWrite: "",
+    priceMOutput: "",
+  };
 }
+
+const numStr = (v) => (v == null ? "" : String(v));
 
 function rowFromPreset(p) {
   return {
     _key: newKey(),
     model: p.model,
-    priceMInput: String(p.priceMInput),
-    priceMOutput: String(p.priceMOutput),
+    priceMInput: numStr(p.priceMInput),
+    priceMCacheRead: numStr(p.priceMCacheRead),
+    priceMCacheWrite: numStr(p.priceMCacheWrite),
+    priceMOutput: numStr(p.priceMOutput),
   };
 }
 
@@ -110,17 +132,38 @@ function rowFromEntry(e) {
     _key: newKey(),
     model: e.model ?? "",
     priceMInput: kToMStr(e.pricePerKInput),
+    priceMCacheRead: kToMStr(e.pricePerKCacheRead),
+    priceMCacheWrite: kToMStr(e.pricePerKCacheWrite),
     priceMOutput: kToMStr(e.pricePerKOutput),
   };
 }
 
 const str = (v) => (v == null ? "" : String(v).trim());
-const isBlankRow = (r) => !str(r.model) && !str(r.priceMInput) && !str(r.priceMOutput);
+const isBlankRow = (r) =>
+  !str(r.model) &&
+  !str(r.priceMInput) &&
+  !str(r.priceMCacheRead) &&
+  !str(r.priceMCacheWrite) &&
+  !str(r.priceMOutput);
+
+const DATE_SUFFIX = /(-\d{8}|-\d{4}-\d{2}-\d{2}|@\d{8})$/;
+/** Mesma normalização do servidor: minúsculas, ponto = hífen, sem sufixo de data. */
+export function normalizeModel(model) {
+  return str(model).toLowerCase().replace(/\./g, "-").replace(DATE_SUFFIX, "");
+}
+
+/** Campos de preço opcionais, na ordem do DOM (depois do modelo e antes da saída). */
+const OPTIONAL_FIELDS = [
+  ["input", "priceMInput"],
+  ["cacheRead", "priceMCacheRead"],
+  ["cacheWrite", "priceMCacheWrite"],
+];
+const ERR_ORDER = ["model", "input", "cacheRead", "cacheWrite", "output"];
 
 /**
  * Validação do salvar. Linhas totalmente vazias são ignoradas; nome sem saída, saída sem
  * nome, nome repetido (sem diferenciar caixa) e valor negativo viram erro no campo.
- * @returns {{ errors: Record<string, {model?: string, output?: string, input?: string}>, count: number }}
+ * @returns {{ errors: Record<string, Record<string, string>>, count: number }}
  */
 function validateRows(rows) {
   const errors = {};
@@ -134,15 +177,16 @@ function validateRows(rows) {
     if (isBlankRow(r)) continue;
     const name = str(r.model);
     const out = str(r.priceMOutput);
-    const inp = str(r.priceMInput);
     if (!name) fail(r._key, "model", "Informe o nome do modelo.");
     else if (seen.has(name.toLowerCase())) fail(r._key, "model", "Este modelo já está na tabela.");
     else seen.add(name.toLowerCase());
     if (out === "") {
       if (name) fail(r._key, "output", "Informe o preço de saída.");
     } else if (Number(out) < 0) fail(r._key, "output", "Use um valor igual ou maior que zero.");
-    if (inp !== "" && Number(inp) < 0)
-      fail(r._key, "input", "Use um valor igual ou maior que zero.");
+    for (const [field, prop] of OPTIONAL_FIELDS) {
+      const v = str(r[prop]);
+      if (v !== "" && Number(v) < 0) fail(r._key, field, "Use um valor igual ou maior que zero.");
+    }
   }
   return { errors, count };
 }
@@ -158,12 +202,69 @@ export function formatTokens(n) {
 
 const FOCUS = "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-accent";
 const TARGET = "min-h-[44px]";
-const GRID_WIDE = "@min-[600px]:grid-cols-[minmax(16ch,300px)_176px_176px_44px]";
 
 const inputCls = (invalid) =>
   `box-border h-[44px] w-full min-w-0 rounded-btn border bg-bg px-[10px] font-mono text-base tabular-nums ${FOCUS} ${
     invalid ? "border-bad text-bad-text" : "border-fg-muted text-fg"
   }`;
+const GRID_WIDE =
+  "@min-[760px]:grid-cols-[minmax(16ch,1fr)_128px_128px_128px_128px_44px] @min-[760px]:items-start";
+
+const PARTS = {
+  INPUT: { prop: "priceMInput", field: "input", phrase: "entrada", tokens: "inputTokens" },
+  CACHE_READ: {
+    prop: "priceMCacheRead",
+    field: "cacheRead",
+    phrase: "leitura de cache",
+    tokens: "cacheReadTokens",
+  },
+  CACHE_WRITE: {
+    prop: "priceMCacheWrite",
+    field: "cacheWrite",
+    phrase: "escrita de cache",
+    tokens: "cacheWriteTokens",
+  },
+};
+/* Colunas de preço na ordem da fórmula (e do DOM). Entrada e cache só valem para o agente
+ * (#custo-agente); a saída vale para o agente e para a extensão (#custo-extensao). */
+const PRICE_FIELDS = [
+  {
+    field: "input",
+    prop: "priceMInput",
+    title: "Entrada",
+    phrase: "entrada",
+    placeholder: "opcional",
+    describedBy: "custo-agente",
+  },
+  {
+    field: "cacheRead",
+    prop: "priceMCacheRead",
+    title: "Cache · leitura",
+    phrase: "leitura de cache",
+    placeholder: "opcional",
+    describedBy: "custo-agente",
+  },
+  {
+    field: "cacheWrite",
+    prop: "priceMCacheWrite",
+    title: "Cache · escrita",
+    phrase: "escrita de cache",
+    placeholder: "opcional",
+    describedBy: "custo-agente",
+  },
+  {
+    field: "output",
+    prop: "priceMOutput",
+    title: "Saída",
+    phrase: "saída",
+    placeholder: "ex.: 15",
+    describedBy: "custo-extensao",
+  },
+];
+const PART_ORDER = ["INPUT", "CACHE_READ", "CACHE_WRITE"];
+
+/** `missing` ausente (API antiga): tarifável = sem preço de saída; senão nada falta. */
+const missingOf = (m) => m.missing ?? (m.billable ? ["OUTPUT"] : []);
 
 function ColumnTitle({ children, note }) {
   return (
@@ -171,7 +272,7 @@ function ColumnTitle({ children, note }) {
       <span className="text-fg block font-mono text-xs tracking-[0.06em] uppercase">
         {children}
       </span>
-      <span className="text-fg-muted block font-mono text-xs">{note}</span>
+      {note && <span className="text-fg-muted block font-mono text-xs">{note}</span>}
     </span>
   );
 }
@@ -185,12 +286,22 @@ function FieldError({ id, children }) {
   );
 }
 
-/** Bloco "Modelos sem preço": uso registrado cujo modelo não tem preço de saída. */
-function UnpricedModels({ query, tableModels, onAdd }) {
+const Badge = ({ children }) => (
+  <span className="border-fg-muted text-fg rounded-full border px-2 font-mono text-sm">
+    {children}
+  </span>
+);
+
+/** Bloco "Modelos sem preço": uso registrado cujo modelo não tem preço, todo ou em parte. */
+function UnpricedModels({ query, rowsByModel, onAdd, onComplete }) {
   const { data, isPending, isError, refetch, isFetching } = query;
   const list = Array.isArray(data) ? data : [];
-  const billable = list.filter((m) => m.billable);
+  const semPreco = list.filter((m) => m.billable && missingOf(m).includes("OUTPUT"));
+  const incompletos = list.filter(
+    (m) => m.billable && !missingOf(m).includes("OUTPUT") && missingOf(m).length > 0,
+  );
   const notBillable = list.filter((m) => !m.billable);
+  const billable = [...semPreco, ...incompletos];
 
   if (isPending) {
     return (
@@ -224,19 +335,61 @@ function UnpricedModels({ query, tableModels, onAdd }) {
     );
   }
 
+  const cardCls = "border-line rounded-btn flex min-w-0 flex-col items-start gap-1 border p-3";
   const item = (m) => {
-    const inTable = tableModels.has(m.model.trim().toLowerCase());
+    const row = rowsByModel.get(normalizeModel(m.model));
+    const missing = missingOf(m);
+    const partial = !missing.includes("OUTPUT");
+    const parts = PART_ORDER.filter((p) => missing.includes(p));
+    const filled = row && partial && parts.every((p) => str(row[PARTS[p].prop]) !== "");
+    const tokens = parts
+      .map((p) => `${formatTokens(m[PARTS[p].tokens])} tokens de ${PARTS[p].phrase}`)
+      .join(" · ");
+    const kind = parts.every((p) => p !== "INPUT")
+      ? "cache"
+      : parts.every((p) => p === "INPUT")
+        ? "entrada"
+        : "entrada e cache";
+    const records = `${m.records} ${m.records === 1 ? "registro" : "registros"}`;
     return (
-      <li
-        key={m.model}
-        className="border-line rounded-btn flex min-w-0 flex-col items-start gap-1 border p-3"
-      >
-        <span className="text-fg font-mono text-base break-all">{m.model}</span>
-        <span className="text-fg-muted font-mono text-sm">
-          {formatTokens(m.outputTokens)} tokens de saída · {m.records}{" "}
-          {m.records === 1 ? "registro" : "registros"}
+      <li key={m.model} className={cardCls}>
+        <span className="flex flex-wrap items-center gap-2">
+          <span className="text-fg font-mono text-base break-all">{m.model}</span>
+          <Badge>{partial ? "Preço incompleto" : "Sem preço"}</Badge>
         </span>
-        {inTable ? (
+        {partial && (
+          <span className="text-fg-muted font-mono text-sm">
+            Tem preço de saída · falta {parts.map((p) => PARTS[p].phrase).join(" e ")}
+          </span>
+        )}
+        <span className="text-fg-muted font-mono text-sm">
+          {partial
+            ? `${tokens} · ${records}`
+            : `${formatTokens(m.outputTokens)} tokens de saída · ${records}`}
+        </span>
+        {partial ? (
+          filled ? (
+            <span className="text-good-text font-mono text-sm">Na tabela · falta salvar</span>
+          ) : row ? (
+            <button
+              type="button"
+              className={`btn btn-ghost ${TARGET} mt-1 min-w-[44px]`}
+              aria-label={`Completar preço de ${kind} de ${m.model}`}
+              onClick={() => onComplete(row, parts)}
+            >
+              Completar na tabela
+            </button>
+          ) : (
+            <button
+              type="button"
+              className={`btn btn-ghost ${TARGET} mt-1 min-w-[44px]`}
+              aria-label={`Adicionar ${m.model} à tabela de preços`}
+              onClick={() => onAdd(m.model)}
+            >
+              Adicionar à tabela
+            </button>
+          )
+        ) : row ? (
           <span className="text-good-text font-mono text-sm">Na tabela · falta salvar</span>
         ) : (
           <button
@@ -267,14 +420,14 @@ function UnpricedModels({ query, tableModels, onAdd }) {
             </h3>
             <span
               className="border-fg-muted text-fg min-w-[22px] rounded-full border px-2 text-center font-mono text-sm"
-              aria-label={`${billable.length} sem preço`}
+              aria-label={`${billable.length} com preço faltando`}
             >
               {billable.length}
             </span>
           </div>
           <p className="text-fg-muted m-0 mt-1 max-w-[72ch] font-mono text-sm leading-normal">
-            Uso registrado com estes nomes ficou sem custo. Adicione o preço de saída na tabela,
-            salve e recalcule os custos históricos.
+            Uso registrado com estes nomes ficou sem custo, todo ou em parte. Complete o preço na
+            tabela, salve e recalcule os custos históricos.
           </p>
           <p className="text-fg-muted m-0 mt-1 mb-3 font-mono text-sm">Em todo o uso registrado</p>
           <ul className={gridCls}>{billable.slice(0, 5).map(item)}</ul>
@@ -292,15 +445,10 @@ function UnpricedModels({ query, tableModels, onAdd }) {
       {notBillable.length > 0 && (
         <ul className={`${gridCls} ${billable.length > 0 ? "mt-3" : ""}`}>
           {notBillable.map((m) => (
-            <li
-              key={m.model}
-              className="border-line rounded-btn flex min-w-0 flex-col items-start gap-1 border p-3"
-            >
+            <li key={m.model} className={cardCls}>
               <span className="flex flex-wrap items-center gap-2">
                 <span className="text-fg font-mono text-base break-all">{m.model}</span>
-                <span className="border-fg-muted text-fg rounded-full border px-2 font-mono text-sm">
-                  Não tarifável
-                </span>
+                <Badge>Não tarifável</Badge>
               </span>
               <span className="text-fg-muted font-mono text-sm">
                 A extensão não informou qual modelo foi usado; esse uso não entra no custo.
@@ -406,6 +554,17 @@ export function AiPricingTab({ initialEntries = [], initialSubscriptionCost = nu
     setAnnounce(`${model} adicionado à tabela; informe o preço de saída.`);
   };
 
+  const completeFromUnpriced = (row, parts) => {
+    const first = PARTS[parts[0]];
+    const el = fieldRefs.current[`${row._key}:${first.field}`];
+    if (el) {
+      const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+      el.scrollIntoView({ block: "center", behavior: reduced ? "auto" : "smooth" });
+      el.focus({ preventScroll: true });
+    }
+    setAnnounce(`${str(row.model)}: informe o preço de ${first.phrase}.`);
+  };
+
   const handleImportPresets = () => {
     if (!rows.some((r) => str(r.model))) {
       setRows(PRESET_MODELS.map(rowFromPreset)); // tabela vazia: só preenche
@@ -421,10 +580,25 @@ export function AiPricingTab({ initialEntries = [], initialSubscriptionCost = nu
     if (mode === "replace") {
       setRows(PRESET_MODELS.map(rowFromPreset));
     } else {
-      // Merge: add only models not already present
-      const existingModels = new Set(rows.map((r) => str(r.model).toLowerCase()));
-      const toAdd = PRESET_MODELS.filter((p) => !existingModels.has(p.model.toLowerCase()));
-      setRows((prev) => [...prev.filter((r) => !isBlankRow(r)), ...toAdd.map(rowFromPreset)]);
+      // Mescla: completa só campos vazios das linhas que casam (nome normalizado) e
+      // acrescenta os modelos que faltam; valor digitado nunca é sobrescrito.
+      const byName = new Map(PRESET_MODELS.map((p) => [normalizeModel(p.model), p]));
+      const present = new Set(rows.map((r) => normalizeModel(r.model)).filter(Boolean));
+      const toAdd = PRESET_MODELS.filter((p) => !present.has(normalizeModel(p.model)));
+      setRows((prev) => [
+        ...prev
+          .filter((r) => !isBlankRow(r))
+          .map((r) => {
+            const p = byName.get(normalizeModel(r.model));
+            if (!p) return r;
+            const out = { ...r };
+            for (const f of PRICE_FIELDS) {
+              if (str(out[f.prop]) === "") out[f.prop] = numStr(p[f.prop]);
+            }
+            return out;
+          }),
+        ...toAdd.map(rowFromPreset),
+      ]);
     }
   };
 
@@ -442,7 +616,7 @@ export function AiPricingTab({ initialEntries = [], initialSubscriptionCost = nu
         text: `Corrija ${count} ${count === 1 ? "campo" : "campos"} antes de salvar.`,
       });
       for (const r of rows) {
-        const bad = ["model", "output", "input"].find((f) => errors[r._key]?.[f]);
+        const bad = ERR_ORDER.find((f) => errors[r._key]?.[f]);
         if (bad) {
           fieldRefs.current[`${r._key}:${bad}`]?.focus();
           break;
@@ -454,9 +628,11 @@ export function AiPricingTab({ initialEntries = [], initialSubscriptionCost = nu
       .filter((r) => !isBlankRow(r))
       .map((r) => ({
         model: str(r.model),
-        // entrada vazia = null (nunca 0): a entrada é só referência, fora do custo
+        // opcionais vazios = null (nunca 0): 0 é "o provedor não cobra", vazio é "sem preço"
         pricePerKInput: str(r.priceMInput) === "" ? null : mToK(r.priceMInput),
         pricePerKOutput: mToK(r.priceMOutput),
+        pricePerKCacheRead: str(r.priceMCacheRead) === "" ? null : mToK(r.priceMCacheRead),
+        pricePerKCacheWrite: str(r.priceMCacheWrite) === "" ? null : mToK(r.priceMCacheWrite),
       }));
 
     setSaving(true);
@@ -512,7 +688,11 @@ export function AiPricingTab({ initialEntries = [], initialSubscriptionCost = nu
     }
   };
 
-  const tableModels = new Set(rows.map((r) => str(r.model).toLowerCase()).filter(Boolean));
+  const rowsByModel = new Map();
+  for (const r of rows) {
+    const k = normalizeModel(r.model);
+    if (k && !rowsByModel.has(k)) rowsByModel.set(k, r);
+  }
   const showEmpty = initialEntries.length === 0 && rows.every(isBlankRow);
 
   const feedbackAt = (at) => (
@@ -612,8 +792,8 @@ export function AiPricingTab({ initialEntries = [], initialSubscriptionCost = nu
           <div className="min-w-0">
             <h2 className="serif ai-pricing-card-title text-[18px]">Preço por modelo</h2>
             <p className="mono ai-pricing-card-sub max-w-[72ch]">
-              Preço de cada modelo por milhão de tokens, como os provedores publicam. É a base do
-              custo de IA mostrado nos dashboards.
+              Preço de cada modelo em US$ por milhão de tokens, como os provedores publicam. É a
+              base do custo de IA mostrado nos dashboards.
             </p>
           </div>
           <button
@@ -629,18 +809,33 @@ export function AiPricingTab({ initialEntries = [], initialSubscriptionCost = nu
         </div>
 
         <div className="max-w-[880px]">
-          <p
-            id="aviso-saida"
-            className="text-fg-muted m-0 mb-4 flex max-w-[72ch] items-start gap-2 font-mono text-sm leading-normal"
+          <div
+            id="aviso-custo"
+            className="text-fg-muted mb-4 flex max-w-[72ch] items-start gap-2 font-mono text-sm leading-normal"
           >
             <span aria-hidden="true">ⓘ</span>
-            <span>
-              O custo usa só os tokens de saída. A entrada que a extensão envia já soma leitura e
-              escrita de cache e inflaria o valor; o preço de entrada fica como referência.
-            </span>
-          </p>
+            <div>
+              <p className="text-fg m-0">Como o custo é calculado</p>
+              <ul className="m-0 mt-1 list-none space-y-1 p-0">
+                <li id="custo-agente">
+                  <span className="text-fg">Agente local</span>: entrada, leitura de cache, escrita
+                  de cache e saída, cada parte pelo seu preço. Sem preço de cache, essa parte fica
+                  sem custo.
+                </li>
+                <li id="custo-extensao">
+                  <span className="text-fg">Extensão AIEF</span>: só a saída. A entrada que a
+                  extensão envia já soma o cache e não dá para separar.
+                </li>
+              </ul>
+            </div>
+          </div>
 
-          <UnpricedModels query={unpriced} tableModels={tableModels} onAdd={addFromUnpriced} />
+          <UnpricedModels
+            query={unpriced}
+            rowsByModel={rowsByModel}
+            onAdd={addFromUnpriced}
+            onComplete={completeFromUnpriced}
+          />
 
           <div className="mb-3 flex flex-wrap items-center gap-[10px]">
             <button
@@ -683,8 +878,11 @@ export function AiPricingTab({ initialEntries = [], initialSubscriptionCost = nu
                 tabela oficial verificada em {PRESETS_VERIFIED_AT}
               </span>
               <button type="button" className={`btn ${TARGET}`} onClick={() => doImport("merge")}>
-                Mesclar (adicionar que faltam)
+                Mesclar (completar o que falta)
               </button>
+              <span className="text-fg-muted font-mono text-xs">
+                Mesclar preenche só campos vazios; não muda valores digitados.
+              </span>
               <button
                 type="button"
                 className={`btn btn-ghost ${TARGET}`}
@@ -712,17 +910,24 @@ export function AiPricingTab({ initialEntries = [], initialSubscriptionCost = nu
 
           <div
             aria-hidden="true"
-            className={`border-line-strong mt-3 hidden items-end gap-x-3 border-b pb-2 @min-[600px]:grid ${GRID_WIDE}`}
+            className={`border-line-strong mt-3 hidden gap-x-3 border-b pb-2 @min-[760px]:grid ${GRID_WIDE} items-end`}
           >
-            <span className="text-fg block font-mono text-xs tracking-[0.06em] uppercase">
+            <span className="text-fg row-span-2 block self-end font-mono text-xs tracking-[0.06em] uppercase">
               Modelo
             </span>
-            <ColumnTitle note="usada no custo">Saída · US$ por 1M tokens</ColumnTitle>
-            <ColumnTitle note="referência, fora do custo">Entrada · US$ por 1M tokens</ColumnTitle>
+            <span className="border-line text-fg-muted col-span-3 mb-1 block border-b pb-1 text-center font-mono text-xs">
+              só agente local
+            </span>
+            <span className="text-fg-muted mb-1 block pb-1 font-mono text-xs">
+              agente e extensão
+            </span>
             <span />
+            {PRICE_FIELDS.map((f) => (
+              <ColumnTitle key={f.field}>{f.title}</ColumnTitle>
+            ))}
           </div>
 
-          <ul aria-busy={saving} className="m-0 mt-3 list-none p-0 @min-[600px]:mt-0">
+          <ul aria-busy={saving} className="m-0 mt-3 list-none p-0 @min-[760px]:mt-0">
             {rows.map((row, i) => {
               const err = fieldErrors[row._key] || {};
               const label = str(row.model) || "linha vazia";
@@ -731,9 +936,9 @@ export function AiPricingTab({ initialEntries = [], initialSubscriptionCost = nu
                 <li
                   key={row._key}
                   aria-label={`Preço do modelo ${nm}`}
-                  className={`border-line relative grid grid-cols-2 items-start gap-x-3 gap-y-2 border-b py-3 ${GRID_WIDE}`}
+                  className={`border-line relative grid grid-cols-2 items-stretch gap-x-1.5 gap-y-2 border-b py-3 @min-[600px]:grid-cols-4 @min-[760px]:gap-x-3 ${GRID_WIDE}`}
                 >
-                  <div className="col-span-2 min-w-0 pr-[52px] @min-[600px]:col-span-1 @min-[600px]:pr-0">
+                  <div className="col-span-2 min-w-0 pr-[52px] @min-[600px]:col-span-4 @min-[760px]:col-span-1 @min-[760px]:pr-0">
                     <input
                       ref={(el) => (fieldRefs.current[`${row._key}:model`] = el)}
                       className={inputCls(err.model)}
@@ -747,56 +952,39 @@ export function AiPricingTab({ initialEntries = [], initialSubscriptionCost = nu
                     />
                     <FieldError id={`${row._key}-model-erro`}>{err.model}</FieldError>
                   </div>
-                  <div className="min-w-0">
-                    <span aria-hidden="true" className="mb-1 block @min-[600px]:hidden">
-                      <ColumnTitle note="usada no custo">Saída · US$ por 1M tokens</ColumnTitle>
-                    </span>
-                    <input
-                      ref={(el) => (fieldRefs.current[`${row._key}:output`] = el)}
-                      className={inputCls(err.output)}
-                      type="number"
-                      min="0"
-                      step="any"
-                      inputMode="decimal"
-                      value={row.priceMOutput}
-                      placeholder="ex.: 15"
-                      aria-label={`Preço de saída de ${nm}, US$ por 1M tokens`}
-                      aria-invalid={err.output ? "true" : undefined}
-                      aria-describedby={err.output ? `${row._key}-output-erro` : undefined}
-                      onChange={(e) =>
-                        updateRow(row._key, "priceMOutput", e.target.value, "output")
-                      }
-                    />
-                    <FieldError id={`${row._key}-output-erro`}>{err.output}</FieldError>
-                  </div>
-                  <div className="min-w-0">
-                    <span aria-hidden="true" className="mb-1 block @min-[600px]:hidden">
-                      <ColumnTitle note="referência, fora do custo">
-                        Entrada · US$ por 1M tokens
-                      </ColumnTitle>
-                    </span>
-                    <input
-                      ref={(el) => (fieldRefs.current[`${row._key}:input`] = el)}
-                      className={inputCls(err.input)}
-                      type="number"
-                      min="0"
-                      step="any"
-                      inputMode="decimal"
-                      value={row.priceMInput}
-                      placeholder="opcional"
-                      aria-label={`Preço de entrada de ${nm}, referência fora do custo`}
-                      aria-invalid={err.input ? "true" : undefined}
-                      aria-describedby={
-                        err.input ? `aviso-saida ${row._key}-input-erro` : "aviso-saida"
-                      }
-                      onChange={(e) => updateRow(row._key, "priceMInput", e.target.value, "input")}
-                    />
-                    <FieldError id={`${row._key}-input-erro`}>{err.input}</FieldError>
-                  </div>
+                  {PRICE_FIELDS.map((f) => (
+                    <div
+                      key={f.field}
+                      className="flex min-w-0 flex-col justify-end @min-[760px]:justify-start"
+                    >
+                      <span aria-hidden="true" className="mb-1 block @min-[760px]:hidden">
+                        <ColumnTitle>{f.title}</ColumnTitle>
+                      </span>
+                      <input
+                        ref={(el) => (fieldRefs.current[`${row._key}:${f.field}`] = el)}
+                        className={inputCls(err[f.field])}
+                        type="number"
+                        min="0"
+                        step="any"
+                        inputMode="decimal"
+                        value={row[f.prop]}
+                        placeholder={f.placeholder}
+                        aria-label={`Preço de ${f.phrase} de ${nm}, US$ por 1M tokens`}
+                        aria-invalid={err[f.field] ? "true" : undefined}
+                        aria-describedby={
+                          err[f.field]
+                            ? `${f.describedBy} ${row._key}-${f.field}-erro`
+                            : f.describedBy
+                        }
+                        onChange={(e) => updateRow(row._key, f.prop, e.target.value, f.field)}
+                      />
+                      <FieldError id={`${row._key}-${f.field}-erro`}>{err[f.field]}</FieldError>
+                    </div>
+                  ))}
                   <button
                     ref={(el) => (fieldRefs.current[`${row._key}:remove`] = el)}
                     type="button"
-                    className={`text-fg-muted hover:text-bad-text hover:border-bad absolute top-3 right-0 inline-flex h-[44px] w-[44px] cursor-pointer items-center justify-center rounded-full border border-transparent bg-transparent text-lg @min-[600px]:static ${FOCUS}`}
+                    className={`text-fg-muted hover:text-bad-text hover:border-bad absolute top-3 right-0 inline-flex h-[44px] w-[44px] cursor-pointer items-center justify-center rounded-full border border-transparent bg-transparent text-lg @min-[760px]:static ${FOCUS}`}
                     aria-label={`Remover ${label}`}
                     onClick={() => removeRow(row._key)}
                   >
