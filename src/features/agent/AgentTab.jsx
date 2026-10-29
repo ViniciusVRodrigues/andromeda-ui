@@ -56,7 +56,11 @@ export default function AgentTab({ orgSlug, onCheckCode }) {
           ) : null}
           {firstUse ? (
             <section aria-labelledby="agent-connect-title" className="mt-2 min-w-0">
-              <h3 id="agent-connect-title" tabIndex={-1} className="admin-row-label mb-3 outline-none">
+              <h3
+                id="agent-connect-title"
+                tabIndex={-1}
+                className="admin-row-label mb-3 outline-none"
+              >
                 Conectar um computador
               </h3>
               {steps}
