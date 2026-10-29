@@ -97,3 +97,21 @@ export function getAiAllocationHistory(params) {
 export function getTeamMembers() {
   return api.get("/v1/ai/team-members");
 }
+
+/**
+ * Linhas de uso (trechos) de uma alocação do agente — `GET /v1/ai/allocations/{id}/rows`.
+ * @param {string} allocationId
+ * @returns {Promise<Array<{id: string, hour: string, tool: string, model: string, repository: string|null, branch: string|null, branchApproximate: boolean, outputTokens: number}>>}
+ */
+export function getAllocationRows(allocationId) {
+  return api.get(`/v1/ai/allocations/${allocationId}/rows`);
+}
+
+/**
+ * Move trechos do uso do agente para outra tarefa (o trecho vira manual).
+ * @param {string} allocationId
+ * @param {{ aiUsageIds: string[], workItemId: string }} body
+ */
+export function moveAgentUsage(allocationId, body) {
+  return api.post(`/v1/ai/allocations/${allocationId}/move`, body);
+}

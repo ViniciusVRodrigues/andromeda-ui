@@ -6,6 +6,7 @@ import { getAllocationCandidates } from "../api.js";
 import { fmtTokensM } from "../../../core/tokenMath.js";
 import { Modal } from "../../../core/ui/Modal.jsx";
 import { TypeBadge } from "../../dashboard/v2/kit/Badges.jsx";
+import { AgentLegend, AgentTag } from "./AgentMark.jsx";
 import { fmtHours, fmtPoints } from "../../dashboard/v2/format.js";
 
 /**
@@ -144,6 +145,8 @@ export function AllocationModal({
     return [];
   });
 
+  // Já apontado pelo agente: travado no topo, fora do total que a pessoa distribui.
+  const agentLocked = (batch.allocations || []).filter((a) => a.assignedBy === "AGENT");
   const [search, setSearch] = React.useState("");
   const searchId = React.useId();
 
@@ -272,6 +275,23 @@ export function AllocationModal({
             Tentar novamente
           </button>
         </p>
+      )}
+      {agentLocked.length > 0 && (
+        <div className="border-line flex flex-col gap-2 rounded-[var(--radius-sm)] border px-3 py-2">
+          {agentLocked.flatMap((a) =>
+            (a.splits || []).map((split) => (
+              <div
+                key={`${a.id}-${split.workItemId}`}
+                className="flex flex-wrap items-center gap-x-2 gap-y-1 text-sm"
+              >
+                <AgentTag />
+                <span>{split.workItemTitle || split.workItemId}</span>
+                <span className="text-fg-muted">já apontado pelo agente</span>
+              </div>
+            )),
+          )}
+          <AgentLegend />
+        </div>
       )}
       {/* Sliders */}
       {items.length === 0 ? (

@@ -2,6 +2,8 @@ import React from "react";
 import { useUsoIa, useUsoIaPerson } from "./hooks/useUsoIa.js";
 import { MetricsHeader } from "./components/MetricsHeader.jsx";
 import { AllocationModal } from "./components/AllocationModal.jsx";
+import { AgentLegend, AgentTag, agentOriginText } from "./components/AgentMark.jsx";
+import { MoveAgentUsageDialog } from "./components/MoveAgentUsageDialog.jsx";
 import { WorkItemLink } from "../../core/work-items/WorkItemLink.jsx";
 import Modal from "../../core/ui/Modal.jsx";
 import Combobox from "../../core/ui/Combobox.jsx";
@@ -46,9 +48,11 @@ export function UsoIaPage({ can, personRef }) {
   const [selectedDay, setSelectedDay] = React.useState(null);
   const [allocating, setAllocating] = React.useState(false);
   const [notice, setNotice] = React.useState("");
+  const [moving, setMoving] = React.useState(null);
   React.useEffect(() => {
     setSelectedDay(null);
     setAllocating(false);
+    setMoving(null);
     mutation.reset();
   }, [month, selectedUserId]);
   const rows = React.useMemo(() => {
@@ -60,11 +64,22 @@ export function UsoIaPage({ can, personRef }) {
         totalOutputTokens: day.outputTokens,
         totalInteractions: day.interactions,
         estimatedCostUsd: day.costUsd,
+        hasAgentAllocation: !!day.hasAgentAllocation,
         status: "unallocated",
         splits: [],
       });
+    // Um dia pode ter várias alocações (ex.: a do agente e a movida à mão): junta todas.
+    const byDay = new Map();
     for (const allocation of history.data || [])
-      map.set(allocation.day, { ...map.get(allocation.day), ...allocation, status: "allocated" });
+      byDay.set(allocation.day, [...(byDay.get(allocation.day) || []), allocation]);
+    for (const [allocDay, list] of byDay)
+      map.set(allocDay, {
+        ...map.get(allocDay),
+        ...list[0],
+        splits: list.flatMap((a) => a.splits || []),
+        allocations: list,
+        status: "allocated",
+      });
     for (const batch of pending.data || [])
       if (batch.day.startsWith(month))
         map.set(batch.day, {
@@ -73,13 +88,19 @@ export function UsoIaPage({ can, personRef }) {
           status: "pending",
           splits: map.get(batch.day)?.splits || [],
         });
-    return [...map.values()].sort((a, b) => b.day.localeCompare(a.day));
+    return [...map.values()]
+      .map((row) => ({
+        ...row,
+        hasAgent:
+          !!row.hasAgentAllocation || (row.allocations || []).some((a) => a.assignedBy === "AGENT"),
+      }))
+      .sort((a, b) => b.day.localeCompare(a.day));
   }, [daily.data, history.data, pending.data, month]);
   const query = (params.get("busca") || "").trim().toLocaleLowerCase("pt-BR");
   const filter = params.get("situacao") || "all";
   const visible = rows.filter(
     (row) =>
-      (filter === "all" || row.status === filter) &&
+      (filter === "all" || (filter === "agente" ? row.hasAgent : row.status === filter)) &&
       [
         row.day,
         dayLabel(row.day),
@@ -96,6 +117,9 @@ export function UsoIaPage({ can, personRef }) {
   const failed = [daily, pending, history].filter((q) => q.isError);
   const statusLabel = (row) =>
     row.status === "allocated" ? "Alocado" : row.status === "pending" ? "Pendente" : "Sem alocação";
+  const statusGlyph = (row) =>
+    row.status === "allocated" ? "●" : row.status === "pending" ? "○" : "—";
+  const anyAgent = visible.some((row) => row.hasAgent);
   async function save(splits, accept = false) {
     try {
       await mutation.mutateAsync({ batch: selected, splits, accept });
@@ -154,6 +178,7 @@ export function UsoIaPage({ can, personRef }) {
                 <option value="all">Todas</option>
                 <option value="pending">Pendente</option>
                 <option value="allocated">Alocado</option>
+                <option value="agente">Alocado pelo agente</option>
                 <option value="unallocated">Sem alocação</option>
               </select>
             </label>
@@ -215,13 +240,20 @@ export function UsoIaPage({ can, personRef }) {
                     <td
                       className={`p-3 ${row.status === "allocated" ? "text-good" : "text-accent"}`}
                     >
-                      {statusLabel(row)}
+                      <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <span>
+                          <span aria-hidden="true">{statusGlyph(row)} </span>
+                          {statusLabel(row)}
+                        </span>
+                        {row.hasAgent && <AgentTag />}
+                      </span>
                     </td>
                     <td className="p-3">{row.splits?.length || "—"}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
+            {anyAgent && <AgentLegend />}
             {visible.length === 0 && (
               <p className="text-fg-muted p-6 text-center">
                 {rows.length
@@ -280,10 +312,50 @@ export function UsoIaPage({ can, personRef }) {
             <p>Entrada: {fmtTokensM(selected.totalInputTokens || 0)} tokens</p>
             <p>Saída: {fmtTokensM(selected.totalOutputTokens || 0)} tokens</p>
             <p>Custo: {money(selected.estimatedCostUsd)}</p>
-            <p>Situação: {statusLabel(selected)}</p>
+            <p>
+              Situação: <span aria-hidden="true">{statusGlyph(selected)} </span>
+              {statusLabel(selected)}
+            </p>
           </div>
           <h3 className="mb-3 font-serif text-xl">Work items alocados</h3>
-          {selected.splits?.length ? (
+          {selected.allocations?.length ? (
+            selected.allocations.map((allocation) => (
+              <div key={allocation.id} className="border-line border-b py-3">
+                {(allocation.assignedBy === "AGENT" || allocation.movedFromAgent) && (
+                  <div className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
+                    {allocation.assignedBy === "AGENT" && <AgentTag />}
+                    {allocation.assignedBy === "AGENT" && allocation.agent && (
+                      <span className="text-fg-muted">{agentOriginText(allocation.agent)}</span>
+                    )}
+                    {allocation.movedFromAgent && (
+                      <span className="text-fg-muted">movido do agente</span>
+                    )}
+                  </div>
+                )}
+                {(allocation.splits || []).map((split) => (
+                  <div key={split.workItemId} className="flex justify-between gap-3 py-1">
+                    <WorkItemLink id={split.workItemId}>
+                      {split.workItemTitle || split.workItemId}
+                    </WorkItemLink>
+                    <span>
+                      {Math.round(Number(split.percentage) * 100)}%
+                      {/* Com várias alocações no dia, o % é de cada alocação: sem tokens do dia. */}
+                      {selected.allocations.length === 1 &&
+                        ` · ${fmtTokensM(tokens(selected) * Number(split.percentage))} tokens`}
+                    </span>
+                  </div>
+                ))}
+                {allocation.assignedBy === "AGENT" && !selectedUserId && (
+                  <button
+                    className="btn-ghost btn mt-2 min-h-[44px]"
+                    onClick={() => setMoving(allocation)}
+                  >
+                    Mover para outra tarefa
+                  </button>
+                )}
+              </div>
+            ))
+          ) : selected.splits?.length ? (
             selected.splits.map((split) => (
               <div
                 key={split.workItemId}
@@ -301,6 +373,7 @@ export function UsoIaPage({ can, personRef }) {
           ) : (
             <p className="text-fg-muted">Este consumo ainda não possui alocação confirmada.</p>
           )}
+          {selected.hasAgent && <AgentLegend />}
           {selected.suggestion?.length > 0 && (
             <div className="mt-5">
               <h3 className="font-serif text-xl">Sugestão de alocação</h3>
@@ -323,6 +396,18 @@ export function UsoIaPage({ can, personRef }) {
             </p>
           )}
         </Modal>
+      )}
+      {selected && moving && (
+        <MoveAgentUsageDialog
+          allocation={moving}
+          day={selected.day}
+          onClose={() => setMoving(null)}
+          onMoved={(title) => {
+            setMoving(null);
+            setSelectedDay(null);
+            setNotice(`Trecho movido para ${title}.`);
+          }}
+        />
       )}
       {selected && allocating && (
         <>
