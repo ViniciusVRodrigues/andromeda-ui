@@ -27,18 +27,24 @@ async function abrirIntegracoes(page) {
   await gotoSection(page, orgSlug, "integracoes");
 }
 
-/** Pula o teste quando aquela integração não está conectada no fixture. */
-async function limparDoCartao(page, nome) {
-  const botao = cartao(page, nome).getByRole("button", { name: /limpar dados/i });
-  const visivel = await botao.isVisible().catch(() => false);
-  return visivel ? botao : null;
+/* O "Limpar dados" do uso de IA mora no Perfil, abaixo das abas do conector
+ * (agente-telas, D4): vale para qualquer origem, agente ou extensão. */
+async function abrirConectorIA(page) {
+  const { orgSlug } = await loginAsAdmin(page);
+  await gotoSection(page, orgSlug, "perfil");
+}
+
+function limparDoConectorIA(page) {
+  return page
+    .locator("section", { has: page.getByRole("heading", { name: "Dados de uso de IA" }) })
+    .getByRole("button", { name: /limpar dados/i });
 }
 
 test("limpar dados: botão só libera com a frase exata", async ({ page }) => {
-  await abrirIntegracoes(page);
+  await abrirConectorIA(page);
 
-  const limpar = await limparDoCartao(page, "AI Connector");
-  test.skip(!limpar, "conector de IA não configurado neste fixture");
+  const limpar = limparDoConectorIA(page);
+  await expect(limpar).toBeVisible();
 
   await limpar.click();
   const dialog = page.getByRole("dialog");
@@ -61,10 +67,10 @@ test("limpar dados: botão só libera com a frase exata", async ({ page }) => {
 });
 
 test("limpar dados: diálogo cumpre o contrato de acessibilidade", async ({ page }) => {
-  await abrirIntegracoes(page);
+  await abrirConectorIA(page);
 
-  const limpar = await limparDoCartao(page, "AI Connector");
-  test.skip(!limpar, "conector de IA não configurado neste fixture");
+  const limpar = limparDoConectorIA(page);
+  await expect(limpar).toBeVisible();
 
   await limpar.click();
   const dialog = page.getByRole("dialog");
@@ -82,10 +88,10 @@ test("limpar dados: diálogo cumpre o contrato de acessibilidade", async ({ page
 });
 
 test("o conector de IA avisa que o dado não volta com sincronização", async ({ page }) => {
-  await abrirIntegracoes(page);
+  await abrirConectorIA(page);
 
-  const limpar = await limparDoCartao(page, "AI Connector");
-  test.skip(!limpar, "conector de IA não configurado neste fixture");
+  const limpar = limparDoConectorIA(page);
+  await expect(limpar).toBeVisible();
 
   await limpar.click();
   const dialog = page.getByRole("dialog");

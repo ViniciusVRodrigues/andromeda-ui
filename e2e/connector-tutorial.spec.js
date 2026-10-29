@@ -30,7 +30,22 @@ async function abrirPerfil(page, tokens) {
   await page.route("**/api/v1/connector-tokens", (route) =>
     route.request().method() === "GET" ? json(route, tokens) : route.fallback(),
   );
-  await gotoSection(page, orgSlug, "perfil");
+  // O agente (agente-telas) não tem fixture no replay; o tutorial vive na aba da extensão.
+  await page.route("**/api/v1/agent/**", (route) => {
+    const u = route.request().url();
+    return json(
+      route,
+      u.includes("/meta")
+        ? { packageName: "andromeda-agent", aiefIgnored: false }
+        : u.includes("/today")
+          ? { resolved: [], unassigned: [], devices: [] }
+          : [],
+    );
+  });
+  await page.route("**/api/v1/organizations/me/work-item-patterns", (route) =>
+    json(route, { enabled: true, mode: "DEFAULT", patterns: [], defaults: [], presets: [] }),
+  );
+  await gotoSection(page, orgSlug, "perfil?conector=aief");
 }
 
 const card = (page) =>

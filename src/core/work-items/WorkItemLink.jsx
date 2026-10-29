@@ -208,7 +208,7 @@ export function WorkItemLink({ id, children, className = "", onChanged }) {
     <>
       <button
         type="button"
-        className={`ui-work-item-link hover:text-accent focus-visible:outline-accent cursor-pointer text-left text-inherit focus-visible:outline ${className}`}
+        className={`ui-work-item-link hover:text-accent focus-visible:outline-accent inline-flex min-h-6 cursor-pointer items-center py-0.5 text-left text-inherit focus-visible:outline ${className}`}
         onClick={(e) => {
           e.stopPropagation();
           setOpen(true);

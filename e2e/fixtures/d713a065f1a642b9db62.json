@@ -1,0 +1,6 @@
+{
+  "request": "GET /api/v1/agent/meta",
+  "status": 200,
+  "contentType": "application/json",
+  "body": "{\"packageName\":\"andromeda-agent\",\"latestVersion\":\"0.1.0\",\"aiefIgnored\":false,\"taskClearCommand\":\"andromeda-agent task --clear\",\"privacyUrl\":null}"
+}

@@ -191,19 +191,4 @@ export function ConnectionBadge({ status }) {
   );
 }
 
-/** Marca pequena e neutra (ex.: "você", "sem vínculo"). */
-export function Tag({ children, tone = "neutral", title }) {
-  const cls = {
-    neutral: "border-line-strong text-fg-muted",
-    accent: "border-accent-text text-accent-text",
-    warn: "border-warn-text text-warn-text",
-  }[tone];
-  return (
-    <span
-      title={title}
-      className={`mono rounded-full border px-1.5 py-px text-[11px] tracking-[0.06em] whitespace-nowrap uppercase ${cls}`}
-    >
-      {children}
-    </span>
-  );
-}
+export { Tag } from "../../../../core/ui/Tag.jsx";

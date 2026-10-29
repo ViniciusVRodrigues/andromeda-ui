@@ -154,42 +154,8 @@ test("projeto: vínculos de repositório via /v1/repos e erro REPO_ALREADY_BOUND
   await expect(section).toHaveScreenshot("project-repo-bindings.png");
 });
 
-test("integrações: prefixos de vínculo PR ↔ work item", async ({ page }) => {
-  const { orgSlug } = await loginAsAdmin(page);
-  let current = { enabled: true, prefixes: ["AB#"] };
-  const puts = [];
-  await page.route("**/api/v1/repos/settings/work-item-link", (route) => {
-    const req = route.request();
-    if (req.method() === "PUT") {
-      current = req.postDataJSON();
-      puts.push(current);
-    }
-    return json(route, current);
-  });
-
-  await gotoSection(page, orgSlug, "integracoes");
-  const card = page.getByTestId("work-item-link-settings");
-  await card.scrollIntoViewIfNeeded();
-  await expect(card).toContainText("Vínculo de PR com work item");
-
-  const input = card.getByRole("textbox", { name: /Prefixos/ });
-  await expect(input).toHaveValue("AB#");
-  const save = card.getByRole("button", { name: "Salvar" });
-  await expect(save).toBeDisabled();
-
-  await input.fill("AB#, WI-, AB#");
-  await expect(card).toContainText("WI-123");
-  await expect(card).toHaveScreenshot("integrations-work-item-link.png");
-
-  await save.click();
-  await expect(card.getByRole("status")).toHaveText("Configuração salva.");
-  expect(puts).toEqual([{ enabled: true, prefixes: ["AB#", "WI-"] }]);
-
-  // Ligado sem prefixo é inválido.
-  await input.fill("");
-  await expect(card).toContainText("Informe ao menos um prefixo.");
-  await expect(save).toBeDisabled();
-});
+/* O card de prefixos foi para Organização → Geral (agente-telas, UI-3); o resumo em
+ * Integrações e a edição são cobertos por e2e/organizacao-padroes.spec.js. */
 
 /* ── branches-por-vinculo (UI-1) ── */
 

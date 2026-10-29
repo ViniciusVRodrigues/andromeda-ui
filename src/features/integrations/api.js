@@ -325,24 +325,6 @@ export function getAvailableRepos(provider) {
   return api.get(`/v1/repos/available${toQuery({ provider })}`);
 }
 
-/* ── Vínculo PR ↔ work item (configuração da organização) ──
- *
- * Vale para todos os provedores. Leitura exige REPOS_READ; gravação,
- * REPOS_CONFIGURE. Prefixo padrão do backend: `AB#`. */
-
-/** @returns {Promise<{ enabled: boolean, prefixes: string[] }>} */
-export function getWorkItemLinkSettings() {
-  return api.get("/v1/repos/settings/work-item-link");
-}
-
-/**
- * @param {{ enabled: boolean, prefixes: string[] }} settings
- * @returns {Promise<{ enabled: boolean, prefixes: string[] }>}
- */
-export function updateWorkItemLinkSettings(settings) {
-  return api.put("/v1/repos/settings/work-item-link", settings);
-}
-
 /* ── Limpeza e reparo de dados por integração ──
  *
  * Reparo relê tudo do provedor preservando os registros existentes (upsert).

@@ -25,6 +25,33 @@ test("resumo com cargo, senioridade e membro desde; abas na URL", async ({ page 
       },
     }),
   );
+  // Rotas do agente não têm fixture no replay.
+  await page.route("**/api/v1/agent/**", (route) => {
+    const u = route.request().url();
+    const body = u.includes("/meta")
+      ? { packageName: "andromeda-agent", aiefIgnored: false }
+      : u.includes("/today")
+        ? { resolved: [], unassigned: [], devices: [] }
+        : [];
+    return route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(body),
+    });
+  });
+  await page.route("**/api/v1/organizations/me/work-item-patterns", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        enabled: true,
+        mode: "DEFAULT",
+        patterns: [],
+        defaults: [],
+        presets: [],
+      }),
+    }),
+  );
   await gotoSection(page, orgSlug, "perfil");
 
   await expect(fact(page, "Cargo")).toHaveText("Administrador");
@@ -49,6 +76,33 @@ test("resumo com cargo, senioridade e membro desde; abas na URL", async ({ page 
 
 test("sem os campos novos no /me, o resumo mostra — em vez de inventar", async ({ page }) => {
   const { orgSlug } = await loginAsAdmin(page);
+  // Rotas do agente não têm fixture no replay.
+  await page.route("**/api/v1/agent/**", (route) => {
+    const u = route.request().url();
+    const body = u.includes("/meta")
+      ? { packageName: "andromeda-agent", aiefIgnored: false }
+      : u.includes("/today")
+        ? { resolved: [], unassigned: [], devices: [] }
+        : [];
+    return route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(body),
+    });
+  });
+  await page.route("**/api/v1/organizations/me/work-item-patterns", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        enabled: true,
+        mode: "DEFAULT",
+        patterns: [],
+        defaults: [],
+        presets: [],
+      }),
+    }),
+  );
   await gotoSection(page, orgSlug, "perfil");
   await expect(fact(page, "Cargo")).toHaveText("—");
   await expect(fact(page, "Membro desde")).toHaveText("—");

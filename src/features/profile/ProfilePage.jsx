@@ -10,7 +10,7 @@ import { useLocation, useNavigate } from "react-router-dom";
 import { ConnectedAccounts } from "../integrations/ConnectedAccounts.jsx";
 import { useIdentity } from "../../core/auth/IdentityContext.jsx";
 import { MyPermissions } from "./MyPermissions.jsx";
-import { AiConnectorCard } from "../integrations/AiConnectorCard.jsx";
+import ConnectorSection from "../agent/ConnectorSection.jsx";
 import SectionHeader from "../../core/ui/SectionHeader.jsx";
 import StickyPageHeader from "../../core/ui/StickyPageHeader.jsx";
 import { SubTabs } from "../../components/SubTabs.jsx";
@@ -90,9 +90,9 @@ export function ProfilePage() {
               <SectionHeader
                 id="conector-ia-title"
                 title="Conector de IA"
-                description="O token pessoal que a extensão AIEF usa para enviar o seu uso de IA à Andrômeda."
+                description="Como o seu uso de IA chega à Andrômeda. O agente lê os registros das IAs no seu computador e já aponta a tarefa; a extensão AIEF continua disponível para quem já usa."
               />
-              <AiConnectorCard orgSlug={slug} hasOrg={hasOrg} />
+              <ConnectorSection orgSlug={slug} hasOrg={hasOrg} />
             </section>
           ) : null}
         </>

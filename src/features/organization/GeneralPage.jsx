@@ -13,6 +13,7 @@ import { orgUrlLabel } from "../../lib/appUrl.js";
 import SectionHeader from "../../core/ui/SectionHeader.jsx";
 import { SyncSettingsForm } from "./SyncSettingsForm.jsx";
 import { RemediationRulesForm } from "./RemediationRulesForm.jsx";
+import { WorkItemPatternsCard } from "./WorkItemPatternsCard.jsx";
 import { DeleteOrganizationSection } from "./DeleteOrganizationSection.jsx";
 
 function Fact({ label, value, mono }) {
@@ -53,6 +54,7 @@ export function GeneralPage() {
       </section>
       <SyncSettingsForm />
       <RemediationRulesForm />
+      <WorkItemPatternsCard className="min-[1100px]:col-span-2" />
       <DeleteOrganizationSection name={orgData.name} slug={orgData.slug} />
     </div>
   );

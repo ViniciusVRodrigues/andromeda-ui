@@ -20,6 +20,7 @@ import "./ui.css";
  * @param {string} [props.closeLabel]  quando presente, o × se anuncia "Fechar sem salvar"
  * @param {boolean} [props.closeOnBackdrop]  padrão fecha no fundo; formulários
  *   de edição devem passar false para não perder edição em curso
+ * @param {(e:Event)=>void} [props.onOpenAutoFocus]  repassado ao Radix (foco inicial)
  * @param {boolean} [props.busy]  marca a caixa com aria-busy (operação em curso)
  * @param {string} [props.bodyClassName]  classe extra na área rolável (ex.: scroll-slim)
  * @param {string} [props.className]  classe extra na caixa (pele específica da tela)
@@ -37,6 +38,7 @@ export function Modal({
   closeLabel,
   closeDisabled = false,
   closeOnBackdrop = true,
+  onOpenAutoFocus,
   busy = false,
   className = "",
   bodyClassName = "",
@@ -68,6 +70,7 @@ export function Modal({
         <Dialog.Content
           aria-busy={busy || undefined}
           className={`ui-modal${sizeClass}${stackClass}${className ? " " + className : ""}`}
+          onOpenAutoFocus={onOpenAutoFocus}
           onPointerDownOutside={(e) => {
             // Formulários de edição não fecham no fundo — o clique perderia a edição em curso.
             if (!closeOnBackdrop) e.preventDefault();
