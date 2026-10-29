@@ -58,6 +58,7 @@ import { ErrorBoundary } from "./core/ui/ErrorBoundary.jsx";
 import { PrivacyPage } from "./features/privacidade/PrivacyPage.jsx";
 import { OAuthReturnPage } from "./features/oauth/OAuthReturnPage.jsx";
 import { ShellLayout } from "./app/ShellLayout.jsx";
+import { PairRedirect, takePostLoginPath } from "./features/agent/PairRedirect.jsx";
 import {
   buildIdentity,
   buildProfile,
@@ -145,7 +146,7 @@ function AppShell() {
     setIdentity(nextIdentity);
     setProfile(buildProfile(meData));
     setAuthStatus("authenticated");
-    navigate(route ?? firstAllowedRoute(nextIdentity, meData.orgSlug));
+    navigate(route ?? takePostLoginPath() ?? firstAllowedRoute(nextIdentity, meData.orgSlug));
   };
   /* Relê o /me: memberships e overrides mudam as permissões efetivas sem novo
    * login (project-scoped-permissions), então quem altera o próprio acesso
@@ -241,6 +242,7 @@ function AppShell() {
             />
             <Route path="/privacidade" element={<PrivacyPage />} />
             <Route path="/oauth/retorno" element={<OAuthReturnPage />} />
+            <Route path="/parear" element={<PairRedirect />} />
             <Route path="/esqueci-senha" element={<ForgotPasswordScreen />} />
             <Route path="/redefinir-senha" element={<ResetPasswordScreen />} />
             <Route
@@ -329,6 +331,7 @@ function AppShell() {
  * <Outlet/> resolve a página em SectionContent. */
 function ShellGate({ identity, profile }) {
   const { orgSlug, section, "*": rest } = useParams();
+  const location = useLocation();
   const navigate = useNavigate();
 
   /* /:orgSlug/:section casa qualquer par de segmentos, então uma seção inexistente
@@ -353,7 +356,7 @@ function ShellGate({ identity, profile }) {
   const sessionSlug = profile?.org?.slug;
   if (sessionSlug && orgSlug !== sessionSlug) {
     const target = rest ? `${section}/${rest}` : section;
-    return <Navigate to={orgRoute(sessionSlug, target)} replace />;
+    return <Navigate to={orgRoute(sessionSlug, target) + location.search} replace />;
   }
 
   // sem permissão de gestão → sem chrome: só o dashboard com o botão de Sair.
@@ -552,6 +555,7 @@ function ProfileOnly({ slug }) {
 function LegacyShellRoute({ identity, profile }) {
   const { section, "*": rest } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const target = rest ? `${section}/${rest}` : section;
 
@@ -573,13 +577,14 @@ function LegacyShellRoute({ identity, profile }) {
    * a mesma URL causaria um laço. */
   if (!slug) return <Navigate to="/" replace />;
 
-  return <Navigate to={orgRoute(slug, target)} replace />;
+  return <Navigate to={orgRoute(slug, target) + location.search} replace />;
 }
 
 /* /cargos e /senioridade viraram sub-abas de /organizacao antes do prefixo existir;
  * agora precisam também do slug. */
 function LegacyShellRedirect({ to, profile }) {
-  return <Navigate to={orgRoute(profile?.org?.slug, to)} replace />;
+  const location = useLocation();
+  return <Navigate to={orgRoute(profile?.org?.slug, to) + location.search} replace />;
 }
 
 function LoginScreenWrapper({ enterApp, onHome }) {
