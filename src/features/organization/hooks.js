@@ -4,6 +4,13 @@
 
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { api } from "../../core/api/client.js";
+import {
+  getWorkItemPatterns,
+  putWorkItemPatterns,
+  confirmWorkItemPatterns,
+  detectWorkItemPatterns,
+  previewWorkItemPatterns,
+} from "./api.js";
 
 export function useRoles() {
   return useQuery({
@@ -108,5 +115,47 @@ export function useUpdateMetricSettings() {
       if (data) queryClient.setQueryData(["organizations", "metric-settings"], data);
       queryClient.invalidateQueries({ queryKey: ["organizations", "metric-settings"] });
     },
+  });
+}
+
+/* ── Padrão único de branch → work item (agente-telas, D5) ── */
+
+const PATTERNS_KEY = ["organization", "work-item-patterns"];
+
+export function useWorkItemPatterns() {
+  return useQuery({
+    queryKey: PATTERNS_KEY,
+    queryFn: () => getWorkItemPatterns(),
+  });
+}
+
+function usePatternsMutation(mutationFn) {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn,
+    onSuccess: (data) => {
+      if (data) queryClient.setQueryData(PATTERNS_KEY, data);
+      queryClient.invalidateQueries({ queryKey: ["integrations", "work-item-link"] });
+    },
+  });
+}
+
+/** vars: `{ enabled, patterns: [{ regex, alsoInText }] }` (lista vazia = padrão). */
+export function useSaveWorkItemPatterns() {
+  return usePatternsMutation(putWorkItemPatterns);
+}
+
+export function useConfirmWorkItemPatterns() {
+  return usePatternsMutation(confirmWorkItemPatterns);
+}
+
+export function useDetectWorkItemPatterns() {
+  return usePatternsMutation(detectWorkItemPatterns);
+}
+
+/** Prévia: não mexe no cache. vars: `{ patterns, branches }`. */
+export function usePreviewWorkItemPatterns() {
+  return useMutation({
+    mutationFn: previewWorkItemPatterns,
   });
 }

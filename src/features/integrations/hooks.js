@@ -20,8 +20,6 @@ import {
   getAvailableRepoBranches,
   getBindingBranches,
   unbindRepository,
-  getWorkItemLinkSettings,
-  updateWorkItemLinkSettings,
 } from "./api.js";
 
 const AZURE_CONNECTION_KEY = ["integrations", "azure", "connection"];
@@ -378,25 +376,4 @@ export function useUnbindRepository(projectId) {
     (bindingId) => unbindRepository(projectId, bindingId),
     (list, bindingId) => list.filter((b) => b.id !== bindingId),
   );
-}
-
-/* ── Vínculo PR ↔ work item (configuração da organização) ── */
-
-const WORK_ITEM_LINK_KEY = ["integrations", "work-item-link"];
-
-/** @returns {import("@tanstack/react-query").UseQueryResult<{ enabled: boolean, prefixes: string[] }>} */
-export function useWorkItemLinkSettings({ enabled = true } = {}) {
-  return useQuery({
-    queryKey: WORK_ITEM_LINK_KEY,
-    queryFn: getWorkItemLinkSettings,
-    enabled,
-  });
-}
-
-export function useUpdateWorkItemLinkSettings() {
-  const queryClient = useQueryClient();
-  return useMutation({
-    mutationFn: updateWorkItemLinkSettings,
-    onSuccess: (data, vars) => queryClient.setQueryData(WORK_ITEM_LINK_KEY, data ?? vars),
-  });
 }
