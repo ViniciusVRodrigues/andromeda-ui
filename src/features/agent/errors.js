@@ -3,11 +3,9 @@
 
 const BY_CODE = {
   AGENT_PAIRING_NOT_FOUND: "Código não encontrado. Confira as letras no terminal.",
-  AGENT_PAIRING_EXPIRED:
-    "Este código expirou. Rode andromeda-agent pair de novo para gerar outro.",
+  AGENT_PAIRING_EXPIRED: "Este código expirou. Rode andromeda-agent pair de novo para gerar outro.",
   AGENT_PAIRING_USED: "Este código já foi usado.",
-  AGENT_PAIRING_DENIED:
-    "Este pedido foi recusado. Rode andromeda-agent pair de novo se foi você.",
+  AGENT_PAIRING_DENIED: "Este pedido foi recusado. Rode andromeda-agent pair de novo se foi você.",
 };
 
 /**

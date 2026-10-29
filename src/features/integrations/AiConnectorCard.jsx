@@ -4,19 +4,13 @@ import Disclosure from "../../core/ui/Disclosure.jsx";
 import { ConfirmDialog } from "../../core/ui/Modal.jsx";
 import Tabs from "../../core/ui/Tabs.jsx";
 import CopyBlock from "../../core/ui/CopyBlock.jsx";
-import { IntegrationDataActions } from "./IntegrationDataActions.jsx";
-import { useWipeAiUsageData } from "./hooks.js";
 
 /**
- * @param {{ orgSlug: string, hasOrg: (code: string) => boolean }} props
- *   `hasOrg` é o predicado de permissão na organização (useIdentity) — os
- *   códigos CONNECTOR_TOKEN_MANAGE_* são ORG_ONLY.
+ * Aba "Extensão AIEF" do Conector de IA. "Limpar dados" saiu daqui: vive em
+ * features/agent/ConnectorSection, fora das abas (apaga o uso de qualquer origem).
+ * @param {{ orgSlug: string }} props
  */
-export function AiConnectorCard({ orgSlug, hasOrg }) {
-  const limparIA = useWipeAiUsageData();
-  /* O backend decide o escopo pelas permissoes do token; aqui so ajustamos o
-   * texto do aviso para dizer a verdade sobre o que vai sumir. */
-  const podeApagarDaOrg = hasOrg("CONNECTOR_TOKEN_MANAGE_ALL");
+export function AiConnectorCard({ orgSlug }) {
   // "empty" | "generated" | "existing" | "loading" | "error"
   const [uiState, setUiState] = React.useState("loading");
   const [existingTokenId, setExistingTokenId] = React.useState(null);
@@ -246,31 +240,6 @@ export function AiConnectorCard({ orgSlug, hasOrg }) {
           onConfirm={handleRegen}
         />
       )}
-
-      <IntegrationDataActions
-        nome="Conector de IA"
-        conectado
-        confirmPhrase="APAGAR"
-        onLimpar={() => limparIA.mutateAsync()}
-        avisoLimpeza={
-          <>
-            {podeApagarDaOrg ? (
-              <>
-                O uso de IA de <strong>toda a organização</strong> será apagado: consumo diário,
-                alocações de todos os usuários.
-              </>
-            ) : (
-              <>
-                <strong>Somente os seus dados</strong> de uso de IA serão apagados — consumo,
-                alocações. Os dados dos outros usuários não são afetados.
-              </>
-            )}{" "}
-            Ao contrário do Azure DevOps e do GitHub, estes dados{" "}
-            <strong>não podem ser recuperados</strong>: eles chegam por upload da extensão, não por
-            sincronização. Não há como desfazer.
-          </>
-        }
-      />
     </div>
   );
 }
