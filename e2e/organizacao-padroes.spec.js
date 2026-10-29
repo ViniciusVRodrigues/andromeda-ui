@@ -504,6 +504,19 @@ test("celular 390: empilhado, sem rolagem horizontal (29)", async ({ page }) => 
   expect(small).toEqual([]);
 });
 
+test("celular 390: detecção automática começa recolhida e abre ao clicar", async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 844 });
+  const { orgSlug } = await loginAsAdmin(page);
+  await installPatterns(page, base({ mode: "DETECTED", detection: CANDIDATES }));
+  await openCard(page, orgSlug);
+  const c = card(page);
+  const detect = c.getByRole("button", { name: "Detectar agora" });
+  await expect(c.getByText("Detecção automática")).toBeVisible();
+  await expect(detect).toBeHidden();
+  await c.getByText("Detecção automática").click();
+  await expect(detect).toBeVisible();
+});
+
 /* ── sem REPOS_CONFIGURE / sem aba Organização ── */
 
 async function loginWith(page, orgPermissions) {

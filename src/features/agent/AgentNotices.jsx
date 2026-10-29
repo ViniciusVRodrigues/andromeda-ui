@@ -11,7 +11,7 @@ export const AIEF_IGNORED_TEXT =
 export function AiefIgnoredNotice({ meta }) {
   if (!meta?.aiefIgnored) return null;
   return (
-    <div className="border-line bg-bg-elev rounded-card mb-4 flex max-w-[72ch] min-w-0 gap-2 border p-3 text-sm">
+    <div className="border-line bg-bg-elev rounded-card mb-4 flex w-full min-w-0 gap-2 border p-3 text-sm">
       <span aria-hidden="true" className="text-fg-muted font-mono">
         i
       </span>
@@ -32,7 +32,7 @@ export function VersionNotice({ devices, meta }) {
   return (
     <div
       data-testid="agent-version-notice"
-      className={`rounded-card mb-4 min-w-0 border p-3 text-sm ${
+      className={`rounded-card mb-4 w-full min-w-0 border p-3 text-sm ${
         hasBad ? "border-bad-text text-bad-text" : "border-warn-text text-warn-text"
       }`}
     >

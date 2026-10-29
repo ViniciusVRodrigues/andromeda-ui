@@ -37,7 +37,7 @@ function Summary({ seesOrg, orgSlug }) {
         </div>
       </div>
 
-      <p className="integration-desc">
+      <p className="integration-desc max-w-[65ch]">
         Liga cada pull request ao work item citado no nome da branch (e, em alguns padrões, no
         título e na descrição). Os mesmos padrões valem para o agente de uso de IA e para todos os
         repositórios.

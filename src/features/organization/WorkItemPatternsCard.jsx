@@ -257,6 +257,112 @@ export function WorkItemPatternsCard({ className = "" }) {
   const knownRegexes = new Set(rows.map((r) => r.regex));
   const atLimit = rows.length >= MAX_PATTERNS;
 
+  const [narrowScreen, setNarrowScreen] = React.useState(
+    () => typeof window !== "undefined" && window.matchMedia("(max-width: 639px)").matches,
+  );
+  React.useEffect(() => {
+    const mq = window.matchMedia("(max-width: 639px)");
+    const on = () => setNarrowScreen(mq.matches);
+    mq.addEventListener("change", on);
+    return () => mq.removeEventListener("change", on);
+  }, []);
+  const renderDetection = () => (
+    <>
+      {detection ? (
+        <p className={`text-fg-muted m-0 mb-3 ${MONO}`}>
+          Última detecção {new Date(detection.ranAt).toLocaleDateString("pt-BR")}:{" "}
+          {detection.branchesScanned} branches dos últimos 90 dias, {pct(detection.coverage)}{" "}
+          reconhecidas.
+        </p>
+      ) : detectUnavailable ? (
+        <p className={`text-fg-muted m-0 mb-3 ${MONO}`}>
+          Por enquanto, detecção ainda não disponível. Os padrões ao lado valem até lá.
+        </p>
+      ) : (
+        <p className={`text-fg-muted m-0 mb-3 ${MONO}`}>
+          Ainda não há detecção. Ela olha as branches dos últimos 90 dias e sugere os padrões que
+          mais acertam.
+        </p>
+      )}
+      {detection?.candidates?.length ? (
+        <ul aria-label="Padrões candidatos" className="m-0 mb-3 flex list-none flex-col gap-3 p-0">
+          {detection.candidates.map((cand) => {
+            const label = friendlyPatternLabel(cand);
+            return (
+              <li
+                key={cand.regex}
+                className="border-line bg-bg flex min-w-0 flex-col gap-1.5 rounded-lg border p-3"
+              >
+                <span className="text-fg text-[14px] font-medium">{label}</span>
+                <code className={`text-fg-muted break-all ${MONO}`}>{cand.regex}</code>
+                <span className={`text-fg ${MONO}`}>
+                  Cobertura {pct(cand.coverage)} · Precisão {pct(cand.precision)}
+                </span>
+                {(cand.examples || []).slice(0, 3).map((ex) => (
+                  <div key={ex.branch} className={`text-fg-muted break-all ${MONO}`}>
+                    {ex.branch} → item {ex.workItemNumber} · {ex.title}
+                  </div>
+                ))}
+                {canEdit && !knownRegexes.has(cand.regex) ? (
+                  <div>
+                    <button
+                      type="button"
+                      className={`${BTN} btn-ghost`}
+                      disabled={atLimit}
+                      onClick={() =>
+                        addRow({
+                          regex: cand.regex,
+                          preset: cand.preset,
+                          alsoInText: cand.preset === "AB_HASH" || cand.preset === "PREFIX",
+                        })
+                      }
+                    >
+                      Usar {label}
+                    </button>
+                  </div>
+                ) : null}
+              </li>
+            );
+          })}
+        </ul>
+      ) : null}
+      {canEdit ? (
+        <div className="flex flex-wrap items-center gap-3">
+          {showDetectButton ? (
+            <button
+              type="button"
+              className={`${BTN} btn-ghost`}
+              disabled={detect.isPending}
+              onClick={runDetect}
+            >
+              {detect.isPending ? "Detectando…" : "Detectar agora"}
+            </button>
+          ) : null}
+          {server.mode === "DETECTED" ? (
+            <button
+              type="button"
+              className={BTN}
+              disabled={dirty || confirm.isPending}
+              onClick={() => confirm.mutate()}
+            >
+              {confirm.isPending ? "Confirmando…" : "Confirmar estes padrões"}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+      {detectMessage ? (
+        <p role="alert" className={`text-bad m-0 mt-3 ${MONO}`}>
+          {detectMessage}
+        </p>
+      ) : null}
+      {confirm.isError ? (
+        <p role="alert" className={`text-bad m-0 mt-3 ${MONO}`}>
+          Não foi possível confirmar. Tente novamente.
+        </p>
+      ) : null}
+    </>
+  );
+
   const body = () => {
     if (query.isPending) {
       return (
@@ -481,106 +587,31 @@ export function WorkItemPatternsCard({ className = "" }) {
           </div>
 
           <div className="flex min-w-0 flex-col gap-8">
-            <section aria-labelledby="wip-detection-title" className="min-w-0">
-              <h3 id="wip-detection-title" className="text-fg m-0 mb-3 text-[15px] font-medium">
-                Detecção automática
-              </h3>
-              {detection ? (
-                <p className={`text-fg-muted m-0 mb-3 ${MONO}`}>
-                  Última detecção {new Date(detection.ranAt).toLocaleDateString("pt-BR")}:{" "}
-                  {detection.branchesScanned} branches dos últimos 90 dias,{" "}
-                  {pct(detection.coverage)} reconhecidas.
-                </p>
-              ) : detectUnavailable ? (
-                <p className={`text-fg-muted m-0 mb-3 ${MONO}`}>
-                  Por enquanto, detecção ainda não disponível. Os padrões ao lado valem até lá.
-                </p>
-              ) : (
-                <p className={`text-fg-muted m-0 mb-3 ${MONO}`}>
-                  Ainda não há detecção. Ela olha as branches dos últimos 90 dias e sugere os
-                  padrões que mais acertam.
-                </p>
-              )}
-              {detection?.candidates?.length ? (
-                <ul
-                  aria-label="Padrões candidatos"
-                  className="m-0 mb-3 flex list-none flex-col gap-3 p-0"
-                >
-                  {detection.candidates.map((cand) => {
-                    const label = friendlyPatternLabel(cand);
-                    return (
-                      <li
-                        key={cand.regex}
-                        className="border-line bg-bg flex min-w-0 flex-col gap-1.5 rounded-lg border p-3"
-                      >
-                        <span className="text-fg text-[14px] font-medium">{label}</span>
-                        <code className={`text-fg-muted break-all ${MONO}`}>{cand.regex}</code>
-                        <span className={`text-fg ${MONO}`}>
-                          Cobertura {pct(cand.coverage)} · Precisão {pct(cand.precision)}
+            {narrowScreen ? (
+              <section aria-labelledby="wip-detection-title" className="min-w-0">
+                <Disclosure
+                  summary={
+                    <span id="wip-detection-title" className="text-fg text-[15px] font-medium">
+                      Detecção automática
+                      {detection ? (
+                        <span className={`text-fg-muted ml-2 font-normal ${MONO}`}>
+                          {pct(detection.coverage)} reconhecidas
                         </span>
-                        {(cand.examples || []).slice(0, 3).map((ex) => (
-                          <div key={ex.branch} className={`text-fg-muted break-all ${MONO}`}>
-                            {ex.branch} → item {ex.workItemNumber} · {ex.title}
-                          </div>
-                        ))}
-                        {canEdit && !knownRegexes.has(cand.regex) ? (
-                          <div>
-                            <button
-                              type="button"
-                              className={`${BTN} btn-ghost`}
-                              disabled={atLimit}
-                              onClick={() =>
-                                addRow({
-                                  regex: cand.regex,
-                                  preset: cand.preset,
-                                  alsoInText: cand.preset === "AB_HASH" || cand.preset === "PREFIX",
-                                })
-                              }
-                            >
-                              Usar {label}
-                            </button>
-                          </div>
-                        ) : null}
-                      </li>
-                    );
-                  })}
-                </ul>
-              ) : null}
-              {canEdit ? (
-                <div className="flex flex-wrap items-center gap-3">
-                  {showDetectButton ? (
-                    <button
-                      type="button"
-                      className={`${BTN} btn-ghost`}
-                      disabled={detect.isPending}
-                      onClick={runDetect}
-                    >
-                      {detect.isPending ? "Detectando…" : "Detectar agora"}
-                    </button>
-                  ) : null}
-                  {server.mode === "DETECTED" ? (
-                    <button
-                      type="button"
-                      className={BTN}
-                      disabled={dirty || confirm.isPending}
-                      onClick={() => confirm.mutate()}
-                    >
-                      {confirm.isPending ? "Confirmando…" : "Confirmar estes padrões"}
-                    </button>
-                  ) : null}
-                </div>
-              ) : null}
-              {detectMessage ? (
-                <p role="alert" className={`text-bad m-0 mt-3 ${MONO}`}>
-                  {detectMessage}
-                </p>
-              ) : null}
-              {confirm.isError ? (
-                <p role="alert" className={`text-bad m-0 mt-3 ${MONO}`}>
-                  Não foi possível confirmar. Tente novamente.
-                </p>
-              ) : null}
-            </section>
+                      ) : null}
+                    </span>
+                  }
+                >
+                  <div className="pt-2">{renderDetection()}</div>
+                </Disclosure>
+              </section>
+            ) : (
+              <section aria-labelledby="wip-detection-title" className="min-w-0">
+                <h3 id="wip-detection-title" className="text-fg m-0 mb-3 text-[15px] font-medium">
+                  Detecção automática
+                </h3>
+                {renderDetection()}
+              </section>
+            )}
 
             {canEdit ? (
               <section aria-labelledby="wip-preview-title" className="min-w-0">

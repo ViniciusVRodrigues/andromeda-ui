@@ -321,12 +321,8 @@ export function UsoIaPage({ can, personRef }) {
           {selected.allocations?.length ? (
             selected.allocations.map((allocation) => (
               <div key={allocation.id} className="border-line border-b py-3">
-                {(allocation.assignedBy === "AGENT" || allocation.movedFromAgent) && (
+                {allocation.movedFromAgent && (
                   <div className="mb-2 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm">
-                    {allocation.assignedBy === "AGENT" && <AgentTag />}
-                    {allocation.assignedBy === "AGENT" && allocation.agent && (
-                      <span className="text-fg-muted">{agentOriginText(allocation.agent)}</span>
-                    )}
                     {allocation.movedFromAgent && (
                       <span className="text-fg-muted">movido do agente</span>
                     )}
@@ -334,9 +330,19 @@ export function UsoIaPage({ can, personRef }) {
                 )}
                 {(allocation.splits || []).map((split) => (
                   <div key={split.workItemId} className="flex justify-between gap-3 py-1">
-                    <WorkItemLink id={split.workItemId}>
-                      {split.workItemTitle || split.workItemId}
-                    </WorkItemLink>
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                        <WorkItemLink id={split.workItemId}>
+                          {split.workItemTitle || split.workItemId}
+                        </WorkItemLink>
+                        {allocation.assignedBy === "AGENT" && <AgentTag />}
+                      </div>
+                      {allocation.assignedBy === "AGENT" && allocation.agent && (
+                        <div className="text-fg-muted text-xs">
+                          {agentOriginText(allocation.agent)}
+                        </div>
+                      )}
+                    </div>
                     <span>
                       {Math.round(Number(split.percentage) * 100)}%
                       {/* Com várias alocações no dia, o % é de cada alocação: sem tokens do dia. */}
