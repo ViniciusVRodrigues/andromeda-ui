@@ -104,6 +104,7 @@ export function MetricsHeader({ summary, loading, month, onMonthChange }) {
                 style: "currency",
                 currency: "USD",
               })}
+              hint="Agente: entrada, cache e saída · Extensão: só saída"
             />
             <StatCard
               label="Interações"
@@ -150,7 +151,7 @@ export function MetricsHeader({ summary, loading, month, onMonthChange }) {
   );
 }
 
-function StatCard({ label, value, unit }) {
+function StatCard({ label, value, unit, hint }) {
   return (
     <div
       style={{
@@ -176,6 +177,14 @@ function StatCard({ label, value, unit }) {
           </span>
         )}
       </div>
+      {hint && (
+        <div
+          className="mono hidden min-[480px]:block"
+          style={{ fontSize: "var(--mono-sm)", color: "var(--fg-muted)", marginTop: 4 }}
+        >
+          {hint}
+        </div>
+      )}
     </div>
   );
 }
