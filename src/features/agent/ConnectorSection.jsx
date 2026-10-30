@@ -6,19 +6,16 @@ import React from "react";
 import { useSearchParams } from "react-router-dom";
 import Tabs from "../../core/ui/Tabs.jsx";
 import { AiConnectorCard } from "../integrations/AiConnectorCard.jsx";
-import { IntegrationDataActions } from "../integrations/IntegrationDataActions.jsx";
-import { useWipeAiUsageData } from "../integrations/hooks.js";
 import AgentTab from "./AgentTab.jsx";
 import { AiefIgnoredNotice } from "./AgentNotices.jsx";
 import PairingDialog from "./PairingDialog.jsx";
+import WipeUsageLink from "./WipeUsageLink.jsx";
 import { normalizeUserCode } from "./code.js";
 import { useAgentMeta } from "./hooks.js";
 
 export default function ConnectorSection({ orgSlug, hasOrg }) {
   const [params, setParams] = useSearchParams();
   const metaQ = useAgentMeta();
-  const limparIA = useWipeAiUsageData();
-  const podeApagarDaOrg = hasOrg("CONNECTOR_TOKEN_MANAGE_ALL");
 
   const urlCode = params.get("codigo");
   const [pairingCode, setPairingCode] = React.useState(() => {
@@ -82,7 +79,13 @@ export default function ConnectorSection({ orgSlug, hasOrg }) {
     {
       id: "agente",
       label: "Agente",
-      panel: <AgentTab orgSlug={orgSlug} onCheckCode={setPairingCode} />,
+      panel: (
+        <AgentTab
+          orgSlug={orgSlug}
+          onCheckCode={setPairingCode}
+          footerAction={<WipeUsageLink hasOrg={hasOrg} />}
+        />
+      ),
     },
     {
       id: "aief",
@@ -91,6 +94,9 @@ export default function ConnectorSection({ orgSlug, hasOrg }) {
         <>
           <AiefIgnoredNotice meta={metaQ.data} />
           <AiConnectorCard orgSlug={orgSlug} />
+          <div className="border-line mt-4 flex justify-end border-t pt-2">
+            <WipeUsageLink hasOrg={hasOrg} />
+          </div>
         </>
       ),
     },
@@ -99,42 +105,6 @@ export default function ConnectorSection({ orgSlug, hasOrg }) {
   return (
     <>
       <Tabs tabs={tabs} value={tab} onChange={onTab} label="Forma de envio do uso de IA" />
-
-      <section aria-labelledby="dados-ia-title" className="mt-6 min-w-0">
-        <h3
-          id="dados-ia-title"
-          className="text-fg-muted mb-1 font-mono text-[11px] tracking-[0.22em] uppercase"
-        >
-          Dados de uso de IA
-        </h3>
-        <p className="text-fg-muted m-0 max-w-[72ch] text-xs">
-          Vale para o uso de IA de qualquer origem: agente ou extensão.
-        </p>
-        <IntegrationDataActions
-          nome="Conector de IA"
-          conectado
-          confirmPhrase="APAGAR"
-          onLimpar={() => limparIA.mutateAsync()}
-          avisoLimpeza={
-            <>
-              {podeApagarDaOrg ? (
-                <>
-                  O uso de IA de <strong>toda a organização</strong> será apagado: consumo diário,
-                  alocações de todos os usuários.
-                </>
-              ) : (
-                <>
-                  <strong>Somente os seus dados</strong> de uso de IA serão apagados — consumo,
-                  alocações. Os dados dos outros usuários não são afetados.
-                </>
-              )}{" "}
-              Ao contrário do Azure DevOps e do GitHub, estes dados{" "}
-              <strong>não podem ser recuperados</strong>: eles chegam por upload, não por
-              sincronização. Não há como desfazer.
-            </>
-          }
-        />
-      </section>
 
       {pairingCode ? (
         <PairingDialog code={pairingCode} onClose={closeDialog} onCodeChange={setPairingCode} />

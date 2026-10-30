@@ -90,7 +90,7 @@ export function ProfilePage() {
               <SectionHeader
                 id="conector-ia-title"
                 title="Conector de IA"
-                description="Como o seu uso de IA chega à Andrômeda. O agente lê os registros das IAs no seu computador e já aponta a tarefa; a extensão AIEF continua disponível para quem já usa."
+                description="Como o seu uso de IA chega à Andrômeda."
               />
               <ConnectorSection orgSlug={slug} hasOrg={hasOrg} />
             </section>

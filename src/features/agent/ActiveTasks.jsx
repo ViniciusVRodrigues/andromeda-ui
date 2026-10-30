@@ -1,16 +1,16 @@
-/* "Tarefa ativa agora" (agente-telas, D4): o que o agente usa para apontar a
- * tarefa, por repositório, mais os padrões de branch que a empresa reconhece. */
+/* "Tarefa ativa" numa linha (telas-ia-refeitas, D4). "Trocar a tarefa" abre o comando
+ * andromeda-agent task e os padrões de branch que a empresa reconhece. */
 
 import React from "react";
 import { Link } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import api from "../../core/api/client.js";
 import CopyBlock from "../../core/ui/CopyBlock.jsx";
-import Tag from "../../core/ui/Tag.jsx";
 import { WorkItemLink } from "../../core/work-items/WorkItemLink.jsx";
 import { formatRelativeAge } from "../../core/ui/RefreshControl.jsx";
 import { orgRoute } from "../../lib/orgRoutes.js";
 import { useAgentToday } from "./hooks.js";
+import ToggleLink from "./ToggleLink.jsx";
 
 /** Rótulo amigável de um padrão (D5). A regex vai do servidor em Java. */
 export function patternLabel(p) {
@@ -49,6 +49,7 @@ function originText(r) {
 export default function ActiveTasks({ meta, orgSlug }) {
   const today = useAgentToday();
   const patterns = usePatternsSummary();
+  const [open, setOpen] = React.useState(false);
 
   const resolved = [...(today.data?.resolved || [])]
     .sort((a, b) => new Date(b.since).getTime() - new Date(a.since).getTime())
@@ -58,86 +59,104 @@ export default function ActiveTasks({ meta, orgSlug }) {
   const p = patterns.data;
   const entries = p && p.enabled !== false ? (p.patterns?.length ? p.patterns : p.defaults) : null;
   const labels = entries ? [...new Set(entries.map(patternLabel))] : [];
+  const none = resolved.length === 0;
+  const toggle = (
+    <ToggleLink
+      open={open}
+      onToggle={() => setOpen((v) => !v)}
+      controls="agent-task-box"
+      className="shrink-0"
+    >
+      Trocar a tarefa
+    </ToggleLink>
+  );
+  const eyebrow = (
+    <span className="text-fg-muted shrink-0 font-mono text-[11px] tracking-[0.22em] uppercase">
+      Tarefa ativa
+    </span>
+  );
 
   return (
-    <section aria-labelledby="agent-task-title" className="mb-6 min-w-0">
-      <h3
-        id="agent-task-title"
-        className="text-fg-muted mb-2 font-mono text-[11px] tracking-[0.22em] uppercase"
-      >
-        Tarefa ativa agora
-      </h3>
-
+    <section aria-label="Tarefa ativa agora" className="border-line mt-4 min-w-0 border-t pt-3">
       {today.isLoading ? (
-        <p role="status" className="text-fg-muted m-0 text-sm">
+        <p role="status" className="text-fg-muted m-0 text-xs">
           Carregando a tarefa ativa…
         </p>
       ) : today.error ? (
-        <p className="text-fg-muted m-0 max-w-[72ch] text-sm">
-          Não foi possível carregar a tarefa ativa.
-        </p>
+        <p className="text-fg-muted m-0 text-xs">Não foi possível carregar a tarefa ativa.</p>
       ) : (
-        <>
-          {resolved.length === 0 && unassigned.length === 0 ? (
-            <p className="text-fg-muted m-0 mb-2 max-w-[72ch] text-sm">
-              Nenhuma tarefa ativa agora. O agente aponta pela branch ou pelo comando abaixo.
-            </p>
+        <ul className="m-0 flex list-none flex-col gap-1 p-0">
+          {none ? (
+            <li className="flex min-w-0 flex-wrap items-baseline gap-x-3 text-xs">
+              {eyebrow}
+              <span className="text-fg-muted">nenhuma, o agente aponta pela branch.</span>
+              {toggle}
+            </li>
           ) : null}
-          <ul className="m-0 mb-3 flex list-none flex-col gap-3 p-0">
-            {resolved.map((r) => (
-              <li key={`${r.repo}-${r.since}`} data-testid="agent-task" className="min-w-0">
-                <div className="flex min-w-0 flex-wrap items-center gap-2 text-sm">
-                  <WorkItemLink id={r.workItem?.id} className="font-mono">
-                    {r.workItem?.displayId}
-                  </WorkItemLink>
-                  <span className="text-fg min-w-0 break-words">{r.workItem?.title}</span>
-                  <Tag tone="accent" srLabel="Apontado pelo" title="Apontado pelo agente">
-                    AGENTE
-                  </Tag>
-                </div>
-                <p className="text-fg-muted m-0 mt-1 max-w-[72ch] text-xs break-words">
-                  {r.repo} · {originText(r)}
-                  {r.since ? ` · ${formatRelativeAge(r.since)}` : ""}
-                </p>
-              </li>
-            ))}
-            {unassigned.map((u) => (
-              <li key={`un-${u.repo}`} data-testid="agent-unassigned" className="min-w-0 text-sm">
-                <p className="text-fg-muted m-0 max-w-[72ch] break-words">
-                  {u.repo} · sem tarefa: o uso vai para a fila de alocação de hoje
-                </p>
-                <Link
-                  to={orgRoute(orgSlug, "uso-ia")}
-                  className="text-accent-text inline-flex min-h-[44px] items-center underline"
-                >
-                  Alocar em Uso de IA
-                </Link>
-              </li>
-            ))}
-          </ul>
-        </>
+          {resolved.map((r, i) => (
+            <li
+              key={`${r.repo}-${r.since}`}
+              data-testid="agent-task"
+              className="flex min-w-0 items-baseline gap-x-3 text-xs"
+            >
+              {i === 0 ? eyebrow : null}
+              <span className="flex min-w-0 flex-1 items-baseline gap-x-2">
+                <WorkItemLink id={r.workItem?.id} className="shrink-0 font-mono">
+                  {r.workItem?.displayId}
+                </WorkItemLink>
+                <span className="text-fg min-w-0 truncate" title={r.workItem?.title}>
+                  {r.workItem?.title}
+                </span>
+                <span className="text-fg-muted shrink-0">
+                  · {r.repo}, {originText(r)}
+                  {r.since ? `, ${formatRelativeAge(r.since)}` : ""}
+                </span>
+              </span>
+              {i === 0 ? toggle : null}
+            </li>
+          ))}
+          {unassigned.map((u) => (
+            <li
+              key={`un-${u.repo}`}
+              data-testid="agent-unassigned"
+              className="flex min-w-0 flex-wrap items-baseline gap-x-2 text-xs"
+            >
+              <span className="text-fg-muted min-w-0 break-words">
+                {u.repo} · sem tarefa: o uso vai para a revisão de hoje.
+              </span>
+              <Link
+                to={orgRoute(orgSlug, "uso-ia")}
+                className="text-accent-text inline-flex min-h-[44px] items-center underline"
+              >
+                Alocar em Uso de IA
+              </Link>
+            </li>
+          ))}
+        </ul>
       )}
 
-      <p className="text-fg m-0 max-w-[72ch] text-sm">
-        Para trocar, rode na pasta do repositório (troque 1235 pelo número do item):
-      </p>
-      <CopyBlock text="andromeda-agent task 1235" />
-      <p className="text-fg-muted m-0 mt-2 max-w-[72ch] text-xs">
-        Vale também para o uso de hoje ainda sem tarefa.
-        {meta?.taskClearCommand ? (
-          <>
-            {" "}
-            Para tirar: <code className="font-mono whitespace-nowrap">{meta.taskClearCommand}</code>
-          </>
-        ) : null}
-      </p>
-      {labels.length > 0 ? (
-        <p
-          data-testid="agent-patterns"
-          className="text-fg-muted m-0 mt-2 max-w-[72ch] text-xs break-words"
-        >
-          A sua empresa reconhece branches como: {labels.join(", ")}.
-        </p>
+      {open ? (
+        <div id="agent-task-box" className="mt-2 max-w-[520px] min-w-0">
+          <p className="text-fg m-0 text-xs">
+            Na pasta do repositório (troque 1235 pelo número do item):
+          </p>
+          <CopyBlock text="andromeda-agent task 1235" />
+          <p className="text-fg-muted m-0 mt-2 text-xs">
+            Vale também para o uso de hoje ainda sem tarefa.
+            {meta?.taskClearCommand ? (
+              <>
+                {" "}
+                Para tirar:{" "}
+                <code className="font-mono whitespace-nowrap">{meta.taskClearCommand}</code>
+              </>
+            ) : null}
+          </p>
+          {labels.length > 0 ? (
+            <p data-testid="agent-patterns" className="text-fg-muted m-0 mt-2 text-xs break-words">
+              A sua empresa reconhece branches como: {labels.join(", ")}.
+            </p>
+          ) : null}
+        </div>
       ) : null}
     </section>
   );

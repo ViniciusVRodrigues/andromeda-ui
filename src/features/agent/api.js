@@ -23,6 +23,11 @@ export async function revokeAgentDevice(id) {
   return null;
 }
 
+/** 202 {deviceId, syncRequestedAt, syncServedAt}. 404 AGENT_DEVICE_NOT_FOUND o hook trata. */
+export function requestAgentSync(deviceId) {
+  return api.post(`/v1/agent/devices/${encodeURIComponent(deviceId)}/sync`);
+}
+
 export function getAgentToday() {
   return api.get("/v1/agent/today");
 }

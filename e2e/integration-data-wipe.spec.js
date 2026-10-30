@@ -35,9 +35,8 @@ async function abrirConectorIA(page) {
 }
 
 function limparDoConectorIA(page) {
-  return page
-    .locator("section", { has: page.getByRole("heading", { name: "Dados de uso de IA" }) })
-    .getByRole("button", { name: /limpar dados/i });
+  // Rodapé da aba: "Dados de uso de IA: Limpar dados…" (telas-ia-refeitas).
+  return page.getByRole("button", { name: /limpar dados/i });
 }
 
 test("limpar dados: botão só libera com a frase exata", async ({ page }) => {

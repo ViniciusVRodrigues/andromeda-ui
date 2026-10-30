@@ -9,7 +9,11 @@ import {
   approvePairing,
   denyPairing,
   revokeAgentDevice,
+  requestAgentSync,
 } from "./api.js";
+import { devicesPollInterval } from "./polling.js";
+
+export { devicesPollInterval };
 
 export const agentKeys = {
   meta: ["agent", "meta"],
@@ -23,7 +27,16 @@ export function useAgentMeta(options = {}) {
 }
 
 export function useAgentDevices(options = {}) {
-  return useQuery({ queryKey: agentKeys.devices, queryFn: getAgentDevices, ...options });
+  return useQuery({
+    queryKey: agentKeys.devices,
+    queryFn: getAgentDevices,
+    staleTime: 0,
+    refetchOnWindowFocus: true,
+    // Para quando nada está pendente e quando a última busca falhou.
+    refetchInterval: (query) =>
+      query.state.status === "error" ? false : devicesPollInterval(query.state.data, Date.now()),
+    ...options,
+  });
 }
 
 export function useAgentToday(options = {}) {
@@ -62,4 +75,35 @@ export function useDenyPairing() {
 export function useRevokeAgentDevice() {
   const invalidate = useInvalidateAgent();
   return useMutation({ mutationFn: revokeAgentDevice, onSuccess: invalidate });
+}
+
+/** Sincronizar agora: grava o item devolvido no cache; 404 tira o item da lista. */
+export function useRequestAgentSync() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: requestAgentSync,
+    onSuccess: (res, deviceId) => {
+      qc.setQueryData(agentKeys.devices, (list) =>
+        Array.isArray(list)
+          ? list.map((d) =>
+              d.id === deviceId
+                ? {
+                    ...d,
+                    syncRequestedAt: res?.syncRequestedAt ?? null,
+                    syncServedAt: res?.syncServedAt ?? d.syncServedAt ?? null,
+                  }
+                : d,
+            )
+          : list,
+      );
+    },
+    onError: (e, deviceId) => {
+      if (e?.status === 404) {
+        qc.setQueryData(agentKeys.devices, (list) =>
+          Array.isArray(list) ? list.filter((d) => d.id !== deviceId) : list,
+        );
+        qc.invalidateQueries({ queryKey: agentKeys.devices });
+      }
+    },
+  });
 }
