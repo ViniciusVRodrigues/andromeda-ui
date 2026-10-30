@@ -1,6 +1,10 @@
 import React from "react";
+import { useSearchParams } from "react-router-dom";
 import api from "../../core/api/client.js";
+import { useIdentity } from "../../core/auth/IdentityContext.jsx";
+import { useProjects } from "../projects/hooks.js";
 import {
+  getAzureProjectBindings,
   configureGithubConnection,
   disconnectGithub,
   getGithubConnectionStatus,
@@ -229,12 +233,40 @@ function parseErrorDetail(detail) {
  * ?integration=<valor>, filtra por entry.integration e lê os campos no
  * formato real do SyncLogResponse do backend (triggeredBy, status, operation,
  * itemsProcessed, itemsFailed, finishedAt, durationMs, errorMessage). */
-function SyncLogDrawer({ open, onClose, integration = "AZURE_DEVOPS" }) {
+function SyncLogDrawer({ open, onClose, integration = "AZURE_DEVOPS", onMapTypes }) {
   const [logs, setLogs] = React.useState([]);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState(null);
   const [statusFilter, setStatusFilter] = React.useState("ALL");
   const [expanded, setExpanded] = React.useState(null);
+  const { hasOrg } = useIdentity();
+  const [, setSearchParams] = useSearchParams();
+  const { data: projects = [] } = useProjects();
+  const [bindings, setBindings] = React.useState([]);
+  const canMap = integration === "AZURE_DEVOPS" && hasOrg("AZURE_CONFIGURE");
+
+  // Vínculos Azure: achar o vínculo de cada projeto para o link "Mapear tipos".
+  React.useEffect(() => {
+    if (!open || !canMap) return;
+    getAzureProjectBindings()
+      .then((data) => setBindings(Array.isArray(data) ? data : []))
+      .catch(() => setBindings([]));
+  }, [open, canMap]);
+
+  // Abre o wizard no passo Tipos. A gaveta fecha antes: o wizard é um diálogo próprio.
+  const mapTypes = (bindingId) => {
+    onMapTypes?.();
+    onClose();
+    setSearchParams(
+      (prev) => {
+        const n = new URLSearchParams(prev);
+        n.set("wizard", "types");
+        n.set("binding", bindingId);
+        return n;
+      },
+      { replace: true },
+    );
+  };
 
   const fetchLogs = React.useCallback(async () => {
     setLoading(true);
@@ -359,6 +391,10 @@ function SyncLogDrawer({ open, onClose, integration = "AZURE_DEVOPS" }) {
           const detail = parseErrorDetail(log.errorDetail);
           const hasDetail = isFailure && (detail || log.errorMessage || log.errorCode);
           const isOpen = expanded === key;
+          const unmapped = integration === "AZURE_DEVOPS" ? (log.itemsUnmappedType ?? 0) : 0;
+          const unmappedNames = Array.isArray(log.unmappedTypes) ? log.unmappedTypes : [];
+          const projectName = projects.find((p) => p.id === log.projectId)?.name;
+          const unmappedBinding = bindings.find((b) => b.projectId === log.projectId);
 
           return (
             <article key={key} className={"log-entry " + statusVariant(log.status)}>
@@ -388,8 +424,36 @@ function SyncLogDrawer({ open, onClose, integration = "AZURE_DEVOPS" }) {
                     <strong>{log.itemsFailed}</strong> falhas
                   </span>
                 )}
+                {unmapped > 0 && (
+                  <span className="log-metric text-warn-text">{unmapped} sem tipo mapeado</span>
+                )}
                 <span className="log-metric">{formatDuration(log.durationMs)}</span>
               </div>
+
+              {unmapped > 0 && (
+                <div
+                  data-testid="log-unmapped"
+                  className="border-warn-text text-warn-text mt-2 rounded-md border px-3 py-2 text-[12px]"
+                >
+                  <p className="m-0">
+                    {projectName || "Um projeto"}: {unmapped} {unmapped === 1 ? "item" : "itens"} de{" "}
+                    {unmappedNames.length || "?"} {unmappedNames.length === 1 ? "tipo" : "tipos"}{" "}
+                    sem mapeamento {unmapped === 1 ? "virou" : "viraram"} Task
+                    {unmappedNames.length > 0 ? `: ${unmappedNames.join(", ")}` : ""}
+                    {unmappedNames.length >= 20 ? " e outros" : ""}.
+                  </p>
+                  {canMap && unmappedBinding && (
+                    <button
+                      type="button"
+                      className="btn-ghost btn mt-1 min-h-[44px]"
+                      aria-label={`Mapear tipos de ${projectName || "projeto"}`}
+                      onClick={() => mapTypes(unmappedBinding.id)}
+                    >
+                      Mapear tipos →
+                    </button>
+                  )}
+                </div>
+              )}
 
               {hasDetail && (
                 <div className="log-error">
@@ -431,6 +495,17 @@ function AzureIntegrationCard({ onStatusChange }) {
   const [status, setStatus] = React.useState(null); // null=loading, "DISCONNECTED"|"CONNECTED"|"EXPIRED"|"ERROR"|"NETWORK_ERROR"
   const [connection, setConnection] = React.useState(null);
   const [logsOpen, setLogsOpen] = React.useState(false);
+  // Wizard aberto pelo "Mapear tipos" do log: a gaveta fecha antes, então ao fechar o wizard
+  // o foco volta ao "Ver logs" (sem isso cairia no body).
+  const logsButtonRef = React.useRef(null);
+  const focusLogsOnWizardCloseRef = React.useRef(false);
+  const [searchParams] = useSearchParams();
+  const wizardOpen = searchParams.has("wizard");
+  React.useEffect(() => {
+    if (wizardOpen || !focusLogsOnWizardCloseRef.current) return;
+    focusLogsOnWizardCloseRef.current = false;
+    logsButtonRef.current?.focus();
+  }, [wizardOpen]);
   const [secondsLeft, setSecondsLeft] = React.useState(0);
   const [disconnectConfirm, setDisconnectConfirm] = React.useState(false);
   const [authMethod, setAuthMethod] = React.useState(null); // null=not chosen, "OAUTH", "PAT"
@@ -741,6 +816,7 @@ function AzureIntegrationCard({ onStatusChange }) {
                     : "Sincronizar agora"}
               </button>
               <button
+                ref={logsButtonRef}
                 className="btn-ghost btn"
                 onClick={() => setLogsOpen(true)}
                 disabled={networkError}
@@ -802,6 +878,9 @@ function AzureIntegrationCard({ onStatusChange }) {
         integration="AZURE_DEVOPS"
         open={logsOpen}
         onClose={() => setLogsOpen(false)}
+        onMapTypes={() => {
+          focusLogsOnWizardCloseRef.current = true;
+        }}
       />
     </>
   );

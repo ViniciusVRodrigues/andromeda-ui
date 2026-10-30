@@ -63,6 +63,14 @@
   --text-4xl: 32px;
 }
 
+/* Gaveta de logs no claro: o fundo fixo do `.log-entry` (legacy.css) escurece o `--bg-elev` e
+ * derruba o `--warn-text` do aviso de tipos sem mapeamento para 3,4:1; o `--bg-deep` dá >= 4,8:1. */
+@layer utilities {
+  :root[data-palette="light"] .log-entry {
+    background: var(--bg-deep);
+  }
+}
+
 /* Borda do combobox no dashboard v2 ≥ 3:1 (D8): `--fg-muted`, como as outras bordas de
  * controle. Só aqui dentro — o `.cmb-trigger` global (legacy.css) fica como está. */
 @layer utilities {

@@ -3,6 +3,7 @@
 import React from "react";
 import { Icon } from "../../components/charts/Charts.jsx";
 import Combobox from "../../core/ui/Combobox.jsx";
+import { outOfSyncSentence } from "../integrations/azureSyncTypes.js";
 
 export function AzureProjectSelect({
   connectionStatus,
@@ -15,6 +16,8 @@ export function AzureProjectSelect({
   onChange,
   onRemove,
   onConfigureMapping,
+  outOfSyncTypes = [],
+  canConfigure = false,
 }) {
   const icon = <Icon name="azure" size={20} color="var(--fg)" />;
 
@@ -68,18 +71,31 @@ export function AzureProjectSelect({
           />
         )}
 
+        {adoBinding && outOfSyncTypes.length > 0 && (
+          <p role="status" className="text-warn-text m-0 mt-2 text-[12px]">
+            {outOfSyncSentence(outOfSyncTypes)} Itens{" "}
+            {outOfSyncTypes.length === 1 ? "desse tipo" : "desses tipos"} não entram no Andromeda.
+          </p>
+        )}
+
         {adoBinding && (
           <div className="project-link-actions">
-            {adoBindingId && (
+            {adoBindingId && canConfigure && (
               <button
                 type="button"
-                className="btn btn-ghost btn-xs"
-                onClick={() => onConfigureMapping(adoBindingId)}
+                className="btn btn-ghost btn-xs min-h-[44px]"
+                onClick={() =>
+                  onConfigureMapping(adoBindingId, outOfSyncTypes.length > 0 ? "types" : "start")
+                }
               >
-                configurar mapeamento
+                {outOfSyncTypes.length > 0 ? "revisar tipos" : "configurar mapeamento"}
               </button>
             )}
-            <button type="button" className="btn btn-ghost btn-xs is-danger" onClick={onRemove}>
+            <button
+              type="button"
+              className="btn btn-ghost btn-xs is-danger min-h-[44px]"
+              onClick={onRemove}
+            >
               remover vínculo
             </button>
           </div>

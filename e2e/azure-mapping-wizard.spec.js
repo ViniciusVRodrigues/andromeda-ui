@@ -138,7 +138,13 @@ test("salvar manda os 12 tipos (Issue incluído) e receivesAi só nos marcados",
       .map((m) => m.rawType)
       .sort(),
   ).toEqual(["Task", "User Story"]);
-  expect(body.syncFilter.workItemTypes.sort()).toEqual(["Epic", "Feature", "Task", "User Story"]);
+  // D1 = B (TIP2): inclusão sempre vazia; os desmarcados vão em excludedWorkItemTypes.
+  expect(body.syncFilter.workItemTypes).toEqual([]);
+  expect(body.syncFilter.excludedWorkItemTypes.sort()).toEqual(
+    TYPES.map((t) => t.name)
+      .filter((n) => !["Epic", "Feature", "Task", "User Story"].includes(n))
+      .sort(),
+  );
 });
 
 test("todos sincronizados: workItemTypes vai vazio", async ({ page }) => {
@@ -152,6 +158,7 @@ test("todos sincronizados: workItemTypes vai vazio", async ({ page }) => {
   await dialog.getByRole("button", { name: "Salvar agora" }).click();
   await expect.poll(() => puts.length).toBe(1);
   expect(puts[0].syncFilter.workItemTypes).toEqual([]);
+  expect(puts[0].syncFilter.excludedWorkItemTypes).toEqual([]);
   expect(puts[0].typeMappings).toHaveLength(12);
 });
 
