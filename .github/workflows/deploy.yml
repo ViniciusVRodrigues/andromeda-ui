@@ -41,6 +41,17 @@ jobs:
             ${{ env.IMAGE }}:main
             ${{ env.IMAGE }}:sha-${{ github.sha }}
 
+      # O script vem do repositório: o deploy não depende mais de uma cópia mantida à mão na VPS.
+      - name: Copy deploy script to VPS
+        uses: appleboy/scp-action@v1
+        with:
+          host: ${{ secrets.VPS_HOST }}
+          username: ${{ secrets.VPS_USER }}
+          key: ${{ secrets.VPS_SSH_KEY }}
+          source: scripts/deploy-ui.sh
+          target: scripts/incoming
+          strip_components: 1
+
       - name: Deploy to VPS
         uses: appleboy/ssh-action@v1
         with:
@@ -48,6 +59,18 @@ jobs:
           username: ${{ secrets.VPS_USER }}
           key: ${{ secrets.VPS_SSH_KEY }}
           script: |
+            # O ssh-action v1 não tem mais script_stop: sem set -e o passo herdaria o status
+            # do último comando, e um deploy-ui.sh que falha passaria como sucesso.
+            set -e
             echo "${{ secrets.GHCR_TOKEN }}" | docker login ghcr.io -u viniciusvrodrigues --password-stdin
+            # Instala o script do repositório. O diff mostra no log o que mudou em relação à
+            # cópia da VPS, e o .bak guarda a cópia antiga para voltar atrás.
+            if [ -f ~/scripts/deploy-ui.sh ]; then
+              diff -u ~/scripts/deploy-ui.sh ~/scripts/incoming/deploy-ui.sh || true
+              cp ~/scripts/deploy-ui.sh ~/scripts/deploy-ui.sh.bak
+            else
+              echo "Sem deploy-ui.sh anterior na VPS: primeira instalação"
+            fi
+            install -m 755 ~/scripts/incoming/deploy-ui.sh ~/scripts/deploy-ui.sh
             IMAGE=${{ env.IMAGE }}:sha-${{ github.sha }} \
             ~/scripts/deploy-ui.sh
