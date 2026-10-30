@@ -7,13 +7,15 @@ import { useAllocateDay } from "./useAllocateDay.js";
 
 export function useUsoIa() {
   const [params, setParams] = useSearchParams();
-  const { can } = useIdentity();
+  const { can, identity } = useIdentity();
   const current = new Date();
   const defaultMonth = `${current.getFullYear()}-${String(current.getMonth() + 1).padStart(2, "0")}`;
   const month = /^\d{4}-(0[1-9]|1[0-2])$/.test(params.get("mes") || "")
     ? params.get("mes")
     : defaultMonth;
-  const selectedUserId = can("uso-ia-team") ? params.get("pessoa") : null;
+  const wanted = can("uso-ia-team") ? params.get("pessoa") : null;
+  // o próprio id na URL é o mesmo que "eu" (valor null)
+  const selectedUserId = wanted && wanted === identity?.userId ? null : wanted;
   const setParam = (key, value) =>
     setParams(
       (old) => {
@@ -64,7 +66,16 @@ export function useUsoIa() {
   };
   return {
     month,
-    setMonth: (value) => setParam("mes", value),
+    setMonth: (value) =>
+      setParams(
+        (old) => {
+          const next = new URLSearchParams(old);
+          next.set("mes", value);
+          next.delete("semana");
+          return next;
+        },
+        { replace: true },
+      ),
     selectedUserId,
     setSelectedUserId: (value) => setParam("pessoa", value),
     summary,
@@ -85,7 +96,7 @@ export function useUsoIa() {
  */
 export function useUsoIaPerson() {
   const [params, setParams] = useSearchParams();
-  const { can } = useIdentity();
+  const { can, identity, profile } = useIdentity();
   const enabled = can("uso-ia-team");
   const members = useQuery({
     queryKey: ["ai-usage", "members"],
@@ -93,7 +104,9 @@ export function useUsoIaPerson() {
     enabled,
     staleTime: 60000,
   });
-  const selectedUserId = enabled ? params.get("pessoa") : null;
+  const ownId = identity?.userId ?? null;
+  const wanted = enabled ? params.get("pessoa") : null;
+  const selectedUserId = wanted && wanted === ownId ? null : wanted;
   const setSelectedUserId = (value) =>
     setParams(
       (old) => {
@@ -104,11 +117,14 @@ export function useUsoIaPerson() {
       },
       { replace: true },
     );
+  const list = (members.data || []).filter((m) => m.id);
+  const own = list.find((m) => m.id === ownId);
+  const ownName = own?.name || own?.email || profile?.personal?.fullName || "Eu";
+  /* O próprio usuário aparece uma vez, como "<nome> · você" (valor "__me__" = null); o id
+   * dele que volta em team-members sai da lista para não duplicar. */
   const options = [
-    { value: "__me__", label: "Meu uso" },
-    ...(members.data || [])
-      .filter((m) => m.id)
-      .map((m) => ({ value: m.id, label: m.name || m.email })),
+    { value: "__me__", label: `${ownName} · você` },
+    ...list.filter((m) => m.id !== ownId).map((m) => ({ value: m.id, label: m.name || m.email })),
   ];
   return { enabled, members, selectedUserId, setSelectedUserId, options };
 }
