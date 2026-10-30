@@ -125,7 +125,7 @@ export default function ActiveTasks({ meta, orgSlug }) {
                 </span>
                 <Link
                   to={orgRoute(orgSlug, "uso-ia")}
-                  className="text-accent-text inline-flex min-h-[44px] items-center underline"
+                  className="text-accent-text -my-[13px] inline-flex min-h-[44px] items-center underline"
                 >
                   Alocar em Uso de IA
                 </Link>

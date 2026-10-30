@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import React from "react";
 import { AllocationSlider } from "./AllocationSlider.jsx";
 import { getAllocationCandidates } from "../api.js";
-import { fmtTokens } from "../lib.js";
+import { fmtTokens, totalTokens } from "../lib.js";
 import { Modal } from "../../../core/ui/Modal.jsx";
 import { TypeBadge } from "../../dashboard/v2/kit/Badges.jsx";
 import { AgentLegend, AgentTag } from "./AgentMark.jsx";
@@ -154,7 +154,7 @@ export function AllocationModal({
   const sumOk = sum === 100;
 
   // Tokens do dia — a fração de cada item é pct% disto, exibida ao vivo no slider.
-  const dayTokens = (batch.totalInputTokens || 0) + (batch.totalOutputTokens || 0);
+  const dayTokens = totalTokens(batch);
 
   const existingIds = new Set(items.map((it) => it.workItemId));
   const filteredSprint = resolvedSprintItems.filter((si) => {

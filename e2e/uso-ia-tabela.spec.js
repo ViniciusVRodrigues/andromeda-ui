@@ -1,6 +1,6 @@
 import { test, expect } from "@playwright/test";
 import { loginAsAdmin, gotoSection } from "./auth.mjs";
-import { PENDING, routeUsoIa } from "./fixtures/uia2-uso.mjs";
+import { PENDING, SUMMARY, routeUsoIa } from "./fixtures/uia2-uso.mjs";
 
 /* Uso de IA refeito (UIA2, pacote UI-2): topo D2-R1, seletor "· você", tabela por semana
  * com Situação e motivo, "Confirmar N dias" em sequência. Roda em replay com o volume real
@@ -245,4 +245,44 @@ test("390 px: a semana vira lista de cartões e a página não rola na horizonta
   expect(box.height).toBeGreaterThanOrEqual(44);
   // a lista também não rola por dentro
   expect(await lista.evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(0);
+});
+
+test("tokens com cache: o dia e o total do mês somam entrada, saída e cache (D6)", async ({
+  page,
+}) => {
+  // 29/10: agente 1M + 1M + 10M de leitura de cache + 1M de escrita, extensão 5M + 1M = 19M
+  const cache = {
+    inputTokens: 6e6,
+    outputTokens: 2e6,
+    cacheReadTokens: 10e6,
+    cacheWriteTokens: 1e6,
+  };
+  const daily = [
+    { day: "2026-10-29", ...cache, interactions: 10, costUsd: 9, hasAgentAllocation: false },
+  ];
+  const pending = PENDING.filter((p) => p.day === "2026-10-29").map((p) => ({
+    ...p,
+    totalInputTokens: 6e6,
+    totalOutputTokens: 2e6,
+    totalCacheReadTokens: 10e6,
+    totalCacheWriteTokens: 1e6,
+  }));
+  const summary = {
+    ...SUMMARY,
+    totalInputTokens: 6e6,
+    totalOutputTokens: 2e6,
+    totalCacheReadTokens: 10e6,
+    totalCacheWriteTokens: 1e6,
+  };
+  await abrir(page, { route: "uso-ia?mes=2026-10&semana=5", opts: { daily, pending, summary } });
+  await expect(linha(page, "29/10")).toContainText("19M");
+  await expect(page.getByText("Total de tokens").locator("..")).toContainText("19M");
+});
+
+test("sem os campos de cache (ms antigo) o cache conta zero", async ({ page }) => {
+  const daily = [
+    { day: "2026-10-29", inputTokens: 6e6, outputTokens: 2e6, interactions: 10, costUsd: 9 },
+  ];
+  await abrir(page, { route: "uso-ia?mes=2026-10&semana=5", opts: { daily, pending: [] } });
+  await expect(linha(page, "29/10")).toContainText("8M");
 });

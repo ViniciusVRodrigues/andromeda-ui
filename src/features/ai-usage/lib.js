@@ -85,6 +85,22 @@ export function reviewReasonText(reasons) {
 
 /** Situação de uma linha do mês:
  * confirmed | review | suggested | unallocated (tem uso, nada a aceitar) | none (sem uso). */
+/**
+ * Tokens de uma linha, de um lote ou do resumo do mês (D6 da pessoa): sempre
+ * `input + output + cacheRead + cacheWrite`. A extensão AIEF já traz o cache dentro do input;
+ * o agente manda à parte. Campo ausente (ms antigo) conta 0.
+ */
+export function totalTokens(row) {
+  if (!row) return 0;
+  const n = (v) => Number(v) || 0;
+  return (
+    n(row.totalInputTokens ?? row.inputTokens) +
+    n(row.totalOutputTokens ?? row.outputTokens) +
+    n(row.totalCacheReadTokens ?? row.cacheReadTokens) +
+    n(row.totalCacheWriteTokens ?? row.cacheWriteTokens)
+  );
+}
+
 export function dayStatus(row) {
   if (row.status === "allocated") return "confirmed";
   if (row.status === "pending") {
@@ -92,9 +108,7 @@ export function dayStatus(row) {
     if (r?.state === "NEEDS_REVIEW" || r?.reasons?.length) return "review";
     return row.suggestionAllocationId ? "suggested" : "unallocated";
   }
-  const hasUsage =
-    (row.totalInputTokens || 0) + (row.totalOutputTokens || 0) > 0 ||
-    Number(row.estimatedCostUsd || 0) > 0;
+  const hasUsage = totalTokens(row) > 0 || Number(row.estimatedCostUsd || 0) > 0;
   return hasUsage ? "unallocated" : "none";
 }
 

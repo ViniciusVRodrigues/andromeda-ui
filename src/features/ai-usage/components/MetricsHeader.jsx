@@ -2,7 +2,7 @@ import React from "react";
 import { Link } from "react-router-dom";
 import { fmtTokens } from "../lib.js";
 import Modal from "../../../core/ui/Modal.jsx";
-import { formatShare, modelLabel, usd } from "../lib.js";
+import { formatShare, modelLabel, totalTokens, usd } from "../lib.js";
 
 function prevMonth(m) {
   const [y, mo] = m.split("-").map(Number);
@@ -53,15 +53,13 @@ export function MetricsHeader({
 }) {
   const [modelsOpen, setModelsOpen] = React.useState(false);
   const isCurrentMonth = month === currentMonthStr();
-  const totalTokens = summary
-    ? (summary.totalInputTokens || 0) + (summary.totalOutputTokens || 0)
-    : 0;
+  const monthTokens = totalTokens(summary);
   const totalCost = summary ? summary.totalCostUsd || 0 : 0;
   const totalInteractions = summary ? summary.totalInteractions || 0 : 0;
   const models = [...(summary?.modelBreakdown || [])].sort(
     (a, b) => parseFloat(b.percentage) - parseFloat(a.percentage),
   );
-  const isEmpty = !loading && summary && totalTokens === 0 && totalInteractions === 0;
+  const isEmpty = !loading && summary && monthTokens === 0 && totalInteractions === 0;
   const maxItem = topItems[0]?.costUsd || 1;
 
   return (
@@ -109,7 +107,7 @@ export function MetricsHeader({
                 hint="Agente: tudo · Extensão: só saída"
                 hintTitle="Agente: entrada, cache e saída · Extensão: só saída"
               />
-              <StatCard label="Total de tokens" value={fmtTokens(totalTokens)} unit="tokens" />
+              <StatCard label="Total de tokens" value={fmtTokens(monthTokens)} unit="tokens" />
               <StatCard
                 label="Interações"
                 value={totalInteractions.toLocaleString("pt-BR")}

@@ -1,6 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { fmtTokens } from "../lib.js";
+import { fmtTokens, totalTokens } from "../lib.js";
 import { AgentLegend, AgentTag } from "./AgentMark.jsx";
 import { useConfirmDays } from "../hooks/useConfirmDays.js";
 import {
@@ -15,7 +15,7 @@ import {
   weekdayShort,
 } from "../lib.js";
 
-const tokensOf = (row) => (row.totalInputTokens || 0) + (row.totalOutputTokens || 0);
+const tokensOf = totalTokens;
 const money = (value) => (value == null ? "Não informado" : usd(value));
 const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
 /* Link em forma de botão: zera a pele do <button> global (fundo, borda, caixa). */
@@ -224,7 +224,12 @@ export function WeekTable({
             >
               {weekRange(w, today).slice(0, 5)}
               <span className="hidden sm:inline">{weekRange(w, today).slice(5)}</span>
-              {count > 0 && ` (${count})`}
+              {count > 0 && (
+                <>
+                  {" "}
+                  <span className="ml-1">({count})</span>
+                </>
+              )}
             </Link>
           );
         })}

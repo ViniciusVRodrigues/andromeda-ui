@@ -18,13 +18,13 @@ import {
   resolveWeek,
   reviewReasonText,
   topWorkItems,
+  totalTokens,
   usd,
   weekRange,
   weeksOfMonth,
 } from "./lib.js";
 
 const money = (value) => (value == null ? "Não informado" : usd(value));
-const tokens = (row) => (row.totalInputTokens || 0) + (row.totalOutputTokens || 0);
 
 /** Seletor de quem está sendo visto (o próprio "<nome> · você" / uma pessoa). O mesmo componente vai na
  * página e, ao rolar, no meio da barra fixa do cabeçalho (com outro nome acessível). */
@@ -72,6 +72,8 @@ export function UsoIaPage({ can, personRef }) {
         day: day.day,
         totalInputTokens: day.inputTokens,
         totalOutputTokens: day.outputTokens,
+        totalCacheReadTokens: day.cacheReadTokens,
+        totalCacheWriteTokens: day.cacheWriteTokens,
         totalInteractions: day.interactions,
         estimatedCostUsd: day.costUsd,
         hasAgentAllocation: !!day.hasAgentAllocation,
@@ -370,7 +372,7 @@ export function UsoIaPage({ can, personRef }) {
                       {Math.round(Number(split.percentage) * 100)}%
                       {/* Com várias alocações no dia, o % é de cada alocação: sem tokens do dia. */}
                       {selected.allocations.length === 1 &&
-                        ` · ${fmtTokens(tokens(selected) * Number(split.percentage))} tokens`}
+                        ` · ${fmtTokens(totalTokens(selected) * Number(split.percentage))} tokens`}
                     </span>
                   </div>
                 ))}
@@ -395,7 +397,7 @@ export function UsoIaPage({ can, personRef }) {
                 </WorkItemLink>
                 <span>
                   {Math.round(Number(split.percentage) * 100)}% ·{" "}
-                  {fmtTokens(tokens(selected) * Number(split.percentage))} tokens
+                  {fmtTokens(totalTokens(selected) * Number(split.percentage))} tokens
                 </span>
               </div>
             ))
