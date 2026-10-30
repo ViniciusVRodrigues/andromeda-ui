@@ -1063,14 +1063,17 @@ test.describe("composição D1-X", () => {
       // Nenhuma caixa de comando visível ao abrir a aba.
       await expect(page.getByRole("tabpanel").locator("pre")).toHaveCount(0);
       await expect(page.getByText("Desatualizado: atualize o agente")).toBeVisible();
-      // Último envio em serifa de 24 px ou mais.
-      const fs = await page
-        .getByText("há 8 min")
-        .evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
-      expect(fs).toBeGreaterThanOrEqual(24);
-      expect(
-        await page.getByText("há 8 min").evaluate((el) => getComputedStyle(el).fontFamily),
-      ).toMatch(/serif/i);
+      // Último envio no tamanho do texto do cartão (pedido da pessoa em 2026-10-30): na mesma
+      // família do nome do computador, do tamanho dele ou um pouco acima, nunca em destaque.
+      const estilo = (el) => {
+        const cs = getComputedStyle(el);
+        return { size: parseFloat(cs.fontSize), family: cs.fontFamily };
+      };
+      const valor = await page.getByText("há 8 min").evaluate(estilo);
+      const nome = await page.getByText("viniciusvr", { exact: true }).evaluate(estilo);
+      expect(valor.family).toBe(nome.family);
+      expect(valor.size).toBeGreaterThanOrEqual(nome.size);
+      expect(valor.size).toBeLessThanOrEqual(16);
     });
   }
 
