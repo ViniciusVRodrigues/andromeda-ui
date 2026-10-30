@@ -71,7 +71,15 @@ const LEGACY = customWith({ workItemTypes: ["Epic", "Feature", "User Story", "Ta
 
 async function openWizard(
   page,
-  { saved = FIRST_USE, types = TYPES, step = "start", fields, states, siblings } = {},
+  {
+    saved = FIRST_USE,
+    types = TYPES,
+    step = "start",
+    fields,
+    states,
+    siblings,
+    typesDelay = 0,
+  } = {},
 ) {
   const { orgSlug } = await loginAsAdmin(page);
   const puts = [];
@@ -79,8 +87,12 @@ async function openWizard(
     r.fulfill({ json: siblings ?? [{ id: "b2", azureProjectName: "Fabrikam Mobile" }] }),
   );
   await page.route("**/api/v1/integrations/azure/bindings/b1", (r) => r.fulfill({ json: saved }));
-  await page.route("**/api/v1/integrations/azure/bindings/b1/process/work-item-types", (r) =>
-    r.fulfill({ json: types }),
+  await page.route(
+    "**/api/v1/integrations/azure/bindings/b1/process/work-item-types",
+    async (r) => {
+      if (typesDelay) await new Promise((res) => setTimeout(res, typesDelay));
+      return r.fulfill({ json: types });
+    },
   );
   await page.route(/work-item-types\/[^/]+\/states/, (r) =>
     states ? states(r) : r.fulfill({ json: STATES }),
@@ -174,6 +186,30 @@ test("12: Pular e usar padrões manda a exclusão dos 4 tipos de teste", async (
   await expect.poll(() => puts.length).toBe(1);
   expect(puts[0].syncFilter.workItemTypes).toEqual([]);
   expect(puts[0].syncFilter.excludedWorkItemTypes.sort()).toEqual(TEST_NAMES);
+});
+
+test("12: Pular espera os tipos chegarem e manda a exclusão dos tipos de teste", async ({
+  page,
+}) => {
+  const { dialog, puts } = await openWizard(page, { typesDelay: 1500 });
+  const skip = dialog.getByRole("button", { name: "Pular e usar padrões" });
+  await expect(skip).toBeDisabled();
+  await expect(skip).toBeEnabled({ timeout: 10000 });
+  await skip.click();
+  await expect.poll(() => puts.length).toBe(1);
+  expect(puts[0].syncFilter.excludedWorkItemTypes.sort()).toEqual(TEST_NAMES);
+});
+
+test("exclusão salva de tipo que o processo não lista mais continua no payload", async ({
+  page,
+}) => {
+  const saved = customWith({ workItemTypes: [], excludedWorkItemTypes: ["Impediment", "Epic"] });
+  const { dialog, puts } = await openWizard(page, { saved });
+  await goStep(dialog, /Tipos/);
+  await expect(dialog.getByRole("checkbox", { name: "Sincronizar Epic" })).not.toBeChecked();
+  await dialog.getByRole("button", { name: "Salvar agora" }).click();
+  await expect.poll(() => puts.length).toBe(1);
+  expect(puts[0].syncFilter.excludedWorkItemTypes.sort()).toEqual(["Epic", "Impediment"]);
 });
 
 test("13: tipo de teste identificado pelo referenceName mesmo com nome em português", async ({

@@ -715,7 +715,14 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
       // D1 = B: inclusão sempre vazia; os desmarcados vão em excludedWorkItemTypes. Só sem
       // tipos descobertos e com lista antiga ainda não convertida ela é mantida (não alarga).
       workItemTypes: types.length === 0 && legacyInclude ? legacyInclude : [],
-      excludedWorkItemTypes: types.length > 0 ? outTypes.map((t) => t.name) : excluded,
+      // Exclusão de tipo que o processo não lista mais: não se apaga (o Azure mantém os itens).
+      excludedWorkItemTypes:
+        types.length > 0
+          ? [
+              ...outTypes.map((t) => t.name),
+              ...excluded.filter((n) => !types.some((t) => normType(t.name) === normType(n))),
+            ]
+          : excluded,
       areaPath: areaPath.trim() || null,
       iterationPath: iterationPath.trim() || null,
     },
@@ -938,7 +945,9 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
             type="button"
             className="btn-ghost btn min-h-[44px] max-[599px]:col-span-2"
             onClick={handleSkip}
-            disabled={saving}
+            // Sem os tipos e sem saber se é o primeiro uso, o padrão de teste ainda não foi aplicado.
+            disabled={saving || typesLoading || firstUse === null}
+            title={typesLoading || firstUse === null ? "Aguarde os tipos carregarem" : undefined}
           >
             {saving ? "Salvando…" : "Pular e usar padrões"}
           </button>
