@@ -247,12 +247,16 @@ test("1 e 3: Campos em tabela a 1280, grupos de opções e etiqueta de IA", asyn
   await expect(dialog.getByRole("combobox", { name: "Esforço: User Story" })).toBeVisible();
   await expect(dialog.getByRole("combobox", { name: "Complexidade: Bug" })).toHaveCount(0);
   const sel = dialog.getByRole("combobox", { name: "Complexidade: Task" });
-  await expect(sel.locator("option").first()).toHaveText("Nenhum");
-  await expect(sel.locator("optgroup")).toHaveCount(2);
-  expect(await sel.locator("optgroup").evaluateAll((g) => g.map((x) => x.label))).toEqual([
-    "Numéricos",
-    "Outros campos",
-  ]);
+  // TIP3: o select virou Combobox; o menu traz "Nenhum" no topo e os grupos (Sugeridos só lista).
+  await sel.click();
+  await expect(page.getByRole("option").first()).toContainText("Nenhum");
+  expect(
+    await page
+      .getByRole("listbox")
+      .locator('[role="group"] > div:not([role])')
+      .evaluateAll((g) => g.map((x) => x.textContent)),
+  ).toEqual(["Sugeridos", "Numéricos", "Outros campos"]);
+  await page.keyboard.press("Escape");
   await expect(dialog.getByText("recebe IA")).toHaveCount(1);
 });
 
@@ -267,7 +271,7 @@ test("1: a 390 cada tipo é um cartão com rótulo visível e selects largos", a
   const sel = dialog.getByRole("combobox", { name: "Complexidade: Task" });
   await expect(sel).toBeVisible();
   await expect(
-    dialog.locator('label:has(select[aria-label="Complexidade: Task"]) > span'),
+    dialog.locator('div:has(> button[aria-label="Complexidade: Task"]) > span'),
   ).toBeVisible();
   const box = await sel.boundingBox();
   expect(box.width).toBeGreaterThanOrEqual(300);
@@ -328,10 +332,10 @@ test("4: Story Points em User Story e Completed Work em Task vão no payload", a
   );
   const { dialog, puts } = await openWizard(page, { saved });
   await goStep(dialog, /Campos/);
-  await dialog
-    .getByRole("combobox", { name: "Complexidade: User Story" })
-    .selectOption("Story Points");
-  await dialog.getByRole("combobox", { name: "Esforço: Task" }).selectOption("Completed Work");
+  await dialog.getByRole("combobox", { name: "Complexidade: User Story" }).click();
+  await page.getByRole("option", { name: /^Story Points/ }).click();
+  await dialog.getByRole("combobox", { name: "Esforço: Task" }).click();
+  await page.getByRole("option", { name: /^Completed Work/ }).click();
   await dialog.getByRole("button", { name: "Salvar agora" }).click();
   await expect.poll(() => puts.length).toBe(1);
   const fm = puts[0].fieldMappings;

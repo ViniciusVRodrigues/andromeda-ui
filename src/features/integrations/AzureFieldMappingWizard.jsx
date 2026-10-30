@@ -9,6 +9,7 @@ import {
 } from "./api.js";
 import { Modal } from "../../core/ui/Modal.jsx";
 import Checkbox from "../../core/ui/Checkbox.jsx";
+import Combobox from "../../core/ui/Combobox.jsx";
 import Disclosure from "../../core/ui/Disclosure.jsx";
 import { Tag } from "../../core/ui/Tag.jsx";
 import { isTestType, namesPreview, normType, outOfSyncSentence } from "./azureSyncTypes.js";
@@ -37,6 +38,40 @@ const RESOLVED_STATUSES = ["TODO", "IN_PROGRESS", "DONE"];
 // 6.2 — static tier lookup used to seed the hierarchy step's initial ranks
 // from each type's mapped resolvedType, rather than raw discovery order.
 const RESOLVED_TYPE_TIER = { EPIC: 0, FEATURE: 1, STORY: 2, TASK: 3, BUG: 3, SUB_TASK: 3 };
+
+// TIP3 — opções do combobox de Campos. "Sugeridos" só lista (nada é pré-preenchido); cada campo
+// aparece em um único grupo. O valor salvo que não existe mais no tipo ganha grupo próprio.
+const SUGGEST_COMPLEXITY = /story ?points|storypoints|size|complexity|complexidade|pontos/i;
+const SUGGEST_EFFORT = /completed ?work|original ?estimate|remaining ?work|effort|esforço|horas/i;
+const isNumericField = (f) => f.type === "double" || f.type === "integer";
+function buildFieldOptions(fields, internal, value) {
+  const re = internal === "COMPLEXITY" ? SUGGEST_COMPLEXITY : SUGGEST_EFFORT;
+  const toOption = (f, group) => ({
+    value: f.referenceName,
+    label: f.name,
+    description: f.referenceName,
+    group,
+  });
+  const out = [];
+  const suggested = fields.filter(
+    (f) => isNumericField(f) && (re.test(f.name) || re.test(f.referenceName)),
+  );
+  const suggestedRefs = new Set(suggested.map((f) => f.referenceName));
+  suggested.forEach((f) => out.push(toOption(f, "Sugeridos")));
+  fields
+    .filter((f) => isNumericField(f) && !suggestedRefs.has(f.referenceName))
+    .forEach((f) => out.push(toOption(f, "Numéricos")));
+  fields.filter((f) => !isNumericField(f)).forEach((f) => out.push(toOption(f, "Outros campos")));
+  if (value && !fields.some((f) => f.referenceName === value)) {
+    out.push({
+      value,
+      label: value.split(".").pop(),
+      description: value,
+      group: "Salvo, não encontrado neste tipo",
+    });
+  }
+  return out;
+}
 
 // 9.4 — best-effort name-based guess for a freshly-discovered work item type,
 // so the admin edits a sensible default rather than starting from a blank
@@ -1231,24 +1266,20 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
           )}
 
           {showCopyPicker && !siblingsLoading && (
-            <label className="ui-field">
-              <span className={labelCls}>Projeto de origem</span>
-              <div className="signup-select">
-                <select
-                  className="min-h-[44px]"
-                  value={selectedSiblingId}
-                  onChange={(e) => setSelectedSiblingId(e.target.value)}
-                >
-                  <option value="">Selecione um projeto</option>
-                  {siblings.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.azureProjectName}
-                    </option>
-                  ))}
-                </select>
-                <span className="signup-select-caret">▾</span>
-              </div>
-            </label>
+            <div className="ui-field">
+              <span id="wizard-source-project-label" className={labelCls}>
+                Projeto de origem
+              </span>
+              <Combobox
+                aria-label="Projeto de origem"
+                trackLabel="Projeto de origem"
+                className="min-h-[44px]"
+                placeholder="Selecione um projeto"
+                value={selectedSiblingId}
+                onValueChange={setSelectedSiblingId}
+                options={siblings.map((s) => ({ value: s.id, label: s.azureProjectName }))}
+              />
+            </div>
           )}
 
           {copyError && (
@@ -1466,6 +1497,10 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
             Completed Work na Task). Nenhum: o valor fica para preencher à mão no Andromeda.
           </p>
 
+          <p role="status" className="text-fg-muted m-0 text-[12px]">
+            {`Complexidade em ${syncedTypes.filter((t) => fieldSelections[t.name]?.complexityField).length} de ${syncedTypes.length} tipos · Esforço em ${syncedTypes.filter((t) => fieldSelections[t.name]?.effortField).length} de ${syncedTypes.length}`}
+          </p>
+
           <div
             aria-hidden="true"
             className="text-fg-muted border-line hidden grid-cols-[minmax(0,1fr)_200px_200px] gap-x-3 border-b px-1 pb-1 text-[10px] uppercase min-[600px]:grid"
@@ -1483,54 +1518,36 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
               const failed = !!fieldsErrorByType[t.name];
               const sel = fieldSelections[t.name] || {};
               const renderSelect = (internal, label, value) => {
-                const numeric = fields.filter((f) => f.type === "double" || f.type === "integer");
-                const others = fields.filter((f) => !(f.type === "double" || f.type === "integer"));
-                const known = !value || fields.some((f) => f.referenceName === value);
+                const selectedField = value && fields.find((f) => f.referenceName === value);
                 return (
-                  <label className="flex flex-col gap-1">
-                    <span className="text-fg-muted text-[12px] min-[600px]:hidden">{label}</span>
-                    <div className="signup-select">
-                      <select
-                        className="min-h-[44px]"
-                        aria-label={`${label}: ${t.name}`}
-                        disabled={loading}
-                        value={loading ? "" : value || ""}
-                        onChange={(e) =>
-                          updateFieldSelection(
-                            t.name,
-                            internal,
-                            fields.find((f) => f.referenceName === e.target.value) || null,
-                          )
-                        }
-                      >
-                        {loading ? (
-                          <option value="">Carregando campos…</option>
-                        ) : (
-                          <>
-                            <option value="">Nenhum</option>
-                            {numeric.length > 0 && (
-                              <optgroup label="Numéricos">
-                                {numeric.map((f) => (
-                                  <option key={f.referenceName} value={f.referenceName}>
-                                    {f.name}
-                                  </option>
-                                ))}
-                              </optgroup>
-                            )}
-                            <optgroup label="Outros campos">
-                              {others.map((f) => (
-                                <option key={f.referenceName} value={f.referenceName}>
-                                  {f.name}
-                                </option>
-                              ))}
-                              {!known && <option value={value}>{value.split(".").pop()}</option>}
-                            </optgroup>
-                          </>
-                        )}
-                      </select>
-                      <span className="signup-select-caret">▾</span>
-                    </div>
-                  </label>
+                  <div className="flex flex-col gap-1">
+                    <span
+                      className="text-fg-muted text-[12px] min-[600px]:hidden"
+                      aria-hidden="true"
+                    >
+                      {label}
+                    </span>
+                    <Combobox
+                      aria-label={`${label}: ${t.name}`}
+                      trackLabel={label}
+                      className="min-h-[44px]"
+                      contentClassName="w-[min(380px,calc(100vw-16px))]"
+                      disabled={loading}
+                      searchable
+                      noneOption={{ label: "Nenhum" }}
+                      placeholder={loading ? "Carregando campos…" : "Nenhum"}
+                      title={value ? selectedField?.referenceName || value : undefined}
+                      value={loading ? "" : value || ""}
+                      options={loading ? [] : buildFieldOptions(fields, internal, value)}
+                      onValueChange={(v) =>
+                        updateFieldSelection(
+                          t.name,
+                          internal,
+                          fields.find((f) => f.referenceName === v) || null,
+                        )
+                      }
+                    />
+                  </div>
                 );
               };
               return (
