@@ -116,10 +116,13 @@ test.describe("useOAuth com ticket (Perfil > GitHub)", () => {
     });
 
     await gotoSection(page, orgSlug, "perfil");
+    /* o popup se fecha sozinho: espera a requisição da página de retorno, não o load */
+    const retornoReq = context.waitForEvent("request", (r) => r.url().includes(RETURN));
     const popupPromise = context.waitForEvent("page");
     await page.getByRole("button", { name: "Conectar GitHub" }).click();
     const popup = await popupPromise;
-    await popup.waitForURL(/\/oauth\/retorno/);
+    await retornoReq;
+    await popup.waitForEvent("close");
 
     await expect(page.getByText("octocat")).toBeVisible();
     expect(ticket.seen).toEqual({ purpose: "GITHUB_PROFILE" });
@@ -142,7 +145,7 @@ test.describe("useOAuth com ticket (Perfil > GitHub)", () => {
     await page.getByRole("button", { name: "Conectar GitHub" }).click();
     await expect(
       page.getByText("Esta conta do GitHub já está ligada a outra pessoa da organização"),
-    ).toBeVisible();
+    ).toBeVisible({ timeout: 15000 }); // o popup carrega os módulos do Vite do zero
     await expect(page.getByRole("button", { name: "Conectar GitHub" })).toBeEnabled();
   });
 
@@ -174,6 +177,173 @@ test.describe("useOAuth com ticket (Perfil > GitHub)", () => {
     await expect(page.getByText("Permita pop-ups para este site e tente de novo")).toBeVisible();
     await expect(page.getByRole("button", { name: "Conectar GitHub" })).toBeEnabled();
     expect(ticket.seen).toBeUndefined();
+  });
+});
+
+/* Correlação do resultado (oauth-popup-correlacao): o popup fica parado numa página pública da
+ * mesma origem até o teste levá-lo a /oauth/retorno. Nunca se espera o `load` de uma página
+ * que se fecha sozinha. */
+const HOLD = "/privacidade";
+const GITHUB_MSG = { type: "andromeda-oauth", provider: "github", status: "linked", code: null };
+
+async function holdAuthorization(context, onHit) {
+  await context.route("**/api/v1/auth/oauth2/authorization/github**", (route) => {
+    onHit?.();
+    return route.fulfill({ status: 302, headers: { location: HOLD } });
+  });
+}
+
+async function openHeldPopup(page, context) {
+  const popupPromise = context.waitForEvent("page");
+  await page.getByRole("button", { name: "Conectar GitHub" }).click();
+  const popup = await popupPromise;
+  await popup.waitForURL(new RegExp(HOLD), { waitUntil: "commit" });
+  return popup;
+}
+
+function publish(rx, msg) {
+  return rx.evaluate((m) => window.__ch.postMessage(m), msg);
+}
+
+test.describe("useOAuth: correlação do resultado com o clique", () => {
+  test("sucesso pelo canal sem confirmação do servidor é ignorado", async ({
+    page,
+    context,
+    baseURL,
+  }) => {
+    const { orgSlug } = await loginAsAdmin(page);
+    const state = await mockProfile(context, {
+      accounts: [{ provider: "GITHUB", externalLogin: "octocat" }],
+      ticket: { status: 201 },
+    });
+    await holdAuthorization(context);
+    await gotoSection(page, orgSlug, "perfil");
+    const rx = await listener(context, baseURL);
+
+    const popup = await openHeldPopup(page, context);
+    await publish(rx, GITHUB_MSG);
+    await page.waitForTimeout(1000);
+
+    await expect(page.getByRole("button", { name: "Aguardando autorização…" })).toBeVisible();
+    await expect(page.getByText("não conectado")).toBeVisible();
+    expect(popup.isClosed()).toBe(false);
+
+    /* o fluxo real termina: o servidor vincula e o popup chega ao retorno */
+    state.markLinked();
+    await popup.goto(new URL(`${RETURN}?provider=github&status=linked`, baseURL).href, {
+      waitUntil: "commit",
+    });
+    await expect(page.getByText("octocat")).toBeVisible();
+  });
+
+  test("mensagem fora do protocolo e postMessage que não veio do popup são ignorados", async ({
+    page,
+    context,
+    baseURL,
+  }) => {
+    const { orgSlug } = await loginAsAdmin(page);
+    let armed = false;
+    let gets = 0;
+    let linkedAt = "2026-10-01T00:00:00Z";
+    await context.route("**/api/v1/users/me/provider-accounts", (route) => {
+      if (!armed) return route.fulfill({ status: 500, json: {} });
+      gets += 1;
+      return route.fulfill({
+        json: [{ provider: "GITHUB", externalLogin: "octocat", linkedAt }],
+      });
+    });
+    await context.route("**/api/v1/auth/oauth2/link-ticket", (route) =>
+      route.fulfill({ status: 201, json: { ticket: "T-123", expiresIn: 60 } }),
+    );
+    await holdAuthorization(context);
+    await gotoSection(page, orgSlug, "perfil");
+    armed = true;
+
+    const popup = await openHeldPopup(page, context);
+    /* 1º GET = retrato do clique, 2º = primeira sondagem da reserva (a próxima só vem 2 s
+     * depois). Logo após ela o servidor passa a ter um vínculo novo: só a forma e a origem das
+     * mensagens podem impedir a conclusão dentro dessa janela. */
+    await expect.poll(() => gets).toBeGreaterThanOrEqual(2);
+    linkedAt = "2026-10-30T12:00:00Z";
+    /* tudo numa só chamada na própria página: o canal entrega às demais instâncias, e o
+     * postMessage tem a própria janela como origem (não o popup) */
+    await page.evaluate((m) => {
+      const ch = new BroadcastChannel("andromeda-oauth");
+      ch.postMessage({ ...m, status: "ok" });
+      ch.postMessage({ ...m, provider: "gitlab" });
+      ch.close();
+      window.postMessage(m, window.location.origin);
+    }, GITHUB_MSG);
+    await page.waitForTimeout(600);
+
+    await expect(page.getByRole("button", { name: "Aguardando autorização…" })).toBeVisible();
+    await expect(page.getByText("octocat")).toHaveCount(0);
+    expect(popup.isClosed()).toBe(false);
+  });
+
+  test("retorno real com confirmação lenta: o popup se fecha e a conta aparece, sem cancelar", async ({
+    page,
+    context,
+  }) => {
+    const { orgSlug } = await loginAsAdmin(page);
+    let linked = false;
+    await context.route("**/api/v1/users/me/provider-accounts", async (route) => {
+      if (!linked) return route.fulfill({ json: [] });
+      await new Promise((r) => setTimeout(r, 2500)); // passa o tick da reserva (2 s)
+      return route.fulfill({
+        json: [{ provider: "GITHUB", externalLogin: "octocat", linkedAt: "2026-10-30T12:00:00Z" }],
+      });
+    });
+    await context.route("**/api/v1/auth/oauth2/link-ticket", (route) =>
+      route.fulfill({ status: 201, json: { ticket: "T-123", expiresIn: 60 } }),
+    );
+    await context.route("**/api/v1/auth/oauth2/authorization/github**", (route) => {
+      linked = true;
+      return route.fulfill({
+        status: 302,
+        headers: { location: `${RETURN}?provider=github&status=linked` },
+      });
+    });
+    await gotoSection(page, orgSlug, "perfil");
+
+    await page.getByRole("button", { name: "Conectar GitHub" }).click();
+    await expect(page.getByText("octocat")).toBeVisible({ timeout: 20000 });
+    await expect(page.getByText("Conexão cancelada.")).toHaveCount(0);
+  });
+
+  test("re-vínculo: a sondagem com o vínculo antigo não fecha o popup", async ({
+    page,
+    context,
+    baseURL,
+  }) => {
+    const { orgSlug } = await loginAsAdmin(page);
+    let armed = false;
+    let account = {
+      provider: "GITHUB",
+      externalLogin: "octocat-antigo",
+      linkedAt: "2026-10-01T00:00:00Z",
+    };
+    await context.route("**/api/v1/users/me/provider-accounts", (route) =>
+      armed ? route.fulfill({ json: [account] }) : route.fulfill({ status: 500, json: {} }),
+    );
+    await context.route("**/api/v1/auth/oauth2/link-ticket", (route) =>
+      route.fulfill({ status: 201, json: { ticket: "T-123", expiresIn: 60 } }),
+    );
+    await holdAuthorization(context);
+    await gotoSection(page, orgSlug, "perfil");
+    armed = true;
+
+    const popup = await openHeldPopup(page, context);
+    await page.waitForTimeout(3000); // passa uma sondagem da reserva
+
+    await expect(page.getByRole("button", { name: "Aguardando autorização…" })).toBeVisible();
+    expect(popup.isClosed()).toBe(false);
+
+    account = { provider: "GITHUB", externalLogin: "octocat", linkedAt: "2026-10-30T12:00:00Z" };
+    await popup.goto(new URL(`${RETURN}?provider=github&status=linked`, baseURL).href, {
+      waitUntil: "commit",
+    });
+    await expect(page.getByText("octocat", { exact: true })).toBeVisible();
   });
 });
 

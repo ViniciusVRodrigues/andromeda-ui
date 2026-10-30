@@ -35,7 +35,17 @@ export function oauthResultMessage({ provider, status, code }) {
   return provider === "azure" ? `${name} conectado.` : `${name} conectado ao seu perfil.`;
 }
 
-/** Mensagem recebida é do protocolo (mesma forma, tipo certo)? */
+export const OAUTH_PROVIDERS = ["github", "azure"];
+export const OAUTH_STATUSES = ["linked", "connected", "error"];
+
+/** Mensagem recebida é do protocolo (tipo, provedor, status e code com a forma certa)? */
 export function isOAuthMessage(data) {
-  return Boolean(data) && typeof data === "object" && data.type === OAUTH_MESSAGE_TYPE;
+  return (
+    Boolean(data) &&
+    typeof data === "object" &&
+    data.type === OAUTH_MESSAGE_TYPE &&
+    OAUTH_PROVIDERS.includes(data.provider) &&
+    OAUTH_STATUSES.includes(data.status) &&
+    (data.code == null || typeof data.code === "string")
+  );
 }
