@@ -174,7 +174,7 @@ function StateLine({ state, onRemark }) {
   return (
     <p
       data-testid="agent-task-state"
-      className={`m-0 min-w-0 text-xs break-words ${warn ? "text-warn-text" : "text-fg-muted"}`}
+      className={`m-0 max-w-[72ch] min-w-0 text-xs break-words ${warn ? "text-warn-text" : "text-fg-muted"}`}
     >
       {warn ? <span aria-hidden="true">! </span> : null}
       {state.tone === "ended" ? <span aria-hidden="true">○ </span> : null}

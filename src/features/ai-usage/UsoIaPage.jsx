@@ -33,12 +33,13 @@ const isAgentRow = (row) =>
   row.review?.source === "AGENT" ||
   (row.suggestion || []).some((s) => ["BRANCH", "MARK", "SINGLE_ACTIVE"].includes(s.source));
 
-/** Botão "Manter": com um item "Manter AB#4812" (nome "Manter AB#4812 em 24/10"). */
+/** Botão "Manter": com um item "Manter AB#4812" (nome "Manter AB#4812 em 24/10"); com vários, "Manter"
+ * (nome "Manter a sugestão em 24/10"), para caber numa linha a 390. */
 function keepLabel(row) {
   if (!row) return {};
   const only = row.suggestion?.length === 1 ? row.suggestion[0].displayId : null;
-  const label = only ? `Manter ${only}` : "Manter a sugestão";
-  return { label, aria: `${label} em ${dayMonth(row.day)}` };
+  const label = only ? `Manter ${only}` : "Manter";
+  return { label, aria: `${only ? label : "Manter a sugestão"} em ${dayMonth(row.day)}` };
 }
 
 const money = (value) => (value == null ? "Não informado" : usd(value));

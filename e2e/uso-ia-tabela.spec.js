@@ -189,7 +189,7 @@ test("Revisar abre os motivos com o que fazer e Manter confirma o dia", async ({
   await expect(itens.nth(1)).toHaveText(
     /^! Neste dia você usou 4× o seu normal \(US\$.*\)\. Confira se é tudo da sugestão\.$/,
   );
-  // dois itens na sugestão: o texto é "Manter a sugestão"
+  // dois itens na sugestão: o texto é "Manter" e o nome acessível "Manter a sugestão em 24/10"
   const manter = dlg.getByRole("button", { name: "Manter a sugestão em 24/10" });
   expect((await manter.boundingBox()).height).toBeGreaterThanOrEqual(44);
   await manter.click();
