@@ -330,6 +330,14 @@ export function UsoIaPage({ can, personRef }) {
           <div className="mb-5 grid grid-cols-2 gap-4">
             <p>Entrada: {fmtTokens(selected.totalInputTokens || 0)} tokens</p>
             <p>Saída: {fmtTokens(selected.totalOutputTokens || 0)} tokens</p>
+            <p>
+              Cache:{" "}
+              {fmtTokens(
+                (selected.totalCacheReadTokens || 0) + (selected.totalCacheWriteTokens || 0),
+              )}{" "}
+              tokens
+            </p>
+            <p>Total: {fmtTokens(totalTokens(selected))} tokens</p>
             <p>Custo: {money(selected.estimatedCostUsd)}</p>
             <p>
               Situação: <span aria-hidden="true">{statusGlyph(selected)} </span>
