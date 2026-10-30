@@ -311,3 +311,23 @@
     }
   }
 }
+
+/* Wizard do Azure a >= 600 px: altura fixa, para o topo, o indicador e o rodapé não pularem
+ * entre os passos (o conteúdo rola dentro do corpo). */
+@layer utilities {
+  @media (min-width: 600px) {
+    .ui-modal.ui-modal--wizard {
+      height: min(760px, calc(100dvh - 48px));
+    }
+  }
+}
+
+/* Indicador de passo grudado no topo do corpo rolável do wizard: mesmo fundo da caixa. */
+@layer utilities {
+  .wizard-sticky {
+    background: var(--bg-elev);
+  }
+  :root[data-palette="light"] .wizard-sticky {
+    background: var(--bg);
+  }
+}

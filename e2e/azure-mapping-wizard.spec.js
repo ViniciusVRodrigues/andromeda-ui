@@ -80,6 +80,14 @@ async function openWizard(page, { putStatus = 200, saved = SAVED } = {}) {
 
 const next = (dialog) => dialog.getByRole("button", { name: /^Continuar/ }).click();
 
+// TIP3: "Fora do sync" vem recolhido; abre antes de mexer nos tipos de dentro.
+async function openOut(dialog) {
+  const d = dialog.locator("details").filter({ hasText: /Fora do sync \(/ });
+  if ((await d.count()) && !(await d.first().evaluate((e) => e.open))) {
+    await d.first().locator("summary").click();
+  }
+}
+
 test("Início: cartão só seleciona, Continuar leva a Tipos, com resumo e radiogroup", async ({
   page,
 }) => {
@@ -104,6 +112,7 @@ test("Tipos: aviso cita o Bug e 8 tipos; IA desabilitado fora do sync", async ({
   await expect(warn).toContainText("8 tipos do Azure ficam fora do sync");
   await expect(warn).toContainText("Bug");
   await expect(dialog.getByText("Fora do sync (8)")).toBeVisible();
+  await openOut(dialog);
   const bugAi = dialog.getByRole("checkbox", { name: "Recebe alocação de IA: Bug" });
   await expect(bugAi).toBeDisabled();
   await expect(dialog.getByText("Sincronize para poder receber IA").first()).toBeVisible();
@@ -150,6 +159,7 @@ test("salvar manda os 12 tipos (Issue incluído) e receivesAi só nos marcados",
 test("todos sincronizados: workItemTypes vai vazio", async ({ page }) => {
   const { dialog, puts } = await openWizard(page);
   await next(dialog);
+  await openOut(dialog);
   for (const t of TYPES) {
     const box = dialog.getByRole("checkbox", { name: `Sincronizar ${t.name}` });
     if ((await box.getAttribute("aria-checked")) !== "true") await box.click();

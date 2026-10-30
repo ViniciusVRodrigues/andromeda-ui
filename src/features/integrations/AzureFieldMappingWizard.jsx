@@ -433,6 +433,7 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
   const aiOf = (name) => isSynced(name) && !!mappingOf(name)?.receivesAi;
   const aiCount = types.filter((t) => aiOf(t.name)).length;
   const noneSynced = types.length > 0 && syncedTypes.length === 0;
+  const [outOpen, setOutOpen] = React.useState(undefined); // undefined = automático (abre se nada sincroniza)
   // Test Case primeiro (o mais reconhecível), depois a ordem do processo.
   const isCase = (t) => /test\s*case|caso de teste/i.test(t.name);
   const testOut = outTypes
@@ -608,6 +609,45 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
     setRanks(next);
     setRanksSeeded(true);
   }, [step, ranksSeeded, hierarchyTypes, typeMappings]);
+
+  // Tipo sincronizado sem nível salvo (vínculo antigo, ou tipo que o processo ganhou depois):
+  // entra pelo tier do resolvedType, no nível que já tem esse tier ou num nível novo na posição
+  // do tier, e ganha a etiqueta "novo". Quem já tem nível não muda.
+  const [hierNew, setHierNew] = React.useState([]);
+  React.useEffect(() => {
+    if (step !== "hierarchy" || !ranksSeeded) return;
+    const missing = hierarchyTypes.filter((t) => ranks[t.name] === undefined);
+    if (missing.length === 0) return;
+    const tierOf = (name) => {
+      const mapping = typeMappings.find((m) => m.rawType === name);
+      return RESOLVED_TYPE_TIER[mapping?.resolvedType || guessResolvedType(name)] ?? 3;
+    };
+    const next = { ...ranks };
+    for (const t of missing) {
+      const tier = tierOf(t.name);
+      // grupos atuais: rank -> menor tier entre os membros que já têm nível
+      const groups = new Map();
+      for (const o of hierarchyTypes) {
+        if (next[o.name] === undefined) continue;
+        const ot = tierOf(o.name);
+        const prev = groups.get(next[o.name]);
+        groups.set(next[o.name], prev === undefined ? ot : Math.min(prev, ot));
+      }
+      const sorted = [...groups.entries()].sort((a, b) => a[0] - b[0]);
+      const same = sorted.find(([, gt]) => gt === tier);
+      if (same) {
+        next[t.name] = same[0];
+        continue;
+      }
+      const idx = sorted.findIndex(([, gt]) => gt > tier);
+      if (sorted.length === 0) next[t.name] = 0;
+      else if (idx === -1) next[t.name] = sorted[sorted.length - 1][0] + 1;
+      else if (idx === 0) next[t.name] = sorted[0][0] - 1;
+      else next[t.name] = (sorted[idx - 1][0] + sorted[idx][0]) / 2;
+    }
+    setRanks(next);
+    setHierNew((prev) => [...new Set([...prev, ...missing.map((t) => t.name)])]);
+  }, [step, ranksSeeded, hierarchyTypes, ranks, typeMappings]);
 
   // Ordered list of distinct ranks present, each with its member type names —
   // this is the shape the ranked-list UI renders (one row per rank group).
@@ -1168,11 +1208,14 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
     >
       {/* E3 — indicador de passo (clicável) */}
       {wide ? (
-        <ol aria-label="Etapas" className="m-0 flex list-none gap-1 p-0">
+        <ol
+          aria-label="Etapas"
+          className="wizard-sticky sticky top-0 z-10 m-0 flex list-none gap-1 p-0 pb-1"
+        >
           {renderStepButtons()}
         </ol>
       ) : (
-        <div>
+        <div className="wizard-sticky sticky top-0 z-10 pb-1">
           <Disclosure
             open={stepsOpen}
             onOpenChange={setStepsOpen}
@@ -1369,12 +1412,24 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
               )}
               {outTypes.length > 0 && (
                 <section aria-label={`Fora do sync (${outTypes.length})`}>
-                  <h4 className="text-fg-muted m-0 mb-2 text-[12px] uppercase">
-                    Fora do sync ({outTypes.length})
-                  </h4>
-                  <ul className="m-0 flex list-none flex-col gap-2 p-0 min-[600px]:gap-0">
-                    {outTypes.map((t) => renderTypeRow(t, types.indexOf(t)))}
-                  </ul>
+                  <Disclosure
+                    open={outOpen ?? noneSynced}
+                    onOpenChange={setOutOpen}
+                    summary={
+                      <span className="flex min-w-0 flex-col gap-0.5">
+                        <span className="text-fg-muted text-[12px] uppercase">
+                          Fora do sync ({outTypes.length})
+                        </span>
+                        <span className="text-fg-muted text-[12px] break-words">
+                          {previewOf(outTypes)}
+                        </span>
+                      </span>
+                    }
+                  >
+                    <ul className="m-0 flex list-none flex-col gap-2 p-0 min-[600px]:gap-0">
+                      {outTypes.map((t) => renderTypeRow(t, types.indexOf(t)))}
+                    </ul>
+                  </Disclosure>
                 </section>
               )}
             </>
@@ -1640,7 +1695,7 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
               id="wiz-area-path"
               className="ui-field-input"
               type="text"
-              placeholder="MeuProjeto\\Equipe"
+              placeholder={"MeuProjeto\\Equipe"}
               value={areaPath}
               onChange={(e) => setAreaPath(e.target.value)}
             />
@@ -1654,7 +1709,7 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
               id="wiz-iteration-path"
               className="ui-field-input"
               type="text"
-              placeholder="MeuProjeto\\Sprint 1"
+              placeholder={"MeuProjeto\\Sprint 1"}
               value={iterationPath}
               onChange={(e) => setIterationPath(e.target.value)}
             />
@@ -1715,7 +1770,14 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
                   <div className="flex flex-col gap-1">
                     {group.typeNames.map((typeName) => (
                       <div key={typeName} className="flex items-center gap-2">
-                        <span className="min-w-0 flex-1 break-words">{typeName}</span>
+                        <span className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+                          <span className="break-words">{typeName}</span>
+                          {hierNew.includes(typeName) && (
+                            <span className="text-fg-muted border-line rounded-full border px-2 text-[11px]">
+                              novo
+                            </span>
+                          )}
+                        </span>
                         <button
                           type="button"
                           className="btn-ghost btn min-h-[44px] min-w-[44px]"
