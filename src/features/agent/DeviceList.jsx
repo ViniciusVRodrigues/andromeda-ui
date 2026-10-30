@@ -132,14 +132,16 @@ function DeviceItem({ d, now, setRevokeRef, onRevoke, updateOpen, onToggleUpdate
         </div>
         {d.lastUploadAt ? (
           <div
-            className={`font-serif text-[26px] leading-tight ${stale ? "text-warn-text" : "text-fg"}`}
+            className={`mt-0.5 font-mono text-base leading-snug font-bold ${stale ? "text-warn-text" : "text-fg"}`}
             title={absolute(d.lastUploadAt)}
           >
             {formatRelativeAge(d.lastUploadAt, now)}
             <span className="sr-only"> (em {absolute(d.lastUploadAt)})</span>
           </div>
         ) : (
-          <div className="text-fg font-serif text-[24px] leading-tight">Ainda não enviou</div>
+          <div className="text-fg mt-0.5 font-mono text-base leading-snug font-bold">
+            Ainda não enviou
+          </div>
         )}
         {view.waiting && !pending ? (
           <div className="text-fg-muted text-xs whitespace-nowrap">
