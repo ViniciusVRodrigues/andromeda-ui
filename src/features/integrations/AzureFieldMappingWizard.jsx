@@ -398,7 +398,11 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
   const aiOf = (name) => isSynced(name) && !!mappingOf(name)?.receivesAi;
   const aiCount = types.filter((t) => aiOf(t.name)).length;
   const noneSynced = types.length > 0 && syncedTypes.length === 0;
-  const testOut = outTypes.filter((t) => testDefaulted.includes(t.name));
+  // Test Case primeiro (o mais reconhecível), depois a ordem do processo.
+  const isCase = (t) => /test\s*case|caso de teste/i.test(t.name);
+  const testOut = outTypes
+    .filter((t) => testDefaulted.includes(t.name))
+    .sort((a, b) => Number(isCase(b)) - Number(isCase(a)));
   const warnOut = outTypes.filter((t) => !testDefaulted.includes(t.name));
 
   // Vínculo antigo com lista de inclusão: com os tipos do processo à mão, converte para a
@@ -1047,6 +1051,7 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
           <span className="text-fg-muted text-[12px] min-[600px]:hidden">Vira no Andromeda</span>
           <div className="signup-select">
             <select
+              className="min-h-11"
               aria-label={`Vira no Andromeda: ${t.name}`}
               value={resolvedOf(t.name)}
               onChange={(e) => updateTypeMapping(t.name, { resolvedType: e.target.value })}
@@ -1230,6 +1235,7 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
               <span className={labelCls}>Projeto de origem</span>
               <div className="signup-select">
                 <select
+                  className="min-h-11"
                   value={selectedSiblingId}
                   onChange={(e) => setSelectedSiblingId(e.target.value)}
                 >
@@ -1427,6 +1433,7 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
                           <span className="min-w-0 break-words">{s.name}</span>
                           <div className="signup-select">
                             <select
+                              className="min-h-11"
                               aria-label={`Status interno de ${s.name} em ${t.name}`}
                               value={statusOf(t.name, s.name)}
                               onChange={(e) => updateStatusMapping(t.name, s.name, e.target.value)}
@@ -1484,6 +1491,7 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
                     <span className="text-fg-muted text-[12px] min-[600px]:hidden">{label}</span>
                     <div className="signup-select">
                       <select
+                        className="min-h-11"
                         aria-label={`${label}: ${t.name}`}
                         disabled={loading}
                         value={loading ? "" : value || ""}

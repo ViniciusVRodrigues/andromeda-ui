@@ -233,7 +233,7 @@ function parseErrorDetail(detail) {
  * ?integration=<valor>, filtra por entry.integration e lê os campos no
  * formato real do SyncLogResponse do backend (triggeredBy, status, operation,
  * itemsProcessed, itemsFailed, finishedAt, durationMs, errorMessage). */
-function SyncLogDrawer({ open, onClose, integration = "AZURE_DEVOPS" }) {
+function SyncLogDrawer({ open, onClose, integration = "AZURE_DEVOPS", onMapTypes }) {
   const [logs, setLogs] = React.useState([]);
   const [loading, setLoading] = React.useState(false);
   const [error, setError] = React.useState(null);
@@ -255,6 +255,7 @@ function SyncLogDrawer({ open, onClose, integration = "AZURE_DEVOPS" }) {
 
   // Abre o wizard no passo Tipos. A gaveta fecha antes: o wizard é um diálogo próprio.
   const mapTypes = (bindingId) => {
+    onMapTypes?.();
     onClose();
     setSearchParams(
       (prev) => {
@@ -494,6 +495,17 @@ function AzureIntegrationCard({ onStatusChange }) {
   const [status, setStatus] = React.useState(null); // null=loading, "DISCONNECTED"|"CONNECTED"|"EXPIRED"|"ERROR"|"NETWORK_ERROR"
   const [connection, setConnection] = React.useState(null);
   const [logsOpen, setLogsOpen] = React.useState(false);
+  // Wizard aberto pelo "Mapear tipos" do log: a gaveta fecha antes, então ao fechar o wizard
+  // o foco volta ao "Ver logs" (sem isso cairia no body).
+  const logsButtonRef = React.useRef(null);
+  const focusLogsOnWizardCloseRef = React.useRef(false);
+  const [searchParams] = useSearchParams();
+  const wizardOpen = searchParams.has("wizard");
+  React.useEffect(() => {
+    if (wizardOpen || !focusLogsOnWizardCloseRef.current) return;
+    focusLogsOnWizardCloseRef.current = false;
+    logsButtonRef.current?.focus();
+  }, [wizardOpen]);
   const [secondsLeft, setSecondsLeft] = React.useState(0);
   const [disconnectConfirm, setDisconnectConfirm] = React.useState(false);
   const [authMethod, setAuthMethod] = React.useState(null); // null=not chosen, "OAUTH", "PAT"
@@ -804,6 +816,7 @@ function AzureIntegrationCard({ onStatusChange }) {
                     : "Sincronizar agora"}
               </button>
               <button
+                ref={logsButtonRef}
                 className="btn-ghost btn"
                 onClick={() => setLogsOpen(true)}
                 disabled={networkError}
@@ -865,6 +878,9 @@ function AzureIntegrationCard({ onStatusChange }) {
         integration="AZURE_DEVOPS"
         open={logsOpen}
         onClose={() => setLogsOpen(false)}
+        onMapTypes={() => {
+          focusLogsOnWizardCloseRef.current = true;
+        }}
       />
     </>
   );
