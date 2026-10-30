@@ -5,15 +5,19 @@ import React from "react";
 import { BACKEND_URL } from "../../core/api/client.js";
 import CopyBlock from "../../core/ui/CopyBlock.jsx";
 import Disclosure from "../../core/ui/Disclosure.jsx";
+import { AGENT_INSTALL_CMD } from "./constants.js";
 
-export default function InstallSteps({ packageName }) {
+export default function InstallSteps() {
   const steps = [
     {
       title: "Tenha o Node.js 22.15 ou mais novo",
       cmd: "node -v",
       note: "Windows, macOS ou Linux. Não precisa de administrador.",
     },
-    { title: "Instale o agente", cmd: `npm i -g ${packageName}` },
+    {
+      title: "Instale o agente",
+      cmd: AGENT_INSTALL_CMD,
+    },
     {
       title: "Ligue este computador à sua conta",
       cmd: `andromeda-agent pair ${BACKEND_URL}`,

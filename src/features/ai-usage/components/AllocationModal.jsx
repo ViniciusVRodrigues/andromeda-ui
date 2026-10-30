@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import React from "react";
 import { AllocationSlider } from "./AllocationSlider.jsx";
 import { getAllocationCandidates } from "../api.js";
-import { fmtTokensM } from "../../../core/tokenMath.js";
+import { fmtTokens, totalTokens } from "../lib.js";
 import { Modal } from "../../../core/ui/Modal.jsx";
 import { TypeBadge } from "../../dashboard/v2/kit/Badges.jsx";
 import { AgentLegend, AgentTag } from "./AgentMark.jsx";
@@ -154,7 +154,7 @@ export function AllocationModal({
   const sumOk = sum === 100;
 
   // Tokens do dia — a fração de cada item é pct% disto, exibida ao vivo no slider.
-  const dayTokens = (batch.totalInputTokens || 0) + (batch.totalOutputTokens || 0);
+  const dayTokens = totalTokens(batch);
 
   const existingIds = new Set(items.map((it) => it.workItemId));
   const filteredSprint = resolvedSprintItems.filter((si) => {
@@ -240,7 +240,7 @@ export function AllocationModal({
       title={<>Alocação de {String(batch.day).split("-").reverse().join("/")}</>}
       subtitle={
         dayTokens > 0
-          ? `Divida os ${fmtTokensM(dayTokens)} tokens deste dia entre os work items da sprint.`
+          ? `Divida os ${fmtTokens(dayTokens)} tokens deste dia entre os work items da sprint.`
           : "Divida os tokens deste dia entre os work items da sprint."
       }
       footer={
@@ -317,7 +317,7 @@ export function AllocationModal({
               onRemove={() => handleRemove(i)}
               disabled={loading}
               tokensLabel={
-                dayTokens > 0 ? `${fmtTokensM((item.pct / 100) * dayTokens)} tokens` : undefined
+                dayTokens > 0 ? `${fmtTokens((item.pct / 100) * dayTokens)} tokens` : undefined
               }
               wi={item.wi ?? itemsById?.get(item.workItemId)}
             />
@@ -336,8 +336,8 @@ export function AllocationModal({
       >
         <span className={`mono text-[12px] ${sumOk ? "text-good-text" : "text-bad-text"}`}>
           {sumOk
-            ? `Σ = 100% ✓${dayTokens > 0 ? ` · ${fmtTokensM(dayTokens)} tokens alocados` : ""}`
-            : `Σ = ${sum}%${dayTokens > 0 ? ` · ${fmtTokensM((sum / 100) * dayTokens)} de ${fmtTokensM(dayTokens)}` : ""}`}
+            ? `Σ = 100% ✓${dayTokens > 0 ? ` · ${fmtTokens(dayTokens)} tokens alocados` : ""}`
+            : `Σ = ${sum}%${dayTokens > 0 ? ` · ${fmtTokens((sum / 100) * dayTokens)} de ${fmtTokens(dayTokens)}` : ""}`}
         </span>
         {!sumOk && (
           <span className="text-fg-muted text-[12px]">O total deve ser exatamente 100%</span>
