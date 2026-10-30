@@ -1051,7 +1051,7 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
           <span className="text-fg-muted text-[12px] min-[600px]:hidden">Vira no Andromeda</span>
           <div className="signup-select">
             <select
-              className="min-h-11"
+              className="min-h-[44px]"
               aria-label={`Vira no Andromeda: ${t.name}`}
               value={resolvedOf(t.name)}
               onChange={(e) => updateTypeMapping(t.name, { resolvedType: e.target.value })}
@@ -1235,7 +1235,7 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
               <span className={labelCls}>Projeto de origem</span>
               <div className="signup-select">
                 <select
-                  className="min-h-11"
+                  className="min-h-[44px]"
                   value={selectedSiblingId}
                   onChange={(e) => setSelectedSiblingId(e.target.value)}
                 >
@@ -1433,7 +1433,7 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
                           <span className="min-w-0 break-words">{s.name}</span>
                           <div className="signup-select">
                             <select
-                              className="min-h-11"
+                              className="min-h-[44px]"
                               aria-label={`Status interno de ${s.name} em ${t.name}`}
                               value={statusOf(t.name, s.name)}
                               onChange={(e) => updateStatusMapping(t.name, s.name, e.target.value)}
@@ -1491,7 +1491,7 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
                     <span className="text-fg-muted text-[12px] min-[600px]:hidden">{label}</span>
                     <div className="signup-select">
                       <select
-                        className="min-h-11"
+                        className="min-h-[44px]"
                         aria-label={`${label}: ${t.name}`}
                         disabled={loading}
                         value={loading ? "" : value || ""}
