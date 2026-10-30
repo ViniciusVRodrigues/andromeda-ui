@@ -3,7 +3,7 @@
 
 import React from "react";
 import CopyBlock from "../../core/ui/CopyBlock.jsx";
-import { AGENT_INSTALL_CMD } from "./constants.js";
+import { AGENT_UPDATE_CMD } from "./constants.js";
 
 export const AIEF_IGNORED_TEXT =
   "Com o agente ativo, a extensão AIEF deixou de contar Claude Code e Codex. O Copilot e as outras IAs da extensão continuam contando.";
@@ -21,14 +21,12 @@ export function AiefIgnoredNotice({ meta }) {
   );
 }
 
-/** Caixa aberta por "Como atualizar": o mesmo comando da instalação. */
+/** Caixa aberta por "Como atualizar": o comando que traz a versão mais nova do npm. */
 export function UpdateBox({ id }) {
   return (
     <div id={id} data-testid="agent-update-box" className="max-w-[520px] min-w-0">
-      <p className="text-fg-muted m-0 text-xs">
-        Rode no computador. O mesmo comando instala e atualiza.
-      </p>
-      <CopyBlock text={AGENT_INSTALL_CMD} />
+      <p className="text-fg-muted m-0 text-xs">Rode no computador para atualizar.</p>
+      <CopyBlock text={AGENT_UPDATE_CMD} />
     </div>
   );
 }

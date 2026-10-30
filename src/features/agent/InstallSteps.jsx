@@ -17,7 +17,6 @@ export default function InstallSteps() {
     {
       title: "Instale o agente",
       cmd: AGENT_INSTALL_CMD,
-      note: "O npm pode mostrar um aviso de allow-scripts. A instalação segue normalmente.",
     },
     {
       title: "Ligue este computador à sua conta",

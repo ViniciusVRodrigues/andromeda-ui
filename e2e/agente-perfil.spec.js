@@ -2,7 +2,7 @@ import { test, expect } from "@playwright/test";
 import { loginAsAdmin, FIXED_NOW, installClipboardFallback } from "./auth.mjs";
 import { agentFixtures } from "./fixtures/uia2-agente.mjs";
 import { devicesPollInterval } from "../src/features/agent/polling.js";
-import { AGENT_INSTALL_CMD } from "../src/features/agent/constants.js";
+import { AGENT_INSTALL_CMD, AGENT_UPDATE_CMD } from "../src/features/agent/constants.js";
 
 /* Perfil → Conector de IA com abas Agente / Extensão AIEF (agente-telas, UI-2).
  * Critérios 1 a 19 do plano (o 20 está em agente-parear.spec.js). As rotas do
@@ -316,7 +316,6 @@ test.describe("primeiro uso e instalação", () => {
     await expect(dialog.getByText("Tenha o Node.js 22.15 ou mais novo")).toBeVisible();
     await expect(dialog.getByText("node -v", { exact: true })).toBeVisible();
     await expect(dialog.getByText(AGENT_INSTALL_CMD, { exact: true })).toBeVisible();
-    await expect(dialog.getByText(/allow-scripts/)).toBeVisible();
     await expect(
       // o servidor vem da URL da API (muda no Docker)
       dialog.getByText(/^andromeda-agent pair https?:\/\/\S+$/),
@@ -327,11 +326,9 @@ test.describe("primeiro uso e instalação", () => {
     await dialog.getByText("Problemas na instalação").click();
     await expect(dialog.getByText(/npm\.ps1/)).toBeVisible();
 
-    // O comando antigo, sem o GitHub, não existe em lugar nenhum da tela.
-    expect(await page.locator("body").innerText()).not.toContain("npm i -g andromeda-agent");
-    expect(AGENT_INSTALL_CMD).toBe(
-      "npm i -g --install-links github:ViniciusVRodrigues/andromeda-agent",
-    );
+    // Instala pelo npm (0.4.0 publicada); a instalação pelo GitHub sumiu da tela.
+    expect(AGENT_INSTALL_CMD).toBe("npm i -g andromeda-agent");
+    expect(await page.locator("body").innerText()).not.toMatch(/install-links|github:/);
 
     // Copiar põe exatamente o texto exibido e anuncia "Copiado!".
     const passo2 = dialog.locator("li").filter({ hasText: "Instale o agente" });
@@ -631,7 +628,7 @@ test.describe("computadores", () => {
     await expect(antigo.getByText("SEM ENVIO")).toBeVisible();
     await expect(antigo).toContainText("Esta versão não envia mais o uso");
 
-    // "Como atualizar" abre UMA caixa com o comando do GitHub, só no item que pediu.
+    // "Como atualizar" abre UMA caixa com o comando do npm @latest, só no item que pediu.
     const como = mac.getByRole("button", { name: "Como atualizar" });
     await expect(como).toHaveAttribute("aria-expanded", "false");
     await expect(page.getByTestId("agent-update-box")).toHaveCount(0);
@@ -639,9 +636,10 @@ test.describe("computadores", () => {
     await expect(como).toHaveAttribute("aria-expanded", "true");
     await expect(page.getByTestId("agent-update-box")).toHaveCount(1);
     await expect(
-      mac.getByTestId("agent-update-box").getByText(AGENT_INSTALL_CMD, { exact: true }),
+      mac.getByTestId("agent-update-box").getByText(AGENT_UPDATE_CMD, { exact: true }),
     ).toBeVisible();
-    expect(await page.locator("body").innerText()).not.toContain("npm i -g andromeda-agent");
+    expect(AGENT_UPDATE_CMD).toBe("npm i -g andromeda-agent@latest");
+    expect(await page.locator("body").innerText()).not.toMatch(/install-links|github:/);
 
     const sumido = page.getByTestId("agent-device").filter({ hasText: "pc-sumido" });
     await expect(sumido).toContainText("Sem contato há 3 dias. O agente está rodando?");
