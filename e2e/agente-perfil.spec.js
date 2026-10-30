@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { loginAsAdmin, FIXED_NOW } from "./auth.mjs";
+import { loginAsAdmin, FIXED_NOW, installClipboardFallback } from "./auth.mjs";
 import { agentFixtures } from "./fixtures/uia2-agente.mjs";
 import { devicesPollInterval } from "../src/features/agent/polling.js";
 import { AGENT_INSTALL_CMD } from "../src/features/agent/constants.js";
@@ -301,6 +301,7 @@ test.describe("primeiro uso e instalação", () => {
   }) => {
     const slug = await open(page);
     await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+    await installClipboardFallback(page);
     await mockAgent(page);
     await gotoPerfil(page, slug);
 
@@ -317,7 +318,8 @@ test.describe("primeiro uso e instalação", () => {
     await expect(dialog.getByText(AGENT_INSTALL_CMD, { exact: true })).toBeVisible();
     await expect(dialog.getByText(/allow-scripts/)).toBeVisible();
     await expect(
-      dialog.getByText("andromeda-agent pair http://localhost:9090", { exact: true }),
+      // o servidor vem da URL da API (muda no Docker)
+      dialog.getByText(/^andromeda-agent pair https?:\/\/\S+$/),
     ).toBeVisible();
     await expect(dialog.getByText("andromeda-agent install", { exact: true })).toBeVisible();
     await expect(dialog.getByLabel("Código de pareamento", { exact: true })).toBeVisible();

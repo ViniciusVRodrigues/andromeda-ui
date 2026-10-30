@@ -69,12 +69,14 @@ test.describe("perfil: card do conector de IA", () => {
     await installDashboardsApi(page, { passthrough: true });
     await gotoSection(page, orgSlug, "dashboard");
     await page.getByRole("button", { name: "Perfil e conector de IA" }).click();
-    await expect(page).toHaveURL(new RegExp(`/${orgSlug}/perfil$`));
+    await expect(page).toHaveURL(new RegExp(`/${orgSlug}/perfil(\\?conector=aief)?$`));
     await expect(page.getByRole("heading", { name: "Conector de IA" })).toBeVisible();
+    // O Perfil abre na aba do agente; o cartão da extensão AIEF (com "Gerar URL") fica na outra aba.
+    await page.getByRole("tab", { name: "Extensão AIEF" }).click();
     await expect(connectorCard(page).getByRole("button", { name: "Gerar URL →" })).toBeVisible();
     await page.reload();
     await page.waitForLoadState("networkidle");
-    await expect(page).toHaveURL(new RegExp(`/${orgSlug}/perfil$`));
+    await expect(page).toHaveURL(new RegExp(`/${orgSlug}/perfil(\\?conector=aief)?$`));
     await expect(page.getByRole("heading", { name: "Conector de IA" })).toBeVisible();
     await page.getByRole("button", { name: "← Dashboard" }).click();
     await expect(page).toHaveURL(new RegExp(`/${orgSlug}/dashboard$`));

@@ -1,0 +1,6 @@
+{
+  "request": "POST /api/v1/organizations/me/work-item-patterns/preview",
+  "status": 200,
+  "contentType": "application/json",
+  "body": "[{\"branch\":\"feature/AB#1234-login\",\"workItemNumber\":null,\"patternIndex\":null,\"match\":null},{\"branch\":\"1234-corrige-login\",\"workItemNumber\":null,\"patternIndex\":null,\"match\":null},{\"branch\":\"PROJ-88_ajuste\",\"workItemNumber\":null,\"patternIndex\":null,\"match\":null},{\"branch\":\"hotfix/ajuste-css\",\"workItemNumber\":null,\"patternIndex\":null,\"match\":null},{\"branch\":\"main\",\"workItemNumber\":null,\"patternIndex\":null,\"match\":null}]"
+}
