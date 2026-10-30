@@ -31,10 +31,11 @@ import { useUsers } from "../users/hooks.js";
 import { useRoles } from "../organization/hooks.js";
 import { RepoBindingsSection } from "./RepoBindingsSection.jsx";
 import { AzureProjectSelect } from "./AzureProjectSelect.jsx";
+import { warnExcludedTypes } from "../integrations/azureSyncTypes.js";
 
 export function ProjectsPage() {
   const queryClient = useQueryClient();
-  const [, setSearchParams] = useSearchParams();
+  const [searchParams, setSearchParams] = useSearchParams();
   const navigate = useNavigate();
   const { orgSlug, identity, hasOrg, refreshIdentity } = useIdentity();
   /* Gating só de UX — a barreira real é o @PreAuthorize do backend:
@@ -44,6 +45,7 @@ export function ProjectsPage() {
   const canManageProjects = hasOrg("PROJECT_MANAGE");
   const canEditMembers = hasOrg("USER_MANAGE");
   const canConfigureRepos = hasOrg("REPOS_CONFIGURE");
+  const canConfigureAzure = hasOrg("AZURE_CONFIGURE");
   const toIntegrations = () => navigate(orgRoute(orgSlug, "integracoes"));
   const toTeam = () => navigate(orgRoute(orgSlug, "pessoas"));
   const {
@@ -93,6 +95,24 @@ export function ProjectsPage() {
       .then((data) => setAzureBindings(Array.isArray(data) ? data : []))
       .catch(() => setAzureBindings([]));
   }, []);
+
+  /* O wizard é um overlay do App (URL ?wizard=): ao fechar, rebusca os vínculos para o aviso
+   * de tipos fora do sync refletir o que foi salvo. */
+  const wizardOpen = !!searchParams.get("wizard");
+  const wizardWasOpen = React.useRef(false);
+  React.useEffect(() => {
+    if (wizardWasOpen.current && !wizardOpen) refreshAzureBindings();
+    wizardWasOpen.current = wizardOpen;
+  }, [wizardOpen, refreshAzureBindings]);
+
+  /* Tipos do Azure fora do sync por projeto (sem os de teste, que começam fora por padrão). */
+  const outOfSyncByProject = React.useMemo(() => {
+    const map = {};
+    for (const b of azureBindings) {
+      if (b.projectId) map[b.projectId] = warnExcludedTypes(b.workflowConfig);
+    }
+    return map;
+  }, [azureBindings]);
 
   /* Vínculos de repositório (todos os provedores) — React Query: o card do
    * projeto invalida a mesma chave ao vincular/remover, e os chips acompanham. */
@@ -420,6 +440,13 @@ export function ProjectsPage() {
                     Azure DevOps
                   </span>
                 </div>
+                {(outOfSyncByProject[p.id]?.length ?? 0) > 0 && (
+                  <div className="text-warn-text mt-1 text-[12px]">
+                    {outOfSyncByProject[p.id].length === 1
+                      ? "1 tipo fora do sync"
+                      : `${outOfSyncByProject[p.id].length} tipos fora do sync`}
+                  </div>
+                )}
 
                 <div className="project-card-foot">
                   {memberCount > 0 ? (
@@ -555,6 +582,8 @@ export function ProjectsPage() {
                       azureBindings.find((b) => b.projectId === editingProject.id)?.id || null
                     }
                     projectId={editingProject.id}
+                    outOfSyncTypes={outOfSyncByProject[editingProject.id] || []}
+                    canConfigure={canConfigureAzure}
                     onNavigate={toIntegrations}
                     onChange={async (azureProjectId, azureProjectName) => {
                       setAdoBinding(azureProjectId);
@@ -596,7 +625,7 @@ export function ProjectsPage() {
                         }
                       }
                     }}
-                    onConfigureMapping={(bindingId) => openWizard("start", bindingId)}
+                    onConfigureMapping={(bindingId, step = "start") => openWizard(step, bindingId)}
                   />
                 </div>
 

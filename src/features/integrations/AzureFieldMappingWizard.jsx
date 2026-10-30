@@ -9,6 +9,9 @@ import {
 } from "./api.js";
 import { Modal } from "../../core/ui/Modal.jsx";
 import Checkbox from "../../core/ui/Checkbox.jsx";
+import Disclosure from "../../core/ui/Disclosure.jsx";
+import { Tag } from "../../core/ui/Tag.jsx";
+import { isTestType, namesPreview, normType, outOfSyncSentence } from "./azureSyncTypes.js";
 import { STATUS_LABEL } from "../dashboard/v2/format.js";
 
 const RESOLVED_TYPES = ["STORY", "FEATURE", "BUG", "TASK", "SUB_TASK", "EPIC"];
@@ -77,7 +80,24 @@ function guessResolvedStatus(stateName) {
  * every existing mapping instead of starting blank and wiping field mappings
  * on save.
  */
+function useWide() {
+  const query = "(min-width: 600px)";
+  const [wide, setWide] = React.useState(() =>
+    typeof window !== "undefined" && window.matchMedia ? window.matchMedia(query).matches : true,
+  );
+  React.useEffect(() => {
+    if (!window.matchMedia) return undefined;
+    const mq = window.matchMedia(query);
+    const on = () => setWide(mq.matches);
+    on();
+    mq.addEventListener("change", on);
+    return () => mq.removeEventListener("change", on);
+  }, []);
+  return wide;
+}
+
 export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep }) {
+  const wide = useWide();
   // "start" (copy-once choice) | "types" | "status" | "mapping" | "filter" | "hierarchy".
   // Reopening the wizard via "Configurar mapeamento" always passes no initialStep,
   // so it lands on "start" just like the auto-open-on-new-binding path.
@@ -105,10 +125,7 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
   // transition, pop on "Voltar". Keeps all draft state untouched (no re-fetch).
   const [stepHistory, setStepHistory] = React.useState([]);
 
-  const [selectedTypeForFields, setSelectedTypeForFields] = React.useState(null);
   const [fieldsByType, setFieldsByType] = React.useState({}); // { [typeName]: field[] }
-  const [fieldsLoading, setFieldsLoading] = React.useState(false);
-  const [fieldsError, setFieldsError] = React.useState(null);
 
   // Per-type field selections: { [typeName]: { complexityField, complexityFieldType,
   // effortField, effortFieldType } }. Complexity and effort are mapped per work item type
@@ -125,13 +142,26 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
   // (reopen path) — drives the "edit current config" copy on the start step.
   const [hasOwnConfig, setHasOwnConfig] = React.useState(false);
 
-  // Tipos que sincronizam: null = todos (inclusive tipos novos do Azure, salva
-  // workItemTypes: []); lista = só esses. Lista vazia = nenhum (a UI não deixa avançar).
-  const [syncSel, setSyncSel] = React.useState(null);
+  // Tipos FORA do sync (D1 = B): o que não está aqui sincroniza, inclusive tipo novo do
+  // Azure. Salva em syncFilter.excludedWorkItemTypes, com workItemTypes sempre [].
+  const [excluded, setExcluded] = React.useState([]);
+  // Lista de inclusão de um vínculo antigo, ainda não convertida: vira `excluded` assim que
+  // os tipos do processo chegam (os que não estão nela ficam fora).
+  const [legacyInclude, setLegacyInclude] = React.useState(null);
+  // Primeiro uso: null = ainda não sei; true = vínculo sem configuração própria e sem cópia.
+  const [firstUse, setFirstUse] = React.useState(null);
+  // Tipos de teste que começaram fora do sync por padrão (linha neutra no passo Tipos).
+  const [testDefaulted, setTestDefaulted] = React.useState([]);
+  const [stepsOpen, setStepsOpen] = React.useState(false);
+  const [openStatus, setOpenStatus] = React.useState({}); // { [typeName]: boolean } escolha manual
+  const [fieldsErrorByType, setFieldsErrorByType] = React.useState({});
+  const [fieldsLoadingByType, setFieldsLoadingByType] = React.useState({});
   // Tipos com mapeamento já salvo no vínculo e se o filtro salvo era "todos" (etiquetas E1/E2).
   const [savedTypeNames, setSavedTypeNames] = React.useState(null);
   const [savedAllSync, setSavedAllSync] = React.useState(true);
   const [typesReload, setTypesReload] = React.useState(0);
+  const copiedRef = React.useRef(false);
+  const defaultsDoneRef = React.useRef(false);
   const stepHeadingRef = React.useRef(null);
   const firstStepRender = React.useRef(true);
   const [areaPath, setAreaPath] = React.useState("");
@@ -165,7 +195,6 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
         if (cancelled) return;
         const list = data || [];
         setTypes(list);
-        if (list.length > 0) setSelectedTypeForFields((prev) => prev || list[0].name);
         // Hierarchy step's `ranks` are seeded separately (6.2), by resolved-type
         // tier, the first time the hierarchy step is reached — not here.
       })
@@ -245,7 +274,16 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
 
     const filter = cfg.syncFilter || {};
     const filterList = Array.isArray(filter.workItemTypes) ? filter.workItemTypes : [];
-    setSyncSel(filterList.length > 0 ? filterList : null);
+    const excludedList = Array.isArray(filter.excludedWorkItemTypes)
+      ? filter.excludedWorkItemTypes
+      : [];
+    if (excludedList.length > 0) {
+      setExcluded(excludedList);
+      setLegacyInclude(null);
+    } else {
+      setExcluded([]);
+      setLegacyInclude(filterList.length > 0 ? filterList : null);
+    }
     if (own) setSavedAllSync(filterList.length === 0);
     setAreaPath(filter.areaPath || "");
     setIterationPath(filter.iterationPath || "");
@@ -272,77 +310,40 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
       .then((binding) => {
         if (cancelled) return;
         const cfg = binding?.workflowConfig;
-        if (!cfg || cfg.configSource !== "CUSTOM") return;
+        if (!cfg || cfg.configSource !== "CUSTOM") {
+          if (!copiedRef.current) setFirstUse(true);
+          return;
+        }
+        setFirstUse(false);
         seedDraftFromConfig(cfg, { own: true });
         setHasOwnConfig(true);
       })
       .catch(() => {
         /* fetch failed: draft stays blank, admin rebuilds from scratch */
+        setFirstUse(false);
       });
     return () => {
       cancelled = true;
     };
   }, [bindingId]); // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Campos por tipo (passo Campos): cada linha carrega e falha sozinha.
+  const requestedFieldsRef = React.useRef(new Set());
   const loadFieldsForType = React.useCallback(
-    (typeName) => {
-      if (!typeName || fieldsByType[typeName]) return;
-      setFieldsLoading(true);
-      setFieldsError(null);
-      getAzureWorkItemTypeFields(bindingId, typeName)
-        .then((data) => {
-          setFieldsByType((prev) => ({ ...prev, [typeName]: data || [] }));
-        })
-        .catch(() => {
-          setFieldsError("Não foi possível carregar os campos deste tipo de work item.");
-        })
-        .finally(() => setFieldsLoading(false));
+    async (typeName) => {
+      setFieldsLoadingByType((prev) => ({ ...prev, [typeName]: true }));
+      setFieldsErrorByType((prev) => ({ ...prev, [typeName]: false }));
+      try {
+        const data = await getAzureWorkItemTypeFields(bindingId, typeName);
+        setFieldsByType((prev) => ({ ...prev, [typeName]: data || [] }));
+      } catch (_) {
+        setFieldsErrorByType((prev) => ({ ...prev, [typeName]: true }));
+      } finally {
+        setFieldsLoadingByType((prev) => ({ ...prev, [typeName]: false }));
+      }
     },
-    [bindingId, fieldsByType],
+    [bindingId],
   );
-
-  React.useEffect(() => {
-    if (step === "mapping" && selectedTypeForFields) {
-      loadFieldsForType(selectedTypeForFields);
-    }
-  }, [step, selectedTypeForFields, loadFieldsForType]);
-
-  const currentFields = fieldsByType[selectedTypeForFields] || [];
-  const currentSelection = fieldSelections[selectedTypeForFields] || {
-    complexityField: "",
-    complexityFieldType: "",
-    effortField: "",
-    effortFieldType: "",
-  };
-
-  // Display name for a selected field: the introspected name when that type's
-  // field list is loaded, otherwise the reference name's last segment.
-  const fieldNameFor = (typeName, referenceName) => {
-    const list = fieldsByType[typeName] || [];
-    return (
-      list.find((f) => f.referenceName === referenceName)?.name ||
-      (referenceName || "").split(".").pop()
-    );
-  };
-
-  // Cross-type view of everything configured so far — one row per type that
-  // has a complexity and/or effort selection, rendered as a summary under the
-  // mapping step's selectors.
-  const fieldMappingSummary = React.useMemo(
-    () =>
-      types
-        .map((t) => {
-          const sel = fieldSelections[t.name];
-          if (!sel || (!sel.complexityField && !sel.effortField)) return null;
-          return {
-            typeName: t.name,
-            complexity: sel.complexityField ? fieldNameFor(t.name, sel.complexityField) : "",
-            effort: sel.effortField ? fieldNameFor(t.name, sel.effortField) : "",
-          };
-        })
-        .filter(Boolean),
-    [types, fieldSelections, fieldsByType],
-  ); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 10.1 — fetch real Azure states for a work item type, then (10.4) default
   // any not-yet-mapped state via name heuristic so nothing is left blank.
@@ -386,7 +387,10 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
   );
 
   // Derivados do passo Tipos: quem sincroniza, o valor exibido e a flag de IA.
-  const isSynced = (name) => syncSel === null || syncSel.includes(name);
+  const isSynced = (name) =>
+    legacyInclude
+      ? legacyInclude.some((n) => normType(n) === normType(name))
+      : !excluded.some((n) => normType(n) === normType(name));
   const syncedTypes = types.filter((t) => isSynced(t.name));
   const outTypes = types.filter((t) => !isSynced(t.name));
   const mappingOf = (name) => typeMappings.find((m) => m.rawType === name);
@@ -394,12 +398,69 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
   const aiOf = (name) => isSynced(name) && !!mappingOf(name)?.receivesAi;
   const aiCount = types.filter((t) => aiOf(t.name)).length;
   const noneSynced = types.length > 0 && syncedTypes.length === 0;
+  const testOut = outTypes.filter((t) => testDefaulted.includes(t.name));
+  const warnOut = outTypes.filter((t) => !testDefaulted.includes(t.name));
+
+  // Vínculo antigo com lista de inclusão: com os tipos do processo à mão, converte para a
+  // exclusão (os que não estavam na lista ficam fora). O salvar já grava no formato novo.
+  React.useEffect(() => {
+    if (!legacyInclude || typesLoading || types.length === 0) return;
+    const inc = new Set(legacyInclude.map(normType));
+    const out = [];
+    const add = (name) => {
+      if (name && !inc.has(normType(name)) && !out.some((n) => normType(n) === normType(name)))
+        out.push(name);
+    };
+    types.forEach((t) => add(t.name));
+    typeMappings.forEach((m) => add(m?.rawType));
+    setExcluded(out);
+    setLegacyInclude(null);
+  }, [legacyInclude, types, typesLoading]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Primeiro uso (sem config própria e sem cópia): os tipos de teste começam fora do sync.
+  React.useEffect(() => {
+    if (firstUse !== true || defaultsDoneRef.current || typesLoading || types.length === 0) return;
+    defaultsDoneRef.current = true;
+    const tests = types.filter(isTestType).map((t) => t.name);
+    if (tests.length === 0) return;
+    setTestDefaulted(tests);
+    setExcluded((prev) => [
+      ...prev,
+      ...tests.filter((n) => !prev.some((p) => normType(p) === normType(n))),
+    ]);
+  }, [firstUse, types, typesLoading]);
 
   React.useEffect(() => {
     if (step === "status") {
-      syncedTypes.forEach((t) => loadStatesForType(t.name));
+      // Tipo com erro só recarrega pelo "Tentar de novo" (senão repetiria sem parar).
+      syncedTypes.forEach((t) => {
+        if (!statesError[t.name]) loadStatesForType(t.name);
+      });
     }
-  }, [step, types, syncSel, loadStatesForType]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [step, types, excluded, legacyInclude, loadStatesForType]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Ao entrar em Campos: busca os campos de todos os tipos sincronizados que faltam, até 4
+  // de cada vez. Erro numa linha não trava as outras (a pessoa tenta de novo na linha).
+  React.useEffect(() => {
+    if (step !== "mapping" || typesLoading) return;
+    const todo = syncedTypes
+      .map((t) => t.name)
+      .filter((n) => !fieldsByType[n] && !requestedFieldsRef.current.has(n));
+    if (todo.length === 0) return;
+    todo.forEach((n) => requestedFieldsRef.current.add(n));
+    setFieldsLoadingByType((prev) => ({
+      ...prev,
+      ...Object.fromEntries(todo.map((n) => [n, true])),
+    }));
+    let next = 0;
+    const worker = async () => {
+      while (next < todo.length) {
+        const name = todo[next++];
+        await loadFieldsForType(name);
+      }
+    };
+    for (let i = 0; i < Math.min(4, todo.length); i++) worker();
+  }, [step, types, typesLoading, excluded, legacyInclude]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // E3 — ao trocar de passo, o foco vai ao título do passo (não na abertura).
   React.useEffect(() => {
@@ -441,15 +502,17 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
 
   // Sincronizar: desmarcar também tira o tipo da IA (o IA fica desabilitado fora do sync).
   const toggleSync = (name, on) => {
-    const names = types.map((t) => t.name);
-    const cur = syncSel ?? names;
-    const next = on ? (cur.includes(name) ? cur : [...cur, name]) : cur.filter((n) => n !== name);
-    setSyncSel(names.every((n) => next.includes(n)) ? null : next);
+    setExcluded((prev) => {
+      const rest = prev.filter((n) => normType(n) !== normType(name));
+      return on ? rest : [...rest, name];
+    });
     if (!on) updateTypeMapping(name, { receivesAi: false });
   };
 
   // 10.3 — update a single (workItemType, rawStatus) mapping's resolvedStatus.
   const updateStatusMapping = (workItemType, rawStatus, resolvedStatus) => {
+    // O grupo em que a pessoa mexe não pode fechar sozinho quando o aviso some.
+    setOpenStatus((prev) => ({ ...prev, [workItemType]: true }));
     setStatusMappings((prev) => {
       const next = prev.filter(
         (m) => !(m.workItemType === workItemType && m.rawStatus === rawStatus),
@@ -459,12 +522,33 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
     });
   };
 
+  const statusOf = (typeName, rawStatus) =>
+    statusMappings.find((m) => m.workItemType === typeName && m.rawStatus === rawStatus)
+      ?.resolvedStatus || guessResolvedStatus(rawStatus);
+  // Distribuição por tipo ("A fazer 1 · Em andamento 1 · Concluído 3"); nula sem status carregados.
+  const statusSummary = (typeName) => {
+    const states = statesByType[typeName];
+    if (!states || states.length === 0) return null;
+    const counts = { TODO: 0, IN_PROGRESS: 0, DONE: 0 };
+    for (const st of states) counts[statusOf(typeName, st.name)] += 1;
+    return {
+      total: states.length,
+      noDone: counts.DONE === 0,
+      text: RESOLVED_STATUSES.filter((rs) => counts[rs] > 0)
+        .map((rs) => `${STATUS_LABEL[rs] || rs} ${counts[rs]}`)
+        .join(" · "),
+    };
+  };
+  // Abre sozinho só o que pede atenção (erro ou sem Concluído); a escolha da pessoa vale depois.
+  const statusGroupOpen = (typeName) =>
+    openStatus[typeName] ?? (!!statesError[typeName] || !!statusSummary(typeName)?.noDone);
+
   // 6.1 — hierarchy only ranks types selected in the "filter" step; an empty
   // filterTypes means "sync everything" (matching the filter step's own
   // semantics), so it falls back to showing all discovered types.
   const hierarchyTypes = React.useMemo(
-    () => (syncSel === null ? types : types.filter((t) => syncSel.includes(t.name))),
-    [types, syncSel],
+    () => types.filter((t) => isSynced(t.name)),
+    [types, excluded, legacyInclude], // eslint-disable-line react-hooks/exhaustive-deps
   );
 
   // 6.2 — seed initial ranks from each type's mapped resolvedType tier, only
@@ -628,8 +712,10 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
         : typeMappings.map((m) => ({ ...m, receivesAi: !!m.receivesAi })),
     fieldMappings: buildFieldMappings(),
     syncFilter: {
-      workItemTypes:
-        syncSel === null ? [] : types.length > 0 ? syncedTypes.map((t) => t.name) : syncSel,
+      // D1 = B: inclusão sempre vazia; os desmarcados vão em excludedWorkItemTypes. Só sem
+      // tipos descobertos e com lista antiga ainda não convertida ela é mantida (não alarga).
+      workItemTypes: types.length === 0 && legacyInclude ? legacyInclude : [],
+      excludedWorkItemTypes: types.length > 0 ? outTypes.map((t) => t.name) : excluded,
       areaPath: areaPath.trim() || null,
       iterationPath: iterationPath.trim() || null,
     },
@@ -740,6 +826,10 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
     setCopyError(null);
     try {
       const sibling = await getAzureProjectBinding(selectedSiblingId);
+      copiedRef.current = true;
+      defaultsDoneRef.current = true;
+      setFirstUse(false);
+      setTestDefaulted([]);
       seedDraftFromConfig(sibling?.workflowConfig || {});
       goToStep("types");
     } catch (_) {
@@ -760,11 +850,11 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
   };
 
   // E1 — nomes dos tipos fora do sync, para o aviso e o resumo do Início.
-  const namesPreview = (list, max = 2) => {
-    const names = list.map((t) => t.name);
-    if (names.length <= max + 1) return names.join(", ");
-    return `${names.slice(0, max).join(", ")} e mais ${names.length - max}`;
-  };
+  const previewOf = (list, max = 2) =>
+    namesPreview(
+      list.map((t) => t.name),
+      max,
+    );
 
   const stepIndex = Math.max(
     0,
@@ -778,6 +868,53 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
 
   /* 8.1 — "Voltar" em todo passo menos o primeiro; goBack só muda `step`, nunca
    * toca o resto do rascunho. E4 — pilha no celular (primário no topo), linha no resto. */
+  // Indicador clicável: voltar é sempre livre; ir adiante só quando o passo Tipos pode avançar
+  // (e, no Início, fora da cópia: ela só acontece pelo "Copiar e continuar").
+  const stepBlockReason = (index) => {
+    if (index <= stepIndex) return null;
+    if (step === "start" && showCopyPicker)
+      return 'Use "Copiar e continuar" para copiar a configuração';
+    if (index === 1) return null;
+    if (typesLoading) return "Aguarde os tipos carregarem";
+    if (typesError || types.length === 0) return "Os tipos do Azure não foram carregados";
+    if (noneSynced) return "Marque ao menos um tipo para sincronizar";
+    return null;
+  };
+  const allStatusOpen = syncedTypes.length > 0 && syncedTypes.every((t) => statusGroupOpen(t.name));
+  const jumpToStep = (key) => {
+    if (key === step) return;
+    goToStep(key);
+    setStepsOpen(false);
+  };
+  const renderStepButtons = () =>
+    STEPS.map(([key, label], i) => {
+      const reason = stepBlockReason(i);
+      const current = key === step;
+      const visited = current || stepHistory.includes(key);
+      return (
+        <li key={key} className="min-[600px]:flex-1">
+          <button
+            type="button"
+            aria-current={current ? "step" : undefined}
+            disabled={!!reason}
+            title={reason || undefined}
+            onClick={() => jumpToStep(key)}
+            className={
+              "hover:text-fg focus-visible:outline-accent flex min-h-[44px] w-full cursor-pointer items-center gap-2 border-0 border-b-2 bg-transparent px-1 text-left text-[12px] focus-visible:outline-2 focus-visible:outline-offset-2 disabled:cursor-not-allowed disabled:opacity-50 " +
+              (current
+                ? "border-accent text-fg"
+                : visited
+                  ? "border-line-strong text-fg"
+                  : "border-line text-fg-muted")
+            }
+          >
+            <span>{i + 1}</span>
+            <span>{label}</span>
+          </button>
+        </li>
+      );
+    });
+
   const wizardFoot = (
     <div className="flex w-full flex-col gap-3">
       {saveError && (
@@ -954,9 +1091,7 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
     hasOwnConfig && !typesLoading && types.length > 0
       ? [
           `${syncedTypes.length} ${syncedTypes.length === 1 ? "tipo sincronizado" : "tipos sincronizados"}`,
-          outTypes.length > 0
-            ? `${outTypes.length} fora do sync (${namesPreview(outTypes)})`
-            : null,
+          outTypes.length > 0 ? `${outTypes.length} fora do sync (${previewOf(outTypes)})` : null,
           unsavedCount > 0 ? `${unsavedCount} sem mapeamento salvo` : null,
         ]
           .filter(Boolean)
@@ -982,38 +1117,36 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
       bodyClassName="scroll-slim"
       footer={wizardFoot}
     >
-      {/* E3 — indicador de passo */}
-      <ol
-        aria-label="Etapas"
-        className="m-0 hidden list-none gap-1 p-0 text-[12px] min-[600px]:flex"
-      >
-        {STEPS.map(([key, label], i) => (
-          <li
-            key={key}
-            aria-current={key === step ? "step" : undefined}
-            className={
-              "flex flex-1 items-center gap-2 border-b-2 pb-1 " +
-              (key === step ? "border-accent text-fg" : "border-line text-fg-muted")
+      {/* E3 — indicador de passo (clicável) */}
+      {wide ? (
+        <ol aria-label="Etapas" className="m-0 flex list-none gap-1 p-0">
+          {renderStepButtons()}
+        </ol>
+      ) : (
+        <div>
+          <Disclosure
+            open={stepsOpen}
+            onOpenChange={setStepsOpen}
+            summary={
+              <span className="text-fg-muted">
+                Passo {stepIndex + 1} de {STEPS.length} · {STEPS[stepIndex][1]}
+              </span>
             }
           >
-            <span>{i + 1}</span>
-            <span>{label}</span>
-          </li>
-        ))}
-      </ol>
-      <div className="min-[600px]:hidden">
-        <p className="text-fg-muted m-0 mb-2 text-[12px]">
-          Passo {stepIndex + 1} de {STEPS.length} · {STEPS[stepIndex][1]}
-        </p>
-        <div aria-hidden="true" className="grid grid-cols-6 gap-1">
-          {STEPS.map(([key], i) => (
-            <span
-              key={key}
-              className={"h-1 rounded-full " + (i <= stepIndex ? "bg-accent" : "bg-line")}
-            />
-          ))}
+            <ol aria-label="Etapas" className="m-0 flex list-none flex-col gap-1 p-0">
+              {renderStepButtons()}
+            </ol>
+          </Disclosure>
+          <div aria-hidden="true" className="mt-1 grid grid-cols-6 gap-1">
+            {STEPS.map(([key], i) => (
+              <span
+                key={key}
+                className={"h-1 rounded-full " + (i <= stepIndex ? "bg-accent" : "bg-line")}
+              />
+            ))}
+          </div>
         </div>
-      </div>
+      )}
 
       {step === "start" && (
         <>
@@ -1153,13 +1286,16 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
           {!typesLoading && !typesError && types.length > 0 && (
             <>
               <div role="status" className="flex flex-col gap-2">
-                {outTypes.length > 0 && (
+                {warnOut.length > 0 && (
                   <p className="text-warn-text m-0 text-[12px]">
-                    {outTypes.length === 1
-                      ? `1 tipo do Azure fica fora do sync: ${outTypes[0].name}.`
-                      : `${outTypes.length} tipos do Azure ficam fora do sync: ${namesPreview(outTypes)}.`}{" "}
-                    Itens {outTypes.length === 1 ? "desse tipo" : "desses tipos"} não entram no
-                    Andromeda.
+                    {outOfSyncSentence(warnOut.map((t) => t.name))} Itens{" "}
+                    {warnOut.length === 1 ? "desse tipo" : "desses tipos"} não entram no Andromeda.
+                  </p>
+                )}
+                {testOut.length > 0 && (
+                  <p className="text-fg-muted m-0 text-[12px]">
+                    Tipos de teste começam fora do sync: {previewOf(testOut)}. Marque se o time
+                    quiser vê-los no Andromeda.
                   </p>
                 )}
                 {noneSynced && (
@@ -1211,28 +1347,79 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
           {syncedTypes.length === 0 && (
             <p className="mono integration-loading">Nenhum tipo sincronizado.</p>
           )}
+          {syncedTypes.length > 0 && (
+            <button
+              type="button"
+              className="btn-ghost btn min-h-[44px] self-start"
+              onClick={() =>
+                setOpenStatus(Object.fromEntries(syncedTypes.map((t) => [t.name, !allStatusOpen])))
+              }
+            >
+              {allStatusOpen ? "Recolher todos" : "Abrir todos"}
+            </button>
+          )}
           {syncedTypes.map((t) => {
             const states = statesByType[t.name] || [];
             const loading = !!statesLoading[t.name];
             const error = statesError[t.name];
+            const sum = statusSummary(t.name);
             return (
-              <div key={t.referenceName} className="border-line rounded-md border p-3">
-                <div className="text-fg-muted mb-2 text-[12px]">{t.name}</div>
-                {loading && <p className="mono integration-loading">Carregando status…</p>}
-                {error && <p className="mono integration-error">{error}</p>}
-                {!loading && !error && (
-                  <div className="flex flex-col gap-2">
-                    {states.map((s) => {
-                      const current = statusMappings.find(
-                        (m) => m.workItemType === t.name && m.rawStatus === s.name,
-                      );
-                      return (
-                        <div key={s.name} className="flex items-center gap-2">
-                          <span className="min-w-0 flex-1 break-words">{s.name}</span>
+              <Disclosure
+                key={t.referenceName}
+                open={statusGroupOpen(t.name)}
+                onOpenChange={(o) => setOpenStatus((prev) => ({ ...prev, [t.name]: o }))}
+                className="border-line rounded-md border px-3"
+                summary={
+                  <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                    <span className="text-fg break-words">{t.name}</span>
+                    {error && <Tag tone="bad">erro</Tag>}
+                    {sum?.noDone && <Tag tone="warn">sem Concluído</Tag>}
+                    <span className="text-fg-muted">
+                      {loading ? "carregando…" : sum ? `${sum.total} status · ${sum.text}` : ""}
+                    </span>
+                  </span>
+                }
+              >
+                <div aria-busy={loading || undefined} className="pb-3">
+                  {error && (
+                    <div className="flex flex-col items-start gap-2">
+                      <p role="alert" className="text-bad-text m-0 text-[12px]">
+                        Não foi possível carregar os status de {t.name}.
+                      </p>
+                      <button
+                        type="button"
+                        className="btn-ghost btn min-h-[44px]"
+                        onClick={() => loadStatesForType(t.name)}
+                      >
+                        Tentar de novo
+                      </button>
+                    </div>
+                  )}
+                  {loading && <p className="mono integration-loading">Carregando status…</p>}
+                  {!loading && !error && states.length === 0 && (
+                    <p className="text-fg-muted m-0 text-[12px]">
+                      Nenhum status encontrado neste tipo.
+                    </p>
+                  )}
+                  {!loading && !error && states.length > 0 && (
+                    <div className="flex flex-col">
+                      <div
+                        aria-hidden="true"
+                        className="text-fg-muted border-line grid grid-cols-[minmax(0,1fr)_150px] gap-x-3 border-b pb-1 text-[10px] uppercase min-[600px]:grid-cols-[minmax(0,1fr)_180px]"
+                      >
+                        <span>Status no Azure</span>
+                        <span>Vira no Andromeda</span>
+                      </div>
+                      {states.map((s) => (
+                        <div
+                          key={s.name}
+                          className="border-line grid grid-cols-[minmax(0,1fr)_150px] items-center gap-x-3 border-b py-1 last:border-b-0 min-[600px]:grid-cols-[minmax(0,1fr)_180px]"
+                        >
+                          <span className="min-w-0 break-words">{s.name}</span>
                           <div className="signup-select">
                             <select
                               aria-label={`Status interno de ${s.name} em ${t.name}`}
-                              value={current?.resolvedStatus || guessResolvedStatus(s.name)}
+                              value={statusOf(t.name, s.name)}
                               onChange={(e) => updateStatusMapping(t.name, s.name, e.target.value)}
                             >
                               {RESOLVED_STATUSES.map((rs) => (
@@ -1244,12 +1431,11 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
                             <span className="signup-select-caret">▾</span>
                           </div>
                         </div>
-                      );
-                    })}
-                    {states.length === 0 && <p className="mono">Nenhum status encontrado.</p>}
-                  </div>
-                )}
-              </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </Disclosure>
             );
           })}
         </>
@@ -1259,97 +1445,114 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
         <>
           {stepHeading("Campos")}
           <p className="confirm-text">
-            Para cada tipo de work item, escolha qual campo do Azure DevOps representa complexidade
+            Para cada tipo sincronizado, escolha qual campo do Azure DevOps representa complexidade
             e esforço — eles podem ficar em tipos diferentes (ex.: Story Points no User Story e
-            Completed Work na Task). Deixe em branco para preencher manualmente depois.
+            Completed Work na Task). Nenhum: o valor fica para preencher à mão no Andromeda.
           </p>
 
-          <label className="ui-field">
-            <span className={labelCls}>Tipo de work item</span>
-            <div className="signup-select">
-              <select
-                value={selectedTypeForFields || ""}
-                onChange={(e) => setSelectedTypeForFields(e.target.value)}
-              >
-                {types.map((t) => (
-                  <option key={t.referenceName} value={t.name}>
-                    {t.name}
-                  </option>
-                ))}
-              </select>
-              <span className="signup-select-caret">▾</span>
-            </div>
-          </label>
-
-          {fieldsLoading && <p className="mono integration-loading">Carregando campos…</p>}
-          {fieldsError && <p className="mono integration-error">{fieldsError}</p>}
-
-          {!fieldsLoading && !fieldsError && (
-            <>
-              <label className="ui-field">
-                <span className={labelCls}>Campo de Complexidade · {selectedTypeForFields}</span>
-                <div className="signup-select">
-                  <select
-                    value={currentSelection.complexityField || ""}
-                    onChange={(e) =>
-                      updateFieldSelection(
-                        selectedTypeForFields,
-                        "COMPLEXITY",
-                        currentFields.find((f) => f.referenceName === e.target.value) || null,
-                      )
-                    }
-                  >
-                    <option value="">Nenhum (preencher manualmente)</option>
-                    {currentFields.map((f) => (
-                      <option key={f.referenceName} value={f.referenceName}>
-                        {f.name}
-                      </option>
-                    ))}
-                  </select>
-                  <span className="signup-select-caret">▾</span>
-                </div>
-              </label>
-
-              <label className="ui-field">
-                <span className={labelCls}>Campo de Esforço · {selectedTypeForFields}</span>
-                <div className="signup-select">
-                  <select
-                    value={currentSelection.effortField || ""}
-                    onChange={(e) =>
-                      updateFieldSelection(
-                        selectedTypeForFields,
-                        "EFFORT",
-                        currentFields.find((f) => f.referenceName === e.target.value) || null,
-                      )
-                    }
-                  >
-                    <option value="">Nenhum (preencher manualmente)</option>
-                    {currentFields.map((f) => (
-                      <option key={f.referenceName} value={f.referenceName}>
-                        {f.name}
-                      </option>
-                    ))}
-                  </select>
-                  <span className="signup-select-caret">▾</span>
-                </div>
-              </label>
-            </>
-          )}
-
-          {fieldMappingSummary.length > 0 && (
-            <div className="ui-field">
-              <span className={labelCls}>Mapeamentos definidos</span>
-              <ul className="mono flex flex-col gap-1 opacity-85">
-                {fieldMappingSummary.map((row) => (
-                  <li key={row.typeName}>
-                    {row.typeName}
-                    {row.complexity && <> · Complexidade: {row.complexity}</>}
-                    {row.effort && <> · Esforço: {row.effort}</>}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
+          <div
+            aria-hidden="true"
+            className="text-fg-muted border-line hidden grid-cols-[minmax(0,1fr)_200px_200px] gap-x-3 border-b px-1 pb-1 text-[10px] uppercase min-[600px]:grid"
+          >
+            <span>Tipo no Azure</span>
+            <span>Complexidade</span>
+            <span>Esforço</span>
+          </div>
+          <ul className="m-0 flex list-none flex-col gap-2 p-0 min-[600px]:gap-0">
+            {syncedTypes.map((t) => {
+              const fields = fieldsByType[t.name] || [];
+              const loading =
+                !!fieldsLoadingByType[t.name] ||
+                (!fieldsByType[t.name] && !fieldsErrorByType[t.name]);
+              const failed = !!fieldsErrorByType[t.name];
+              const sel = fieldSelections[t.name] || {};
+              const renderSelect = (internal, label, value) => {
+                const numeric = fields.filter((f) => f.type === "double" || f.type === "integer");
+                const others = fields.filter((f) => !(f.type === "double" || f.type === "integer"));
+                const known = !value || fields.some((f) => f.referenceName === value);
+                return (
+                  <label className="flex flex-col gap-1">
+                    <span className="text-fg-muted text-[12px] min-[600px]:hidden">{label}</span>
+                    <div className="signup-select">
+                      <select
+                        aria-label={`${label}: ${t.name}`}
+                        disabled={loading}
+                        value={loading ? "" : value || ""}
+                        onChange={(e) =>
+                          updateFieldSelection(
+                            t.name,
+                            internal,
+                            fields.find((f) => f.referenceName === e.target.value) || null,
+                          )
+                        }
+                      >
+                        {loading ? (
+                          <option value="">Carregando campos…</option>
+                        ) : (
+                          <>
+                            <option value="">Nenhum</option>
+                            {numeric.length > 0 && (
+                              <optgroup label="Numéricos">
+                                {numeric.map((f) => (
+                                  <option key={f.referenceName} value={f.referenceName}>
+                                    {f.name}
+                                  </option>
+                                ))}
+                              </optgroup>
+                            )}
+                            <optgroup label="Outros campos">
+                              {others.map((f) => (
+                                <option key={f.referenceName} value={f.referenceName}>
+                                  {f.name}
+                                </option>
+                              ))}
+                              {!known && <option value={value}>{value.split(".").pop()}</option>}
+                            </optgroup>
+                          </>
+                        )}
+                      </select>
+                      <span className="signup-select-caret">▾</span>
+                    </div>
+                  </label>
+                );
+              };
+              return (
+                <li
+                  key={t.referenceName}
+                  aria-busy={loading || undefined}
+                  className="border-line grid gap-2 rounded-md border p-3 min-[600px]:grid-cols-[minmax(0,1fr)_200px_200px] min-[600px]:items-center min-[600px]:gap-x-3 min-[600px]:rounded-none min-[600px]:border-0 min-[600px]:border-b min-[600px]:px-1 min-[600px]:py-2"
+                >
+                  <div className="flex min-w-0 flex-wrap items-center gap-2">
+                    <span className="text-fg break-words">{t.name}</span>
+                    {aiOf(t.name) && <Tag tone="accent">recebe IA</Tag>}
+                  </div>
+                  {failed ? (
+                    <div className="flex flex-col items-start gap-2 min-[600px]:col-span-2">
+                      <p role="alert" className="text-bad-text m-0 text-[12px]">
+                        Não foi possível carregar os campos de {t.name}.
+                      </p>
+                      <button
+                        type="button"
+                        className="btn-ghost btn min-h-[44px]"
+                        onClick={() => loadFieldsForType(t.name)}
+                      >
+                        Tentar de novo
+                      </button>
+                    </div>
+                  ) : !loading && fields.length === 0 ? (
+                    <p className="text-fg-muted m-0 text-[12px] min-[600px]:col-span-2">
+                      Nenhum campo encontrado neste tipo.
+                    </p>
+                  ) : (
+                    <>
+                      {renderSelect("COMPLEXITY", "Complexidade", sel.complexityField)}
+                      {renderSelect("EFFORT", "Esforço", sel.effortField)}
+                    </>
+                  )}
+                </li>
+              );
+            })}
+          </ul>
 
           {wildcardFieldMappings.length > 0 && (
             <div className="ui-field">
