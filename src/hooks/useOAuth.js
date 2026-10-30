@@ -13,17 +13,21 @@ const POPUP_FEATURES = "width=600,height=700";
  *   (`POST /v1/auth/oauth2/link-ticket`) e só então leva o popup a
  *   `/api/v1/auth/oauth2/authorization/{provider}?ticket=…`. O resultado chega pela
  *   página `/oauth/retorno` (BroadcastChannel `andromeda-oauth` ou `postMessage`, só da
- *   mesma origem e do tipo certo). A sondagem de `pollPath` e o timeout ficam de reserva.
+ *   mesma origem, vinda do popup que este hook abriu, e com a forma do protocolo). No clique
+ *   o hook tira um retrato de `pollPath` (`before`); `isDone(data, before)` só vale para um
+ *   estado novo em relação a ele (vínculo novo ou re-vínculo). Um sucesso avisado pela página
+ *   de retorno só conclui depois que o servidor confirma (`GET pollPath` + `isDone`); um erro
+ *   conclui direto. A sondagem de `pollPath` e o timeout ficam de reserva.
  *
  * `onError(reason, code)`: reason ∈ "cancelled" | "timeout" | "blocked" | "ticket" | "oauth";
  * `code` é o código do contrato (ex.: PROVIDER_ACCOUNT_ALREADY_LINKED) quando houver.
- * `onSuccess(data)`: `data` é o corpo da sondagem ou, vindo da página de retorno,
- * a mensagem `{type, provider, status, code}`.
+ * `onSuccess(data)`: `data` é o corpo da sondagem (também quando o aviso veio da página de
+ * retorno); só se a confirmação falhar por rede é a mensagem `{type, provider, status, code}`.
  *
  * @param {{
  *   popupName?: string,
  *   pollPath?: string,
- *   isDone?: (data: any) => boolean,
+ *   isDone?: (data: any, before?: any) => boolean,
  *   ticketPurpose: string,
  *   provider: string,
  *   azureOrgUrl?: string,
@@ -47,6 +51,8 @@ export function useOAuth({
   const timeoutRef = React.useRef(null);
   const cleanupRef = React.useRef(null);
   const activeRef = React.useRef(false);
+  const beforeRef = React.useRef(undefined); // retrato de pollPath no clique
+  const snapshotRef = React.useRef(null); // promise do retrato (mensagens podem chegar antes)
 
   const stop = React.useCallback(() => {
     clearInterval(intervalRef.current);
@@ -64,20 +70,38 @@ export function useOAuth({
   }, []);
 
   const finish = React.useCallback(
-    (msg) => {
+    (msg, data) => {
       if (!activeRef.current) return;
       stop();
       if (msg.status === "error") onError("oauth", msg.code || "OAUTH_LINK_FAILED");
-      else onSuccess(msg);
+      else onSuccess(data ?? msg);
     },
     [stop, onError, onSuccess],
   );
 
   const listen = React.useCallback(() => {
     const matches = (data) => isOAuthMessage(data) && (!provider || data.provider === provider);
+    /* erro conclui direto; sucesso só conta se o servidor confirmar */
+    const handle = async (msg) => {
+      if (msg.status === "error") {
+        finish(msg);
+        return;
+      }
+      await snapshotRef.current;
+      if (!activeRef.current) return;
+      let data;
+      try {
+        data = await api.get(pollPath);
+      } catch (_) {
+        finish(msg); // sem rede para confirmar: melhor concluir do que perder um vínculo real
+        return;
+      }
+      if (isDone(data, beforeRef.current)) finish(msg, data);
+    };
     const onWindowMessage = (event) => {
       if (event.origin !== window.location.origin) return;
-      if (matches(event.data)) finish(event.data);
+      if (!popupRef.current || event.source !== popupRef.current) return;
+      if (matches(event.data)) handle(event.data);
     };
     window.addEventListener("message", onWindowMessage);
     let channel = null;
@@ -85,7 +109,7 @@ export function useOAuth({
       if (typeof BroadcastChannel !== "undefined") {
         channel = new BroadcastChannel(OAUTH_CHANNEL);
         channel.onmessage = (event) => {
-          if (matches(event.data)) finish(event.data);
+          if (matches(event.data)) handle(event.data);
         };
       }
     } catch (_) {
@@ -95,18 +119,32 @@ export function useOAuth({
       window.removeEventListener("message", onWindowMessage);
       channel?.close();
     };
-  }, [provider, finish]);
+  }, [provider, pollPath, isDone, finish]);
 
   const startReserve = React.useCallback(() => {
     intervalRef.current = setInterval(async () => {
       if (popupRef.current && popupRef.current.closed) {
+        /* a página de retorno fecha o popup antes de a confirmação voltar: quem decide é o
+         * servidor. Para o intervalo para não disparar dois GETs finais em paralelo. */
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+        let data;
+        try {
+          data = await api.get(pollPath);
+        } catch (_) {
+          data = undefined;
+        }
+        if (!activeRef.current) return; // a confirmação do aviso já concluiu
+        const done = data !== undefined && isDone(data, beforeRef.current);
         stop();
-        onError("cancelled");
+        if (done) onSuccess(data);
+        else onError("cancelled");
         return;
       }
       try {
         const data = await api.get(pollPath);
-        if (isDone(data)) {
+        if (!activeRef.current) return; // outra via já concluiu enquanto a sondagem vinha
+        if (isDone(data, beforeRef.current)) {
           stop();
           onSuccess(data);
         }
@@ -132,10 +170,18 @@ export function useOAuth({
     activeRef.current = true;
     setPolling(true);
     listen();
+    beforeRef.current = undefined;
+    /* retrato do estado de hoje; se falhar, fica `undefined` (comportamento anterior) */
+    snapshotRef.current = api
+      .get(pollPath)
+      .then((data) => {
+        beforeRef.current = data;
+      })
+      .catch(() => {});
     try {
       const body = { purpose: ticketPurpose };
       if (azureOrgUrl) body.azureOrgUrl = azureOrgUrl;
-      const { ticket } = await createOAuthLinkTicket(body);
+      const [{ ticket }] = await Promise.all([createOAuthLinkTicket(body), snapshotRef.current]);
       if (!activeRef.current) return; // cancelado enquanto o ticket vinha
       popup.location.href = `/api/v1/auth/oauth2/authorization/${encodeURIComponent(
         provider,
@@ -146,7 +192,17 @@ export function useOAuth({
       stop();
       onError("ticket", code);
     }
-  }, [ticketPurpose, popupName, provider, azureOrgUrl, listen, startReserve, stop, onError]);
+  }, [
+    ticketPurpose,
+    popupName,
+    provider,
+    azureOrgUrl,
+    pollPath,
+    listen,
+    startReserve,
+    stop,
+    onError,
+  ]);
 
   React.useEffect(() => {
     return () => {

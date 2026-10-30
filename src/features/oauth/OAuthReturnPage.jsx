@@ -7,11 +7,10 @@ import React from "react";
 import {
   OAUTH_CHANNEL,
   OAUTH_MESSAGE_TYPE,
+  OAUTH_PROVIDERS as PROVIDERS,
+  OAUTH_STATUSES as STATUSES,
   oauthResultMessage,
 } from "../integrations/oauthMessages.js";
-
-const PROVIDERS = ["github", "azure"];
-const STATUSES = ["linked", "connected", "error"];
 
 function readResult(search) {
   const q = new URLSearchParams(search);
