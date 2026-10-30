@@ -13,7 +13,7 @@ import { useRequestAgentSync, useRevokeAgentDevice } from "./hooks.js";
 import ToggleLink, { LINK_BASE, LINK_CLS } from "./ToggleLink.jsx";
 
 const LIMIT = 5;
-const COLS = "md:grid-cols-[minmax(0,1fr)_170px_250px]";
+const COLS = "md:grid-cols-[minmax(0,1fr)_190px_250px]";
 
 function absolute(iso) {
   try {
@@ -142,26 +142,26 @@ function DeviceItem({ d, now, setRevokeRef, onRevoke, updateOpen, onToggleUpdate
           <div className="text-fg font-serif text-[24px] leading-tight">Ainda não enviou</div>
         )}
         {view.waiting && !pending ? (
-          <div className="text-fg-muted text-xs">
+          <div className="text-fg-muted text-xs whitespace-nowrap">
             <span aria-hidden="true">◌ </span>pedido enviado, 1 a 2 min
           </div>
         ) : view.flash ? (
-          <div className="text-good-text text-xs">
+          <div className="text-good-text text-xs whitespace-nowrap">
             <span aria-hidden="true">✓ </span>Sincronizado agora.
           </div>
         ) : view.served ? (
-          <div className="text-fg-muted text-xs">
+          <div className="text-fg-muted text-xs whitespace-nowrap">
             sincronizado {formatRelativeAge(d.syncServedAt, now)}
           </div>
         ) : null}
       </div>
 
-      <div className="flex min-w-0 flex-col items-start gap-1">
-        <div className="flex flex-wrap items-center gap-x-4">
+      <div className="flex min-w-0 flex-col items-start gap-1 md:items-end">
+        <div className="flex items-center justify-end gap-3">
           {canSync ? (
             <button
               type="button"
-              className="btn btn-ghost btn-xs min-h-[44px] min-w-[136px]"
+              className="btn btn-ghost btn-xs min-h-[44px] min-w-[136px] tracking-normal normal-case"
               aria-label={`Sincronizar ${d.machineName} agora`}
               aria-disabled={busy || undefined}
               aria-busy={pending || undefined}
@@ -281,7 +281,10 @@ export default function DeviceList({ devices, isLoading, error, onRetry, onConne
           tabIndex={-1}
           className="text-fg m-0 font-serif text-xl font-normal outline-none"
         >
-          Seus computadores{!isLoading && !error ? ` (${list.length})` : ""}
+          Seus computadores
+          {!isLoading && !error ? (
+            <span className="text-fg-muted font-sans text-xs"> ({list.length})</span>
+          ) : null}
         </h3>
         {onConnect ? (
           <button

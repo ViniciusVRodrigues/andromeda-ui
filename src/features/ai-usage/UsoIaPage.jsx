@@ -8,7 +8,7 @@ import { MoveAgentUsageDialog } from "./components/MoveAgentUsageDialog.jsx";
 import { WorkItemLink } from "../../core/work-items/WorkItemLink.jsx";
 import Modal from "../../core/ui/Modal.jsx";
 import Combobox from "../../core/ui/Combobox.jsx";
-import { fmtTokensM } from "../../core/tokenMath.js";
+import { fmtTokens } from "./lib.js";
 import {
   STATUS_VIEW,
   dayLabel,
@@ -221,7 +221,7 @@ export function UsoIaPage({ can, personRef }) {
               <input
                 className="ui-field-input mt-1"
                 type="search"
-                placeholder="Data, título ou ID do work item"
+                placeholder="Buscar data ou item"
                 value={params.get("busca") || ""}
                 onChange={(e) => setParam("busca", e.target.value)}
               />
@@ -326,8 +326,8 @@ export function UsoIaPage({ can, personRef }) {
           }
         >
           <div className="mb-5 grid grid-cols-2 gap-4">
-            <p>Entrada: {fmtTokensM(selected.totalInputTokens || 0)} tokens</p>
-            <p>Saída: {fmtTokensM(selected.totalOutputTokens || 0)} tokens</p>
+            <p>Entrada: {fmtTokens(selected.totalInputTokens || 0)} tokens</p>
+            <p>Saída: {fmtTokens(selected.totalOutputTokens || 0)} tokens</p>
             <p>Custo: {money(selected.estimatedCostUsd)}</p>
             <p>
               Situação: <span aria-hidden="true">{statusGlyph(selected)} </span>
@@ -370,7 +370,7 @@ export function UsoIaPage({ can, personRef }) {
                       {Math.round(Number(split.percentage) * 100)}%
                       {/* Com várias alocações no dia, o % é de cada alocação: sem tokens do dia. */}
                       {selected.allocations.length === 1 &&
-                        ` · ${fmtTokensM(tokens(selected) * Number(split.percentage))} tokens`}
+                        ` · ${fmtTokens(tokens(selected) * Number(split.percentage))} tokens`}
                     </span>
                   </div>
                 ))}
@@ -395,7 +395,7 @@ export function UsoIaPage({ can, personRef }) {
                 </WorkItemLink>
                 <span>
                   {Math.round(Number(split.percentage) * 100)}% ·{" "}
-                  {fmtTokensM(tokens(selected) * Number(split.percentage))} tokens
+                  {fmtTokens(tokens(selected) * Number(split.percentage))} tokens
                 </span>
               </div>
             ))

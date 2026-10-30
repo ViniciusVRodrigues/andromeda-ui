@@ -62,7 +62,7 @@ export default function AgentTab({ orgSlug, onCheckCode, footerAction }) {
               href={meta.privacyUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="text-accent-text inline-flex min-h-[44px] items-center underline"
+              className="text-accent-text whitespace-nowrap underline"
             >
               O que ele lê ↗
             </a>

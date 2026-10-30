@@ -28,7 +28,7 @@ export default function WipeUsageLink({ hasOrg }) {
   };
 
   return (
-    <span className="inline-flex flex-wrap items-center gap-x-2">
+    <span className="inline-flex items-center gap-x-2 whitespace-nowrap">
       <span className="text-fg-muted text-xs">Dados de uso de IA:</span>
       <button
         type="button"

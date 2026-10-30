@@ -75,7 +75,10 @@ export default function Combobox({
       <RadixSelect.Trigger
         ref={triggerRef}
         data-track={ariaLabel || undefined}
-        className={"cmb-trigger" + (className ? " " + className : "")}
+        className={
+          "cmb-trigger [&>span:first-child]:min-w-0 [&>span:first-child]:flex-1 [&>span:first-child]:truncate [&>span:first-child]:text-left" +
+          (className ? " " + className : "")
+        }
         aria-label={ariaLabel}
       >
         <RadixSelect.Value placeholder={placeholder} />

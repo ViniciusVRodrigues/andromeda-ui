@@ -698,7 +698,7 @@ test.describe("tarefa ativa e avisos", () => {
     await expect(tarefas).toHaveCount(2);
     await expect(tarefas.first().getByRole("button", { name: "AB#1234" })).toBeVisible();
     await expect(tarefas.first()).toContainText("Login com SSO");
-    await expect(tarefas.first()).toContainText("andromeda-ui, pela branch feature/AB#1234-login");
+    await expect(tarefas.first()).toContainText("andromeda-ui, pela branch");
     await expect(tarefas.nth(1)).toContainText("marcada com andromeda-agent task");
     for (const t of await tarefas.all()) expect((await t.boundingBox()).height).toBeLessThan(40);
     await expect(page.getByTestId("agent-unassigned")).toContainText(

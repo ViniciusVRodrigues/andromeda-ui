@@ -46,7 +46,16 @@ export function weeksOfMonth(month) {
 export const dayMonth = (day) => day.slice(8) + "/" + day.slice(5, 7);
 export const dayLabel = (day) => day?.split("-").reverse().join("/");
 /** "01-04/10" */
-export const weekRange = (w) => `${w.start.slice(8)}-${w.end.slice(8)}/${w.start.slice(5, 7)}`;
+export const weekRange = (w, today) => {
+  const end = today && today >= w.start && today < w.end ? today : w.end;
+  return `${w.start.slice(8)}-${end.slice(8)}/${w.start.slice(5, 7)}`;
+};
+/** Hoje no fuso local, "AAAA-MM-DD". */
+export const todayIso = () => {
+  const d = new Date();
+  const p = (n) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`;
+};
 const WEEKDAYS = ["dom", "seg", "ter", "qua", "qui", "sex", "sáb"];
 export const weekdayShort = (day) => WEEKDAYS[new Date(`${day}T12:00:00Z`).getUTCDay()];
 
@@ -145,3 +154,20 @@ export function topWorkItems(rows, limit = 3) {
 
 export const usd = (value) =>
   Number(value || 0).toLocaleString("pt-BR", { style: "currency", currency: "USD" });
+
+const oneDecimal = new Intl.NumberFormat("pt-BR", {
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 1,
+  useGrouping: "always",
+});
+
+/** Tokens para leitura: abaixo de 1 milhão "550 mil"; de 1 milhão para cima uma casa
+ * decimal sem zero à direita ("5,9M", "12M", "7.556,1M"). */
+export function fmtTokens(value) {
+  if (value == null || Number.isNaN(Number(value))) return "—";
+  const n = Number(value);
+  if (n === 0) return "0";
+  const k = Math.round(n / 1000);
+  if (n < 1e6 && k < 1000) return n < 1000 ? String(Math.round(n)) : `${k} mil`;
+  return `${oneDecimal.format(n / 1e6)}M`;
+}

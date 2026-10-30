@@ -55,7 +55,7 @@ export default function Tabs({ tabs, value, onChange, label }) {
               tabIndex={selected ? 0 : -1}
               onClick={() => onChange(t.id)}
               onKeyDown={(e) => onKeyDown(e, i)}
-              className={`focus-visible:outline-accent min-h-[44px] shrink-0 cursor-pointer border-b-2 bg-transparent px-3 font-mono text-xs whitespace-nowrap focus-visible:outline-2 focus-visible:-outline-offset-2 ${
+              className={`focus-visible:outline-accent min-h-[44px] shrink-0 cursor-pointer border-0 border-b-2 bg-transparent px-3 font-mono text-xs whitespace-nowrap focus-visible:outline-2 focus-visible:-outline-offset-2 ${
                 selected
                   ? "border-accent text-fg"
                   : "text-fg-muted hover:text-fg border-transparent"

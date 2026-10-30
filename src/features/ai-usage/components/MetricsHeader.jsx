@@ -1,6 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { fmtTokensM } from "../../../core/tokenMath.js";
+import { fmtTokens } from "../lib.js";
 import Modal from "../../../core/ui/Modal.jsx";
 import { formatShare, modelLabel, usd } from "../lib.js";
 
@@ -67,7 +67,7 @@ export function MetricsHeader({
   return (
     <div className="space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="w-full sm:w-80">{leading}</div>
+        <div className="w-full sm:w-96">{leading}</div>
         <div className="ml-auto flex items-center gap-2">
           <button
             className="btn btn-ghost"
@@ -106,9 +106,10 @@ export function MetricsHeader({
               <StatCard
                 label="Custo estimado"
                 value={usd(totalCost)}
-                hint="Agente: entrada, cache e saída · Extensão: só saída"
+                hint="Agente: tudo · Extensão: só saída"
+                hintTitle="Agente: entrada, cache e saída · Extensão: só saída"
               />
-              <StatCard label="Total de tokens" value={fmtTokensM(totalTokens)} unit="tokens" />
+              <StatCard label="Total de tokens" value={fmtTokens(totalTokens)} unit="tokens" />
               <StatCard
                 label="Interações"
                 value={totalInteractions.toLocaleString("pt-BR")}
@@ -120,9 +121,9 @@ export function MetricsHeader({
 
         <section
           aria-label="Para confirmar e custo por work item"
-          className="bg-bg-elev border-line rounded-card border p-4"
+          className="bg-bg-elev border-line rounded-card flex flex-col border p-4"
         >
-          <div className="grid gap-5 md:grid-cols-[5fr_7fr]">
+          <div className="mb-4 grid flex-1 content-center gap-5 md:grid-cols-[5fr_7fr]">
             <div>
               <h2 className="mono text-fg-muted m-0 text-xs tracking-[0.12em] uppercase">
                 Para confirmar
@@ -153,25 +154,30 @@ export function MetricsHeader({
               {topItems.length === 0 ? (
                 <p className="text-fg-muted m-0 mt-2 text-sm">Nenhum item com custo neste mês.</p>
               ) : (
-                <ul className="m-0 mt-2 list-none space-y-2 p-0">
+                <ul className="m-0 mt-3 flex list-none flex-col gap-4 p-0">
                   {topItems.map((item) => (
                     <li key={item.id} className="min-w-0">
                       <div className="flex items-baseline justify-between gap-3">
                         <span className="min-w-0 flex-1 truncate text-sm" title={item.title}>
-                          {item.title}
+                          <WorkItemTitle title={item.title} />
                         </span>
-                        <span className="text-sm whitespace-nowrap tabular-nums">
+                        <span className="hidden text-sm whitespace-nowrap tabular-nums sm:inline">
                           {usd(item.costUsd)}
                         </span>
                       </div>
-                      <div
-                        className="bg-bg-deep mt-1 h-1.5 overflow-hidden rounded-full"
-                        aria-hidden="true"
-                      >
+                      <div className="mt-1 flex items-center gap-3">
                         <div
-                          className="bg-accent h-full"
-                          style={{ width: `${Math.max(2, (item.costUsd / maxItem) * 100)}%` }}
-                        />
+                          className="bg-bg-deep h-1.5 min-w-0 flex-1 overflow-hidden rounded-full"
+                          aria-hidden="true"
+                        >
+                          <div
+                            className="bg-accent h-full"
+                            style={{ width: `${Math.max(2, (item.costUsd / maxItem) * 100)}%` }}
+                          />
+                        </div>
+                        <span className="text-sm whitespace-nowrap tabular-nums sm:hidden">
+                          {usd(item.costUsd)}
+                        </span>
                       </div>
                     </li>
                   ))}
@@ -181,7 +187,7 @@ export function MetricsHeader({
             </div>
           </div>
           {!loading && models.length > 0 && (
-            <p className="border-line text-fg-muted m-0 mt-4 border-t pt-3 text-sm">
+            <p className="border-line text-fg-muted m-0 mt-auto border-t pt-3 text-sm">
               Modelos:{" "}
               {models.slice(0, 3).map((m, i) => (
                 <React.Fragment key={m.model}>
@@ -248,7 +254,18 @@ export function MetricsHeader({
   );
 }
 
-function StatCard({ label, value, unit, hint }) {
+/** "AB#4812 Migrar…" → o ID em accent, o resto na cor normal. */
+function WorkItemTitle({ title }) {
+  const m = /^([A-Za-z]+[#-]\d+)\s+(.*)$/.exec(title || "");
+  if (!m) return title;
+  return (
+    <>
+      <span className="text-accent-text">{m[1]}</span> {m[2]}
+    </>
+  );
+}
+
+function StatCard({ label, value, unit, hint, hintTitle }) {
   return (
     <div className="bg-bg-elev border-line rounded-[var(--radius-sm)] border px-4 py-3.5">
       <div className="mono text-fg-muted mb-1.5 text-sm">{label}</div>
@@ -257,7 +274,9 @@ function StatCard({ label, value, unit, hint }) {
         {unit && <span className="mono text-fg-muted text-sm">{unit}</span>}
       </div>
       {hint && (
-        <div className="mono text-fg-muted mt-1 hidden text-sm min-[480px]:block">{hint}</div>
+        <div className="mono text-fg-muted mt-1 hidden text-sm min-[480px]:block" title={hintTitle}>
+          {hint}
+        </div>
       )}
     </div>
   );

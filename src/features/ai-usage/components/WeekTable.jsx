@@ -1,6 +1,6 @@
 import React from "react";
 import { Link } from "react-router-dom";
-import { fmtTokensM } from "../../../core/tokenMath.js";
+import { fmtTokens } from "../lib.js";
 import { AgentLegend, AgentTag } from "./AgentMark.jsx";
 import { useConfirmDays } from "../hooks/useConfirmDays.js";
 import {
@@ -9,6 +9,7 @@ import {
   dayMonth,
   dayStatus,
   reviewReasonText,
+  todayIso,
   usd,
   weekRange,
   weekdayShort,
@@ -161,6 +162,7 @@ export function WeekTable({
   busy,
 }) {
   const wide = useWide();
+  const today = todayIso();
   const batch = useConfirmDays();
   const titleRef = React.useRef(null);
   const week = weeks[weekIndex - 1];
@@ -202,7 +204,7 @@ export function WeekTable({
 
   return (
     <div>
-      <nav aria-label="Semanas" className="mb-3 flex flex-wrap gap-x-1">
+      <nav aria-label="Semanas" className="mb-3 grid grid-cols-3 gap-x-1 sm:flex sm:flex-wrap">
         {weeks.map((w) => {
           const count = weekCounts[w.index] || 0;
           const current = w.index === weekIndex;
@@ -211,7 +213,7 @@ export function WeekTable({
               key={w.index}
               to={weekHref(w.index)}
               aria-current={current ? "page" : undefined}
-              aria-label={`Semana ${w.index}, ${weekRange(w)}${
+              aria-label={`Semana ${w.index}, ${weekRange(w, today)}${
                 count ? `, ${plural(count, "dia pede ação", "dias pedem ação")}` : ""
               }`}
               className={`mono inline-flex min-h-[44px] items-center border-b-2 px-2 text-sm whitespace-nowrap tabular-nums ${
@@ -220,7 +222,8 @@ export function WeekTable({
                   : "text-accent-text border-transparent underline"
               }`}
             >
-              {weekRange(w)}
+              {weekRange(w, today).slice(0, 5)}
+              <span className="hidden sm:inline">{weekRange(w, today).slice(5)}</span>
               {count > 0 && ` (${count})`}
             </Link>
           );
@@ -333,7 +336,7 @@ export function WeekTable({
                   {row._status === "review" && <Reason row={row} />}
                 </td>
                 <td className="px-3 py-1 text-right whitespace-nowrap tabular-nums">
-                  {row.totalInputTokens == null ? "—" : fmtTokensM(tokensOf(row))}
+                  {row.totalInputTokens == null ? "—" : fmtTokens(tokensOf(row))}
                 </td>
                 <td className="px-3 py-1 text-right whitespace-nowrap tabular-nums">
                   {money(row.estimatedCostUsd)}
@@ -342,7 +345,12 @@ export function WeekTable({
                   <StatusText status={row._status} row={row} />
                 </td>
                 <td className="px-3 py-1 whitespace-nowrap">
-                  <Actions row={row} status={row._status} {...common} className="-mt-2.5 -mb-2.5" />
+                  <Actions
+                    row={row}
+                    status={row._status}
+                    {...common}
+                    className="-mt-3 -mb-3 self-start"
+                  />
                 </td>
               </tr>
             ))}
@@ -376,7 +384,7 @@ export function WeekTable({
               <div className="mt-2 flex flex-wrap items-center justify-between gap-x-3 text-sm">
                 <StatusText status={row._status} row={row} />
                 <span className="text-fg-muted whitespace-nowrap tabular-nums">
-                  {row.totalInputTokens == null ? "—" : `${fmtTokensM(tokensOf(row))} tokens`}
+                  {row.totalInputTokens == null ? "—" : `${fmtTokens(tokensOf(row))} tokens`}
                 </span>
               </div>
               <Actions row={row} status={row._status} {...common} className="mt-1 gap-x-6" />

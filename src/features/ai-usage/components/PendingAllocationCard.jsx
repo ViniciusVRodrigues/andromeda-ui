@@ -1,6 +1,6 @@
 import { WorkItemLink } from "../../../core/work-items/WorkItemLink.jsx";
 import React from "react";
-import { fmtTokensM } from "../../../core/tokenMath.js";
+import { fmtTokens } from "../lib.js";
 
 function formatDay(isoDate) {
   if (!isoDate) return "";
@@ -55,7 +55,7 @@ export function PendingAllocationCard({ batch, onAccept, onAdjust, readOnly }) {
           </div>
 
           <div style={{ display: "flex", gap: 16, flexWrap: "wrap" }}>
-            <Stat value={fmtTokensM(totalTokens)} unit="tokens" />
+            <Stat value={fmtTokens(totalTokens)} unit="tokens" />
             <Stat value={`$${(batch.estimatedCostUsd || 0).toFixed(2)}`} />
             <Stat value={batch.totalInteractions || 0} unit="interações" />
           </div>
@@ -78,7 +78,7 @@ export function PendingAllocationCard({ batch, onAccept, onAdjust, readOnly }) {
                     }}
                   >
                     <WorkItemLink id={s.workItemId}>{s.workItemTitle}</WorkItemLink> · {pct}% · ≈
-                    {fmtTokensM((pct / 100) * totalTokens)} tokens
+                    {fmtTokens((pct / 100) * totalTokens)} tokens
                   </span>
                 );
               })}
