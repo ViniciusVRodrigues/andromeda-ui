@@ -1,12 +1,12 @@
 import React from "react";
 import { Tag } from "../../../core/ui/Tag.jsx";
 
-export const AGENT_LEGEND = "AGENTE: tarefa apontada automaticamente pelo agente, sem revisão.";
+export const AGENT_LEGEND = "AGENTE: sugerido pelo agente e confirmado por você.";
 
 /** Selo AGENTE com o nome acessível completo (sem depender do `title`). */
 export function AgentTag() {
   return (
-    <Tag tone="accent" srLabel="tarefa apontada pelo agente, sem revisão" title={AGENT_LEGEND}>
+    <Tag tone="accent" srLabel="sugerido pelo agente" title={AGENT_LEGEND}>
       AGENTE
     </Tag>
   );

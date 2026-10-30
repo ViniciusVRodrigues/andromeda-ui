@@ -107,9 +107,9 @@ const linha = (page, dia) => page.getByRole("row").filter({ hasText: dia });
 test("selo AGENTE com glifo e legenda só quando há selo", async ({ page }) => {
   await abrir(page);
   const dia29 = linha(page, "29/09");
-  await expect(dia29.getByText(/revisão\s+AGENTE$/)).toBeVisible();
+  await expect(dia29.getByText(/sugerido pelo agente\s+AGENTE$/)).toBeVisible();
   await expect(dia29).toContainText("●");
-  await expect(dia29.locator(".sr-only")).toContainText("tarefa apontada pelo agente, sem revisão");
+  await expect(dia29.locator(".sr-only")).toContainText("sugerido pelo agente");
   await expect(linha(page, "28/09")).not.toContainText("AGENTE");
   // 27/09 é domingo: cai na semana anterior (a tabela mostra uma semana por página)
   await expect(linha(page, "27/09")).toHaveCount(0);
@@ -122,15 +122,13 @@ test("selo AGENTE com glifo e legenda só quando há selo", async ({ page }) => 
     .getByRole("navigation", { name: "Semanas" })
     .getByRole("link", { name: /Semana 5/ })
     .click();
-  await expect(
-    page.getByText("AGENTE: tarefa apontada automaticamente pelo agente, sem revisão."),
-  ).toBeVisible();
+  await expect(page.getByText("AGENTE: sugerido pelo agente e confirmado por você.")).toBeVisible();
 });
 
 test("sem apontamento do agente a legenda não aparece", async ({ page }) => {
   await abrir(page, { agente: false });
   await expect(linha(page, "29/09")).toBeVisible();
-  await expect(page.getByText("AGENTE: tarefa apontada")).toHaveCount(0);
+  await expect(page.getByText("AGENTE: sugerido pelo agente")).toHaveCount(0);
 });
 
 test("filtro Alocado pelo agente", async ({ page }) => {
@@ -145,10 +143,12 @@ test("modal do dia mostra origem do agente e movido do agente", async ({ page })
   await abrir(page);
   await page.getByRole("button", { name: "Ver uso de 29/09/2026" }).click();
   const modal = page.getByRole("dialog");
-  await expect(modal.getByText(/revisão\s+AGENTE$/)).toBeVisible();
+  await expect(modal.getByText(/sugerido pelo agente\s+AGENTE$/)).toBeVisible();
   await expect(modal).toContainText("pela branch feature/AB#1-login · andromeda-ui");
   await expect(modal).toContainText("movido do agente");
-  await expect(modal.getByText("AGENTE: tarefa apontada automaticamente")).toBeVisible();
+  await expect(
+    modal.getByText("AGENTE: sugerido pelo agente e confirmado por você."),
+  ).toBeVisible();
   await expect(modal.getByRole("button", { name: "Mover para outra tarefa" })).toHaveCount(1);
 });
 

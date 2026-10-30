@@ -56,8 +56,12 @@ test("Situação em texto com glifo e o motivo da revisão vindo do servidor", a
   await abrir(page, { route: SEM4 });
   await expect(linha(page, "25/10")).toContainText("○ A confirmar");
   await expect(linha(page, "24/10")).toContainText("! Em revisão");
-  await expect(linha(page, "24/10")).toContainText("Por quê: o item é de outra pessoa.");
-  await expect(linha(page, "21/10")).toContainText("Por quê: o item está fora da sprint.");
+  await expect(linha(page, "24/10")).toContainText("Por quê:");
+  await expect(linha(page, "24/10").getByRole("listitem")).toHaveText([
+    "AB#4812 é de outra pessoa.",
+    "Uso 4× acima do seu normal.",
+  ]);
+  await expect(linha(page, "21/10")).toContainText("Por quê: o item estava fora da sprint.");
   await expect(linha(page, "24/10").getByRole("button", { name: "Revisar 24/10" })).toBeVisible();
   await expect(linha(page, "24/10").getByRole("button", { name: /Confirmar/ })).toHaveCount(0);
 
@@ -68,14 +72,15 @@ test("Situação em texto com glifo e o motivo da revisão vindo do servidor", a
   await expect(linha(page, "17/10")).toContainText(
     "Por quê: a tarefa marcada e a branch apontam itens diferentes.",
   );
-  await expect(linha(page, "14/10")).toContainText(
-    "Por quê: o item está fechado; o item está fora da sprint.",
-  );
+  await expect(linha(page, "14/10").getByRole("listitem")).toHaveText([
+    "O item já está fechado.",
+    "O item estava fora da sprint.",
+  ]);
   await page
     .getByRole("navigation", { name: "Semanas" })
     .getByRole("link", { name: /Semana 5/ })
     .click();
-  await expect(linha(page, "28/10")).toContainText("Por quê: o item está fechado.");
+  await expect(linha(page, "28/10")).toContainText("Por quê: AB#4655 já está fechado.");
 });
 
 test("código de revisão desconhecido vira texto genérico", async ({ page }) => {
@@ -92,13 +97,21 @@ test("Confirmar N dias conta só os A confirmar e deixa os dias em revisão de f
   page,
 }) => {
   const { seen } = await abrir(page, { route: SEM4 });
+  await expect(page.getByText("Os dias em revisão ficam de fora.")).toBeVisible();
   const botao = page.getByRole("button", { name: "Confirmar 5 dias" });
   await expect(botao).toBeVisible();
   await expect(botao).toHaveClass(/\bbtn\b/);
   await botao.click();
   await expect(page.getByRole("status").filter({ hasText: "5 dias confirmados." })).toBeVisible();
-  // em sequência, do dia mais antigo ao mais novo; 21 e 24 (em revisão) não vão
-  expect(seen.accepts).toEqual(["sug-19", "sug-20", "sug-22", "sug-23", "sug-25"]);
+  // POST /confirm {days:[dia]} em sequência, do dia mais antigo ao mais novo; 21 e 24 (em revisão) não vão
+  expect(seen.confirms.map((c) => c.days)).toEqual([
+    ["2026-10-19"],
+    ["2026-10-20"],
+    ["2026-10-22"],
+    ["2026-10-23"],
+    ["2026-10-25"],
+  ]);
+  expect(seen.confirms.every((c) => !c.includeReview)).toBe(true);
   await expect(linha(page, "25/10")).toContainText("● Confirmado");
   await expect(linha(page, "24/10")).toContainText("! Em revisão");
   await expect(page.getByRole("button", { name: /^Confirmar \d+ dias?$/ })).toHaveCount(0);
@@ -108,33 +121,176 @@ test("Confirmar N dias conta só os A confirmar e deixa os dias em revisão de f
 test("falha na 3ª de 5 para, diz quantos foram e Tentar de novo manda só os que faltam", async ({
   page,
 }) => {
-  const { seen } = await abrir(page, { route: SEM4, opts: { accept: { failAt: 2 } } });
+  const { seen } = await abrir(page, { route: SEM4, opts: { confirm: { failAt: 2 } } });
   await page.getByRole("button", { name: "Confirmar 5 dias" }).click();
   const alerta = page.getByRole("alert").filter({ hasText: "2 de 5 confirmados" });
   await expect(alerta).toBeVisible();
   await expect(alerta).toContainText("22/10, 23/10, 25/10");
-  expect(seen.accepts).toEqual(["sug-19", "sug-20", "sug-22"]);
+  expect(seen.confirms.map((c) => c.days[0].slice(8))).toEqual(["19", "20", "22"]);
   await expect(linha(page, "19/10")).toContainText("● Confirmado");
 
   await alerta.getByRole("button", { name: "Tentar de novo" }).click();
   await expect(page.getByRole("status").filter({ hasText: "5 dias confirmados." })).toBeVisible();
   // a 2ª rodada manda 3 (a que falhou e as 2 que faltavam), nenhuma das já confirmadas
-  expect(seen.accepts.slice(3)).toEqual(["sug-22", "sug-23", "sug-25"]);
+  expect(seen.confirms.slice(3).map((c) => c.days[0].slice(8))).toEqual(["22", "23", "25"]);
   await expect(page.getByRole("alert").filter({ hasText: "confirmados" })).toHaveCount(0);
 });
 
-test("409 ALLOCATION_ALREADY_VALIDATED conta como confirmado", async ({ page }) => {
-  const { seen } = await abrir(page, { route: SEM4, opts: { accept: { conflict: ["sug-20"] } } });
+test("skipped: o dia que o servidor manda para revisão volta Em revisão com o aviso", async ({
+  page,
+}) => {
+  const { seen } = await abrir(page, {
+    route: SEM4,
+    opts: { confirm: { forceReview: ["2026-10-20"] } },
+  });
   await page.getByRole("button", { name: "Confirmar 5 dias" }).click();
-  await expect(page.getByRole("status").filter({ hasText: "5 dias confirmados." })).toBeVisible();
-  expect(seen.accepts).toHaveLength(5);
-  await expect(page.getByRole("alert").filter({ hasText: "confirmados" })).toHaveCount(0);
+  await expect(page.getByText("1 dia não foi confirmado: precisa de revisão.")).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: "4 dias confirmados." })).toBeVisible();
+  expect(seen.confirms).toHaveLength(5);
+  await expect(linha(page, "20/10")).toContainText("! Em revisão");
+  await expect(linha(page, "20/10")).toContainText("Por quê: uso 5× acima do seu normal.");
+  await expect(linha(page, "19/10")).toContainText("● Confirmado");
+});
+
+test("dia só com USAGE_SPIKE fica em revisão, sem Confirmar e fora do lote", async ({ page }) => {
+  const pending = PENDING.map((b) =>
+    b.day === "2026-10-25"
+      ? {
+          ...b,
+          review: {
+            state: "NEEDS_REVIEW",
+            source: "AGENT",
+            reasons: ["USAGE_SPIKE"],
+            details: [{ code: "USAGE_SPIKE", ratio: 1.2 }],
+          },
+        }
+      : b,
+  );
+  const { seen } = await abrir(page, { route: SEM4, opts: { pending } });
+  await expect(linha(page, "25/10")).toContainText("! Em revisão");
+  await expect(linha(page, "25/10")).toContainText("Por quê: uso 2× acima do seu normal.");
+  await expect(linha(page, "25/10").getByRole("button", { name: "Revisar 25/10" })).toBeVisible();
+  await expect(linha(page, "25/10").getByRole("button", { name: /Confirmar/ })).toHaveCount(0);
+  await page.getByRole("button", { name: "Confirmar 4 dias" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "4 dias confirmados." })).toBeVisible();
+  expect(seen.confirms.map((c) => c.days[0].slice(8))).not.toContain("25");
+});
+
+test("Revisar abre os motivos com o que fazer e Manter confirma o dia", async ({ page }) => {
+  const { seen } = await abrir(page, { route: SEM4 });
+  await page.getByRole("button", { name: "Revisar 24/10" }).click();
+  const dlg = page.getByRole("dialog");
+  const motivos = dlg.getByRole("list", { name: "Motivos da revisão" });
+  const itens = motivos.getByRole("listitem");
+  await expect(itens).toHaveCount(2);
+  await expect(itens.nth(0)).toHaveText(
+    "! AB#4812 é de outra pessoa. Se você ajudou nele, pode manter.",
+  );
+  await expect(itens.nth(1)).toHaveText(
+    /^! Neste dia você usou 4× o seu normal \(US\$.*\)\. Confira se é tudo da sugestão\.$/,
+  );
+  // dois itens na sugestão: o texto é "Manter" e o nome acessível "Manter a sugestão em 24/10"
+  const manter = dlg.getByRole("button", { name: "Manter a sugestão em 24/10" });
+  expect((await manter.boundingBox()).height).toBeGreaterThanOrEqual(44);
+  await manter.click();
+  await expect(dlg).toHaveCount(0);
+  expect(seen.confirms).toEqual([{ days: ["2026-10-24"], includeReview: true }]);
+  await expect(linha(page, "24/10")).toContainText("● Confirmado");
+});
+
+test("Manter com um item usa o displayId", async ({ page }) => {
+  const { seen } = await abrir(page, { route: "uso-ia?mes=2026-10&semana=5" });
+  await page.getByRole("button", { name: "Revisar 28/10" }).click();
+  const dlg = page.getByRole("dialog");
+  await expect(dlg.getByRole("list", { name: "Motivos da revisão" })).toContainText(
+    "AB#4655 já está fechado. O uso pode ser de outra tarefa.",
+  );
+  await dlg.getByRole("button", { name: "Manter AB#4655 em 28/10" }).click();
+  await expect(dlg).toHaveCount(0);
+  expect(seen.confirms).toEqual([{ days: ["2026-10-28"], includeReview: true }]);
+});
+
+test("overriddenMark: a origem na linha só quando a branch ganhou; o detalhe mostra a origem", async ({
+  page,
+}) => {
+  await abrir(page, { route: SEM4 });
+  await expect(linha(page, "22/10")).toContainText("pela branch; a tarefa marcada era AB#4790");
+  await expect(linha(page, "22/10")).toContainText("○ A confirmar");
+  await expect(linha(page, "23/10")).not.toContainText("pela branch");
+  await page.getByRole("button", { name: "Ver uso de 22/10" }).click();
+  await expect(page.getByRole("dialog")).toContainText("Sugerido pela branch");
+  await expect(page.getByRole("dialog")).toContainText("a tarefa marcada era AB#4790");
+});
+
+test("Confirmar da linha usa POST /confirm; Ajustar usa POST /manual {day, splits}", async ({
+  page,
+}) => {
+  const { seen } = await abrir(page, { route: SEM4 });
+  await linha(page, "25/10").getByRole("button", { name: "Confirmar 25/10" }).click();
+  await expect(linha(page, "25/10")).toContainText("● Confirmado");
+  expect(seen.confirms).toEqual([{ days: ["2026-10-25"] }]);
+  await linha(page, "23/10").getByRole("button", { name: "Ajustar 23/10" }).click();
+  const dlg = page.getByRole("dialog");
+  await dlg
+    .getByRole("button", { name: /Confirmar alocação/ })
+    .last()
+    .click();
+  await expect(page.getByRole("dialog").getByText("Confirmado").first()).toBeVisible();
+  await page.getByRole("dialog").getByRole("button", { name: "Fechar" }).last().click();
+  await expect(linha(page, "23/10")).toContainText("● Confirmado");
+  expect(seen.manuals).toHaveLength(1);
+  expect(seen.manuals[0].day).toBe("2026-10-23");
+  expect(Array.isArray(seen.manuals[0].splits)).toBe(true);
+});
+
+test("faixa D1: aparece uma vez, o Entendi fecha, leva o foco ao título e não volta", async ({
+  page,
+}) => {
+  await abrir(page, { route: SEM4 });
+  const faixa = page.getByRole("note");
+  await expect(faixa).toContainText(
+    "O uso do agente agora chega como sugestão, mesmo com tarefa marcada. Confira e confirme por semana.",
+  );
+  const entendi = faixa.getByRole("button", { name: "Entendi, fechar o aviso" });
+  expect((await entendi.boundingBox()).height).toBeGreaterThanOrEqual(44);
+  await entendi.click();
+  await expect(faixa).toHaveCount(0);
+  await expect(page.getByRole("heading", { level: 2, name: "Consumo e alocações" })).toBeFocused();
+  await page.reload();
+  await expect(page.getByRole("heading", { level: 3, name: /^Semana de/ })).toBeVisible();
+  await expect(page.getByRole("note")).toHaveCount(0);
+});
+
+test("faixa D1: não aparece no uso de outra pessoa", async ({ page }) => {
+  await abrir(page, { route: `${SEM4}&pessoa=u2` });
+  await expect(page.getByText("somente leitura")).toBeVisible();
+  await expect(page.getByRole("note")).toHaveCount(0);
+});
+
+test("390: motivos em lista sem rolagem horizontal e Manter com 44 px", async ({ page }) => {
+  await abrir(page, { route: SEM4, width: 390 });
+  const lista = page.getByRole("list", { name: "Dias da semana" });
+  const cartao = lista.getByRole("listitem").filter({ hasText: "24/10" }).first();
+  await expect(cartao.getByRole("listitem")).toHaveText([
+    "AB#4812 é de outra pessoa.",
+    "Uso 4× acima do seu normal.",
+  ]);
+  const over = await page.evaluate(
+    () => document.documentElement.scrollWidth - document.documentElement.clientWidth,
+  );
+  expect(over).toBeLessThanOrEqual(0);
+  expect(await lista.evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(0);
+  const faixa = page.getByRole("note");
+  expect((await faixa.boundingBox()).width).toBeLessThanOrEqual(390);
+  const box = await cartao.getByRole("button", { name: "Revisar 24/10" }).boundingBox();
+  expect(box.height).toBeGreaterThanOrEqual(44);
 });
 
 test("o progresso é anunciado em aria-live", async ({ page }) => {
   await abrir(page, { route: SEM4 });
-  await page.route(/\/allocations\/sug-22\/accept/, async (route) => {
-    await new Promise((r) => setTimeout(r, 600));
+  await page.route(/\/allocations\/confirm/, async (route) => {
+    if (route.request().postData()?.includes("2026-10-22"))
+      await new Promise((r) => setTimeout(r, 600));
     await route.fallback();
   });
   await page.getByRole("button", { name: "Confirmar 5 dias" }).click();
@@ -234,7 +390,7 @@ test("390 px: a semana vira lista de cartões e a página não rola na horizonta
   await abrir(page, { route: SEM4, width: 390 });
   await expect(page.getByRole("table")).toHaveCount(0);
   const lista = page.getByRole("list", { name: "Dias da semana" });
-  await expect(lista.getByRole("listitem")).toHaveCount(7);
+  await expect(lista.locator(":scope > li")).toHaveCount(7);
   await expect(lista.getByRole("heading", { level: 3 }).first()).toBeVisible();
   const over = await page.evaluate(
     () => document.documentElement.scrollWidth - document.documentElement.clientWidth,

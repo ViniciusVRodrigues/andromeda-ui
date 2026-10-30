@@ -2,13 +2,15 @@ import React from "react";
 import { Link } from "react-router-dom";
 import { fmtTokens, totalTokens } from "../lib.js";
 import { AgentLegend, AgentTag } from "./AgentMark.jsx";
+import { LINK, LINK_STYLE } from "./linkStyle.js";
 import { useConfirmDays } from "../hooks/useConfirmDays.js";
 import {
   STATUS_VIEW,
   dayLabel,
   dayMonth,
   dayStatus,
-  reviewReasonText,
+  capFirst,
+  reviewReasonItems,
   todayIso,
   usd,
   weekRange,
@@ -18,20 +20,6 @@ import {
 const tokensOf = totalTokens;
 const money = (value) => (value == null ? "Não informado" : usd(value));
 const plural = (n, one, many) => `${n} ${n === 1 ? one : many}`;
-/* Link em forma de botão: zera a pele do <button> global (fundo, borda, caixa). */
-const LINK_STYLE = {
-  background: "none",
-  border: 0,
-  padding: 0,
-  font: "inherit",
-  textTransform: "none",
-  letterSpacing: "normal",
-  borderRadius: 0,
-  boxShadow: "none",
-};
-const LINK =
-  "text-accent-text hover:text-fg inline-flex min-h-[44px] cursor-pointer items-center underline disabled:cursor-not-allowed disabled:opacity-50";
-
 /** `true` a partir de 1024 px: tabela; abaixo, lista de cartões. */
 function useWide() {
   const query = "(min-width: 1024px)";
@@ -53,15 +41,24 @@ function Suggestion({ row, status }) {
     <div className="space-y-0.5">
       {list.map((s) => {
         const title = s.workItemTitle || s.workItemId;
+        /* D2 = a: a origem só aparece quando a branch ganhou da tarefa marcada */
+        const was = status === "confirmed" ? null : s.overriddenMark?.displayId;
         return (
-          <div key={s.workItemId} className="flex min-w-0 gap-1">
-            <span className="min-w-0 truncate" title={title}>
-              {title}
-            </span>
-            {list.length > 1 && (
-              <span className="text-fg-muted shrink-0 whitespace-nowrap tabular-nums">
-                · {Math.round(Number(s.percentage) * 100)}%
+          <div key={s.workItemId}>
+            <div className="flex min-w-0 gap-1">
+              <span className="min-w-0 truncate" title={title}>
+                {title}
               </span>
+              {list.length > 1 && (
+                <span className="text-fg-muted shrink-0 whitespace-nowrap tabular-nums">
+                  · {Math.round(Number(s.percentage) * 100)}%
+                </span>
+              )}
+            </div>
+            {was && (
+              <p className="text-fg-muted m-0 text-xs break-words">
+                pela branch; a tarefa marcada era {was}
+              </p>
             )}
           </div>
         );
@@ -70,8 +67,21 @@ function Suggestion({ row, status }) {
   );
 }
 
-function Reason({ row }) {
-  return <p className="text-warn-text m-0 mt-1 text-xs">{reviewReasonText(row.review?.reasons)}</p>;
+/** Um motivo por linha (D3 = b): com um só, "Por quê: …."; com vários, "Por quê:" e uma lista. */
+export function Reason({ row }) {
+  const items = reviewReasonItems(row.review);
+  if (items.length === 1)
+    return <p className="text-warn-text m-0 mt-1 text-xs break-words">Por quê: {items[0]}.</p>;
+  return (
+    <div className="text-warn-text mt-1 text-xs break-words">
+      <p className="m-0">Por quê:</p>
+      <ul className="m-0 list-none p-0">
+        {items.map((text) => (
+          <li key={text}>{capFirst(text)}.</li>
+        ))}
+      </ul>
+    </div>
+  );
 }
 
 function StatusText({ status, row }) {
@@ -173,7 +183,6 @@ export function WeekTable({
   const suggested = all.filter((r) => r._status === "suggested");
   const inReview = all.filter((r) => r._status === "review").length;
   const running = batch.phase === "running";
-  const [lastDone, setLastDone] = React.useState(0);
 
   // trocou de semana, mês ou pessoa: o resultado do lote anterior não vale mais
   React.useEffect(() => {
@@ -182,10 +191,7 @@ export function WeekTable({
   }, [week.start, readOnly]);
 
   const start = async () => {
-    const items = suggested
-      .map((r) => ({ day: r.day, id: r.suggestionAllocationId }))
-      .sort((a, b) => a.day.localeCompare(b.day)); // do dia mais antigo ao mais novo
-    setLastDone(items.length);
+    const items = suggested.map((r) => ({ day: r.day })).sort((a, b) => a.day.localeCompare(b.day)); // do dia mais antigo ao mais novo
     await batch.start(items);
   };
   React.useEffect(() => {
@@ -243,7 +249,7 @@ export function WeekTable({
           </h3>
           <p className="text-fg-muted m-0 mt-0.5 text-sm">
             {plural(suggested.length, "pronto", "prontos")} para confirmar
-            {inReview > 0 && ` · ${inReview} em revisão`}
+            {inReview > 0 && ` · ${inReview} em revisão. Os dias em revisão ficam de fora.`}
           </p>
         </div>
         {!readOnly && suggested.length > 0 && batch.phase !== "failed" && (
@@ -256,13 +262,23 @@ export function WeekTable({
       <div aria-live="polite" role="status" className="mb-3 empty:hidden">
         {running && (
           <p className="m-0 text-sm">
-            Confirmando {Math.min(batch.confirmed + 1, batch.total)} de {batch.total}…
+            Confirmando {Math.min(batch.confirmed + batch.skipped + 1, batch.total)} de{" "}
+            {batch.total}…
           </p>
         )}
         {batch.phase === "done" && (
           <p className="text-good-text m-0 text-sm">
             <span aria-hidden="true">✓ </span>
-            {plural(lastDone, "dia confirmado", "dias confirmados")}.
+            {plural(batch.confirmed, "dia confirmado", "dias confirmados")}.
+          </p>
+        )}
+        {batch.phase === "done" && batch.skipped > 0 && (
+          <p className="text-warn-text m-0 text-sm">
+            <span aria-hidden="true">! </span>
+            {batch.skipped} {batch.skipped === 1 ? "dia" : "dias"} não{" "}
+            {batch.skipped === 1
+              ? "foi confirmado: precisa de revisão."
+              : "foram confirmados: precisam de revisão."}
           </p>
         )}
       </div>

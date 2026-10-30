@@ -51,6 +51,8 @@ function AzureRow() {
   );
 }
 
+const githubOf = (list) => (Array.isArray(list) ? list.find((a) => a.provider === "GITHUB") : null);
+
 /**
  * "Contas conectadas" block for the Perfil page.
  * Lists the caller's own provider accounts and lets them connect/disconnect
@@ -94,7 +96,13 @@ export function ConnectedAccounts() {
     provider: "github",
     popupName: "github-account-oauth",
     pollPath: "/v1/users/me/provider-accounts",
-    isDone: (data) => Array.isArray(data) && data.some((a) => a.provider === "GITHUB"),
+    /* vale vínculo novo ou re-vínculo (linkedAt diferente do retrato tirado no clique) */
+    isDone: (data, before) => {
+      const now = githubOf(data);
+      if (!now) return false;
+      const old = githubOf(before);
+      return !old || now.linkedAt !== old.linkedAt;
+    },
     onSuccess: (data) => {
       setOauthError(null);
       /* a sondagem devolve a lista; a página de retorno só avisa e a lista é recarregada */
