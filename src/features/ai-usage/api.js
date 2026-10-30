@@ -66,6 +66,17 @@ export function acceptAllocation(id) {
 }
 
 /**
+ * Confirma as sugestões pendentes dos dias (AGT7). Dia com motivo de revisão só entra com
+ * `includeReview` (o "Manter"). Resposta: `{ confirmed: [day], skipped: [{ day, reason }] }`
+ * com reason NEEDS_REVIEW | NOTHING_PENDING | CONFLICT.
+ * @param {string[]} days
+ * @param {boolean} [includeReview]
+ */
+export function confirmAllocations(days, includeReview = false) {
+  return api.post("/v1/ai/allocations/confirm", includeReview ? { days, includeReview } : { days });
+}
+
+/**
  * Submit a manual allocation overriding a suggestion.
  * @param {string} id  The suggestionAllocationId
  * @param {Array<{ workItemId: string, percentage: number }>} splits

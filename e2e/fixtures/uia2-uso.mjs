@@ -53,7 +53,8 @@ export const DAILY = Array.from({ length: 29 }, (_, i) => {
     hasAgentAllocation: false,
   };
 });
-// Sugestoes (todo uso do agente chega como sugestao). review = PROPOSTO para o AGT7.
+// Sugestoes (todo uso do agente chega como sugestao, AGT7): displayId, source, overriddenMark e
+// review.details no formato do design.md 1.5.
 const WI = {
   a: [
     "wi-4812",
@@ -65,11 +66,21 @@ const WI = {
 };
 const REASONS = {
   28: ["ITEM_CLOSED"],
-  24: ["OTHER_ASSIGNEE"],
+  24: ["OTHER_ASSIGNEE", "USAGE_SPIKE"],
   21: ["OUT_OF_SPRINT"],
   17: ["TASK_BRANCH_CONFLICT"],
   14: ["ITEM_CLOSED", "OUT_OF_SPRINT"],
 };
+// motivos com o item (o servidor so manda details quando sabe qual)
+const DETAILS = {
+  28: [{ code: "ITEM_CLOSED", workItemId: "wi-4655", displayId: "AB#4655" }],
+  24: [
+    { code: "OTHER_ASSIGNEE", workItemId: "wi-4812", displayId: "AB#4812" },
+    { code: "USAGE_SPIKE", ratio: 4.3 },
+  ],
+};
+// a branch ganhou da tarefa marcada em 22/10
+const OVERRIDDEN = { 22: { displayId: "AB#4790" } };
 export const PENDING = DAILY.map((r) => {
   const d = +r.day.slice(8);
   const reasons = REASONS[d] || [];
@@ -89,9 +100,21 @@ export const PENDING = DAILY.map((r) => {
     totalInteractions: r.interactions,
     estimatedCostUsd: r.costUsd,
     suggestionAllocationId: `sug-${d}`,
-    suggestion: sug.map(([[id, t], p]) => ({ workItemId: id, workItemTitle: t, percentage: p })),
-    // PROPOSTO: estado e motivo por linha
-    review: { state: reasons.length ? "NEEDS_REVIEW" : "SUGGESTED", source: "AGENT", reasons },
+    suggestion: sug.map(([[id, t], p]) => ({
+      workItemId: id,
+      workItemTitle: t,
+      percentage: p,
+      displayId: t.split(" ")[0],
+      source: "BRANCH",
+      overriddenMark: OVERRIDDEN[d] || null,
+    })),
+    allocationIds: [`sug-${d}`],
+    review: {
+      state: reasons.length ? "NEEDS_REVIEW" : "SUGGESTED",
+      source: "AGENT",
+      reasons,
+      details: DETAILS[d] || [],
+    },
   };
 });
 export const MEMBERS = [
@@ -107,41 +130,73 @@ const json = (status, body) => ({
 });
 
 /**
- * Serve o Uso de IA com os dados do mês de outubro de 2026 (por cima da camada replay).
- * `accept`: { failAt: índice (0-based) da chamada que responde 500, conflict: ids que
- * respondem 409 ALLOCATION_ALREADY_VALIDATED }. Devolve `seen.accepts` (ids, na ordem).
+ * Serve o Uso de IA com os dados do mes de outubro de 2026 (por cima da camada replay).
+ * `confirm`: { failAt: indice (0-based) da chamada a POST /confirm que responde 500,
+ * forceReview: dias que o servidor passa a tratar como NEEDS_REVIEW (entram em `skipped`) }.
+ * Devolve `seen.confirms` (corpos, na ordem) e `seen.manuals` (corpos de POST /manual).
  */
 export async function routeUsoIa(
   page,
-  { ownId, pending = PENDING, history = [], daily = DAILY, summary = SUMMARY, accept = {} } = {},
+  { ownId, pending = PENDING, history = [], daily = DAILY, summary = SUMMARY, confirm = {} } = {},
 ) {
-  const seen = { accepts: [] };
-  const done = new Set(); // sugestões aceitas: saem dos pendentes e entram no histórico
+  const seen = { confirms: [], manuals: [] };
+  const done = new Set(); // dias confirmados: saem dos pendentes e entram no historico
+  const forceReview = new Set(confirm.forceReview || []);
+  const forced = new Set(); // dias que o servidor passou a tratar como NEEDS_REVIEW
   const members = MEMBERS.map((m) => (m.id === "__own__" ? { ...m, id: ownId } : m));
+  const visible = () =>
+    pending
+      .filter((b) => !done.has(b.day))
+      .map((b) =>
+        forced.has(b.day) && !b.review.reasons.length
+          ? {
+              ...b,
+              review: {
+                ...b.review,
+                state: "NEEDS_REVIEW",
+                reasons: ["USAGE_SPIKE"],
+                details: [{ code: "USAGE_SPIKE", ratio: 5 }],
+              },
+            }
+          : b,
+      );
   await page.route(/\/api\/v1\/ai\//, (route) => {
     const request = route.request();
     const path = new URL(request.url()).pathname;
     const fulfill = (status, body) => route.fulfill(json(status, body));
-    const m = path.match(/\/allocations\/([^/]+)\/accept$/);
-    if (m && request.method() === "POST") {
-      const call = seen.accepts.length;
-      seen.accepts.push(m[1]);
-      if (call === accept.failAt) return fulfill(500, { code: "INTERNAL_ERROR" });
-      done.add(m[1]);
-      if (accept.conflict?.includes(m[1]))
-        return fulfill(409, { code: "ALLOCATION_ALREADY_VALIDATED" });
+    if (path.endsWith("/allocations/confirm") && request.method() === "POST") {
+      const body = request.postDataJSON();
+      const call = seen.confirms.length;
+      seen.confirms.push(body);
+      if (call === confirm.failAt) return fulfill(500, { code: "INTERNAL_ERROR" });
+      const confirmed = [];
+      const skipped = [];
+      for (const day of body.days) {
+        if (forceReview.has(day) && !body.includeReview) forced.add(day);
+        const row = visible().find((b) => b.day === day);
+        if (!row) skipped.push({ day, reason: "NOTHING_PENDING" });
+        else if (row.review.reasons.length && !body.includeReview)
+          skipped.push({ day, reason: "NEEDS_REVIEW" });
+        else {
+          done.add(day);
+          confirmed.push(day);
+        }
+      }
+      return fulfill(200, { confirmed, skipped });
+    }
+    if (path.endsWith("/allocations/manual") && request.method() === "POST") {
+      const body = request.postDataJSON();
+      seen.manuals.push(body);
+      done.add(body.day);
       return fulfill(200, {});
     }
+    if (path.endsWith("/candidates")) return fulfill(200, []);
     if (path.endsWith("/usage/summary")) return fulfill(200, summary);
     if (path.endsWith("/usage/daily")) return fulfill(200, daily);
-    if (path.endsWith("/allocations/pending-batches"))
-      return fulfill(
-        200,
-        pending.filter((b) => !done.has(b.suggestionAllocationId)),
-      );
+    if (path.endsWith("/allocations/pending-batches")) return fulfill(200, visible());
     if (path.endsWith("/allocations/history")) {
       const accepted = pending
-        .filter((b) => done.has(b.suggestionAllocationId))
+        .filter((b) => done.has(b.day))
         .map((b) => ({
           id: `ok-${b.suggestionAllocationId}`,
           day: b.day,

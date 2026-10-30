@@ -105,5 +105,116 @@ export function agentFixtures(now) {
     },
   };
 
-  return { META, DEVICES, TODAY, dev, ago };
+  // AGT7: estados da Tarefa ativa (ux.md seção 4). devices[] traz activeTask (com branch e
+  // day), lastEndedTask e taskConflict; resolved[] diz o que vale agora em cada repositório.
+  const wi4812 = {
+    id: "wi-4812",
+    displayId: "AB#4812",
+    title: "Migrar o cálculo de custo por modelo",
+  };
+  const wi4790 = { id: "wi-4790", displayId: "AB#4790", title: "Tela do Conector de IA" };
+  const byBranch = (repo, branch = "feature/AB#4812-custo") => ({
+    repo,
+    branch,
+    resolvedBy: "BRANCH",
+    branchApproximate: false,
+    since: ago(47 * MIN),
+    workItem: wi4812,
+  });
+  const marked = (repo, over = {}) => ({
+    workItemId: "wi-4790",
+    ref: "AB#4790",
+    title: wi4790.title,
+    repo,
+    since: ago(3 * 60 * MIN),
+    branch: "main",
+    day: "2026-10-29",
+    ...over,
+  });
+  const ended = (repo, reason, over = {}) => ({
+    ref: "AB#4790",
+    title: wi4790.title,
+    repo,
+    branch: "main",
+    reason,
+    endedAt: ago(50 * MIN),
+    newBranch: null,
+    newRepo: null,
+    ...over,
+  });
+  const task = (extra) => ({ deviceId: "d1", machineName: "viniciusvr", ...extra });
+  const ESTADOS = {
+    // um por repositório: conflito, marcada e expirada (o conflito vem primeiro, mesmo declarado por último)
+    todos: {
+      resolved: [byBranch("andromeda-ms")],
+      unassigned: [],
+      devices: [
+        task({
+          activeTask: marked("andromeda-ui"),
+          lastEndedTask: ended("andromeda-docs", "BRANCH_CHANGED", {
+            newBranch: "feature/AB#4812-custo",
+          }),
+        }),
+        task({
+          deviceId: "d2",
+          activeTask: marked("andromeda-ms"),
+          taskConflict: {
+            taskRef: "AB#4790",
+            branch: "feature/AB#4812-custo",
+            branchRef: "4812",
+            repo: "andromeda-ms",
+            at: ago(50 * MIN),
+          },
+        }),
+      ],
+    },
+    marcada: {
+      resolved: [],
+      unassigned: [],
+      devices: [task({ activeTask: marked("andromeda-ui") })],
+    },
+    branch: { resolved: [byBranch("andromeda-ms")], unassigned: [], devices: [task({})] },
+    expirada: {
+      resolved: [byBranch("andromeda-ms")],
+      unassigned: [],
+      devices: [
+        task({
+          lastEndedTask: ended("andromeda-ms", "BRANCH_CHANGED", {
+            newBranch: "feature/AB#4812-custo",
+          }),
+        }),
+      ],
+    },
+    fechada: {
+      resolved: [],
+      unassigned: [{ repo: "andromeda-ms" }],
+      devices: [task({ lastEndedTask: ended("andromeda-ms", "ITEM_CLOSED") })],
+    },
+    diaAcabou: {
+      resolved: [],
+      unassigned: [],
+      devices: [task({ lastEndedTask: ended("andromeda-ms", "DAY_ENDED") })],
+    },
+    // branch de 60 caracteres sem espaço e título longo, para o 390
+    longa: {
+      resolved: [byBranch("andromeda-ms")],
+      unassigned: [],
+      devices: [
+        task({
+          activeTask: marked("andromeda-ms", {
+            title: "Migrar o cálculo de custo por modelo para a tabela de preços da organização",
+          }),
+          taskConflict: {
+            taskRef: "AB#4790",
+            branch: `feature/AB#4812-${"x".repeat(44)}`,
+            branchRef: "4812",
+            repo: "andromeda-ms",
+            at: ago(50 * MIN),
+          },
+        }),
+      ],
+    },
+  };
+
+  return { META, DEVICES, TODAY, ESTADOS, dev, ago };
 }

@@ -1102,7 +1102,7 @@ test.describe("composição D1-X", () => {
     }
     expect(await noHScroll(page)).toBe(true);
     // Título de work item cortado numa linha só, com o título completo no title.
-    const titulo = page.getByTestId("agent-task").first().locator("span.truncate");
+    const titulo = page.getByTestId("agent-task").first().locator("span[title]");
     expect((await titulo.boundingBox()).height).toBeLessThan(24);
     expect(await titulo.getAttribute("title")).toContain("tabela de preços da organização");
     await expect(page.getByText("sincronizado há 1 min")).toBeVisible();
@@ -1185,5 +1185,106 @@ test.describe("modo só-dashboard (ProfileOnly)", () => {
       "aria-selected",
       "true",
     );
+  });
+});
+
+test.describe("estados da Tarefa ativa (AGT7)", () => {
+  test.use({ timezoneId: "UTC" });
+  const hora = (msAgo) => new Date(FIXED_NOW.getTime() - msAgo).toISOString().slice(11, 16);
+  const caso = async (page, nome, largura = 1280) => {
+    await page.setViewportSize({ width: largura, height: 900 });
+    const slug = await open(page);
+    const F = agentFixtures(FIXED_NOW);
+    await mockAgent(page, { meta: F.META, devices: F.DEVICES.real, today: F.ESTADOS[nome] });
+    await gotoPerfil(page, slug);
+    await expect(page.getByTestId("agent-device").first()).toBeVisible();
+    return page.getByRole("region", { name: "Tarefa ativa agora" });
+  };
+
+  test("os estados na ordem: conflito, marcada, expirada", async ({ page }) => {
+    const secao = await caso(page, "todos");
+    const itens = secao.getByTestId("agent-task");
+    await expect(itens).toHaveCount(3);
+    await expect(itens.nth(0)).toContainText("AB#4812");
+    await expect(itens.nth(0)).toContainText("andromeda-ms, pela branch");
+    await expect(itens.nth(0).getByTestId("agent-task-state")).toContainText(
+      "A branch feature/AB#4812-custo aponta AB#4812: o uso vai para ele, não para AB#4790 (marcada). Para usar AB#4790, troque de branch.",
+    );
+    await expect(itens.nth(1)).toContainText("AB#4790");
+    await expect(itens.nth(1)).toContainText(`andromeda-ui, marcada às ${hora(3 * 3600000)}`);
+    await expect(itens.nth(1).getByTestId("agent-task-state")).toHaveText(
+      "Vale até a meia-noite ou até você trocar de branch.",
+    );
+    await expect(itens.nth(2)).toContainText("andromeda-docs · sem tarefa.");
+    await expect(itens.nth(2).getByTestId("agent-task-state")).toContainText(
+      `AB#4790 expirou às ${hora(50 * 60000)}: você trocou para a branch feature/AB#4812-custo.`,
+    );
+  });
+
+  test("expirada por troca de branch: Marcar de novo abre o Trocar a tarefa com o comando e as regras", async ({
+    page,
+  }) => {
+    const secao = await caso(page, "expirada");
+    const estado = secao.getByTestId("agent-task").first().getByTestId("agent-task-state");
+    await expect(estado).toContainText("○ AB#4790 expirou às");
+    const de_novo = secao.getByRole("button", { name: "Marcar AB#4790 de novo" });
+    expect((await de_novo.boundingBox()).height).toBeGreaterThanOrEqual(44);
+    await expect(page.getByText("andromeda-agent task AB#4790", { exact: true })).toHaveCount(0);
+    await de_novo.click();
+    await expect(page.getByRole("button", { name: "Trocar a tarefa" })).toHaveAttribute(
+      "aria-expanded",
+      "true",
+    );
+    await expect(page.getByText("andromeda-agent task AB#4790", { exact: true })).toBeVisible();
+    await expect(
+      page.getByText(
+        "A tarefa marcada sai sozinha quando você troca de branch ou de repositório, quando o item fecha ou sai da sprint e à meia-noite. Se a branch aponta outro item, a branch ganha. Todo uso chega como sugestão para você confirmar.",
+      ),
+    ).toBeVisible();
+  });
+
+  test("a frase das regras também está no Trocar a tarefa aberto à mão", async ({ page }) => {
+    await caso(page, "branch");
+    await page.getByRole("button", { name: "Trocar a tarefa" }).click();
+    await expect(
+      page.getByText("A tarefa marcada sai sozinha quando você troca de branch"),
+    ).toBeVisible();
+    await expect(page.getByText("andromeda-agent task 1235", { exact: true })).toBeVisible();
+  });
+
+  test("item fechado: a expirada não oferece Marcar de novo", async ({ page }) => {
+    const secao = await caso(page, "fechada");
+    await expect(
+      secao.getByTestId("agent-unassigned").getByTestId("agent-task-state"),
+    ).toContainText(`AB#4790 expirou às ${hora(50 * 60000)}: o item foi fechado.`);
+    await expect(secao.getByRole("button", { name: /de novo/ })).toHaveCount(0);
+  });
+
+  test("fim do dia: expirou à meia-noite, com Marcar de novo", async ({ page }) => {
+    const secao = await caso(page, "diaAcabou");
+    await expect(secao.getByTestId("agent-task-state")).toContainText(
+      "AB#4790 expirou à meia-noite: o dia acabou.",
+    );
+    await expect(secao.getByRole("button", { name: "Marcar AB#4790 de novo" })).toBeVisible();
+  });
+
+  test("marcada e valendo sozinha ocupa até 2 linhas a 1280", async ({ page }) => {
+    const secao = await caso(page, "marcada");
+    const li = secao.getByTestId("agent-task");
+    await expect(li).toHaveCount(1);
+    expect((await li.boundingBox()).height).toBeLessThan(48);
+  });
+
+  test("390: título em até 2 linhas, estado inteiro e sem rolagem horizontal", async ({ page }) => {
+    const secao = await caso(page, "longa", 390);
+    const li = secao.getByTestId("agent-task").first();
+    const titulo = li.locator("span[title]");
+    const linhaAltura = await titulo.evaluate((el) => parseFloat(getComputedStyle(el).lineHeight));
+    expect((await titulo.boundingBox()).height).toBeLessThanOrEqual(linhaAltura * 2 + 1);
+    const estado = li.getByTestId("agent-task-state");
+    await expect(estado).toContainText("troque de branch.");
+    expect(await estado.evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(0);
+    expect(await noHScroll(page)).toBe(true);
+    expect(await secao.evaluate((el) => el.scrollWidth - el.clientWidth)).toBeLessThanOrEqual(0);
   });
 });
