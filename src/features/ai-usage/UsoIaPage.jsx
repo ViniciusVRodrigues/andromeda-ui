@@ -4,6 +4,7 @@ import { MetricsHeader } from "./components/MetricsHeader.jsx";
 import { WeekTable } from "./components/WeekTable.jsx";
 import { AllocationModal } from "./components/AllocationModal.jsx";
 import { AgentLegend, AgentTag, agentOriginText } from "./components/AgentMark.jsx";
+import { SuggestionNotice } from "./components/SuggestionNotice.jsx";
 import { MoveAgentUsageDialog } from "./components/MoveAgentUsageDialog.jsx";
 import { WorkItemLink } from "../../core/work-items/WorkItemLink.jsx";
 import Modal from "../../core/ui/Modal.jsx";
@@ -12,17 +13,33 @@ import { fmtTokens } from "./lib.js";
 import {
   STATUS_VIEW,
   dayLabel,
+  dayMonth,
   dayStatus,
   needsAction,
   pendingSummary,
   resolveWeek,
-  reviewReasonText,
+  reviewActionItems,
+  suggestionOrigin,
   topWorkItems,
   totalTokens,
   usd,
   weekRange,
   weeksOfMonth,
 } from "./lib.js";
+
+/** Dia do agente: confirmado pelo agente ou com sugestão vinda dele (o aviso da faixa). */
+const isAgentRow = (row) =>
+  row.hasAgent ||
+  row.review?.source === "AGENT" ||
+  (row.suggestion || []).some((s) => ["BRANCH", "MARK", "SINGLE_ACTIVE"].includes(s.source));
+
+/** Botão "Manter": com um item "Manter AB#4812" (nome "Manter AB#4812 em 24/10"). */
+function keepLabel(row) {
+  if (!row) return {};
+  const only = row.suggestion?.length === 1 ? row.suggestion[0].displayId : null;
+  const label = only ? `Manter ${only}` : "Manter a sugestão";
+  return { label, aria: `${label} em ${dayMonth(row.day)}` };
+}
 
 const money = (value) => (value == null ? "Não informado" : usd(value));
 
@@ -59,10 +76,13 @@ export function UsoIaPage({ can, personRef }) {
   const [allocating, setAllocating] = React.useState(false);
   const [notice, setNotice] = React.useState("");
   const [moving, setMoving] = React.useState(null);
+  const [warning, setWarning] = React.useState("");
+  const titleRef = React.useRef(null);
   React.useEffect(() => {
     setSelectedDay(null);
     setAllocating(false);
     setMoving(null);
+    setWarning("");
     mutation.reset();
   }, [month, selectedUserId]);
   const rows = React.useMemo(() => {
@@ -159,21 +179,45 @@ export function UsoIaPage({ can, personRef }) {
   const loading = [daily, pending, history].some((q) => q.isPending);
   const failed = [daily, pending, history].filter((q) => q.isError);
   const selectedStatus = selected ? statusOf(selected) : null;
+  const keep = keepLabel(selected);
   const statusLabel = (row) => STATUS_VIEW[statusOf(row)].label;
   const statusGlyph = (row) => STATUS_VIEW[statusOf(row)].glyph;
-  async function save(splits, accept = false) {
+  /** `POST /confirm` devolve `skipped`: o dia que não foi confirmado fica como está e o motivo
+   * aparece em aviso (NEEDS_REVIEW → volta "Em revisão"). */
+  function skippedWarning(day, result) {
+    const hit = (result?.skipped || []).find((s) => s.day === day);
+    if (!hit) return "";
+    return hit.reason === "NEEDS_REVIEW"
+      ? `O dia ${dayLabel(day)} não foi confirmado: precisa de revisão.`
+      : `O dia ${dayLabel(day)} não foi confirmado. Tente de novo.`;
+  }
+  async function save(splits, accept = false, includeReview = false) {
+    setWarning("");
     try {
-      await mutation.mutateAsync({ batch: selected, splits, accept });
+      const result = await mutation.mutateAsync({ batch: selected, splits, accept, includeReview });
+      const skipped = accept ? skippedWarning(selected.day, result) : "";
       setAllocating(false);
-      setNotice("Alocação salva com sucesso.");
+      if (skipped) {
+        setWarning(skipped);
+        return;
+      }
+      if (accept && includeReview) setSelectedDay(null);
+      setNotice(
+        accept && includeReview
+          ? `Dia ${dayLabel(selected.day)} mantido como sugerido.`
+          : "Alocação salva com sucesso.",
+      );
     } catch {
       /* Error stays visible in the dialog. */
     }
   }
   async function confirmOne(row) {
+    setWarning("");
     try {
-      await mutation.mutateAsync({ batch: row, splits: null, accept: true });
-      setNotice(`Dia ${dayLabel(row.day)} confirmado.`);
+      const result = await mutation.mutateAsync({ batch: row, splits: null, accept: true });
+      const skipped = skippedWarning(row.day, result);
+      if (skipped) setWarning(skipped);
+      else setNotice(`Dia ${dayLabel(row.day)} confirmado.`);
     } catch {
       /* O erro aparece no alerta acima da tabela. */
     }
@@ -211,7 +255,9 @@ export function UsoIaPage({ can, personRef }) {
       <section className="rounded-card border-line bg-bg-elev border p-4 sm:p-6">
         <div className="mb-4 flex flex-wrap items-end justify-between gap-4">
           <div>
-            <h2 className="font-serif text-2xl">Consumo e alocações</h2>
+            <h2 ref={titleRef} tabIndex={-1} className="font-serif text-2xl outline-none">
+              Consumo e alocações
+            </h2>
             <p className="text-fg-muted text-sm">
               {rows.length} dias no mês · {counts.suggested} a confirmar · {counts.review} em
               revisão
@@ -249,6 +295,15 @@ export function UsoIaPage({ can, personRef }) {
         </div>
         {selectedUserId && (
           <p className="text-fg-muted mb-3 text-sm">Consumo de outro membro · somente leitura.</p>
+        )}
+        {!selectedUserId && !loading && rows.some(isAgentRow) && (
+          <SuggestionNotice onClose={() => titleRef.current?.focus()} />
+        )}
+        {warning && (
+          <p role="alert" className="text-warn-text mb-3 text-sm">
+            <span aria-hidden="true">! </span>
+            {warning}
+          </p>
         )}
         {mutation.isError && !selected && (
           <p role="alert" className="text-bad mb-3">
@@ -312,16 +367,27 @@ export function UsoIaPage({ can, personRef }) {
                   disabled={mutation.isPending}
                   onClick={() => setAllocating(true)}
                 >
-                  Alocar consumo
+                  {selectedStatus === "review" ? "Ajustar" : "Alocar consumo"}
                 </button>
-                {selected.suggestionAllocationId && (
+                {selected.suggestionAllocationId && selectedStatus === "review" ? (
                   <button
-                    className="btn-ghost btn"
+                    className="btn min-h-[44px]"
                     disabled={mutation.isPending}
-                    onClick={() => save(null, true)}
+                    aria-label={keep.aria}
+                    onClick={() => save(null, true, true)}
                   >
-                    Aceitar sugestão
+                    {keep.label}
                   </button>
+                ) : (
+                  selected.suggestionAllocationId && (
+                    <button
+                      className="btn-ghost btn"
+                      disabled={mutation.isPending}
+                      onClick={() => save(null, true)}
+                    >
+                      Aceitar sugestão
+                    </button>
+                  )
                 )}
               </>
             ) : null
@@ -345,10 +411,22 @@ export function UsoIaPage({ can, personRef }) {
             </p>
           </div>
           {selectedStatus === "review" && (
-            <p className="text-warn-text mb-4">
-              <span aria-hidden="true">! </span>
-              {reviewReasonText(selected.review?.reasons)}
-            </p>
+            <ul
+              aria-label="Motivos da revisão"
+              className="text-warn-text mb-4 list-none space-y-1 p-0"
+            >
+              {reviewActionItems(selected.review, {
+                day: selected.day,
+                costUsd: selected.estimatedCostUsd,
+                itemLabel:
+                  selected.suggestion?.length === 1 ? selected.suggestion[0].displayId : null,
+              }).map((text) => (
+                <li key={text}>
+                  <span aria-hidden="true">! </span>
+                  {text}
+                </li>
+              ))}
+            </ul>
           )}
           <h3 className="mb-3 font-serif text-xl">Work items alocados</h3>
           {selected.allocations?.length ? (
@@ -422,6 +500,14 @@ export function UsoIaPage({ can, personRef }) {
                     {split.workItemTitle || split.workItemId}
                   </WorkItemLink>{" "}
                   · {Math.round(Number(split.percentage) * 100)}%
+                  {suggestionOrigin(split) && (
+                    <span className="text-fg-muted block text-xs break-words">
+                      {suggestionOrigin(split)}
+                      {split.overriddenMark?.displayId
+                        ? `; a tarefa marcada era ${split.overriddenMark.displayId}`
+                        : ""}
+                    </span>
+                  )}
                 </p>
               ))}
             </div>

@@ -18,7 +18,8 @@ export function useAllocateDay() {
       [["dashboards-v2"], ["ai-usage"]].map((queryKey) => client.invalidateQueries({ queryKey })),
     );
   const mutation = useMutation({
-    mutationFn: ({ kind, id, day, splits }) => {
+    mutationFn: ({ kind, id, day, splits, includeReview }) => {
+      if (kind === "confirm") return usage.confirmAllocations([day], includeReview);
       if (kind === "accept") return usage.acceptAllocation(id);
       if (kind === "adjust") return usage.manualAllocate(id, splits);
       return usage.manualAllocateNoSuggestion(day, splits);
@@ -31,11 +32,11 @@ export function useAllocateDay() {
     accept: (id) => mutateAsync({ kind: "accept", id }),
     adjust: (id, splits) => mutateAsync({ kind: "adjust", id, splits }),
     allocateDay: (day, splits) => mutateAsync({ kind: "day", day, splits }),
-    mutateAsync: ({ batch, splits, accept }) => {
-      if (accept) return mutateAsync({ kind: "accept", id: batch.suggestionAllocationId });
-      return batch.suggestionAllocationId
-        ? mutateAsync({ kind: "adjust", id: batch.suggestionAllocationId, splits })
-        : mutateAsync({ kind: "day", day: batch.day, splits });
+    /* Uso de IA (AGT7): confirmar e "Manter" vão a POST /confirm (o "Manter" com
+     * `includeReview`); ajustar vai a POST /manual {day, splits}, que absorve as pendentes. */
+    mutateAsync: ({ batch, splits, accept, includeReview = false }) => {
+      if (accept) return mutateAsync({ kind: "confirm", day: batch.day, includeReview });
+      return mutateAsync({ kind: "day", day: batch.day, splits });
     },
     isPending: mutation.isPending,
     isError: mutation.isError,

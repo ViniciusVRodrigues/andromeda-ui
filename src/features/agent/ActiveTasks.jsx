@@ -45,24 +45,192 @@ function originText(r) {
   return "";
 }
 
+/* ---------- estados da Tarefa ativa (AGT7, ux.md seção 4) ---------- */
+
+const sameRepo = (a, b) => !!a && !!b && (a === b || a.endsWith(`/${b}`) || b.endsWith(`/${a}`));
+const hhmm = (iso) =>
+  new Date(iso).toLocaleTimeString("pt-BR", { hour: "2-digit", minute: "2-digit" });
+/** Fim da tarefa que não pede "Marcar de novo": o servidor a tirou de propósito. */
+const NO_REMARK = new Set(["ITEM_CLOSED", "LEFT_SPRINT"]);
+
+function endedText(e) {
+  const ref = e.ref || "a tarefa";
+  switch (e.reason) {
+    case "BRANCH_CHANGED":
+      return `${ref} expirou às ${hhmm(e.endedAt)}: ${
+        e.newBranch ? `você trocou para a branch ${e.newBranch}` : "você trocou de branch"
+      }.`;
+    case "REPO_CHANGED":
+      return `${ref} expirou às ${hhmm(e.endedAt)}: ${
+        e.newRepo ? `você passou para ${e.newRepo}` : "você passou para outro repositório"
+      }.`;
+    case "ITEM_CLOSED":
+      return `${ref} expirou às ${hhmm(e.endedAt)}: o item foi fechado.`;
+    case "LEFT_SPRINT":
+      return `${ref} expirou às ${hhmm(e.endedAt)}: o item saiu da sprint.`;
+    case "DAY_ENDED":
+      return `${ref} expirou à meia-noite: o dia acabou.`;
+    default:
+      return null;
+  }
+}
+
+/** Um item por repositório (ou por grupo resolvido), com a linha de estado quando houver.
+ * Ordem: conflito, marcada, branch, expirada, sem tarefa. */
+export function buildTaskItems(today) {
+  const resolved = [...(today?.resolved || [])].sort(
+    (a, b) => new Date(b.since).getTime() - new Date(a.since).getTime(),
+  );
+  const unassigned = today?.unassigned || [];
+  const devices = today?.devices || [];
+  const tasks = devices.filter((d) => d.activeTask).map((d) => d.activeTask);
+  const endeds = devices.map((d) => d.lastEndedTask).filter(Boolean);
+  const conflicts = devices.map((d) => d.taskConflict).filter(Boolean);
+
+  const repos = [];
+  const add = (r) => {
+    if (r && !repos.some((x) => sameRepo(x, r))) repos.push(r);
+  };
+  [...resolved, ...tasks, ...endeds, ...conflicts, ...unassigned].forEach((x) => add(x.repo));
+
+  const items = [];
+  for (const repo of repos) {
+    const group = resolved.filter((r) => sameRepo(r.repo, repo));
+    const task = tasks.find((t) => sameRepo(t.repo, repo));
+    const conflict = task && conflicts.find((c) => sameRepo(c.repo, repo));
+    let ended = endeds.find((e) => sameRepo(e.repo, repo));
+    if (ended && task && new Date(task.since) > new Date(ended.endedAt)) ended = null;
+    if (ended && endedText(ended) == null) ended = null;
+    const un = unassigned.find((u) => sameRepo(u.repo, repo));
+    const branchGroup = group.find((g) => g.resolvedBy === "BRANCH");
+
+    if (task) {
+      const winner = conflict ? branchGroup : null;
+      items.push({
+        key: `task-${repo}`,
+        rank: conflict ? 0 : 1,
+        repo,
+        kind: "task",
+        workItem: conflict
+          ? winner?.workItem || { displayId: conflict.branchRef }
+          : { id: task.workItemId, displayId: task.ref, title: task.title },
+        how: conflict ? "pela branch" : `marcada às ${hhmm(task.since)}`,
+        state: conflict
+          ? {
+              tone: "warn",
+              text: `A branch ${conflict.branch} aponta ${
+                winner?.workItem?.displayId || conflict.branchRef
+              }: o uso vai para ele, não para ${task.ref} (marcada). Para usar ${task.ref}, troque de branch.`,
+            }
+          : { tone: "muted", text: "Vale até a meia-noite ou até você trocar de branch." },
+      });
+    }
+    // os outros grupos resolvidos do repositório (o MARK vira a linha da tarefa)
+    const rest = group.filter(
+      (g) => !(task && (g.resolvedBy === "MARK" || (conflict && g === branchGroup))),
+    );
+    rest.forEach((g) =>
+      items.push({
+        key: `res-${repo}-${g.since}`,
+        rank: 2,
+        repo,
+        kind: "resolved",
+        workItem: g.workItem,
+        how: originText(g),
+        since: g.since,
+        branch: g.branch,
+        state: null,
+      }),
+    );
+    if (!task && !rest.length) {
+      items.push({
+        key: `none-${repo}`,
+        rank: 4,
+        repo,
+        kind: "none",
+        unassigned: !!un,
+        state: null,
+      });
+    }
+    if (ended) {
+      const stateEnded = {
+        tone: "ended",
+        text: endedText(ended),
+        remark: NO_REMARK.has(ended.reason) ? null : ended.ref,
+      };
+      const host = items.findLast((i) => i.repo === repo && i.kind !== "task");
+      if (host && !host.state) {
+        host.state = stateEnded;
+        host.rank = Math.min(host.rank, 3);
+      } else items.push({ key: `end-${repo}`, rank: 3, repo, kind: "none", state: stateEnded });
+    }
+  }
+  return items.sort((a, b) => a.rank - b.rank);
+}
+
+function StateLine({ state, onRemark }) {
+  if (!state) return null;
+  const warn = state.tone === "warn";
+  return (
+    <p
+      data-testid="agent-task-state"
+      className={`m-0 min-w-0 text-xs break-words ${warn ? "text-warn-text" : "text-fg-muted"}`}
+    >
+      {warn ? <span aria-hidden="true">! </span> : null}
+      {state.tone === "ended" ? <span aria-hidden="true">○ </span> : null}
+      {state.text}
+      {state.remark ? (
+        <>
+          {" "}
+          <button
+            type="button"
+            aria-label={`Marcar ${state.remark} de novo`}
+            onClick={() => onRemark(state.remark)}
+            className="text-accent-text focus-visible:outline-accent -my-[13px] inline-flex min-h-[44px] cursor-pointer items-center border-0 bg-transparent p-0 font-[inherit] text-xs underline focus-visible:outline-2 focus-visible:outline-offset-2"
+          >
+            Marcar de novo
+          </button>
+        </>
+      ) : null}
+    </p>
+  );
+}
+
 export default function ActiveTasks({ meta, orgSlug }) {
   const today = useAgentToday();
   const patterns = usePatternsSummary();
   const [open, setOpen] = React.useState(false);
+  const [taskRef, setTaskRef] = React.useState(null);
+  const boxRef = React.useRef(null);
 
-  const resolved = [...(today.data?.resolved || [])]
-    .sort((a, b) => new Date(b.since).getTime() - new Date(a.since).getTime())
-    .slice(0, 3);
-  const unassigned = today.data?.unassigned || [];
+  const items = buildTaskItems(today.data);
+  // no máximo 3 repositórios com tarefa; os "sem tarefa" ficam todos, como antes
+  const shown = [];
+  let kept = 0;
+  for (const it of items) {
+    if (it.kind === "none") shown.push(it);
+    else if (kept < 3) {
+      shown.push(it);
+      kept += 1;
+    }
+  }
+  const remark = (ref) => {
+    setTaskRef(ref);
+    setOpen(true);
+    setTimeout(() => boxRef.current?.focus(), 0);
+  };
 
   const p = patterns.data;
   const entries = p && p.enabled !== false ? (p.patterns?.length ? p.patterns : p.defaults) : null;
   const labels = entries ? [...new Set(entries.map(patternLabel))] : [];
-  const none = resolved.length === 0;
+  const none = shown.length === 0;
   const toggle = (
     <ToggleLink
       open={open}
-      onToggle={() => setOpen((v) => !v)}
+      onToggle={() => {
+        setOpen((v) => !v);
+        setTaskRef(null);
+      }}
       controls="agent-task-box"
       className="shrink-0"
     >
@@ -74,6 +242,7 @@ export default function ActiveTasks({ meta, orgSlug }) {
       Tarefa ativa
     </span>
   );
+  const command = `andromeda-agent task ${taskRef || "1235"}`;
 
   return (
     <section
@@ -95,42 +264,55 @@ export default function ActiveTasks({ meta, orgSlug }) {
             {none ? (
               <li className="text-fg-muted text-xs">nenhuma, o agente aponta pela branch.</li>
             ) : null}
-            {resolved.map((r) => (
-              <li
-                key={`${r.repo}-${r.since}`}
-                data-testid="agent-task"
-                title={r.branch ? `Branch: ${r.branch}` : undefined}
-                className="flex min-w-0 flex-wrap items-baseline gap-x-2 text-xs sm:flex-nowrap"
-              >
-                <WorkItemLink id={r.workItem?.id} className="shrink-0 font-mono">
-                  {r.workItem?.displayId}
-                </WorkItemLink>
-                <span className="text-fg min-w-0 truncate" title={r.workItem?.title}>
-                  {r.workItem?.title}
-                </span>
-                <span className="text-fg-muted sm:shrink-0 sm:whitespace-nowrap">
-                  · {r.repo}, {originText(r)}
-                  {r.since ? `, ${formatRelativeAge(r.since)}` : ""}
-                </span>
-              </li>
-            ))}
-            {unassigned.map((u) => (
-              <li
-                key={`un-${u.repo}`}
-                data-testid="agent-unassigned"
-                className="flex min-w-0 flex-wrap items-baseline gap-x-2 text-xs"
-              >
-                <span className="text-fg-muted min-w-0 break-words">
-                  {u.repo} · sem tarefa: o uso vai para a revisão de hoje.
-                </span>
-                <Link
-                  to={orgRoute(orgSlug, "uso-ia")}
-                  className="text-accent-text -my-[13px] inline-flex min-h-[44px] items-center underline"
+            {shown.map((it) =>
+              it.kind === "none" ? (
+                <li
+                  key={it.key}
+                  data-testid={it.unassigned ? "agent-unassigned" : "agent-task"}
+                  className="flex min-w-0 flex-col gap-y-0.5 text-xs"
                 >
-                  Alocar em Uso de IA
-                </Link>
-              </li>
-            ))}
+                  <span className="flex min-w-0 flex-wrap items-baseline gap-x-2">
+                    <span className="text-fg-muted min-w-0 break-words">
+                      {it.repo} · sem tarefa
+                      {it.unassigned ? ": o uso vai para a revisão de hoje." : "."}
+                    </span>
+                    {it.unassigned ? (
+                      <Link
+                        to={orgRoute(orgSlug, "uso-ia")}
+                        className="text-accent-text -my-[13px] inline-flex min-h-[44px] items-center underline"
+                      >
+                        Alocar em Uso de IA
+                      </Link>
+                    ) : null}
+                  </span>
+                  <StateLine state={it.state} onRemark={remark} />
+                </li>
+              ) : (
+                <li
+                  key={it.key}
+                  data-testid="agent-task"
+                  title={it.branch ? `Branch: ${it.branch}` : undefined}
+                  className="flex min-w-0 flex-col gap-y-0.5 text-xs"
+                >
+                  <span className="flex min-w-0 flex-wrap items-baseline gap-x-2 sm:flex-nowrap">
+                    <WorkItemLink id={it.workItem?.id} className="shrink-0 font-mono">
+                      {it.workItem?.displayId}
+                    </WorkItemLink>
+                    <span
+                      className="text-fg line-clamp-2 min-w-0 sm:line-clamp-none sm:truncate"
+                      title={it.workItem?.title}
+                    >
+                      {it.workItem?.title}
+                    </span>
+                    <span className="text-fg-muted sm:shrink-0 sm:whitespace-nowrap">
+                      · {it.repo}, {it.how}
+                      {it.since ? `, ${formatRelativeAge(it.since)}` : ""}
+                    </span>
+                  </span>
+                  <StateLine state={it.state} onRemark={remark} />
+                </li>
+              ),
+            )}
           </ul>
           <div className="self-start">{toggle}</div>
         </>
@@ -139,12 +321,21 @@ export default function ActiveTasks({ meta, orgSlug }) {
       {open ? (
         <div
           id="agent-task-box"
-          className="mt-2 max-w-[520px] min-w-0 sm:col-span-2 sm:col-start-2"
+          ref={boxRef}
+          tabIndex={-1}
+          className="mt-2 max-w-[520px] min-w-0 outline-none sm:col-span-2 sm:col-start-2"
         >
-          <p className="text-fg m-0 text-xs">
-            Na pasta do repositório (troque 1235 pelo número do item):
+          <p className="text-fg-muted m-0 mb-2 text-xs">
+            A tarefa marcada sai sozinha quando você troca de branch ou de repositório, quando o
+            item fecha ou sai da sprint e à meia-noite. Se a branch aponta outro item, a branch
+            ganha. Todo uso chega como sugestão para você confirmar.
           </p>
-          <CopyBlock text="andromeda-agent task 1235" />
+          <p className="text-fg m-0 text-xs">
+            {taskRef
+              ? "Na pasta do repositório:"
+              : "Na pasta do repositório (troque 1235 pelo número do item):"}
+          </p>
+          <CopyBlock text={command} />
           <p className="text-fg-muted m-0 mt-2 text-xs">
             Vale também para o uso de hoje ainda sem tarefa.
             {meta?.taskClearCommand ? (
