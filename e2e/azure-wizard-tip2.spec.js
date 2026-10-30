@@ -26,6 +26,14 @@ const TYPES = [
 const TEST_NAMES = ["Shared Steps", "Test Case", "Test Plan", "Test Suite"];
 const SYNCED_FIRST_USE = TYPES.map((t) => t.name).filter((n) => !TEST_NAMES.includes(n));
 
+// TIP3: "Fora do sync" vem recolhido; abre antes de mexer nos tipos de dentro.
+async function openOut(dialog) {
+  const d = dialog.locator("details").filter({ hasText: /Fora do sync \(/ });
+  if ((await d.count()) && !(await d.first().evaluate((e) => e.open))) {
+    await d.first().locator("summary").click();
+  }
+}
+
 const FIELDS = [
   { name: "Effort", referenceName: "Microsoft.VSTS.Scheduling.Effort", type: "double" },
   { name: "Story Points", referenceName: "Microsoft.VSTS.Scheduling.StoryPoints", type: "double" },
@@ -124,6 +132,7 @@ test("vínculo antigo com lista de inclusão: mostra os desmarcados e salva como
   const { dialog, puts } = await openWizard(page, { saved: LEGACY });
   await goStep(dialog, /Tipos/);
   await expect(dialog.getByText("Fora do sync (8)")).toBeVisible();
+  await openOut(dialog);
   await expect(dialog.getByRole("checkbox", { name: "Sincronizar Epic" })).toBeChecked();
   await expect(dialog.getByRole("checkbox", { name: "Sincronizar Bug" })).not.toBeChecked();
   await dialog.getByRole("button", { name: "Salvar agora" }).click();
@@ -143,6 +152,7 @@ test("lista de inclusão sem diferença de caixa; exclusão salva é lida como e
   const first = await openWizard(page, { saved: lower });
   await goStep(first.dialog, /Tipos/);
   await expect(first.dialog.getByText("Fora do sync (10)")).toBeVisible();
+  await openOut(first.dialog);
   await expect(first.dialog.getByRole("checkbox", { name: "Sincronizar Epic" })).toBeChecked();
 });
 
@@ -153,6 +163,7 @@ test("exclusão salva: tipo fora de lista continua sincronizando; salvar mantém
   const { dialog, puts } = await openWizard(page, { saved });
   await goStep(dialog, /Tipos/);
   await expect(dialog.getByText("Fora do sync (2)")).toBeVisible();
+  await openOut(dialog);
   await expect(dialog.getByRole("checkbox", { name: "Sincronizar Epic" })).toBeChecked();
   await dialog.getByRole("button", { name: "Salvar agora" }).click();
   await expect.poll(() => puts.length).toBe(1);
@@ -170,6 +181,7 @@ test("12: primeiro uso — tipos de teste começam fora, linha neutra, sem aviso
   const { dialog } = await openWizard(page);
   await goStep(dialog, /Tipos/);
   await expect(dialog.getByText("Fora do sync (4)")).toBeVisible();
+  await openOut(dialog);
   await expect(dialog.getByText(/Tipos de teste começam fora do sync/)).toBeVisible();
   await expect(dialog.locator(".text-warn-text")).toHaveCount(0);
   await expect(dialog.getByRole("checkbox", { name: "Sincronizar Test Case" })).not.toBeChecked();
@@ -181,6 +193,7 @@ test("12: Pular e usar padrões manda a exclusão dos 4 tipos de teste", async (
   await expect(dialog.getByRole("button", { name: "Pular e usar padrões" })).toBeEnabled();
   await goStep(dialog, /Tipos/); // garante que os tipos chegaram
   await expect(dialog.getByText("Fora do sync (4)")).toBeVisible();
+  await openOut(dialog);
   await goStep(dialog, /Início/);
   await dialog.getByRole("button", { name: "Pular e usar padrões" }).click();
   await expect.poll(() => puts.length).toBe(1);
@@ -206,6 +219,7 @@ test("exclusão salva de tipo que o processo não lista mais continua no payload
   const saved = customWith({ workItemTypes: [], excludedWorkItemTypes: ["Impediment", "Epic"] });
   const { dialog, puts } = await openWizard(page, { saved });
   await goStep(dialog, /Tipos/);
+  await openOut(dialog);
   await expect(dialog.getByRole("checkbox", { name: "Sincronizar Epic" })).not.toBeChecked();
   await dialog.getByRole("button", { name: "Salvar agora" }).click();
   await expect.poll(() => puts.length).toBe(1);
@@ -219,6 +233,7 @@ test("13: tipo de teste identificado pelo referenceName mesmo com nome em portug
   const { dialog } = await openWizard(page, { types });
   await goStep(dialog, /Tipos/);
   await expect(dialog.getByText("Fora do sync (1)")).toBeVisible();
+  await openOut(dialog);
   await expect(
     dialog.getByRole("checkbox", { name: "Sincronizar Caso de Teste" }),
   ).not.toBeChecked();
@@ -247,12 +262,16 @@ test("1 e 3: Campos em tabela a 1280, grupos de opções e etiqueta de IA", asyn
   await expect(dialog.getByRole("combobox", { name: "Esforço: User Story" })).toBeVisible();
   await expect(dialog.getByRole("combobox", { name: "Complexidade: Bug" })).toHaveCount(0);
   const sel = dialog.getByRole("combobox", { name: "Complexidade: Task" });
-  await expect(sel.locator("option").first()).toHaveText("Nenhum");
-  await expect(sel.locator("optgroup")).toHaveCount(2);
-  expect(await sel.locator("optgroup").evaluateAll((g) => g.map((x) => x.label))).toEqual([
-    "Numéricos",
-    "Outros campos",
-  ]);
+  // TIP3: o select virou Combobox; o menu traz "Nenhum" no topo e os grupos (Sugeridos só lista).
+  await sel.click();
+  await expect(page.getByRole("option").first()).toContainText("Nenhum");
+  expect(
+    await page
+      .getByRole("listbox")
+      .locator('[role="group"] > div:not([role])')
+      .evaluateAll((g) => g.map((x) => x.textContent)),
+  ).toEqual(["Sugeridos", "Numéricos", "Outros campos"]);
+  await page.keyboard.press("Escape");
   await expect(dialog.getByText("recebe IA")).toHaveCount(1);
 });
 
@@ -267,7 +286,7 @@ test("1: a 390 cada tipo é um cartão com rótulo visível e selects largos", a
   const sel = dialog.getByRole("combobox", { name: "Complexidade: Task" });
   await expect(sel).toBeVisible();
   await expect(
-    dialog.locator('label:has(select[aria-label="Complexidade: Task"]) > span'),
+    dialog.locator('div:has(> button[aria-label="Complexidade: Task"]) > span'),
   ).toBeVisible();
   const box = await sel.boundingBox();
   expect(box.width).toBeGreaterThanOrEqual(300);
@@ -328,10 +347,10 @@ test("4: Story Points em User Story e Completed Work em Task vão no payload", a
   );
   const { dialog, puts } = await openWizard(page, { saved });
   await goStep(dialog, /Campos/);
-  await dialog
-    .getByRole("combobox", { name: "Complexidade: User Story" })
-    .selectOption("Story Points");
-  await dialog.getByRole("combobox", { name: "Esforço: Task" }).selectOption("Completed Work");
+  await dialog.getByRole("combobox", { name: "Complexidade: User Story" }).click();
+  await page.getByRole("option", { name: /^Story Points/ }).click();
+  await dialog.getByRole("combobox", { name: "Esforço: Task" }).click();
+  await page.getByRole("option", { name: /^Completed Work/ }).click();
   await dialog.getByRole("button", { name: "Salvar agora" }).click();
   await expect.poll(() => puts.length).toBe(1);
   const fm = puts[0].fieldMappings;
@@ -615,6 +634,7 @@ test("17: salvar com todos os tipos marcados rebusca os vínculos e o aviso some
   await page.getByRole("button", { name: "revisar tipos" }).click();
   const dialog = page.getByRole("dialog");
   await expect(dialog.getByText("Fora do sync (8)")).toBeVisible();
+  await openOut(dialog);
   for (const name of OUT_8)
     await dialog.getByRole("checkbox", { name: `Sincronizar ${name}` }).click();
   const before = calls();

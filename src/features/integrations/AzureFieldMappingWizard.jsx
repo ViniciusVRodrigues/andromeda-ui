@@ -9,6 +9,7 @@ import {
 } from "./api.js";
 import { Modal } from "../../core/ui/Modal.jsx";
 import Checkbox from "../../core/ui/Checkbox.jsx";
+import Combobox from "../../core/ui/Combobox.jsx";
 import Disclosure from "../../core/ui/Disclosure.jsx";
 import { Tag } from "../../core/ui/Tag.jsx";
 import { isTestType, namesPreview, normType, outOfSyncSentence } from "./azureSyncTypes.js";
@@ -37,6 +38,40 @@ const RESOLVED_STATUSES = ["TODO", "IN_PROGRESS", "DONE"];
 // 6.2 — static tier lookup used to seed the hierarchy step's initial ranks
 // from each type's mapped resolvedType, rather than raw discovery order.
 const RESOLVED_TYPE_TIER = { EPIC: 0, FEATURE: 1, STORY: 2, TASK: 3, BUG: 3, SUB_TASK: 3 };
+
+// TIP3 — opções do combobox de Campos. "Sugeridos" só lista (nada é pré-preenchido); cada campo
+// aparece em um único grupo. O valor salvo que não existe mais no tipo ganha grupo próprio.
+const SUGGEST_COMPLEXITY = /story ?points|storypoints|size|complexity|complexidade|pontos/i;
+const SUGGEST_EFFORT = /completed ?work|original ?estimate|remaining ?work|effort|esforço|horas/i;
+const isNumericField = (f) => f.type === "double" || f.type === "integer";
+function buildFieldOptions(fields, internal, value) {
+  const re = internal === "COMPLEXITY" ? SUGGEST_COMPLEXITY : SUGGEST_EFFORT;
+  const toOption = (f, group) => ({
+    value: f.referenceName,
+    label: f.name,
+    description: f.referenceName,
+    group,
+  });
+  const out = [];
+  const suggested = fields.filter(
+    (f) => isNumericField(f) && (re.test(f.name) || re.test(f.referenceName)),
+  );
+  const suggestedRefs = new Set(suggested.map((f) => f.referenceName));
+  suggested.forEach((f) => out.push(toOption(f, "Sugeridos")));
+  fields
+    .filter((f) => isNumericField(f) && !suggestedRefs.has(f.referenceName))
+    .forEach((f) => out.push(toOption(f, "Numéricos")));
+  fields.filter((f) => !isNumericField(f)).forEach((f) => out.push(toOption(f, "Outros campos")));
+  if (value && !fields.some((f) => f.referenceName === value)) {
+    out.push({
+      value,
+      label: value.split(".").pop(),
+      description: value,
+      group: "Salvo, não encontrado neste tipo",
+    });
+  }
+  return out;
+}
 
 // 9.4 — best-effort name-based guess for a freshly-discovered work item type,
 // so the admin edits a sensible default rather than starting from a blank
@@ -398,6 +433,7 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
   const aiOf = (name) => isSynced(name) && !!mappingOf(name)?.receivesAi;
   const aiCount = types.filter((t) => aiOf(t.name)).length;
   const noneSynced = types.length > 0 && syncedTypes.length === 0;
+  const [outOpen, setOutOpen] = React.useState(undefined); // undefined = automático (abre se nada sincroniza)
   // Test Case primeiro (o mais reconhecível), depois a ordem do processo.
   const isCase = (t) => /test\s*case|caso de teste/i.test(t.name);
   const testOut = outTypes
@@ -573,6 +609,45 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
     setRanks(next);
     setRanksSeeded(true);
   }, [step, ranksSeeded, hierarchyTypes, typeMappings]);
+
+  // Tipo sincronizado sem nível salvo (vínculo antigo, ou tipo que o processo ganhou depois):
+  // entra pelo tier do resolvedType, no nível que já tem esse tier ou num nível novo na posição
+  // do tier, e ganha a etiqueta "novo". Quem já tem nível não muda.
+  const [hierNew, setHierNew] = React.useState([]);
+  React.useEffect(() => {
+    if (step !== "hierarchy" || !ranksSeeded) return;
+    const missing = hierarchyTypes.filter((t) => ranks[t.name] === undefined);
+    if (missing.length === 0) return;
+    const tierOf = (name) => {
+      const mapping = typeMappings.find((m) => m.rawType === name);
+      return RESOLVED_TYPE_TIER[mapping?.resolvedType || guessResolvedType(name)] ?? 3;
+    };
+    const next = { ...ranks };
+    for (const t of missing) {
+      const tier = tierOf(t.name);
+      // grupos atuais: rank -> menor tier entre os membros que já têm nível
+      const groups = new Map();
+      for (const o of hierarchyTypes) {
+        if (next[o.name] === undefined) continue;
+        const ot = tierOf(o.name);
+        const prev = groups.get(next[o.name]);
+        groups.set(next[o.name], prev === undefined ? ot : Math.min(prev, ot));
+      }
+      const sorted = [...groups.entries()].sort((a, b) => a[0] - b[0]);
+      const same = sorted.find(([, gt]) => gt === tier);
+      if (same) {
+        next[t.name] = same[0];
+        continue;
+      }
+      const idx = sorted.findIndex(([, gt]) => gt > tier);
+      if (sorted.length === 0) next[t.name] = 0;
+      else if (idx === -1) next[t.name] = sorted[sorted.length - 1][0] + 1;
+      else if (idx === 0) next[t.name] = sorted[0][0] - 1;
+      else next[t.name] = (sorted[idx - 1][0] + sorted[idx][0]) / 2;
+    }
+    setRanks(next);
+    setHierNew((prev) => [...new Set([...prev, ...missing.map((t) => t.name)])]);
+  }, [step, ranksSeeded, hierarchyTypes, ranks, typeMappings]);
 
   // Ordered list of distinct ranks present, each with its member type names —
   // this is the shape the ranked-list UI renders (one row per rank group).
@@ -1133,11 +1208,14 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
     >
       {/* E3 — indicador de passo (clicável) */}
       {wide ? (
-        <ol aria-label="Etapas" className="m-0 flex list-none gap-1 p-0">
+        <ol
+          aria-label="Etapas"
+          className="wizard-sticky sticky top-0 z-10 m-0 flex list-none gap-1 p-0 pt-0.5 pb-1"
+        >
           {renderStepButtons()}
         </ol>
       ) : (
-        <div>
+        <div className="wizard-sticky sticky top-0 z-10 pb-1">
           <Disclosure
             open={stepsOpen}
             onOpenChange={setStepsOpen}
@@ -1231,24 +1309,20 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
           )}
 
           {showCopyPicker && !siblingsLoading && (
-            <label className="ui-field">
-              <span className={labelCls}>Projeto de origem</span>
-              <div className="signup-select">
-                <select
-                  className="min-h-[44px]"
-                  value={selectedSiblingId}
-                  onChange={(e) => setSelectedSiblingId(e.target.value)}
-                >
-                  <option value="">Selecione um projeto</option>
-                  {siblings.map((s) => (
-                    <option key={s.id} value={s.id}>
-                      {s.azureProjectName}
-                    </option>
-                  ))}
-                </select>
-                <span className="signup-select-caret">▾</span>
-              </div>
-            </label>
+            <div className="ui-field">
+              <span id="wizard-source-project-label" className={labelCls}>
+                Projeto de origem
+              </span>
+              <Combobox
+                aria-label="Projeto de origem"
+                trackLabel="Projeto de origem"
+                className="min-h-[44px]"
+                placeholder="Selecione um projeto"
+                value={selectedSiblingId}
+                onValueChange={setSelectedSiblingId}
+                options={siblings.map((s) => ({ value: s.id, label: s.azureProjectName }))}
+              />
+            </div>
           )}
 
           {copyError && (
@@ -1338,12 +1412,24 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
               )}
               {outTypes.length > 0 && (
                 <section aria-label={`Fora do sync (${outTypes.length})`}>
-                  <h4 className="text-fg-muted m-0 mb-2 text-[12px] uppercase">
-                    Fora do sync ({outTypes.length})
-                  </h4>
-                  <ul className="m-0 flex list-none flex-col gap-2 p-0 min-[600px]:gap-0">
-                    {outTypes.map((t) => renderTypeRow(t, types.indexOf(t)))}
-                  </ul>
+                  <Disclosure
+                    open={outOpen ?? noneSynced}
+                    onOpenChange={setOutOpen}
+                    summary={
+                      <span className="flex min-w-0 flex-col gap-0.5">
+                        <span className="text-fg-muted text-[12px] uppercase">
+                          Fora do sync ({outTypes.length})
+                        </span>
+                        <span className="text-fg-muted text-[12px] break-words">
+                          {previewOf(outTypes)}
+                        </span>
+                      </span>
+                    }
+                  >
+                    <ul className="m-0 flex list-none flex-col gap-2 p-0 min-[600px]:gap-0">
+                      {outTypes.map((t) => renderTypeRow(t, types.indexOf(t)))}
+                    </ul>
+                  </Disclosure>
                 </section>
               )}
             </>
@@ -1466,6 +1552,10 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
             Completed Work na Task). Nenhum: o valor fica para preencher à mão no Andromeda.
           </p>
 
+          <p role="status" className="text-fg-muted m-0 text-[12px]">
+            {`Complexidade em ${syncedTypes.filter((t) => fieldSelections[t.name]?.complexityField).length} de ${syncedTypes.length} tipos · Esforço em ${syncedTypes.filter((t) => fieldSelections[t.name]?.effortField).length} de ${syncedTypes.length}`}
+          </p>
+
           <div
             aria-hidden="true"
             className="text-fg-muted border-line hidden grid-cols-[minmax(0,1fr)_200px_200px] gap-x-3 border-b px-1 pb-1 text-[10px] uppercase min-[600px]:grid"
@@ -1483,54 +1573,36 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
               const failed = !!fieldsErrorByType[t.name];
               const sel = fieldSelections[t.name] || {};
               const renderSelect = (internal, label, value) => {
-                const numeric = fields.filter((f) => f.type === "double" || f.type === "integer");
-                const others = fields.filter((f) => !(f.type === "double" || f.type === "integer"));
-                const known = !value || fields.some((f) => f.referenceName === value);
+                const selectedField = value && fields.find((f) => f.referenceName === value);
                 return (
-                  <label className="flex flex-col gap-1">
-                    <span className="text-fg-muted text-[12px] min-[600px]:hidden">{label}</span>
-                    <div className="signup-select">
-                      <select
-                        className="min-h-[44px]"
-                        aria-label={`${label}: ${t.name}`}
-                        disabled={loading}
-                        value={loading ? "" : value || ""}
-                        onChange={(e) =>
-                          updateFieldSelection(
-                            t.name,
-                            internal,
-                            fields.find((f) => f.referenceName === e.target.value) || null,
-                          )
-                        }
-                      >
-                        {loading ? (
-                          <option value="">Carregando campos…</option>
-                        ) : (
-                          <>
-                            <option value="">Nenhum</option>
-                            {numeric.length > 0 && (
-                              <optgroup label="Numéricos">
-                                {numeric.map((f) => (
-                                  <option key={f.referenceName} value={f.referenceName}>
-                                    {f.name}
-                                  </option>
-                                ))}
-                              </optgroup>
-                            )}
-                            <optgroup label="Outros campos">
-                              {others.map((f) => (
-                                <option key={f.referenceName} value={f.referenceName}>
-                                  {f.name}
-                                </option>
-                              ))}
-                              {!known && <option value={value}>{value.split(".").pop()}</option>}
-                            </optgroup>
-                          </>
-                        )}
-                      </select>
-                      <span className="signup-select-caret">▾</span>
-                    </div>
-                  </label>
+                  <div className="flex flex-col gap-1">
+                    <span
+                      className="text-fg-muted text-[12px] min-[600px]:hidden"
+                      aria-hidden="true"
+                    >
+                      {label}
+                    </span>
+                    <Combobox
+                      aria-label={`${label}: ${t.name}`}
+                      trackLabel={label}
+                      className="min-h-[44px]"
+                      contentClassName="w-[min(380px,calc(100vw-16px))]"
+                      disabled={loading}
+                      searchable
+                      noneOption={loading ? undefined : { label: "Nenhum" }}
+                      placeholder={loading ? "Carregando campos…" : "Nenhum"}
+                      title={value ? selectedField?.referenceName || value : undefined}
+                      value={loading ? "" : value || ""}
+                      options={loading ? [] : buildFieldOptions(fields, internal, value)}
+                      onValueChange={(v) =>
+                        updateFieldSelection(
+                          t.name,
+                          internal,
+                          fields.find((f) => f.referenceName === v) || null,
+                        )
+                      }
+                    />
+                  </div>
                 );
               };
               return (
@@ -1623,7 +1695,7 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
               id="wiz-area-path"
               className="ui-field-input"
               type="text"
-              placeholder="MeuProjeto\\Equipe"
+              placeholder={"MeuProjeto\\Equipe"}
               value={areaPath}
               onChange={(e) => setAreaPath(e.target.value)}
             />
@@ -1637,7 +1709,7 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
               id="wiz-iteration-path"
               className="ui-field-input"
               type="text"
-              placeholder="MeuProjeto\\Sprint 1"
+              placeholder={"MeuProjeto\\Sprint 1"}
               value={iterationPath}
               onChange={(e) => setIterationPath(e.target.value)}
             />
@@ -1698,7 +1770,14 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
                   <div className="flex flex-col gap-1">
                     {group.typeNames.map((typeName) => (
                       <div key={typeName} className="flex items-center gap-2">
-                        <span className="min-w-0 flex-1 break-words">{typeName}</span>
+                        <span className="flex min-w-0 flex-1 flex-wrap items-center gap-2">
+                          <span className="break-words">{typeName}</span>
+                          {hierNew.includes(typeName) && (
+                            <span className="text-fg-muted border-line rounded-full border px-2 text-[11px]">
+                              novo
+                            </span>
+                          )}
+                        </span>
                         <button
                           type="button"
                           className="btn-ghost btn min-h-[44px] min-w-[44px]"
