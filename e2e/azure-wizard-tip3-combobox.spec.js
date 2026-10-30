@@ -80,6 +80,45 @@ test("3: a opção mostra nome e referenceName; o gatilho só o nome", async ({ 
 
 // ----------------------------------------------------------------- 4, 5
 
+test("3b: a referência fica numa linha abaixo do nome (validação do ux-ui, B1)", async ({
+  page,
+}) => {
+  const { dialog } = await openCampos(page);
+  await trig(dialog, "Complexidade", "Bug").click();
+  const item = opts(page).filter({ hasText: "Microsoft.VSTS.Scheduling.StoryPoints" }).first();
+  const name = item.getByText("Story Points", { exact: true });
+  const ref = item.getByText("Microsoft.VSTS.Scheduling.StoryPoints", { exact: true });
+  const nameBox = await name.boundingBox();
+  const refBox = await ref.boundingBox();
+  expect(refBox.y).toBeGreaterThanOrEqual(nameBox.y + nameBox.height - 1);
+});
+
+test("3c: enquanto os campos carregam, o gatilho diz Carregando campos… e não Nenhum", async ({
+  page,
+}) => {
+  const saved = structuredClone(SAVED);
+  saved.workflowConfig.fieldMappings = [
+    {
+      internalField: "COMPLEXITY",
+      workItemType: "Bug",
+      azureFieldReferenceName: "Custom.StoryPoints",
+      azureFieldType: "double",
+    },
+  ];
+  const ctx = await openUexWizard(page, { saved });
+  await page.route(/work-item-types\/[^/]+\/fields/, async (r) => {
+    await new Promise((res) => setTimeout(res, 2500));
+    await r.fulfill({ json: FIELDS });
+  });
+  const dialog = page.locator('[role="dialog"]');
+  await goStep(dialog, /Campos/);
+  const t = trig(dialog, "Complexidade", "Bug");
+  await expect(t).toBeDisabled();
+  await expect(t).toContainText("Carregando campos…");
+  await expect(t).not.toContainText("Nenhum");
+  await expect(t).toBeEnabled({ timeout: 10_000 });
+});
+
 test("4: dois campos com o mesmo nome são opções distintas e cada um grava a sua referência", async ({
   page,
 }) => {

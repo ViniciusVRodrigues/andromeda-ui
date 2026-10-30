@@ -161,9 +161,9 @@ export default function Combobox({
        * referência (o que desambigua campos homônimos). O gatilho não a mostra porque o
        * Value recebe o rótulo resolvido de `options`. */}
       <RadixSelect.ItemText className="flex min-w-0 flex-1 flex-col gap-0.5">
-        <span>{o.label}</span>
+        <span className="block">{o.label}</span>
         {o.description && (
-          <span className="mono text-fg-muted text-[11px] break-all">{o.description}</span>
+          <span className="mono text-fg-muted block text-[11px] break-all">{o.description}</span>
         )}
       </RadixSelect.ItemText>
       {o.hint && <span className="cmb-item-hint mono">{o.hint}</span>}

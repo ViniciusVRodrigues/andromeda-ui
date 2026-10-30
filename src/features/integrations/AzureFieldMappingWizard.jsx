@@ -1210,7 +1210,7 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
       {wide ? (
         <ol
           aria-label="Etapas"
-          className="wizard-sticky sticky top-0 z-10 m-0 flex list-none gap-1 p-0 pb-1"
+          className="wizard-sticky sticky top-0 z-10 m-0 flex list-none gap-1 p-0 pt-0.5 pb-1"
         >
           {renderStepButtons()}
         </ol>
@@ -1589,7 +1589,7 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
                       contentClassName="w-[min(380px,calc(100vw-16px))]"
                       disabled={loading}
                       searchable
-                      noneOption={{ label: "Nenhum" }}
+                      noneOption={loading ? undefined : { label: "Nenhum" }}
                       placeholder={loading ? "Carregando campos…" : "Nenhum"}
                       title={value ? selectedField?.referenceName || value : undefined}
                       value={loading ? "" : value || ""}
