@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { loginAsAdmin, FIXED_NOW } from "./auth.mjs";
+import { loginAsAdmin, FIXED_NOW, installClipboardFallback } from "./auth.mjs";
 
 /* Perfil → Conector de IA com abas Agente / Extensão AIEF (agente-telas, UI-2).
  * Critérios 1 a 19 do plano (o 20 está em agente-parear.spec.js). As rotas do
@@ -257,6 +257,7 @@ test.describe("primeiro uso e instalação", () => {
   test("passos com os comandos, campo do código e sem tabela vazia", async ({ page }) => {
     const slug = await open(page);
     await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+    await installClipboardFallback(page);
     await mockAgent(page);
     await gotoPerfil(page, slug);
 
@@ -266,7 +267,8 @@ test.describe("primeiro uso e instalação", () => {
     await expect(page.getByText("node -v", { exact: true })).toBeVisible();
     await expect(page.getByText("npm i -g andromeda-agent", { exact: true })).toBeVisible();
     await expect(
-      page.getByText("andromeda-agent pair http://localhost:9090", { exact: true }),
+      // o servidor vem da URL da API (muda no Docker)
+      page.getByText(/^andromeda-agent pair https?:\/\/\S+$/),
     ).toBeVisible();
     await expect(page.getByText("andromeda-agent install", { exact: true })).toBeVisible();
     await expect(page.getByLabel("Código de pareamento", { exact: true })).toBeVisible();
@@ -683,8 +685,13 @@ test.describe("larguras", () => {
     const maior = await page.getByRole("tabpanel").evaluate((panel) =>
       [...panel.querySelectorAll("p")]
         .map((p) => {
-          const fs = parseFloat(getComputedStyle(p).fontSize);
-          return Math.floor(p.getBoundingClientRect().width / (fs * 0.6));
+          // Mede em "ch" de verdade (a unidade do max-w-[72ch]): uma sonda de 1ch na fonte do parágrafo.
+          const sonda = document.createElement("span");
+          sonda.style.cssText = "display:inline-block;width:1ch;height:0;visibility:hidden";
+          p.appendChild(sonda);
+          const ch = sonda.getBoundingClientRect().width;
+          sonda.remove();
+          return Math.floor(p.getBoundingClientRect().width / ch);
         })
         .reduce((a, b) => Math.max(a, b), 0),
     );

@@ -47,3 +47,18 @@ export async function gotoSection(page, slug, route) {
 export async function shot(page, name) {
   await expect(page).toHaveScreenshot(`${name}.png`, { fullPage: true });
 }
+
+/**
+ * No Docker a página abre em http://host.docker.internal (contexto inseguro): o Chromium não
+ * expõe navigator.clipboard. Só nesse caso, um clipboard falso guarda o que o app copia e o
+ * teste lê de volta. Chame antes de abrir a página.
+ */
+export async function installClipboardFallback(page) {
+  await page.addInitScript(() => {
+    if (navigator.clipboard) return;
+    let texto = "";
+    Object.defineProperty(navigator, "clipboard", {
+      value: { writeText: async (t) => void (texto = String(t)), readText: async () => texto },
+    });
+  });
+}

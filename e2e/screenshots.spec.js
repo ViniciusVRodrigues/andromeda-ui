@@ -80,10 +80,42 @@ test.describe("casca autenticada (admin)", () => {
  * casca, então o fullPage da seção não o captura. Screenshot do elemento garante
  * que o tutorial (chaves da extensão, passo de GitHub, outras IDEs) não regreda
  * em silêncio. */
+/* A aba da extensão AIEF é ?conector=aief; o agente e os padrões não têm fixture no replay. */
+async function abrirPerfilAief(page) {
+  const { orgSlug } = await loginAsAdmin(page);
+  await page.route("**/api/v1/agent/**", (route) => {
+    const u = route.request().url();
+    return route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify(
+        u.includes("/meta")
+          ? { packageName: "andromeda-agent", aiefIgnored: false }
+          : u.includes("/today")
+            ? { resolved: [], unassigned: [], devices: [] }
+            : [],
+      ),
+    });
+  });
+  await page.route("**/api/v1/organizations/me/work-item-patterns", (route) =>
+    route.fulfill({
+      status: 200,
+      contentType: "application/json",
+      body: JSON.stringify({
+        enabled: true,
+        mode: "DEFAULT",
+        patterns: [],
+        defaults: [],
+        presets: [],
+      }),
+    }),
+  );
+  await gotoSection(page, orgSlug, "perfil?conector=aief");
+}
+
 test.describe("integrações", () => {
   test("tutorial do conector AIEF", async ({ page }) => {
-    const { orgSlug } = await loginAsAdmin(page);
-    await gotoSection(page, orgSlug, "perfil");
+    await abrirPerfilAief(page);
     const card = page.locator(".integration-card", { hasText: "Extensão AI Engineering Fluency" });
     await expect(card).toHaveScreenshot("ai-connector-tutorial.png");
   });
@@ -92,8 +124,7 @@ test.describe("integrações", () => {
    * screenshots de elemento, então cada um é aberto e rolado para dentro da
    * viewport antes da captura. */
   test("abas por editor e troubleshooting do conector", async ({ page }) => {
-    const { orgSlug } = await loginAsAdmin(page);
-    await gotoSection(page, orgSlug, "perfil");
+    await abrirPerfilAief(page);
     const card = page.locator(".integration-card", { hasText: "Extensão AI Engineering Fluency" });
 
     const tutorial = card.locator("details", { hasText: "Como configurar no editor" }).first();

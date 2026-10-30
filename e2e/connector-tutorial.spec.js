@@ -1,5 +1,5 @@
 import { test, expect } from "@playwright/test";
-import { loginAsAdmin, gotoSection } from "./auth.mjs";
+import { loginAsAdmin, gotoSection, installClipboardFallback } from "./auth.mjs";
 
 /* Tutorial do conector de IA no Perfil (perfil-integracoes, UI-4): acordeão de dois
  * níveis, abas por editor (WAI-ARIA) e o JSON copiado sem as chaves externas. */
@@ -13,6 +13,7 @@ const ORG_PERMISSIONS = ["DASHBOARD_INDIVIDUAL", "AI_READ_OWN", "CONNECTOR_TOKEN
 
 async function abrirPerfil(page, tokens) {
   await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
+  await installClipboardFallback(page);
   await page.route("**/api/v1/auth/me", (route) =>
     json(route, {
       userId: "6a96b750c72203798d740147",
