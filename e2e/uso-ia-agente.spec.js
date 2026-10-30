@@ -106,12 +106,22 @@ const linha = (page, dia) => page.getByRole("row").filter({ hasText: dia });
 
 test("selo AGENTE com glifo e legenda só quando há selo", async ({ page }) => {
   await abrir(page);
-  const dia29 = linha(page, "29/09/2026");
+  const dia29 = linha(page, "29/09");
   await expect(dia29.getByText(/revisão\s+AGENTE$/)).toBeVisible();
   await expect(dia29).toContainText("●");
   await expect(dia29.locator(".sr-only")).toContainText("tarefa apontada pelo agente, sem revisão");
-  await expect(linha(page, "28/09/2026")).not.toContainText("AGENTE");
-  await expect(linha(page, "27/09/2026")).toContainText("—");
+  await expect(linha(page, "28/09")).not.toContainText("AGENTE");
+  // 27/09 é domingo: cai na semana anterior (a tabela mostra uma semana por página)
+  await expect(linha(page, "27/09")).toHaveCount(0);
+  await page
+    .getByRole("navigation", { name: "Semanas" })
+    .getByRole("link", { name: /Semana 4/ })
+    .click();
+  await expect(linha(page, "27/09")).toContainText("Sem alocação");
+  await page
+    .getByRole("navigation", { name: "Semanas" })
+    .getByRole("link", { name: /Semana 5/ })
+    .click();
   await expect(
     page.getByText("AGENTE: tarefa apontada automaticamente pelo agente, sem revisão."),
   ).toBeVisible();
@@ -119,7 +129,7 @@ test("selo AGENTE com glifo e legenda só quando há selo", async ({ page }) => 
 
 test("sem apontamento do agente a legenda não aparece", async ({ page }) => {
   await abrir(page, { agente: false });
-  await expect(linha(page, "29/09/2026")).toBeVisible();
+  await expect(linha(page, "29/09")).toBeVisible();
   await expect(page.getByText("AGENTE: tarefa apontada")).toHaveCount(0);
 });
 
@@ -127,8 +137,8 @@ test("filtro Alocado pelo agente", async ({ page }) => {
   await abrir(page);
   await page.getByLabel("Situação").selectOption("agente");
   await expect(page).toHaveURL(/situacao=agente/);
-  await expect(linha(page, "29/09/2026")).toBeVisible();
-  await expect(linha(page, "28/09/2026")).toHaveCount(0);
+  await expect(linha(page, "29/09")).toBeVisible();
+  await expect(linha(page, "28/09")).toHaveCount(0);
 });
 
 test("modal do dia mostra origem do agente e movido do agente", async ({ page }) => {

@@ -1,22 +1,32 @@
 import React from "react";
 import { useUsoIa, useUsoIaPerson } from "./hooks/useUsoIa.js";
 import { MetricsHeader } from "./components/MetricsHeader.jsx";
+import { WeekTable } from "./components/WeekTable.jsx";
 import { AllocationModal } from "./components/AllocationModal.jsx";
 import { AgentLegend, AgentTag, agentOriginText } from "./components/AgentMark.jsx";
 import { MoveAgentUsageDialog } from "./components/MoveAgentUsageDialog.jsx";
 import { WorkItemLink } from "../../core/work-items/WorkItemLink.jsx";
 import Modal from "../../core/ui/Modal.jsx";
 import Combobox from "../../core/ui/Combobox.jsx";
-import { fmtTokensM } from "../../core/tokenMath.js";
+import { fmtTokens } from "./lib.js";
+import {
+  STATUS_VIEW,
+  dayLabel,
+  dayStatus,
+  needsAction,
+  pendingSummary,
+  resolveWeek,
+  reviewReasonText,
+  topWorkItems,
+  totalTokens,
+  usd,
+  weekRange,
+  weeksOfMonth,
+} from "./lib.js";
 
-const dayLabel = (day) => day?.split("-").reverse().join("/");
-const money = (value) =>
-  value == null
-    ? "Não informado"
-    : Number(value).toLocaleString("pt-BR", { style: "currency", currency: "USD" });
-const tokens = (row) => (row.totalInputTokens || 0) + (row.totalOutputTokens || 0);
+const money = (value) => (value == null ? "Não informado" : usd(value));
 
-/** Seletor de quem está sendo visto (Meu uso / uma pessoa). O mesmo componente vai na
+/** Seletor de quem está sendo visto (o próprio "<nome> · você" / uma pessoa). O mesmo componente vai na
  * página e, ao rolar, no meio da barra fixa do cabeçalho (com outro nome acessível). */
 export function PersonPicker({ label = "Visualizar consumo de" }) {
   const { options, selectedUserId, setSelectedUserId } = useUsoIaPerson();
@@ -62,6 +72,8 @@ export function UsoIaPage({ can, personRef }) {
         day: day.day,
         totalInputTokens: day.inputTokens,
         totalOutputTokens: day.outputTokens,
+        totalCacheReadTokens: day.cacheReadTokens,
+        totalCacheWriteTokens: day.cacheWriteTokens,
         totalInteractions: day.interactions,
         estimatedCostUsd: day.costUsd,
         hasAgentAllocation: !!day.hasAgentAllocation,
@@ -98,28 +110,57 @@ export function UsoIaPage({ can, personRef }) {
   }, [daily.data, history.data, pending.data, month]);
   const query = (params.get("busca") || "").trim().toLocaleLowerCase("pt-BR");
   const filter = params.get("situacao") || "all";
-  const visible = rows.filter(
-    (row) =>
-      (filter === "all" || (filter === "agente" ? row.hasAgent : row.status === filter)) &&
-      [
-        row.day,
-        dayLabel(row.day),
-        ...(row.splits || []).flatMap((s) => [s.workItemTitle, s.workItemId]),
-        ...(row.suggestion || []).flatMap((s) => [s.workItemTitle, s.workItemId]),
-      ].some((value) =>
-        String(value || "")
-          .toLocaleLowerCase("pt-BR")
-          .includes(query),
-      ),
-  );
+  const statusOf = (row) => dayStatus(row);
+  const matches = (row) =>
+    (filter === "all" ||
+      (filter === "agente"
+        ? row.hasAgent
+        : filter === "confirmed"
+          ? statusOf(row) === "confirmed"
+          : statusOf(row) === filter)) &&
+    [
+      row.day,
+      dayLabel(row.day),
+      ...(row.splits || []).flatMap((s) => [s.workItemTitle, s.workItemId]),
+      ...(row.suggestion || []).flatMap((s) => [s.workItemTitle, s.workItemId]),
+    ].some((value) =>
+      String(value || "")
+        .toLocaleLowerCase("pt-BR")
+        .includes(query),
+    );
+  const weeks = React.useMemo(() => weeksOfMonth(month), [month]);
+  const weekIndex = resolveWeek(weeks, params.get("semana"), new Set(rows.map((r) => r.day)));
+  const weekHref = (index) => {
+    const next = new URLSearchParams(params);
+    next.set("semana", String(index));
+    return { search: `?${next}` };
+  };
+  const weekCounts = React.useMemo(() => {
+    const counts = {};
+    for (const w of weeks)
+      counts[w.index] = rows.filter(
+        (r) => w.days.includes(r.day) && needsAction(statusOf(r)),
+      ).length;
+    return counts;
+  }, [weeks, rows]);
+  const weekRows = rows
+    .filter((row) => weeks[weekIndex - 1].days.includes(row.day))
+    .filter(matches);
+  const counts = {
+    suggested: rows.filter((r) => statusOf(r) === "suggested").length,
+    review: rows.filter((r) => statusOf(r) === "review").length,
+  };
+  const pendingInfo = pendingSummary(pending.data, month);
+  const oldestWeek = pendingInfo.oldestDay
+    ? weeks.find((w) => w.days.includes(pendingInfo.oldestDay))
+    : null;
+  const topItems = React.useMemo(() => topWorkItems(rows), [rows]);
   const selected = rows.find((row) => row.day === selectedDay);
   const loading = [daily, pending, history].some((q) => q.isPending);
   const failed = [daily, pending, history].filter((q) => q.isError);
-  const statusLabel = (row) =>
-    row.status === "allocated" ? "Alocado" : row.status === "pending" ? "Pendente" : "Sem alocação";
-  const statusGlyph = (row) =>
-    row.status === "allocated" ? "●" : row.status === "pending" ? "○" : "—";
-  const anyAgent = visible.some((row) => row.hasAgent);
+  const selectedStatus = selected ? statusOf(selected) : null;
+  const statusLabel = (row) => STATUS_VIEW[statusOf(row)].label;
+  const statusGlyph = (row) => STATUS_VIEW[statusOf(row)].glyph;
   async function save(splits, accept = false) {
     try {
       await mutation.mutateAsync({ batch: selected, splits, accept });
@@ -129,19 +170,38 @@ export function UsoIaPage({ can, personRef }) {
       /* Error stays visible in the dialog. */
     }
   }
+  async function confirmOne(row) {
+    try {
+      await mutation.mutateAsync({ batch: row, splits: null, accept: true });
+      setNotice(`Dia ${dayLabel(row.day)} confirmado.`);
+    } catch {
+      /* O erro aparece no alerta acima da tabela. */
+    }
+  }
+  function adjust(row) {
+    mutation.reset();
+    setSelectedDay(row.day);
+    setAllocating(true);
+  }
   return (
     <div className="space-y-6">
-      {can("uso-ia-team") && (
-        <div className="max-w-sm" ref={personRef}>
-          <PersonPicker />
-          {members.isError && <p role="alert">Não foi possível carregar os membros.</p>}
-        </div>
-      )}
       <MetricsHeader
         summary={summary.data}
         loading={summary.isPending}
         month={month}
         onMonthChange={state.setMonth}
+        leading={
+          can("uso-ia-team") ? (
+            <div ref={personRef}>
+              <PersonPicker />
+              {members.isError && <p role="alert">Não foi possível carregar os membros.</p>}
+            </div>
+          ) : null
+        }
+        pending={pendingInfo}
+        pendingHref={oldestWeek ? weekHref(oldestWeek.index) : null}
+        pendingWeekLabel={oldestWeek ? weekRange(oldestWeek) : null}
+        topItems={topItems}
       />
       {summary.isError && (
         <p role="alert" className="text-bad">
@@ -153,7 +213,8 @@ export function UsoIaPage({ can, personRef }) {
           <div>
             <h2 className="font-serif text-2xl">Consumo e alocações</h2>
             <p className="text-fg-muted text-sm">
-              Uma linha por dia · {visible.length} de {rows.length} dias no mês
+              {rows.length} dias no mês · {counts.suggested} a confirmar · {counts.review} em
+              revisão
             </p>
           </div>
           <div className="flex flex-wrap items-end gap-3">
@@ -162,7 +223,7 @@ export function UsoIaPage({ can, personRef }) {
               <input
                 className="ui-field-input mt-1"
                 type="search"
-                placeholder="Data, título ou ID do work item"
+                placeholder="Buscar data ou item"
                 value={params.get("busca") || ""}
                 onChange={(e) => setParam("busca", e.target.value)}
               />
@@ -176,14 +237,24 @@ export function UsoIaPage({ can, personRef }) {
                 onChange={(e) => setParam("situacao", e.target.value)}
               >
                 <option value="all">Todas</option>
-                <option value="pending">Pendente</option>
-                <option value="allocated">Alocado</option>
-                <option value="agente">Alocado pelo agente</option>
+                <option value="suggested">A confirmar</option>
+                <option value="review">Em revisão</option>
+                <option value="confirmed">Confirmado</option>
+                <option value="agente">Confirmado pelo agente</option>
                 <option value="unallocated">Sem alocação</option>
+                <option value="none">Sem uso</option>
               </select>
             </label>
           </div>
         </div>
+        {selectedUserId && (
+          <p className="text-fg-muted mb-3 text-sm">Consumo de outro membro · somente leitura.</p>
+        )}
+        {mutation.isError && !selected && (
+          <p role="alert" className="text-bad mb-3">
+            {mutation.error.message}
+          </p>
+        )}
         {loading ? (
           <p role="status">Carregando consumo…</p>
         ) : failed.length ? (
@@ -194,74 +265,22 @@ export function UsoIaPage({ can, personRef }) {
             </button>
           </div>
         ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-sm">
-              <caption className="sr-only">Uso diário de IA e alocações no mês selecionado</caption>
-              <thead className="border-line text-fg-muted border-b">
-                <tr>
-                  {["Dia", "Tokens", "Interações", "Custo", "Situação", "Work items"].map(
-                    (title) => (
-                      <th scope="col" key={title} className="p-3">
-                        {title}
-                      </th>
-                    ),
-                  )}
-                </tr>
-              </thead>
-              <tbody>
-                {visible.map((row) => (
-                  <tr
-                    key={row.day}
-                    className="border-line hover:bg-bg cursor-pointer border-b"
-                    onClick={(event) => {
-                      if (!event.target.closest("button")) {
-                        event.currentTarget.querySelector("button")?.focus();
-                        setSelectedDay(row.day);
-                      }
-                    }}
-                  >
-                    <td className="p-3">
-                      <button
-                        className="ui-work-item-link text-accent underline"
-                        onClick={() => {
-                          mutation.reset();
-                          setSelectedDay(row.day);
-                        }}
-                        aria-label={`Ver uso de ${dayLabel(row.day)}`}
-                      >
-                        {dayLabel(row.day)}
-                      </button>
-                    </td>
-                    <td className="p-3 font-mono">
-                      {row.totalInputTokens == null ? "—" : `${fmtTokensM(tokens(row))} tokens`}
-                    </td>
-                    <td className="p-3">{row.totalInteractions ?? "—"}</td>
-                    <td className="p-3">{money(row.estimatedCostUsd)}</td>
-                    <td
-                      className={`p-3 ${row.status === "allocated" ? "text-good" : "text-accent"}`}
-                    >
-                      <span className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                        <span>
-                          <span aria-hidden="true">{statusGlyph(row)} </span>
-                          {statusLabel(row)}
-                        </span>
-                        {row.hasAgent && <AgentTag />}
-                      </span>
-                    </td>
-                    <td className="p-3">{row.splits?.length || "—"}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-            {anyAgent && <AgentLegend />}
-            {visible.length === 0 && (
-              <p className="text-fg-muted p-6 text-center">
-                {rows.length
-                  ? "Nenhum resultado para os filtros selecionados."
-                  : "Nenhum consumo registrado neste mês."}
-              </p>
-            )}
-          </div>
+          <WeekTable
+            weeks={weeks}
+            weekIndex={weekIndex}
+            weekCounts={weekCounts}
+            weekHref={weekHref}
+            rows={rows}
+            weekRows={weekRows}
+            readOnly={!!selectedUserId}
+            busy={mutation.isPending}
+            onOpenDay={(row) => {
+              mutation.reset();
+              setSelectedDay(row.day);
+            }}
+            onAdjust={adjust}
+            onConfirmOne={confirmOne}
+          />
         )}
         {notice && (
           <p
@@ -286,7 +305,7 @@ export function UsoIaPage({ can, personRef }) {
           closeDisabled={mutation.isPending}
           size="wide"
           footer={
-            !selectedUserId && selected.status !== "allocated" ? (
+            !selectedUserId && selectedStatus !== "confirmed" ? (
               <>
                 <button
                   className="btn"
@@ -309,14 +328,28 @@ export function UsoIaPage({ can, personRef }) {
           }
         >
           <div className="mb-5 grid grid-cols-2 gap-4">
-            <p>Entrada: {fmtTokensM(selected.totalInputTokens || 0)} tokens</p>
-            <p>Saída: {fmtTokensM(selected.totalOutputTokens || 0)} tokens</p>
+            <p>Entrada: {fmtTokens(selected.totalInputTokens || 0)} tokens</p>
+            <p>Saída: {fmtTokens(selected.totalOutputTokens || 0)} tokens</p>
+            <p>
+              Cache:{" "}
+              {fmtTokens(
+                (selected.totalCacheReadTokens || 0) + (selected.totalCacheWriteTokens || 0),
+              )}{" "}
+              tokens
+            </p>
+            <p>Total: {fmtTokens(totalTokens(selected))} tokens</p>
             <p>Custo: {money(selected.estimatedCostUsd)}</p>
             <p>
               Situação: <span aria-hidden="true">{statusGlyph(selected)} </span>
               {statusLabel(selected)}
             </p>
           </div>
+          {selectedStatus === "review" && (
+            <p className="text-warn-text mb-4">
+              <span aria-hidden="true">! </span>
+              {reviewReasonText(selected.review?.reasons)}
+            </p>
+          )}
           <h3 className="mb-3 font-serif text-xl">Work items alocados</h3>
           {selected.allocations?.length ? (
             selected.allocations.map((allocation) => (
@@ -347,7 +380,7 @@ export function UsoIaPage({ can, personRef }) {
                       {Math.round(Number(split.percentage) * 100)}%
                       {/* Com várias alocações no dia, o % é de cada alocação: sem tokens do dia. */}
                       {selected.allocations.length === 1 &&
-                        ` · ${fmtTokensM(tokens(selected) * Number(split.percentage))} tokens`}
+                        ` · ${fmtTokens(totalTokens(selected) * Number(split.percentage))} tokens`}
                     </span>
                   </div>
                 ))}
@@ -372,7 +405,7 @@ export function UsoIaPage({ can, personRef }) {
                 </WorkItemLink>
                 <span>
                   {Math.round(Number(split.percentage) * 100)}% ·{" "}
-                  {fmtTokensM(tokens(selected) * Number(split.percentage))} tokens
+                  {fmtTokens(totalTokens(selected) * Number(split.percentage))} tokens
                 </span>
               </div>
             ))

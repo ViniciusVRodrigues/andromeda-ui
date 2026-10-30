@@ -116,17 +116,17 @@ test("AI table filters, nested work item edit and allocation refresh", async ({ 
   /* modal de alocação: total do dia em milhões de tokens (o baseline dele vinha do
    * dashboard antigo; o modal vive no Uso de IA desde a troca dos dashboards) */
   const allocation = page.getByRole("dialog").filter({ hasText: "Divida os" });
-  await expect(allocation).toContainText("Divida os 0,012M tokens deste dia");
+  await expect(allocation).toContainText("Divida os 12 mil tokens deste dia");
   /* o clique em "Alocar consumo" deixa o mouse onde o modal põe "Confirmar alocação →":
    * sem tirá-lo dali, o botão às vezes sai em hover (brilho + 1 px) e o print diverge */
   await page.mouse.move(0, 0);
   await expect(allocation).toHaveScreenshot("allocation-modal.png");
   await page.getByRole("button", { name: "Confirmar alocação →" }).click();
   await expect(page.getByRole("dialog")).toContainText("Work items alocados");
-  await expect(page.getByRole("dialog")).toContainText("Alocado");
+  await expect(page.getByRole("dialog")).toContainText("Confirmado");
   await page.keyboard.press("Escape");
-  await page.getByLabel("Situação", { exact: true }).selectOption("allocated");
-  await expect(page.getByRole("table")).toContainText("Alocado");
+  await page.getByLabel("Situação", { exact: true }).selectOption("confirmed");
+  await expect(page.getByRole("table")).toContainText("Confirmado");
   await expect(page).toHaveScreenshot("ai-usage-table-context.png");
 });
 

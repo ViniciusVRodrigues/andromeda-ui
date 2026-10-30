@@ -1,5 +1,8 @@
 import { test, expect } from "@playwright/test";
 import { loginAsAdmin, FIXED_NOW, installClipboardFallback } from "./auth.mjs";
+import { agentFixtures } from "./fixtures/uia2-agente.mjs";
+import { devicesPollInterval } from "../src/features/agent/polling.js";
+import { AGENT_INSTALL_CMD, AGENT_UPDATE_CMD } from "../src/features/agent/constants.js";
 
 /* Perfil → Conector de IA com abas Agente / Extensão AIEF (agente-telas, UI-2).
  * Critérios 1 a 19 do plano (o 20 está em agente-parear.spec.js). As rotas do
@@ -46,6 +49,18 @@ const device = (over = {}) => ({
   revokedAt: null,
   ...over,
 });
+
+/** Palavras visíveis do painel, sem os nomes de máquina e sem o rodapé. */
+const palavras = (page, nomes) =>
+  page.getByRole("tabpanel").evaluate((panel, nomes) => {
+    const clone = panel.cloneNode(true);
+    clone.querySelectorAll("footer, .sr-only").forEach((n) => n.remove());
+    let t = clone.innerText;
+    for (const n of nomes) t = t.split(n).join(" ");
+    return t.split(/\s+/).filter((w) => /[\p{L}\p{N}]/u.test(w)).length;
+  }, nomes);
+
+const pollCount = (S) => S.calls.filter((c) => c === "GET /v1/agent/devices").length;
 
 const pairing = (over = {}) => ({
   userCode: "BCDF-GHJK",
@@ -114,6 +129,8 @@ async function mockAgent(page, init = {}) {
     approveResult: null,
     approve429: false,
     calls: [],
+    syncCalls: [],
+    sync: null,
     ...init,
   };
   await page.route("**/api/v1/connector-tokens", (route) =>
@@ -135,6 +152,20 @@ async function mockAgent(page, init = {}) {
       if (S.devicesDelay) await new Promise((r) => setTimeout(r, S.devicesDelay));
       if (S.devicesStatus !== 200) return json(route, { code: "X" }, S.devicesStatus);
       return json(route, S.devices);
+    }
+    const sy = /^\/v1\/agent\/devices\/([^/]+)\/sync$/.exec(path);
+    if (sy && method === "POST") {
+      S.syncCalls.push(sy[1]);
+      if (S.sync) return S.sync(route, sy[1]);
+      const dv = S.devices.find((d) => d.id === sy[1]);
+      if (!dv) return json(route, { code: "AGENT_DEVICE_NOT_FOUND" }, 404);
+      const at = FIXED_NOW.toISOString();
+      dv.syncRequestedAt = at;
+      return json(
+        route,
+        { deviceId: sy[1], syncRequestedAt: at, syncServedAt: dv.syncServedAt ?? null },
+        202,
+      );
     }
     const del = /^\/v1\/agent\/devices\/([^/]+)$/.exec(path);
     if (del && method === "DELETE") {
@@ -178,8 +209,18 @@ async function gotoPerfil(page, slug, query = "") {
 const noHScroll = (page) =>
   page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth);
 
+/** Abre o diálogo "Conectar um computador" pelo link ou pelo primário do primeiro uso. */
+async function abrirConectar(page) {
+  const campo = page.getByLabel("Código de pareamento", { exact: true });
+  if (await campo.isVisible()) return;
+  const gatilho = page.getByRole("button", { name: /Conectar (outro|este) computador/ });
+  await gatilho.first().click();
+  await expect(campo).toBeVisible();
+}
+
 /** Confere um código pelo campo e devolve o diálogo. */
 async function conferir(page, texto) {
+  await abrirConectar(page);
   const campo = page.getByLabel("Código de pareamento", { exact: true });
   await campo.fill(texto);
   await page.getByRole("button", { name: "Conferir" }).click();
@@ -187,7 +228,9 @@ async function conferir(page, texto) {
 }
 
 test.describe("abas", () => {
-  test("tablist com teclado, ?conector=aief e Limpar dados fora das abas", async ({ page }) => {
+  test("tablist com teclado, ?conector=aief e Limpar dados no rodapé das duas abas", async ({
+    page,
+  }) => {
     const slug = await open(page);
     await mockAgent(page);
     await gotoPerfil(page, slug);
@@ -211,14 +254,13 @@ test.describe("abas", () => {
     await page.keyboard.press("Home");
     await expect(agente).toBeFocused();
 
-    // Limpar dados aparece nas duas abas e nunca dentro do painel.
+    // "Dados de uso de IA: Limpar dados…" está no rodapé das duas abas.
     const limpar = page.getByRole("button", { name: /limpar dados/i });
-    const noPainel = page.getByRole("tabpanel").getByRole("button", { name: /limpar dados/i });
+    await expect(limpar).toHaveCount(1);
     await expect(limpar).toBeVisible();
-    await expect(noPainel).toHaveCount(0);
     await aief.click();
+    await expect(limpar).toHaveCount(1);
     await expect(limpar).toBeVisible();
-    await expect(noPainel).toHaveCount(0);
     await expect(page.getByText("Extensão AI Engineering Fluency", { exact: true })).toBeVisible();
     await expect(page.getByRole("button", { name: /Gerar URL/ })).toBeVisible();
   });
@@ -254,7 +296,9 @@ test.describe("abas", () => {
 });
 
 test.describe("primeiro uso e instalação", () => {
-  test("passos com os comandos, campo do código e sem tabela vazia", async ({ page }) => {
+  test("primário abre o diálogo com os passos, o comando do GitHub e o código", async ({
+    page,
+  }) => {
     const slug = await open(page);
     await page.context().grantPermissions(["clipboard-read", "clipboard-write"]);
     await installClipboardFallback(page);
@@ -262,33 +306,44 @@ test.describe("primeiro uso e instalação", () => {
     await gotoPerfil(page, slug);
 
     await expect(page.getByText("Nenhum computador conectado.")).toBeVisible();
-    await expect(page.getByText("Tenha o Node.js 22.15 ou mais novo")).toBeVisible();
-    await expect(page.getByText("Windows, macOS ou Linux.")).toBeVisible();
-    await expect(page.getByText("node -v", { exact: true })).toBeVisible();
-    await expect(page.getByText("npm i -g andromeda-agent", { exact: true })).toBeVisible();
+    await expect(page.getByRole("heading", { name: /Seus computadores/ })).toHaveCount(0);
+    await expect(page.getByRole("table")).toHaveCount(0);
+    const gatilho = page.getByRole("button", { name: "Conectar este computador" });
+    await expect(gatilho).toHaveClass(/\bbtn\b/);
+    await gatilho.click();
+
+    const dialog = page.getByRole("dialog", { name: "Conectar um computador" });
+    await expect(dialog.getByText("Tenha o Node.js 22.15 ou mais novo")).toBeVisible();
+    await expect(dialog.getByText("node -v", { exact: true })).toBeVisible();
+    await expect(dialog.getByText(AGENT_INSTALL_CMD, { exact: true })).toBeVisible();
     await expect(
       // o servidor vem da URL da API (muda no Docker)
-      page.getByText(/^andromeda-agent pair https?:\/\/\S+$/),
+      dialog.getByText(/^andromeda-agent pair https?:\/\/\S+$/),
     ).toBeVisible();
-    await expect(page.getByText("andromeda-agent install", { exact: true })).toBeVisible();
-    await expect(page.getByLabel("Código de pareamento", { exact: true })).toBeVisible();
-    await expect(page.getByRole("link", { name: /O que o agente lê/ })).toHaveAttribute(
+    await expect(dialog.getByText("andromeda-agent install", { exact: true })).toBeVisible();
+    await expect(dialog.getByLabel("Código de pareamento", { exact: true })).toBeVisible();
+
+    await dialog.getByText("Problemas na instalação").click();
+    await expect(dialog.getByText(/npm\.ps1/)).toBeVisible();
+
+    // Instala pelo npm (0.4.0 publicada); a instalação pelo GitHub sumiu da tela.
+    expect(AGENT_INSTALL_CMD).toBe("npm i -g andromeda-agent");
+    expect(await page.locator("body").innerText()).not.toMatch(/install-links|github:/);
+
+    // Copiar põe exatamente o texto exibido e anuncia "Copiado!".
+    const passo2 = dialog.locator("li").filter({ hasText: "Instale o agente" });
+    await passo2.getByRole("button", { name: "Copiar" }).click();
+    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(AGENT_INSTALL_CMD);
+    await expect(passo2.getByRole("status")).toHaveText("Copiado!");
+
+    // Escape fecha e o foco volta ao primário.
+    await page.keyboard.press("Escape");
+    await expect(dialog).toHaveCount(0);
+    await expect(gatilho).toBeFocused();
+    await expect(page.getByRole("link", { name: /O que ele lê/ })).toHaveAttribute(
       "href",
       META.privacyUrl,
     );
-    await expect(page.getByRole("heading", { name: /Seus computadores/ })).toHaveCount(0);
-    await expect(page.getByRole("table")).toHaveCount(0);
-
-    await page.getByText("Problemas na instalação").click();
-    await expect(page.getByText(/npm\.ps1/)).toBeVisible();
-
-    // Copiar põe exatamente o texto exibido e anuncia "Copiado!".
-    const passo2 = page.locator("li").filter({ hasText: "Instale o agente" });
-    await passo2.getByRole("button", { name: "Copiar" }).click();
-    expect(await page.evaluate(() => navigator.clipboard.readText())).toBe(
-      "npm i -g andromeda-agent",
-    );
-    await expect(passo2.getByRole("status")).toHaveText("Copiado!");
   });
 });
 
@@ -352,6 +407,7 @@ test.describe("pareamento", () => {
     const slug = await open(page);
     const S = await mockAgent(page, { pairings: { "BCDF-GHJK": { body: pairing() } } });
     await gotoPerfil(page, slug);
+    await abrirConectar(page);
     const campo = page.getByLabel("Código de pareamento", { exact: true });
     await expect(campo).toHaveAttribute("autocomplete", "one-time-code");
 
@@ -360,6 +416,7 @@ test.describe("pareamento", () => {
     await expect(campo).toHaveAttribute("aria-invalid", "true");
     await expect(page.getByText(/Código inválido/)).toBeVisible();
     expect(S.calls.filter((c) => c.includes("/pairing/"))).toHaveLength(0);
+    await page.keyboard.press("Escape");
 
     for (const raw of ["bcdf ghjk", "BCDFGHJK", "BCDF-GHJK"]) {
       S.calls.length = 0;
@@ -513,8 +570,9 @@ test.describe("computadores", () => {
     const item = page.getByTestId("agent-device").first();
     await expect(item).toContainText("Windows 11");
     await expect(item).toContainText("0.4.2");
-    await expect(item).toContainText("Último envio há 12 min");
-    await expect(item.locator(".sr-only")).toContainText("em ");
+    await expect(item).toContainText("Último envio");
+    await expect(item).toContainText("há 12 min");
+    await expect(item.locator("span.sr-only")).toContainText("em ");
 
     await rev1.click();
     const d = page.getByRole("dialog", { name: "Revogar NOTEBOOK-VINI?" });
@@ -532,7 +590,7 @@ test.describe("computadores", () => {
     await expect(page.getByRole("heading", { name: "Conectar um computador" })).toBeFocused();
   });
 
-  test("DESATUALIZADO, SEM ENVIO, sem contato, nunca enviou e revogados ocultos", async ({
+  test("desatualizado, sem envio, sem contato, nunca enviou e revogados ocultos", async ({
     page,
   }) => {
     const slug = await open(page);
@@ -543,6 +601,7 @@ test.describe("computadores", () => {
           machineName: "mac-velho",
           agentVersion: "0.3.1",
           versionStatus: "OUTDATED",
+          syncNowSupported: false,
         }),
         device({
           id: "b",
@@ -563,18 +622,28 @@ test.describe("computadores", () => {
     await gotoPerfil(page, slug);
     await expect(page.getByText("pc-revogado")).toHaveCount(0);
     const mac = page.getByTestId("agent-device").filter({ hasText: "mac-velho" });
-    await expect(mac.getByText("DESATUALIZADO")).toBeVisible();
+    await expect(mac).toContainText("Desatualizado: atualize o agente para sincronizar por aqui.");
+    await expect(mac.getByRole("button", { name: /Sincronizar/ })).toHaveCount(0);
     const antigo = page.getByTestId("agent-device").filter({ hasText: "pc-antigo" });
     await expect(antigo.getByText("SEM ENVIO")).toBeVisible();
-    const banner = page.getByTestId("agent-version-notice");
-    await expect(banner).toContainText("mac-velho usa o agente 0.3.1. A versão atual é 0.4.2.");
-    await expect(banner).toContainText("pc-antigo não é mais aceito");
+    await expect(antigo).toContainText("Esta versão não envia mais o uso");
+
+    // "Como atualizar" abre UMA caixa com o comando do npm @latest, só no item que pediu.
+    const como = mac.getByRole("button", { name: "Como atualizar" });
+    await expect(como).toHaveAttribute("aria-expanded", "false");
+    await expect(page.getByTestId("agent-update-box")).toHaveCount(0);
+    await como.click();
+    await expect(como).toHaveAttribute("aria-expanded", "true");
+    await expect(page.getByTestId("agent-update-box")).toHaveCount(1);
     await expect(
-      banner.getByText("npm i -g andromeda-agent@latest", { exact: true }),
+      mac.getByTestId("agent-update-box").getByText(AGENT_UPDATE_CMD, { exact: true }),
     ).toBeVisible();
+    expect(AGENT_UPDATE_CMD).toBe("npm i -g andromeda-agent@latest");
+    expect(await page.locator("body").innerText()).not.toMatch(/install-links|github:/);
+
     const sumido = page.getByTestId("agent-device").filter({ hasText: "pc-sumido" });
     await expect(sumido).toContainText("Sem contato há 3 dias. O agente está rodando?");
-    await expect(sumido).toContainText("Ainda não enviou. O primeiro envio leva alguns minutos.");
+    await expect(sumido).toContainText("Ainda não enviou");
   });
 
   test("mais de 5 computadores: Mostrar todos (N)", async ({ page }) => {
@@ -588,7 +657,7 @@ test.describe("computadores", () => {
     await expect(page.getByTestId("agent-device")).toHaveCount(8);
   });
 
-  test("carregando e erro com Tentar novamente; passos continuam usáveis", async ({ page }) => {
+  test("carregando e erro com Tentar novamente; conectar continua usável", async ({ page }) => {
     const slug = await open(page);
     const S = await mockAgent(page, { devicesDelay: 1500 });
     await page.goto(`/${slug}/perfil`);
@@ -606,8 +675,10 @@ test.describe("computadores", () => {
     await expect(alerta).toBeVisible({ timeout: 10000 });
     const retry = page.getByRole("button", { name: "Tentar novamente" });
     expect((await retry.boundingBox()).height).toBeGreaterThanOrEqual(44);
-    await expect(page.getByText("npm i -g andromeda-agent", { exact: true })).toBeVisible();
-    await expect(page.getByLabel("Código de pareamento", { exact: true })).toBeVisible();
+    // O link de conectar continua usável com a lista em erro.
+    await abrirConectar(page);
+    await expect(page.getByText(AGENT_INSTALL_CMD, { exact: true })).toBeVisible();
+    await page.keyboard.press("Escape");
 
     S.devicesStatus = 200;
     S.devices = [device()];
@@ -617,7 +688,9 @@ test.describe("computadores", () => {
 });
 
 test.describe("tarefa ativa e avisos", () => {
-  test("tarefa ativa: link, AGENTE, origem em texto, comando, fila e padrões", async ({ page }) => {
+  test("tarefa ativa numa linha; Trocar a tarefa abre o comando, o clear e os padrões", async ({
+    page,
+  }) => {
     const slug = await open(page);
     await mockAgent(page, { devices: [device()], today: TODAY });
     await gotoPerfil(page, slug);
@@ -625,22 +698,29 @@ test.describe("tarefa ativa e avisos", () => {
     await expect(tarefas).toHaveCount(2);
     await expect(tarefas.first().getByRole("button", { name: "AB#1234" })).toBeVisible();
     await expect(tarefas.first()).toContainText("Login com SSO");
-    await expect(tarefas.first()).toContainText("AGENTE");
-    await expect(tarefas.first()).toContainText("andromeda-ui · pela branch feature/AB#1234-login");
+    await expect(tarefas.first()).toContainText("andromeda-ui, pela branch");
     await expect(tarefas.nth(1)).toContainText("marcada com andromeda-agent task");
+    for (const t of await tarefas.all()) expect((await t.boundingBox()).height).toBeLessThan(40);
     await expect(page.getByTestId("agent-unassigned")).toContainText(
-      "andromeda-docs · sem tarefa: o uso vai para a fila de alocação de hoje",
+      "andromeda-docs · sem tarefa: o uso vai para a revisão de hoje.",
     );
     await expect(page.getByRole("link", { name: "Alocar em Uso de IA" })).toHaveAttribute(
       "href",
       new RegExp(`/${slug}/uso-ia$`),
     );
+
+    // Nenhuma caixa de comando visível até pedir.
+    await expect(page.getByText("andromeda-agent task 1235", { exact: true })).toHaveCount(0);
+    const trocar = page.getByRole("button", { name: "Trocar a tarefa" });
+    await expect(trocar).toHaveAttribute("aria-expanded", "false");
+    await trocar.click();
+    await expect(trocar).toHaveAttribute("aria-expanded", "true");
     await expect(page.getByText("andromeda-agent task 1235", { exact: true })).toBeVisible();
     await expect(page.getByText("andromeda-agent task --clear")).toBeVisible();
     await expect(page.getByTestId("agent-patterns")).toContainText(
       "AB#123, número na branch (feature/123-…)",
     );
-    await expect(page.getByText(/Conectar outro computador/)).toBeVisible();
+    await expect(page.getByRole("button", { name: "+ Conectar outro computador" })).toBeVisible();
   });
 
   test("se os padrões falham, a linha some e o resto segue", async ({ page }) => {
@@ -648,6 +728,8 @@ test.describe("tarefa ativa e avisos", () => {
     await mockAgent(page, { devices: [device()], today: TODAY, patternsStatus: 500 });
     await gotoPerfil(page, slug);
     await expect(page.getByTestId("agent-task")).toHaveCount(2);
+    await page.getByRole("button", { name: "Trocar a tarefa" }).click();
+    await expect(page.getByText("andromeda-agent task 1235", { exact: true })).toBeVisible();
     await expect(page.getByTestId("agent-patterns")).toHaveCount(0);
   });
 
@@ -669,45 +751,12 @@ test.describe("tarefa ativa e avisos", () => {
 });
 
 test.describe("larguras", () => {
-  test("1280 px: duas colunas (≥ 1,3×) e nenhum parágrafo acima de 75 caracteres", async ({
-    page,
-  }) => {
-    await page.setViewportSize({ width: 1280, height: 900 });
-    const slug = await open(page);
-    await mockAgent(page, { devices: [device()], today: TODAY });
-    await gotoPerfil(page, slug);
-    await expect(page.getByTestId("agent-device")).toHaveCount(1);
-    const larguras = await page.locator("#agent-devices-title").evaluate((el) => {
-      const [l, r] = el.closest(".grid").children;
-      return [l.getBoundingClientRect().width, r.getBoundingClientRect().width];
-    });
-    expect(larguras[0] / larguras[1]).toBeGreaterThanOrEqual(1.3);
-    const maior = await page.getByRole("tabpanel").evaluate((panel) =>
-      [...panel.querySelectorAll("p")]
-        .map((p) => {
-          // Mede em "ch" de verdade (a unidade do max-w-[72ch]): uma sonda de 1ch na fonte do parágrafo.
-          const sonda = document.createElement("span");
-          sonda.style.cssText = "display:inline-block;width:1ch;height:0;visibility:hidden";
-          p.appendChild(sonda);
-          const ch = sonda.getBoundingClientRect().width;
-          sonda.remove();
-          return Math.floor(p.getBoundingClientRect().width / ch);
-        })
-        .reduce((a, b) => Math.max(a, b), 0),
-    );
-    expect(maior).toBeLessThanOrEqual(75);
-  });
-
-  test("1000 px: uma coluna, sem rolagem horizontal", async ({ page }) => {
+  test("1000 px: sem rolagem horizontal", async ({ page }) => {
     await page.setViewportSize({ width: 1000, height: 900 });
     const slug = await open(page);
     await mockAgent(page, { devices: [device()], today: TODAY });
     await gotoPerfil(page, slug);
-    const [a, b] = await page.locator("#agent-devices-title").evaluate((el) => {
-      const [l, r] = el.closest(".grid").children;
-      return [l.getBoundingClientRect().top, r.getBoundingClientRect().top];
-    });
-    expect(b).toBeGreaterThan(a);
+    await expect(page.getByTestId("agent-device")).toHaveCount(1);
     expect(await noHScroll(page)).toBe(true);
   });
 
@@ -722,6 +771,390 @@ test.describe("larguras", () => {
     await gotoPerfil(page, slug, "?codigo=BCDF-GHJK");
     await expect(page.getByRole("dialog")).toBeVisible();
     expect(await noHScroll(page)).toBe(true);
+  });
+});
+
+test.describe("lista fresca e regra do polling", () => {
+  test("devicesPollInterval: pedido recente, primeiro envio, nada pendente, entrada ruim", () => {
+    const now = FIXED_NOW.getTime();
+    const ago = (m) => new Date(now - m * 60000).toISOString();
+    const base = {
+      status: "ACTIVE",
+      lastUploadAt: ago(5),
+      syncRequestedAt: null,
+      pairedAt: ago(999),
+    };
+    expect(devicesPollInterval([base], now)).toBe(false);
+    expect(devicesPollInterval([{ ...base, syncRequestedAt: ago(2) }], now)).toBe(10000);
+    expect(devicesPollInterval([{ ...base, syncRequestedAt: ago(3.5) }], now)).toBe(false);
+    expect(devicesPollInterval([{ ...base, lastUploadAt: null, pairedAt: ago(10) }], now)).toBe(
+      10000,
+    );
+    expect(devicesPollInterval([{ ...base, lastUploadAt: null, pairedAt: ago(31) }], now)).toBe(
+      false,
+    );
+    expect(devicesPollInterval([{ ...base, status: "STALE", syncRequestedAt: ago(1) }], now)).toBe(
+      false,
+    );
+    expect(devicesPollInterval([base, { ...base, syncRequestedAt: ago(1) }], now)).toBe(10000);
+    expect(devicesPollInterval(undefined, now)).toBe(false);
+    expect(devicesPollInterval([], now)).toBe(false);
+  });
+
+  test("Ainda não enviou vira o último envio sem recarregar, em até 12 s", async ({ page }) => {
+    test.setTimeout(45000);
+    const slug = await open(page);
+    const S = await mockAgent(page, {
+      devices: [device({ lastUploadAt: null, pairedAt: iso(2 * 60000) })],
+    });
+    await gotoPerfil(page, slug);
+    const item = page.getByTestId("agent-device");
+    await expect(item).toContainText("Ainda não enviou");
+    S.devices[0].lastUploadAt = iso(30000);
+    await expect(item).not.toContainText("Ainda não enviou", { timeout: 12000 });
+    await expect(item).toContainText("agora há pouco");
+    // Tudo enviado e nada pendente: o polling para.
+    const n = pollCount(S);
+    await page.waitForTimeout(11500);
+    expect(pollCount(S)).toBe(n);
+  });
+
+  test("a lista busca de novo quando a janela volta ao foco", async ({ page }) => {
+    const slug = await open(page);
+    const S = await mockAgent(page, { devices: [device()] });
+    await gotoPerfil(page, slug);
+    await expect(page.getByTestId("agent-device")).toContainText("há 12 min");
+    const n = pollCount(S);
+    S.devices[0].lastUploadAt = iso(60000);
+    await page.evaluate(() => window.dispatchEvent(new Event("visibilitychange")));
+    await expect(page.getByTestId("agent-device")).toContainText("há 1 min");
+    expect(pollCount(S)).toBeGreaterThan(n);
+  });
+
+  test("erro na busca para o polling", async ({ page }) => {
+    test.setTimeout(45000);
+    const slug = await open(page);
+    const S = await mockAgent(page, {
+      devices: [device({ lastUploadAt: null, pairedAt: iso(60000) })],
+    });
+    await gotoPerfil(page, slug);
+    await expect(page.getByTestId("agent-device")).toContainText("Ainda não enviou");
+    S.devicesStatus = 500;
+    await expect(
+      page.getByRole("alert").filter({ hasText: "Não foi possível carregar" }),
+    ).toBeVisible({ timeout: 25000 });
+    const n = pollCount(S);
+    await page.waitForTimeout(11500);
+    expect(pollCount(S)).toBe(n);
+  });
+});
+
+test.describe("sincronizar", () => {
+  const suportado = (over = {}) =>
+    device({
+      agentVersion: "0.3.0",
+      syncNowSupported: true,
+      syncRequestedAt: null,
+      syncServedAt: null,
+      ...over,
+    });
+
+  test("pedir, aguardar e concluir: Pedindo…, Aguardando…, ✓ Sincronizado agora.", async ({
+    page,
+  }) => {
+    test.setTimeout(45000);
+    const slug = await open(page);
+    const S = await mockAgent(page, { devices: [suportado()] });
+    S.sync = async (route, id) => {
+      await new Promise((r) => setTimeout(r, 700));
+      const at = FIXED_NOW.toISOString();
+      S.devices[0].syncRequestedAt = at;
+      return json(route, { deviceId: id, syncRequestedAt: at, syncServedAt: null }, 202);
+    };
+    await gotoPerfil(page, slug);
+    const btn = page.getByRole("button", { name: "Sincronizar NOTEBOOK-VINI agora" });
+    const box = await btn.boundingBox();
+    expect(box.height).toBeGreaterThanOrEqual(44);
+    await expect(btn).toHaveText(/Sincronizar/);
+    await btn.click();
+    await expect(btn).toHaveText(/Pedindo…/);
+    await expect(btn).toHaveAttribute("aria-busy", "true");
+    await expect(btn).toBeFocused();
+    await expect(btn).toHaveText(/Aguardando…/);
+    await expect(btn).toHaveAttribute("aria-disabled", "true");
+    await expect(page.getByText("pedido enviado, 1 a 2 min")).toBeVisible();
+    expect(S.syncCalls).toEqual(["dev-1"]);
+
+    // Um segundo clique durante a espera não faz outro pedido.
+    await btn.click({ force: true });
+    expect(S.syncCalls).toHaveLength(1);
+
+    // O computador responde: a próxima busca traz syncRequestedAt null e syncServedAt.
+    S.devices[0].syncRequestedAt = null;
+    S.devices[0].syncServedAt = FIXED_NOW.toISOString();
+    S.devices[0].lastUploadAt = iso(1000);
+    await expect(page.getByText("Sincronizado agora.")).toBeVisible({ timeout: 13000 });
+    await expect(
+      page.getByRole("status").filter({ hasText: "NOTEBOOK-VINI sincronizado." }),
+    ).toHaveCount(1);
+    await expect(btn).toHaveText(/Sincronizar/);
+  });
+
+  test("3 minutos sem resposta: aviso, botão de volta e o polling para", async ({ page }) => {
+    test.setTimeout(30000);
+    const slug = await open(page);
+    const S = await mockAgent(page, {
+      devices: [suportado({ syncRequestedAt: iso(4 * 60000) })],
+    });
+    await gotoPerfil(page, slug);
+    const item = page.getByTestId("agent-device");
+    await expect(item).toContainText("O computador ainda não respondeu. Ele está ligado?");
+    const btn = page.getByRole("button", { name: "Sincronizar NOTEBOOK-VINI agora" });
+    await expect(btn).toHaveText(/Sincronizar/);
+    await expect(btn).not.toHaveAttribute("aria-disabled", "true");
+    const n = pollCount(S);
+    await page.waitForTimeout(11500);
+    expect(pollCount(S)).toBe(n);
+  });
+
+  test("pedido de 40 s já mostra Aguardando…, e STALE mantém o pedido", async ({ page }) => {
+    const slug = await open(page);
+    await mockAgent(page, {
+      devices: [
+        suportado({ syncRequestedAt: iso(40000) }),
+        suportado({
+          id: "dev-2",
+          machineName: "mac-casa",
+          status: "STALE",
+          daysWithoutContact: 4,
+          syncRequestedAt: iso(40000),
+        }),
+      ],
+    });
+    await gotoPerfil(page, slug);
+    await expect(page.getByRole("button", { name: "Sincronizar NOTEBOOK-VINI agora" })).toHaveText(
+      /Aguardando…/,
+    );
+    await expect(page.getByRole("button", { name: "Sincronizar mac-casa agora" })).toHaveText(
+      /Aguardando…/,
+    );
+  });
+
+  test("sincronizado antes mostra · sincronizado há X", async ({ page }) => {
+    const slug = await open(page);
+    await mockAgent(page, { devices: [suportado({ syncServedAt: iso(3 * 60000) })] });
+    await gotoPerfil(page, slug);
+    await expect(page.getByTestId("agent-device")).toContainText("sincronizado há 3 min");
+    await expect(page.getByText("Sincronizado agora.")).toHaveCount(0);
+  });
+
+  test("404 AGENT_DEVICE_NOT_FOUND tira o computador da lista", async ({ page }) => {
+    const slug = await open(page);
+    const S = await mockAgent(page, {
+      devices: [suportado(), suportado({ id: "dev-2", machineName: "mac-casa" })],
+    });
+    S.sync = (route, id) => {
+      S.devices = S.devices.filter((d) => d.id !== id);
+      return json(route, { code: "AGENT_DEVICE_NOT_FOUND" }, 404);
+    };
+    await gotoPerfil(page, slug);
+    await expect(page.getByTestId("agent-device")).toHaveCount(2);
+    await page.getByRole("button", { name: "Sincronizar NOTEBOOK-VINI agora" }).click();
+    await expect(page.getByTestId("agent-device")).toHaveCount(1);
+    await expect(page.getByText("NOTEBOOK-VINI")).toHaveCount(0);
+  });
+
+  test("outro erro é anunciado com role=alert e o botão continua disponível", async ({ page }) => {
+    const slug = await open(page);
+    const S = await mockAgent(page, { devices: [suportado()] });
+    S.sync = (route) => json(route, { code: "X" }, 500);
+    await gotoPerfil(page, slug);
+    const btn = page.getByRole("button", { name: "Sincronizar NOTEBOOK-VINI agora" });
+    await btn.click();
+    await expect(
+      page.getByRole("alert").filter({ hasText: "Não foi possível pedir a sincronização." }),
+    ).toBeVisible();
+    await expect(btn).toHaveText(/Sincronizar/);
+    await expect(page.getByTestId("agent-device")).toHaveCount(1);
+  });
+
+  test("syncNowSupported false: sem botão e com o aviso; campo ausente: sem botão e sem erro", async ({
+    page,
+  }) => {
+    const erros = [];
+    page.on("pageerror", (e) => erros.push(String(e)));
+    const slug = await open(page);
+    await mockAgent(page, {
+      devices: [
+        device({
+          id: "a",
+          machineName: "pc-antigo",
+          agentVersion: "0.2.0",
+          versionStatus: "OUTDATED",
+          syncNowSupported: false,
+        }),
+        device({ id: "b", machineName: "pc-sem-campo" }),
+        device({
+          id: "c",
+          machineName: "pc-sem-campo-velho",
+          agentVersion: "0.2.0",
+          versionStatus: "OUTDATED",
+        }),
+      ],
+    });
+    await gotoPerfil(page, slug);
+    await expect(page.getByRole("button", { name: /Sincronizar/ })).toHaveCount(0);
+    const aviso = "Desatualizado: atualize o agente para sincronizar por aqui.";
+    await expect(page.getByTestId("agent-device").filter({ hasText: "pc-antigo" })).toContainText(
+      aviso,
+    );
+    await expect(
+      page.getByTestId("agent-device").filter({ hasText: "pc-sem-campo-velho" }),
+    ).toContainText(aviso);
+    await expect(
+      page
+        .getByTestId("agent-device")
+        .filter({ hasText: "pc-sem-campo" })
+        .filter({ hasNotText: "velho" }),
+    ).not.toContainText("Desatualizado");
+    expect(erros).toEqual([]);
+  });
+});
+
+test.describe("composição D1-X", () => {
+  const caso = async (page, variante, largura, altura = 900) => {
+    await page.setViewportSize({ width: largura, height: altura });
+    const slug = await open(page);
+    const F = agentFixtures(FIXED_NOW);
+    const S = await mockAgent(page, {
+      meta: F.META,
+      devices: F.DEVICES[variante],
+      today: F.TODAY[variante],
+    });
+    await gotoPerfil(page, slug);
+    await expect(page.getByTestId("agent-device").first()).toBeVisible();
+    await expect(page.getByRole("tabpanel").getByText("Dados de uso de IA:")).toBeVisible();
+    return { slug, S, F };
+  };
+  const shot = async (page, nome) => {
+    if (process.env.UIA2_SHOTS)
+      await page
+        .getByRole("tabpanel")
+        .screenshot({ path: `${process.env.UIA2_SHOTS}/${nome}.png` });
+  };
+
+  for (const [largura, maxAltura] of [
+    [1280, 620],
+    [390, 760],
+  ]) {
+    test(`caso real a ${largura} px: no máximo ${maxAltura} px de altura, 45 palavras e sem rolagem horizontal`, async ({
+      page,
+    }) => {
+      await caso(page, "real", largura, largura === 390 ? 844 : 900);
+      await shot(page, `real-${largura}`);
+      const painel = await page.getByRole("tabpanel").boundingBox();
+      expect(painel.height).toBeLessThanOrEqual(maxAltura);
+      expect(await noHScroll(page)).toBe(true);
+      expect(await palavras(page, ["viniciusvr"])).toBeLessThanOrEqual(45);
+      // Único botão da aba com computador pareado: nenhum .btn (o real não sincroniza).
+      await expect(page.getByRole("tabpanel").locator(".btn")).toHaveCount(0);
+      // Nenhuma caixa de comando visível ao abrir a aba.
+      await expect(page.getByRole("tabpanel").locator("pre")).toHaveCount(0);
+      await expect(page.getByText("Desatualizado: atualize o agente")).toBeVisible();
+      // Último envio no tamanho do texto do cartão (pedido da pessoa em 2026-10-30): na mesma
+      // família do nome do computador, do tamanho dele ou um pouco acima, nunca em destaque.
+      const estilo = (el) => {
+        const cs = getComputedStyle(el);
+        return { size: parseFloat(cs.fontSize), family: cs.fontFamily };
+      };
+      const valor = await page.getByText("há 8 min").evaluate(estilo);
+      const nome = await page.getByText("viniciusvr", { exact: true }).evaluate(estilo);
+      expect(valor.family).toBe(nome.family);
+      expect(valor.size).toBeGreaterThanOrEqual(nome.size);
+      expect(valor.size).toBeLessThanOrEqual(16);
+    });
+  }
+
+  test("cheio a 1280: colunas alinhadas entre as linhas, Sincronizar é o único .btn", async ({
+    page,
+  }) => {
+    await caso(page, "cheio", 1280);
+    await shot(page, "cheio-1280");
+    const itens = page.getByTestId("agent-device");
+    await expect(itens).toHaveCount(4);
+    const xs = [];
+    for (const it of await itens.all()) {
+      xs.push(
+        await it.evaluate((li) => {
+          const [, envio, acoes] = li.children;
+          return [envio.getBoundingClientRect().x, acoes.getBoundingClientRect().x];
+        }),
+      );
+    }
+    for (const [e, a] of xs) {
+      expect(Math.abs(e - xs[0][0])).toBeLessThanOrEqual(2);
+      expect(Math.abs(a - xs[0][1])).toBeLessThanOrEqual(2);
+    }
+    const botoes = page.getByRole("tabpanel").locator(".btn");
+    for (const b of await botoes.all()) {
+      await expect(b).toContainText(/Sincroniz|Aguardando|Pedindo/);
+      expect((await b.boundingBox()).height).toBeGreaterThanOrEqual(44);
+    }
+    expect(await noHScroll(page)).toBe(true);
+    // Título de work item cortado numa linha só, com o título completo no title.
+    const titulo = page.getByTestId("agent-task").first().locator("span.truncate");
+    expect((await titulo.boundingBox()).height).toBeLessThan(24);
+    expect(await titulo.getAttribute("title")).toContain("tabela de preços da organização");
+    await expect(page.getByText("sincronizado há 1 min")).toBeVisible();
+    await expect(page.getByText("pedido enviado, 1 a 2 min")).toBeVisible();
+  });
+
+  test("cheio a 390: empilhado e sem rolagem horizontal", async ({ page }) => {
+    await caso(page, "cheio", 390, 844);
+    await shot(page, "cheio-390");
+    expect(await noHScroll(page)).toBe(true);
+    const li = page.getByTestId("agent-device").first();
+    const [info, envio, acoes] = await li.evaluate((el) =>
+      [...el.children].map((c) => c.getBoundingClientRect().y),
+    );
+    expect(envio).toBeGreaterThan(info);
+    expect(acoes).toBeGreaterThan(envio);
+  });
+
+  test("Conectar outro computador: diálogo com passos e código; Escape devolve o foco ao link", async ({
+    page,
+  }) => {
+    await caso(page, "real", 1280);
+    const link = page.getByRole("button", { name: "+ Conectar outro computador" });
+    await link.click();
+    const dialog = page.getByRole("dialog", { name: "Conectar um computador" });
+    await expect(dialog.getByText(AGENT_INSTALL_CMD, { exact: true })).toBeVisible();
+    await expect(dialog.getByLabel("Código de pareamento", { exact: true })).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(dialog).toHaveCount(0);
+    await expect(link).toBeFocused();
+  });
+
+  test("Conferir no diálogo segue para o PairingDialog", async ({ page }) => {
+    const { S } = await caso(page, "real", 1280);
+    S.pairings["BCDF-GHJK"] = { body: pairing() };
+    await page.getByRole("button", { name: "+ Conectar outro computador" }).click();
+    const d = await conferir(page, "BCDF-GHJK");
+    await expect(d).toHaveAccessibleName("Aprovar este computador?");
+    await expect(page.getByRole("dialog")).toHaveCount(1);
+  });
+
+  test("Limpar dados… abre o ConfirmDialog que exige a frase", async ({ page }) => {
+    await caso(page, "real", 1280);
+    await page.getByRole("button", { name: "Limpar dados…" }).click();
+    const d = page.getByRole("dialog");
+    await expect(d).toContainText("Não há como desfazer");
+    const ok = d.getByRole("button", { name: /Limpar definitivamente/ });
+    await expect(ok).toBeDisabled();
+    await d.getByRole("textbox").fill("APAGAR");
+    await expect(ok).toBeEnabled();
+    await page.keyboard.press("Escape");
+    await expect(d).toHaveCount(0);
   });
 });
 
