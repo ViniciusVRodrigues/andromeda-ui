@@ -206,7 +206,9 @@ export function UsoIaPage({ can, personRef }) {
       setNotice(
         accept && includeReview
           ? `Dia ${dayLabel(selected.day)} mantido como sugerido.`
-          : "Alocação salva com sucesso.",
+          : result?.status === "AWAITING_APPROVAL"
+            ? `Dia ${dayLabel(selected.day)} enviado para aprovação.`
+            : "Alocação salva com sucesso.",
       );
     } catch {
       /* Error stays visible in the dialog. */

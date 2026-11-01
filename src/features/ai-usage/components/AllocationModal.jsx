@@ -8,6 +8,13 @@ import { Modal } from "../../../core/ui/Modal.jsx";
 import { TypeBadge } from "../../dashboard/v2/kit/Badges.jsx";
 import { AgentLegend, AgentTag } from "./AgentMark.jsx";
 import { fmtHours, fmtPoints } from "../../dashboard/v2/format.js";
+import { useAllocationPreview, useOutOfDeliveryBudget } from "../hooks/useOutOfDelivery.js";
+import {
+  ApprovalNotice,
+  BudgetMeter,
+  OutOfDeliveryFields,
+  outOfDeliveryProblem,
+} from "./OutOfDelivery.jsx";
 
 /**
  * Redistribute the change in one slider's value proportionally across the others.
@@ -100,7 +107,7 @@ function CandidateRow({ si, wi, onAdd }) {
  *   sprintItems: Array<{ workItemId: string, workItemTitle?: string, title?: string, sprintName?: string, type?: string, externalId?: string, complexity?: number, effort?: number }>,
  *   itemsById?: Map<string, { type?: string, externalId?: string }>,
  *   onClose: () => void,
- *   onConfirm: (splits: Array<{ workItemId: string, percentage: number }>) => void,
+ *   onConfirm: (splits: Array<{ workItemId?: string, kind?: "OUT_OF_DELIVERY", category?: string, note?: string, percentage: number }>) => void,
  *   loading: boolean
  * }} props
  */
@@ -136,11 +143,20 @@ export function AllocationModal({
     }));
   const [items, setItems] = React.useState(() => {
     if (batch.suggestion && batch.suggestion.length > 0) {
-      return batch.suggestion.map((s) => ({
-        workItemId: s.workItemId,
-        workItemTitle: s.workItemTitle || "",
-        pct: Math.round(parseFloat(s.percentage) * 100),
-      }));
+      return batch.suggestion.map((s) =>
+        s.kind === "OUT_OF_DELIVERY"
+          ? {
+              kind: "OUT_OF_DELIVERY",
+              category: s.category ?? null,
+              note: s.note ?? "",
+              pct: Math.round(parseFloat(s.percentage) * 100),
+            }
+          : {
+              workItemId: s.workItemId,
+              workItemTitle: s.workItemTitle || "",
+              pct: Math.round(parseFloat(s.percentage) * 100),
+            },
+      );
     }
     return [];
   });
@@ -155,6 +171,68 @@ export function AllocationModal({
 
   // Tokens do dia — a fração de cada item é pct% disto, exibida ao vivo no slider.
   const dayTokens = totalTokens(batch);
+
+  const oodIndex = items.findIndex((it) => it.kind === "OUT_OF_DELIVERY");
+  const hasOod = oodIndex >= 0;
+  const oodProblem = hasOod ? outOfDeliveryProblem(items[oodIndex]) : null;
+  const sliderListRef = React.useRef(null);
+  const focusOodRef = React.useRef(false);
+  React.useEffect(() => {
+    if (focusOodRef.current && hasOod) {
+      focusOodRef.current = false;
+      // o thumb do Radix só fica focável depois de medido: tenta por alguns quadros
+      let tries = 0;
+      let raf;
+      const focus = () => {
+        const el = sliderListRef.current?.querySelector("[data-ood] [role=slider]");
+        el?.focus();
+        if (document.activeElement !== el && tries++ < 20) raf = requestAnimationFrame(focus);
+      };
+      focus();
+      return () => cancelAnimationFrame(raf);
+    }
+  }, [hasOod]);
+
+  // Prévia do servidor (400 ms depois da última mudança): o ui não calcula a regra.
+  const splitsBody = items.map((it) =>
+    it.kind === "OUT_OF_DELIVERY"
+      ? {
+          kind: "OUT_OF_DELIVERY",
+          category: it.category,
+          note: (it.note || "").trim() || null,
+          percentage: it.pct / 100,
+        }
+      : {
+          workItemId: it.workItemId,
+          workItemTitle: it.workItemTitle || "",
+          percentage: it.pct / 100,
+        },
+  );
+  const previewBody =
+    sumOk && items.length > 0 && !oodProblem
+      ? {
+          day: batch.day,
+          ...(batch.suggestionAllocationId ? { allocationId: batch.suggestionAllocationId } : {}),
+          splits: splitsBody,
+        }
+      : null;
+  const preview = useAllocationPreview(previewBody);
+  const needsApproval = !!preview.data?.needsApproval;
+  const month = String(batch.day).slice(0, 7);
+  const budget = useOutOfDeliveryBudget(month, hasOod);
+  const overCap = preview.data?.reasons?.find((r) => r.code === "OUT_OF_DELIVERY_OVER_CAP");
+  const dayCost = Number(batch.estimatedCostUsd);
+  const oodThisUsd =
+    overCap?.thisUsd != null
+      ? overCap.thisUsd
+      : hasOod && batch.estimatedCostUsd != null && Number.isFinite(dayCost)
+        ? (items[oodIndex].pct / 100) * dayCost
+        : null;
+  const allItems = [...items, ...resolvedSprintItems];
+  const itemName = (id) => {
+    const f = allItems.find((it) => String(it.workItemId) === String(id));
+    return f?.workItemTitle || null;
+  };
 
   const existingIds = new Set(items.map((it) => it.workItemId));
   const filteredSprint = resolvedSprintItems.filter((si) => {
@@ -222,13 +300,17 @@ export function AllocationModal({
     setSearch("");
   }
 
+  function patchItem(index, patch) {
+    setItems((prev) => prev.map((it, i) => (i === index ? { ...it, ...patch } : it)));
+  }
+
+  function handleAddOod() {
+    focusOodRef.current = true;
+    setItems((prev) => [...prev, { kind: "OUT_OF_DELIVERY", category: null, note: "", pct: 0 }]);
+  }
+
   function handleConfirm() {
-    const splits = items.map((it) => ({
-      workItemId: it.workItemId,
-      workItemTitle: it.workItemTitle || "",
-      percentage: it.pct / 100,
-    }));
-    onConfirm(splits);
+    onConfirm(splitsBody);
   }
 
   return (
@@ -240,8 +322,8 @@ export function AllocationModal({
       title={<>Alocação de {String(batch.day).split("-").reverse().join("/")}</>}
       subtitle={
         dayTokens > 0
-          ? `Divida os ${fmtTokens(dayTokens)} tokens deste dia entre os work items da sprint.`
-          : "Divida os tokens deste dia entre os work items da sprint."
+          ? `Divida os ${fmtTokens(dayTokens)} tokens deste dia entre work items e Fora de entrega.`
+          : "Divida os tokens deste dia entre work items e Fora de entrega."
       }
       footer={
         <>
@@ -251,9 +333,13 @@ export function AllocationModal({
           <button
             className="btn"
             onClick={handleConfirm}
-            disabled={loading || !sumOk || items.length === 0}
+            disabled={loading || !sumOk || items.length === 0 || !!oodProblem}
           >
-            {loading ? "Salvando…" : "Confirmar alocação →"}
+            {loading
+              ? "Salvando…"
+              : needsApproval
+                ? "Enviar para aprovação →"
+                : "Confirmar alocação →"}
           </button>
         </>
       }
@@ -304,23 +390,45 @@ export function AllocationModal({
           }}
         >
           <p className="mono" style={{ fontSize: "0.82rem", color: "var(--fg-muted)", margin: 0 }}>
-            Nenhum item adicionado. Busque abaixo para alocar o uso.
+            Nenhum item adicionado. Busque um work item abaixo ou use Fora de entrega.
           </p>
         </div>
       ) : (
-        <div className="flex flex-col gap-[8px]">
+        <div className="flex flex-col gap-[8px]" ref={sliderListRef}>
           {items.map((item, i) => (
-            <AllocationSlider
-              key={item.workItemId}
-              item={item}
-              onChange={(val) => handleChange(i, val)}
-              onRemove={() => handleRemove(i)}
-              disabled={loading}
-              tokensLabel={
-                dayTokens > 0 ? `${fmtTokens((item.pct / 100) * dayTokens)} tokens` : undefined
-              }
-              wi={item.wi ?? itemsById?.get(item.workItemId)}
-            />
+            <div
+              key={item.kind === "OUT_OF_DELIVERY" ? "ood" : item.workItemId}
+              data-ood={item.kind === "OUT_OF_DELIVERY" ? "" : undefined}
+            >
+              <AllocationSlider
+                item={item}
+                onChange={(val) => handleChange(i, val)}
+                onRemove={() => handleRemove(i)}
+                disabled={loading}
+                tokensLabel={
+                  dayTokens > 0 ? `${fmtTokens((item.pct / 100) * dayTokens)} tokens` : undefined
+                }
+                wi={item.wi ?? itemsById?.get(item.workItemId)}
+              >
+                {item.kind === "OUT_OF_DELIVERY" ? (
+                  <>
+                    <OutOfDeliveryFields
+                      item={item}
+                      disabled={loading}
+                      onChange={(patch) => patchItem(i, patch)}
+                    />
+                    <div className="mt-3">
+                      <BudgetMeter
+                        budget={budget.data}
+                        isPending={budget.isPending}
+                        isError={budget.isError && !budget.unsupported}
+                        thisUsd={oodThisUsd}
+                      />
+                    </div>
+                  </>
+                ) : null}
+              </AllocationSlider>
+            </div>
           ))}
         </div>
       )}
@@ -343,6 +451,17 @@ export function AllocationModal({
           <span className="text-fg-muted text-[12px]">O total deve ser exatamente 100%</span>
         )}
       </div>
+
+      {!hasOod && (
+        <button
+          type="button"
+          className="btn-ghost btn min-h-[44px] self-start"
+          onClick={handleAddOod}
+          disabled={loading}
+        >
+          + Fora de entrega
+        </button>
+      )}
 
       {/* Add item search */}
       <div className="border-line flex flex-col gap-[8px] border-t pt-[18px]">
@@ -378,6 +497,11 @@ export function AllocationModal({
           </p>
         )}
       </div>
+
+      <ApprovalNotice
+        reasons={needsApproval ? preview.data.reasons : []}
+        ctx={{ itemName, month }}
+      />
     </Modal>
   );
 }

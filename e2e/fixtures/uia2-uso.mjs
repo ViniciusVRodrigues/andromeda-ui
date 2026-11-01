@@ -137,9 +137,20 @@ const json = (status, body) => ({
  */
 export async function routeUsoIa(
   page,
-  { ownId, pending = PENDING, history = [], daily = DAILY, summary = SUMMARY, confirm = {} } = {},
+  {
+    ownId,
+    pending = PENDING,
+    history = [],
+    daily = DAILY,
+    summary = SUMMARY,
+    confirm = {},
+    candidates = [],
+    preview = null, // (body) => { needsApproval, reasons } ; null = livre; "404" = servidor antigo
+    budget = "404", // objeto do saldo do teto | "404" | "500"
+    manual = null, // { status, approval } do POST /manual; "204" = servidor antigo (sem corpo)
+  } = {},
 ) {
-  const seen = { confirms: [], manuals: [] };
+  const seen = { confirms: [], manuals: [], previews: [], budgets: [] };
   const done = new Set(); // dias confirmados: saem dos pendentes e entram no historico
   const forceReview = new Set(confirm.forceReview || []);
   const forced = new Set(); // dias que o servidor passou a tratar como NEEDS_REVIEW
@@ -188,9 +199,22 @@ export async function routeUsoIa(
       const body = request.postDataJSON();
       seen.manuals.push(body);
       done.add(body.day);
-      return fulfill(200, {});
+      if (manual === "204") return route.fulfill({ status: 204 });
+      return fulfill(200, manual ? { allocationId: "alloc-new", approval: null, ...manual } : {});
     }
-    if (path.endsWith("/candidates")) return fulfill(200, []);
+    if (path.endsWith("/allocations/preview") && request.method() === "POST") {
+      const body = request.postDataJSON();
+      seen.previews.push(body);
+      if (preview === "404") return fulfill(404, { code: "NOT_FOUND" });
+      return fulfill(200, preview ? preview(body) : { needsApproval: false, reasons: [] });
+    }
+    if (path.endsWith("/allocations/out-of-delivery-budget")) {
+      seen.budgets.push(new URL(request.url()).searchParams.get("month"));
+      if (budget === "404") return fulfill(404, { code: "NOT_FOUND" });
+      if (budget === "500") return fulfill(500, { code: "INTERNAL_ERROR" });
+      return fulfill(200, budget);
+    }
+    if (path.endsWith("/candidates")) return fulfill(200, candidates);
     if (path.endsWith("/usage/summary")) return fulfill(200, summary);
     if (path.endsWith("/usage/daily")) return fulfill(200, daily);
     if (path.endsWith("/allocations/pending-batches")) return fulfill(200, visible());

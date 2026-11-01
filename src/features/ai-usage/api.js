@@ -126,3 +126,22 @@ export function getAllocationRows(allocationId) {
 export function moveAgentUsage(allocationId, body) {
   return api.post(`/v1/ai/allocations/${allocationId}/move`, body);
 }
+
+/**
+ * Prévia da política de aprovação (FDE1): o que o servidor faria com estes splits, sem gravar.
+ * Resposta: `{ needsApproval, reasons: [{ code: REPO_OTHER_PROJECT | OUT_OF_DELIVERY_OVER_CAP, ... }] }`.
+ * Servidor antigo responde 404 (a tela segue sem aviso).
+ * @param {{ day: string, allocationId?: string, splits: object[] }} body
+ */
+export function previewAllocation(body) {
+  return api.post("/v1/ai/allocations/preview", body);
+}
+
+/**
+ * Saldo do teto de "Fora de entrega" da própria pessoa no mês (FDE1).
+ * @param {string} month  yyyy-MM
+ * @returns {Promise<{ month: string, capPercent: number, baseUsd: number, baseKind?: string, baseMonth: string, capUsd: number, usedUsd: number, awaitingUsd: number }>}
+ */
+export function getOutOfDeliveryBudget(month) {
+  return api.get(`/v1/ai/allocations/out-of-delivery-budget${toQuery({ month })}`);
+}
