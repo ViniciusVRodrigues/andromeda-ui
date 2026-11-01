@@ -383,11 +383,13 @@ export function AprovacoesPage() {
                   >
                     <div className="flex min-w-0 flex-col gap-1">
                       <div className="flex items-start gap-2">
-                        <Checkbox
-                          aria-label={`Selecionar o pedido de ${who}`}
-                          checked={selected.has(id)}
-                          onCheckedChange={(v) => toggle(id, v === true)}
-                        />
+                        <label className="-m-3 flex min-h-[44px] min-w-[44px] shrink-0 cursor-pointer items-center justify-center">
+                          <Checkbox
+                            aria-label={`Selecionar o pedido de ${who}`}
+                            checked={selected.has(id)}
+                            onCheckedChange={(v) => toggle(id, v === true)}
+                          />
+                        </label>
                         <h3
                           tabIndex={-1}
                           data-approval-h3={id}
@@ -425,7 +427,7 @@ export function AprovacoesPage() {
                     <div className="flex gap-2 lg:flex-col">
                       <button
                         type="button"
-                        className="btn min-h-[44px] min-w-[140px] flex-1"
+                        className="btn min-h-[44px] min-w-0 flex-1 lg:min-w-[140px]"
                         aria-label={`Aprovar o pedido de ${who}`}
                         disabled={busy || batch.isPending}
                         onClick={() => onApprove(item)}
@@ -434,7 +436,7 @@ export function AprovacoesPage() {
                       </button>
                       <button
                         type="button"
-                        className="btn btn-ghost min-h-[44px] min-w-[140px] flex-1"
+                        className="btn btn-ghost min-h-[44px] min-w-0 flex-1 lg:min-w-[140px]"
                         aria-label={`Devolver o pedido de ${who}`}
                         disabled={busy || batch.isPending}
                         onClick={() => {
