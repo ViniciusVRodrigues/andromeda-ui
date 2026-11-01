@@ -133,6 +133,8 @@ const json = (status, body) => ({
  * Serve o Uso de IA com os dados do mes de outubro de 2026 (por cima da camada replay).
  * `confirm`: { failAt: indice (0-based) da chamada a POST /confirm que responde 500,
  * forceReview: dias que o servidor passa a tratar como NEEDS_REVIEW (entram em `skipped`) }.
+ * `confirm.awaiting`: { dia: motivos de approval } que o servidor manda para aprovação (entram em
+ * `awaitingApproval` e passam a vir como AWAITING_APPROVAL nos pendentes).
  * Devolve `seen.confirms` (corpos, na ordem) e `seen.manuals` (corpos de POST /manual).
  */
 export async function routeUsoIa(
@@ -154,10 +156,26 @@ export async function routeUsoIa(
   const done = new Set(); // dias confirmados: saem dos pendentes e entram no historico
   const forceReview = new Set(confirm.forceReview || []);
   const forced = new Set(); // dias que o servidor passou a tratar como NEEDS_REVIEW
+  const awaitingMap = confirm.awaiting || {};
+  const waiting = new Set(); // dias que foram para AWAITING_APPROVAL pelo /confirm
   const members = MEMBERS.map((m) => (m.id === "__own__" ? { ...m, id: ownId } : m));
   const visible = () =>
     pending
       .filter((b) => !done.has(b.day))
+      .map((b) =>
+        waiting.has(b.day)
+          ? {
+              ...b,
+              review: {
+                state: "AWAITING_APPROVAL",
+                source: "AGENT",
+                reasons: [],
+                details: [],
+                approval: { reasons: awaitingMap[b.day], requestedAt: "2026-10-29T15:00:00Z" },
+              },
+            }
+          : b,
+      )
       .map((b) =>
         forced.has(b.day) && !b.review.reasons.length
           ? {
@@ -182,10 +200,14 @@ export async function routeUsoIa(
       if (call === confirm.failAt) return fulfill(500, { code: "INTERNAL_ERROR" });
       const confirmed = [];
       const skipped = [];
+      const awaitingApproval = [];
       for (const day of body.days) {
         if (forceReview.has(day) && !body.includeReview) forced.add(day);
         const row = visible().find((b) => b.day === day);
-        if (!row) skipped.push({ day, reason: "NOTHING_PENDING" });
+        if (awaitingMap[day] && row) {
+          waiting.add(day);
+          awaitingApproval.push(day);
+        } else if (!row) skipped.push({ day, reason: "NOTHING_PENDING" });
         else if (row.review.reasons.length && !body.includeReview)
           skipped.push({ day, reason: "NEEDS_REVIEW" });
         else {
@@ -193,7 +215,10 @@ export async function routeUsoIa(
           confirmed.push(day);
         }
       }
-      return fulfill(200, { confirmed, skipped });
+      return fulfill(
+        200,
+        confirm.old ? { confirmed, skipped } : { confirmed, skipped, awaitingApproval },
+      );
     }
     if (path.endsWith("/allocations/manual") && request.method() === "POST") {
       const body = request.postDataJSON();

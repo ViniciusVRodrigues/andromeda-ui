@@ -9,7 +9,11 @@ import {
   dayLabel,
   dayMonth,
   dayStatus,
+  approvalReasonItems,
   capFirst,
+  isOutOfDelivery,
+  outOfDeliveryTitle,
+  returnedLine,
   reviewReasonItems,
   todayIso,
   usd,
@@ -39,17 +43,23 @@ function Suggestion({ row, status }) {
   if (!list.length) return <span className="text-fg-muted">—</span>;
   return (
     <div className="space-y-0.5">
-      {list.map((s) => {
-        const title = s.workItemTitle || s.workItemId;
+      {list.map((s, i) => {
+        const ood = isOutOfDelivery(s);
+        const title = ood
+          ? outOfDeliveryTitle(s, { phrase: true })
+          : s.workItemTitle || s.workItemId;
         /* D2 = a: a origem só aparece quando a branch ganhou da tarefa marcada */
         const was = status === "confirmed" ? null : s.overriddenMark?.displayId;
         return (
-          <div key={s.workItemId}>
+          <div key={ood ? `ood-${i}` : `${s.workItemId}-${i}`}>
             <div className="flex min-w-0 gap-1">
-              <span className="min-w-0 truncate" title={title}>
+              <span
+                className={`min-w-0 ${ood ? "max-lg:line-clamp-2 lg:truncate" : "truncate"}`}
+                title={title}
+              >
                 {title}
               </span>
-              {list.length > 1 && (
+              {(list.length > 1 || ood) && (
                 <span className="text-fg-muted shrink-0 whitespace-nowrap tabular-nums">
                   · {Math.round(Number(s.percentage) * 100)}%
                 </span>
@@ -70,17 +80,38 @@ function Suggestion({ row, status }) {
 /** Um motivo por linha (D3 = b): com um só, "Por quê: …."; com vários, "Por quê:" e uma lista. */
 export function Reason({ row }) {
   const items = reviewReasonItems(row.review);
-  if (items.length === 1)
-    return <p className="text-warn-text m-0 mt-1 text-xs break-words">Por quê: {items[0]}.</p>;
+  const returned = returnedLine(row.review);
   return (
-    <div className="text-warn-text mt-1 text-xs break-words">
-      <p className="m-0">Por quê:</p>
-      <ul className="m-0 list-none p-0">
-        {items.map((text) => (
-          <li key={text}>{capFirst(text)}.</li>
-        ))}
-      </ul>
-    </div>
+    <>
+      {returned && <p className="text-warn-text m-0 mt-1 text-xs break-words">{returned}</p>}
+      {items.length === 1 && (
+        <p className="text-warn-text m-0 mt-1 text-xs break-words">Por quê: {items[0]}.</p>
+      )}
+      {items.length > 1 && (
+        <div className="text-warn-text mt-1 text-xs break-words">
+          <p className="m-0">Por quê:</p>
+          <ul className="m-0 list-none p-0">
+            {items.map((text) => (
+              <li key={text}>{capFirst(text)}.</li>
+            ))}
+          </ul>
+        </div>
+      )}
+    </>
+  );
+}
+
+/** Motivo da espera (FDE1): um parágrafo; com dois motivos, uma lista. */
+export function AwaitingReason({ row }) {
+  const items = approvalReasonItems(row);
+  if (items.length === 1)
+    return <p className="text-fg-muted m-0 mt-1 text-xs break-words">{items[0]}</p>;
+  return (
+    <ul className="text-fg-muted m-0 mt-1 list-none p-0 text-xs break-words">
+      {items.map((text) => (
+        <li key={text}>{text}</li>
+      ))}
+    </ul>
   );
 }
 
@@ -137,6 +168,18 @@ function Actions({ row, status, readOnly, busy, onOpen, onAdjust, onConfirm, cla
         </>
       )}
       {!readOnly && status === "review" && open("Revisar")}
+      {!readOnly && status === "awaiting" && (
+        <button
+          type="button"
+          className={`${LINK} !text-fg-muted`}
+          style={LINK_STYLE}
+          aria-label={`Ajustar ${d}`}
+          disabled={busy}
+          onClick={() => onAdjust(row)}
+        >
+          Ajustar
+        </button>
+      )}
       {!readOnly && status === "unallocated" && (
         <button
           type="button"
@@ -182,6 +225,7 @@ export function WeekTable({
     .map((r) => ({ ...r, _status: dayStatus(r) }));
   const suggested = all.filter((r) => r._status === "suggested");
   const inReview = all.filter((r) => r._status === "review").length;
+  const awaiting = all.filter((r) => r._status === "awaiting").length;
   const running = batch.phase === "running";
 
   // trocou de semana, mês ou pessoa: o resultado do lote anterior não vale mais
@@ -250,6 +294,7 @@ export function WeekTable({
           <p className="text-fg-muted m-0 mt-0.5 text-sm">
             {plural(suggested.length, "pronto", "prontos")} para confirmar
             {inReview > 0 && ` · ${inReview} em revisão. Os dias em revisão ficam de fora.`}
+            {awaiting > 0 && ` · ${awaiting} aguardando aprovação.`}
           </p>
         </div>
         {!readOnly && suggested.length > 0 && batch.phase !== "failed" && (
@@ -266,10 +311,17 @@ export function WeekTable({
             {batch.total}…
           </p>
         )}
-        {batch.phase === "done" && (
+        {batch.phase === "done" && (batch.confirmed > 0 || batch.awaiting === 0) && (
           <p className="text-good-text m-0 text-sm">
             <span aria-hidden="true">✓ </span>
             {plural(batch.confirmed, "dia confirmado", "dias confirmados")}.
+          </p>
+        )}
+        {batch.phase === "done" && batch.awaiting > 0 && (
+          <p className="text-fg-muted m-0 text-sm">
+            <span aria-hidden="true">◐ </span>
+            {batch.awaiting} {batch.awaiting === 1 ? "dia foi enviado" : "dias foram enviados"} para
+            aprovação.
           </p>
         )}
         {batch.phase === "done" && batch.skipped > 0 && (
@@ -296,11 +348,15 @@ export function WeekTable({
           </button>
         </div>
       )}
-      {!readOnly && suggested.length === 0 && inReview === 0 && all.length > 0 && (
-        <p className="text-good-text mb-3 text-sm">
-          <span aria-hidden="true">✓ </span>Tudo confirmado nesta semana.
-        </p>
-      )}
+      {!readOnly &&
+        suggested.length === 0 &&
+        inReview === 0 &&
+        awaiting === 0 &&
+        all.length > 0 && (
+          <p className="text-good-text mb-3 text-sm">
+            <span aria-hidden="true">✓ </span>Tudo confirmado nesta semana.
+          </p>
+        )}
 
       {wide ? (
         <table className="w-full table-fixed text-left text-sm">
@@ -355,6 +411,7 @@ export function WeekTable({
                 <td className="px-3 py-1">
                   <Suggestion row={row} status={row._status} />
                   {row._status === "review" && <Reason row={row} />}
+                  {row._status === "awaiting" && <AwaitingReason row={row} />}
                 </td>
                 <td className="px-3 py-1 text-right whitespace-nowrap tabular-nums">
                   {row.totalInputTokens == null ? "—" : fmtTokens(tokensOf(row))}
@@ -401,6 +458,7 @@ export function WeekTable({
               <div className="mt-2 text-sm">
                 <Suggestion row={row} status={row._status} />
                 {row._status === "review" && <Reason row={row} />}
+                {row._status === "awaiting" && <AwaitingReason row={row} />}
               </div>
               <div className="mt-2 flex flex-wrap items-center justify-between gap-x-3 text-sm">
                 <StatusText status={row._status} row={row} />
