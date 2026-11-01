@@ -12,6 +12,11 @@ import Combobox from "../../core/ui/Combobox.jsx";
 import { fmtTokens } from "./lib.js";
 import {
   STATUS_VIEW,
+  approvalWhyItems,
+  categoryLabel,
+  isOutOfDelivery,
+  onlyReturned,
+  splitSearchText,
   dayLabel,
   dayMonth,
   dayStatus,
@@ -40,6 +45,20 @@ function keepLabel(row) {
   const only = row.suggestion?.length === 1 ? row.suggestion[0].displayId : null;
   const label = only ? `Manter ${only}` : "Manter";
   return { label, aria: `${only ? label : "Manter a sugestão"} em ${dayMonth(row.day)}` };
+}
+
+/** Nome de uma divisão no detalhe: o work item (link) ou "Fora de entrega · Estudo" com a frase abaixo. */
+function SplitName({ split }) {
+  if (!isOutOfDelivery(split))
+    return (
+      <WorkItemLink id={split.workItemId}>{split.workItemTitle || split.workItemId}</WorkItemLink>
+    );
+  return (
+    <div className="min-w-0">
+      <div className="break-words">Fora de entrega · {categoryLabel(split.category)}</div>
+      {split.note && <div className="text-fg-muted text-xs break-words">“{split.note}”</div>}
+    </div>
+  );
 }
 
 const money = (value) => (value == null ? "Não informado" : usd(value));
@@ -142,8 +161,8 @@ export function UsoIaPage({ can, personRef }) {
     [
       row.day,
       dayLabel(row.day),
-      ...(row.splits || []).flatMap((s) => [s.workItemTitle, s.workItemId]),
-      ...(row.suggestion || []).flatMap((s) => [s.workItemTitle, s.workItemId]),
+      ...(row.splits || []).flatMap(splitSearchText),
+      ...(row.suggestion || []).flatMap(splitSearchText),
     ].some((value) =>
       String(value || "")
         .toLocaleLowerCase("pt-BR")
@@ -170,6 +189,7 @@ export function UsoIaPage({ can, personRef }) {
   const counts = {
     suggested: rows.filter((r) => statusOf(r) === "suggested").length,
     review: rows.filter((r) => statusOf(r) === "review").length,
+    awaiting: rows.filter((r) => statusOf(r) === "awaiting").length,
   };
   const pendingInfo = pendingSummary(pending.data, month);
   const oldestWeek = pendingInfo.oldestDay
@@ -192,6 +212,7 @@ export function UsoIaPage({ can, personRef }) {
       ? `O dia ${dayLabel(day)} não foi confirmado: precisa de revisão.`
       : `O dia ${dayLabel(day)} não foi confirmado. Tente de novo.`;
   }
+  const waitsApproval = (day, result) => (result?.awaitingApproval || []).includes(day);
   async function save(splits, accept = false, includeReview = false) {
     setWarning("");
     try {
@@ -204,9 +225,13 @@ export function UsoIaPage({ can, personRef }) {
       }
       if (accept && includeReview) setSelectedDay(null);
       setNotice(
-        accept && includeReview
-          ? `Dia ${dayLabel(selected.day)} mantido como sugerido.`
-          : "Alocação salva com sucesso.",
+        accept && waitsApproval(selected.day, result)
+          ? `Dia ${dayLabel(selected.day)} enviado para aprovação.`
+          : accept && includeReview
+            ? `Dia ${dayLabel(selected.day)} mantido como sugerido.`
+            : result?.status === "AWAITING_APPROVAL"
+              ? `Dia ${dayLabel(selected.day)} enviado para aprovação.`
+              : "Alocação salva com sucesso.",
       );
     } catch {
       /* Error stays visible in the dialog. */
@@ -218,6 +243,8 @@ export function UsoIaPage({ can, personRef }) {
       const result = await mutation.mutateAsync({ batch: row, splits: null, accept: true });
       const skipped = skippedWarning(row.day, result);
       if (skipped) setWarning(skipped);
+      else if (waitsApproval(row.day, result))
+        setNotice(`Dia ${dayLabel(row.day)} enviado para aprovação.`);
       else setNotice(`Dia ${dayLabel(row.day)} confirmado.`);
     } catch {
       /* O erro aparece no alerta acima da tabela. */
@@ -262,6 +289,7 @@ export function UsoIaPage({ can, personRef }) {
             <p className="text-fg-muted text-sm">
               {rows.length} dias no mês · {counts.suggested} a confirmar · {counts.review} em
               revisão
+              {counts.awaiting > 0 && ` · ${counts.awaiting} aguardando aprovação`}
             </p>
           </div>
           <div className="flex flex-wrap items-end gap-3">
@@ -286,6 +314,7 @@ export function UsoIaPage({ can, personRef }) {
                 <option value="all">Todas</option>
                 <option value="suggested">A confirmar</option>
                 <option value="review">Em revisão</option>
+                <option value="awaiting">Aguardando aprovação</option>
                 <option value="confirmed">Confirmado</option>
                 <option value="agente">Confirmado pelo agente</option>
                 <option value="unallocated">Sem alocação</option>
@@ -368,9 +397,13 @@ export function UsoIaPage({ can, personRef }) {
                   disabled={mutation.isPending}
                   onClick={() => setAllocating(true)}
                 >
-                  {selectedStatus === "review" ? "Ajustar" : "Alocar consumo"}
+                  {selectedStatus === "review" || selectedStatus === "awaiting"
+                    ? "Ajustar"
+                    : "Alocar consumo"}
                 </button>
-                {selected.suggestionAllocationId && selectedStatus === "review" ? (
+                {selectedStatus === "awaiting" ? null : selected.suggestionAllocationId &&
+                  selectedStatus === "review" &&
+                  !onlyReturned(selected.review) ? (
                   <button
                     className="btn min-h-[44px]"
                     disabled={mutation.isPending}
@@ -380,7 +413,8 @@ export function UsoIaPage({ can, personRef }) {
                     {keep.label}
                   </button>
                 ) : (
-                  selected.suggestionAllocationId && (
+                  selected.suggestionAllocationId &&
+                  selectedStatus !== "review" && (
                     <button
                       className="btn-ghost btn"
                       disabled={mutation.isPending}
@@ -411,6 +445,16 @@ export function UsoIaPage({ can, personRef }) {
               {statusLabel(selected)}
             </p>
           </div>
+          {selectedStatus === "awaiting" && (
+            <ul
+              aria-label="Por que espera aprovação"
+              className="text-fg-muted mb-4 list-none space-y-1 p-0 break-words"
+            >
+              {approvalWhyItems(selected).map((text) => (
+                <li key={text}>{text}</li>
+              ))}
+            </ul>
+          )}
           {selectedStatus === "review" && (
             <ul
               aria-label="Motivos da revisão"
@@ -429,7 +473,7 @@ export function UsoIaPage({ can, personRef }) {
               ))}
             </ul>
           )}
-          <h3 className="mb-3 font-serif text-xl">Work items alocados</h3>
+          <h3 className="mb-3 font-serif text-xl">Para onde foi</h3>
           {selected.allocations?.length ? (
             selected.allocations.map((allocation) => (
               <div key={allocation.id} className="border-line border-b py-3">
@@ -440,13 +484,14 @@ export function UsoIaPage({ can, personRef }) {
                     )}
                   </div>
                 )}
-                {(allocation.splits || []).map((split) => (
-                  <div key={split.workItemId} className="flex justify-between gap-3 py-1">
+                {(allocation.splits || []).map((split, i) => (
+                  <div
+                    key={split.workItemId || `ood-${i}`}
+                    className="flex justify-between gap-3 py-1"
+                  >
                     <div className="min-w-0">
                       <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
-                        <WorkItemLink id={split.workItemId}>
-                          {split.workItemTitle || split.workItemId}
-                        </WorkItemLink>
+                        <SplitName split={split} />
                         {allocation.assignedBy === "AGENT" && <AgentTag />}
                       </div>
                       {allocation.assignedBy === "AGENT" && allocation.agent && (
@@ -474,15 +519,26 @@ export function UsoIaPage({ can, personRef }) {
               </div>
             ))
           ) : selected.splits?.length ? (
-            selected.splits.map((split) => (
+            selected.splits.map((split, i) => (
               <div
-                key={split.workItemId}
+                key={split.workItemId || `ood-${i}`}
                 className="border-line flex justify-between gap-3 border-b py-3"
               >
-                <WorkItemLink id={split.workItemId}>
-                  {split.workItemTitle || split.workItemId}
-                </WorkItemLink>
+                <SplitName split={split} />
                 <span>
+                  {Math.round(Number(split.percentage) * 100)}% ·{" "}
+                  {fmtTokens(totalTokens(selected) * Number(split.percentage))} tokens
+                </span>
+              </div>
+            ))
+          ) : selectedStatus === "awaiting" && selected.suggestion?.length ? (
+            selected.suggestion.map((split, i) => (
+              <div
+                key={split.workItemId || `ood-${i}`}
+                className="border-line flex justify-between gap-3 border-b py-3"
+              >
+                <SplitName split={split} />
+                <span className="shrink-0">
                   {Math.round(Number(split.percentage) * 100)}% ·{" "}
                   {fmtTokens(totalTokens(selected) * Number(split.percentage))} tokens
                 </span>
@@ -492,14 +548,21 @@ export function UsoIaPage({ can, personRef }) {
             <p className="text-fg-muted">Este consumo ainda não possui alocação confirmada.</p>
           )}
           {selected.hasAgent && <AgentLegend />}
-          {selected.suggestion?.length > 0 && (
+          {selected.suggestion?.length > 0 && selectedStatus !== "awaiting" && (
             <div className="mt-5">
               <h3 className="font-serif text-xl">Sugestão de alocação</h3>
-              {selected.suggestion.map((split) => (
-                <p key={split.workItemId} className="py-2">
-                  <WorkItemLink id={split.workItemId}>
-                    {split.workItemTitle || split.workItemId}
-                  </WorkItemLink>{" "}
+              {selected.suggestion.map((split, i) => (
+                <p key={split.workItemId || `ood-${i}`} className="py-2">
+                  {isOutOfDelivery(split) ? (
+                    <span className="break-words">
+                      Fora de entrega · {categoryLabel(split.category)}
+                      {split.note ? ` · “${split.note}”` : ""}
+                    </span>
+                  ) : (
+                    <WorkItemLink id={split.workItemId}>
+                      {split.workItemTitle || split.workItemId}
+                    </WorkItemLink>
+                  )}{" "}
                   · {Math.round(Number(split.percentage) * 100)}%
                   {suggestionOrigin(split) && (
                     <span className="text-fg-muted block text-xs break-words">

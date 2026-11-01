@@ -159,3 +159,30 @@ export function usePreviewWorkItemPatterns() {
     mutationFn: previewWorkItemPatterns,
   });
 }
+
+/* ── Política de alocação de IA (uso-ia-fora-de-entrega) ──
+ * GET/PUT /v1/organizations/me/allocation-policy → { outOfDeliveryCapPercent } (inteiro 0..100).
+ * Escrita exige USER_MANAGE no backend; 400 VALIDATION_ERROR. Servidor antigo: 404 no GET,
+ * e a tela lê o padrão (15). */
+
+const ALLOCATION_POLICY_KEY = ["organizations", "allocation-policy"];
+
+export function useAllocationPolicy() {
+  return useQuery({
+    queryKey: ALLOCATION_POLICY_KEY,
+    queryFn: () => api.get("/v1/organizations/me/allocation-policy"),
+    retry: (count, error) => error?.status !== 404 && count < 2,
+  });
+}
+
+/** @returns mutação que recebe `{ outOfDeliveryCapPercent }`. */
+export function useUpdateAllocationPolicy() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: (policy) => api.put("/v1/organizations/me/allocation-policy", policy),
+    onSuccess: (data) => {
+      if (data) queryClient.setQueryData(ALLOCATION_POLICY_KEY, data);
+      queryClient.invalidateQueries({ queryKey: ALLOCATION_POLICY_KEY });
+    },
+  });
+}

@@ -5,14 +5,15 @@ import * as usage from "../api.js";
 /**
  * "Confirmar N dias" (D5/D7 A, AGT7): confirma um dia por vez, em sequência, com
  * `POST /v1/ai/allocations/confirm {days:[dia]}`. Dia que o servidor devolve em `skipped`
- * com NEEDS_REVIEW fica de fora e volta "Em revisão" (conta em `skipped`); NOTHING_PENDING
+ * com NEEDS_REVIEW fica de fora e volta "Em revisão" (conta em `skipped`); dia em
+ * `awaitingApproval` (caiu na política, FDE1) não é confirmado: conta em `awaiting`; NOTHING_PENDING
  * conta como feito; CONFLICT para o lote como uma falha.
  *
  * Estado: `idle` | `running` | `failed` | `done`. Em `failed` o lote parou: `confirmed` diz
  * quantos foram, `remaining` guarda os que faltam e `retry()` manda só eles. No fim (com
  * sucesso ou falha) relê as queries do mês, para a tela refletir o servidor.
  *
- * @returns {{ phase: string, total: number, confirmed: number, skipped: number, remaining: Array<{day: string}>,
+ * @returns {{ phase: string, total: number, confirmed: number, skipped: number, awaiting: number, remaining: Array<{day: string}>,
  *   start: (items: Array<{day: string}>) => Promise<void>, retry: () => Promise<void>, reset: () => void }}
  */
 export function useConfirmDays() {
@@ -27,26 +28,28 @@ export function useConfirmDays() {
   }, []);
 
   const run = React.useCallback(
-    async (items, total, already, alreadySkipped) => {
+    async (items, total, already, alreadySkipped, alreadyAwaiting = 0) => {
       let confirmed = already;
       let skipped = alreadySkipped;
+      let awaiting = alreadyAwaiting;
       const set = (patch) => live.current && setState((s) => ({ ...s, ...patch }));
-      set({ phase: "running", total, confirmed, skipped, remaining: items });
+      set({ phase: "running", total, confirmed, skipped, awaiting, remaining: items });
       for (let i = 0; i < items.length; i++) {
         try {
           const res = await usage.confirmAllocations([items[i].day]);
           const out = res?.skipped || [];
           if (out.some((s) => s.reason === "CONFLICT")) throw new Error("CONFLICT");
           if (out.some((s) => s.reason === "NEEDS_REVIEW")) skipped += 1;
+          else if ((res?.awaitingApproval || []).includes(items[i].day)) awaiting += 1;
           else confirmed += 1;
         } catch {
-          set({ phase: "failed", confirmed, skipped, remaining: items.slice(i) });
+          set({ phase: "failed", confirmed, skipped, awaiting, remaining: items.slice(i) });
           await refresh(client);
           return;
         }
-        set({ confirmed, skipped, remaining: items.slice(i + 1) });
+        set({ confirmed, skipped, awaiting, remaining: items.slice(i + 1) });
       }
-      set({ phase: "done", confirmed, skipped, remaining: [] });
+      set({ phase: "done", confirmed, skipped, awaiting, remaining: [] });
       await refresh(client);
     },
     [client],
@@ -64,12 +67,13 @@ export function useConfirmDays() {
         stateRef.current.total,
         stateRef.current.confirmed,
         stateRef.current.skipped,
+        stateRef.current.awaiting,
       ),
     reset: () => setState(INITIAL),
   };
 }
 
-const INITIAL = { phase: "idle", total: 0, confirmed: 0, skipped: 0, remaining: [] };
+const INITIAL = { phase: "idle", total: 0, confirmed: 0, skipped: 0, awaiting: 0, remaining: [] };
 
 function refresh(client) {
   return Promise.all(

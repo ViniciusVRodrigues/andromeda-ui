@@ -105,6 +105,7 @@ function reasonEntries(review) {
   const codes = new Set(review?.reasons || []);
   const details = review?.details || [];
   for (const d of details) if (d?.code) codes.add(d.code);
+  codes.delete("RETURNED"); // o devolvido tem frase própria (returnedInfo)
   const out = [];
   for (const code of REASON_ORDER) {
     if (!codes.has(code)) continue;
@@ -113,8 +114,40 @@ function reasonEntries(review) {
     else out.push({ code, detail: null });
   }
   const unknown = [...codes].some((c) => !REASON_ORDER.includes(c));
-  if (unknown || out.length === 0) out.push({ code: null, detail: null });
+  if (unknown || (out.length === 0 && !returnedInfo(review)))
+    out.push({ code: null, detail: null });
   return out;
+}
+
+/** Devolvido por quem aprova (FDE1): `{ by, note, at }` ou null. `decidedByName`/`by` e `note` vêm do detalhe. */
+export function returnedInfo(review) {
+  const hit = (review?.details || []).find((d) => d?.code === "RETURNED");
+  if (!hit && !(review?.reasons || []).includes("RETURNED")) return null;
+  return {
+    by: hit?.decidedByName || hit?.by || null,
+    note: hit?.note || null,
+    at: hit?.at || hit?.decidedAt || null,
+  };
+}
+
+/** Só o motivo "devolvido": não há "Manter" nem "Por quê". */
+export const onlyReturned = (review) =>
+  !!returnedInfo(review) && reasonEntries(review).length === 0;
+
+/** Linha da tabela: "Devolvido por Ana Souza: “era o AB#4812, não estudo”." */
+export function returnedLine(review) {
+  const r = returnedInfo(review);
+  if (!r) return null;
+  return `Devolvido${r.by ? ` por ${r.by}` : ""}${r.note ? `: “${r.note}”` : ""}.`;
+}
+
+/** Detalhe: "Ana Souza devolveu em 30/10: “…”. Ajuste e envie de novo." */
+export function returnedAction(review) {
+  const r = returnedInfo(review);
+  if (!r) return null;
+  const when = r.at && /^\d{4}-\d{2}-\d{2}/.test(r.at) ? ` em ${dayMonth(r.at.slice(0, 10))}` : "";
+  const head = r.by ? `${r.by} devolveu${when}` : `Este dia foi devolvido${when}`;
+  return `${head}${r.note ? `: “${r.note}”` : ""}. Ajuste e envie de novo.`;
 }
 
 /** Texto de um motivo, sem maiúscula nem ponto: "AB#4812 é de outra pessoa". */
@@ -161,7 +194,8 @@ export function reviewActionItems(review, ctx = {}) {
         return "Este dia precisa da sua revisão.";
     }
   };
-  return [...new Set(reasonEntries(review).map(text))];
+  const returned = returnedAction(review);
+  return [...(returned ? [returned] : []), ...new Set(reasonEntries(review).map(text))];
 }
 
 /** Origem da sugestão no detalhe (D2): só o que o servidor mandou. */
@@ -195,6 +229,7 @@ export function dayStatus(row) {
   if (row.status === "allocated") return "confirmed";
   if (row.status === "pending") {
     const r = row.review;
+    if (r?.state === "AWAITING_APPROVAL") return "awaiting";
     if (r?.state === "NEEDS_REVIEW" || r?.reasons?.length || r?.details?.length) return "review";
     return row.suggestionAllocationId ? "suggested" : "unallocated";
   }
@@ -205,10 +240,81 @@ export function dayStatus(row) {
 export const STATUS_VIEW = {
   suggested: { glyph: "○", label: "A confirmar", tone: "text-accent-text" },
   review: { glyph: "!", label: "Em revisão", tone: "text-warn-text" },
+  awaiting: { glyph: "◐", label: "Aguardando aprovação", tone: "text-fg-muted" },
   confirmed: { glyph: "●", label: "Confirmado", tone: "text-good-text" },
   unallocated: { glyph: "○", label: "Sem alocação", tone: "text-fg-muted" },
   none: { glyph: "—", label: "Sem uso", tone: "text-fg-muted" },
 };
+
+/* ---------- "Fora de entrega" e aprovação (FDE1) ---------- */
+
+export const isOutOfDelivery = (split) => split?.kind === "OUT_OF_DELIVERY";
+const CATEGORY_LABEL = {
+  STUDY: "Estudo",
+  SUPPORT: "Suporte ou incidente",
+  DOCS_MEETING: "Docs ou reunião",
+  OTHER: "Outro",
+};
+export const categoryLabel = (category) => CATEGORY_LABEL[category] || "Outro";
+
+/** "Fora de entrega · Estudo" (na tabela, com a frase no lugar de "Outro" quando há). */
+export function outOfDeliveryTitle(split, { phrase = false } = {}) {
+  const what =
+    phrase && split.category === "OTHER" && split.note
+      ? `“${split.note}”`
+      : categoryLabel(split.category);
+  return `Fora de entrega · ${what}`;
+}
+
+/** Texto da divisão para busca e para leitor de tela. */
+export const splitSearchText = (split) =>
+  isOutOfDelivery(split)
+    ? ["Fora de entrega", categoryLabel(split.category), split.note]
+    : [split.workItemTitle, split.workItemId];
+
+/** Dados do pedido de aprovação (`review.approval` ou `approval` na raiz do lote). */
+export const approvalOf = (row) => row?.review?.approval || row?.approval || null;
+
+/** Motivos do pedido, na voz de "espera" (tabela): um texto por motivo. */
+export function approvalReasonItems(row) {
+  const reasons = approvalOf(row)?.reasons || [];
+  const out = [];
+  for (const r of reasons) {
+    if (r.code === "REPO_OTHER_PROJECT")
+      out.push(
+        r.projectName
+          ? `Aguardando o tech lead de ${r.projectName}: repositório de outro projeto.`
+          : "Aguardando o tech lead do projeto do repositório: repositório de outro projeto.",
+      );
+    else if (r.code === "OUT_OF_DELIVERY_OVER_CAP")
+      out.push("Aguardando aprovação: acima do teto de fora de entrega.");
+  }
+  const unique = [...new Set(out)];
+  return unique.length ? unique : ["Aguardando a aprovação do tech lead."];
+}
+
+/** Motivos no passado (detalhe do dia): "O uso veio de andromeda-ms, do projeto Andromeda, e foi para AB#900, do projeto Portal." */
+export function approvalWhyItems(row) {
+  const reasons = approvalOf(row)?.reasons || [];
+  const out = [];
+  for (const r of reasons) {
+    if (r.code === "REPO_OTHER_PROJECT") {
+      const from = `${r.repository || "um repositório"}${r.projectName ? `, do projeto ${r.projectName}` : ""}`;
+      const target = r.displayId
+        ? `${r.displayId}${r.itemProjectName ? `, do projeto ${r.itemProjectName}` : ""}`
+        : "Fora de entrega";
+      out.push(`O uso veio de ${from}, e foi para ${target}.`);
+    } else if (r.code === "OUT_OF_DELIVERY_OVER_CAP") {
+      out.push(
+        r.capPercent != null
+          ? `Fora de entrega no mês passou do teto de ${r.capPercent}% do seu custo de IA.`
+          : "Fora de entrega no mês passou do teto.",
+      );
+    }
+  }
+  const unique = [...new Set(out)];
+  return unique.length ? unique : ["Este dia espera a aprovação do tech lead."];
+}
 
 /** Dias que pedem ação (a confirmar, em revisão ou sem alocação). */
 export const needsAction = (status) =>
@@ -219,7 +325,10 @@ export const needsAction = (status) =>
 /** Soma de `estimatedCostUsd` e contagem de dias dos pending-batches do mês; `review` conta
  * os que estão em revisão e `oldestDay` é o dia pendente mais antigo. */
 export function pendingSummary(pendingBatches, month) {
-  const list = (pendingBatches || []).filter((b) => b.day?.startsWith(month));
+  // aguardando aprovação não pede nada do dev: fica fora de "Para confirmar" (o total do mês não muda)
+  const list = (pendingBatches || []).filter(
+    (b) => b.day?.startsWith(month) && dayStatus({ ...b, status: "pending" }) !== "awaiting",
+  );
   const sorted = [...list].sort((a, b) => a.day.localeCompare(b.day));
   return {
     days: list.length,

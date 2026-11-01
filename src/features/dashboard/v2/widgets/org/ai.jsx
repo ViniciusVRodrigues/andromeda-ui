@@ -6,6 +6,13 @@ import { MODEL_TOOLTIP_MIN_USD, modelSeries, projectColor } from "../../kit/Badg
 import { AiEmpty, hasAiValue } from "../../kit/AiCross.jsx";
 import { BarList, SegmentBar } from "../../kit/Bars.jsx";
 import { ColumnChart } from "../../kit/charts.jsx";
+import {
+  OUT_OF_DELIVERY_COLOR,
+  OutOfDeliveryLists,
+  TO_VALIDATE_COLOR,
+  fmtShare,
+  outOfDeliveryTable,
+} from "../../kit/AiDestination.jsx";
 import { Panel } from "../../kit/Panel.jsx";
 
 export const selectAiCostByModel = (d) => ({
@@ -59,9 +66,26 @@ export function AiCostByModelWidget({ data }) {
 
 export const selectAiCostByProject = (d) => ({
   rows: d.ai.costByProject,
-  /* a base do percentual é a soma de TODAS as linhas (alocado + não alocado), nunca só o alocado */
+  /* a base do percentual é a soma de TODAS as linhas (projetos + fora de entrega + a validar), nunca só o alocado */
   total: (d.ai.costByProject || []).reduce((s, c) => s + (Number(c.costUsd) || 0), 0),
 });
+
+/** Projetos por valor; "Fora de entrega" e "A validar" sempre no fim, nessa ordem (e a legada "não alocado" antes). */
+const KIND_TAIL = { UNALLOCATED: 1, OUT_OF_DELIVERY: 2, TO_VALIDATE: 3 };
+const kindOf = (c) => c.kind ?? (c.projectId ? "PROJECT" : "UNALLOCATED");
+const orderCostByProject = (rows) => {
+  const list = rows || [];
+  const projects = list.filter((c) => !KIND_TAIL[kindOf(c)]);
+  const tail = list
+    .filter((c) => KIND_TAIL[kindOf(c)])
+    .sort((a, b) => KIND_TAIL[kindOf(a)] - KIND_TAIL[kindOf(b)]);
+  return [...projects.sort((a, b) => (b.costUsd || 0) - (a.costUsd || 0)), ...tail];
+};
+const TAIL_COLOR = {
+  UNALLOCATED: "var(--fg-dim)",
+  OUT_OF_DELIVERY: OUT_OF_DELIVERY_COLOR,
+  TO_VALIDATE: TO_VALIDATE_COLOR,
+};
 
 export function AiCostByProjectWidget({ data }) {
   const { rows, total } = data;
@@ -77,18 +101,61 @@ export function AiCostByProjectWidget({ data }) {
       eyebrow="destino"
       title="Custo por projeto"
       sources={["ia", "azure"]}
-      info="O uso de IA chega por pessoa e por dia, não por projeto. Ele vai para um projeto quando o dia é dividido entre work items; o que não foi dividido aparece como não alocado."
+      info="Todo o custo de IA da organização. Vai para um projeto quando o dia é validado em work items dele. Fora de entrega é o validado fora de item; A validar é o que ainda não foi confirmado ou aprovado."
     >
       <BarList
-        rows={(rows || []).map((c) => ({
-          key: c.projectId ?? "none",
-          label: c.projectId ? c.name : <span className="text-fg-muted">{c.name}</span>,
-          value: c.costUsd,
-          display: fmtUsd(c.costUsd),
-          sub: total ? fmtPct((c.costUsd / total) * 100) : null,
-          color: c.projectId ? projectColor(c.projectId) : "var(--fg-dim)",
-        }))}
+        rows={orderCostByProject(rows).map((c) => {
+          const kind = kindOf(c);
+          return {
+            key: c.projectId ?? kind,
+            label: KIND_TAIL[kind] ? <span className="text-fg-muted">{c.name}</span> : c.name,
+            value: c.costUsd,
+            display: fmtUsd(c.costUsd),
+            sub: total ? fmtPct((c.costUsd / total) * 100) : null,
+            color: KIND_TAIL[kind] ? TAIL_COLOR[kind] : projectColor(c.projectId),
+          };
+        })}
       />
+    </Panel>
+  );
+}
+
+export const selectAiOutOfDelivery = (d) => ({
+  destination: d.ai.destination ?? null,
+  /* ms antigo ou sem o bloco: o valor da linha de custo por projeto, se houver */
+  fallbackUsd: (d.ai.costByProject || [])
+    .filter((c) => c.kind === "OUT_OF_DELIVERY")
+    .reduce((s, c) => s + (Number(c.costUsd) || 0), 0),
+});
+
+/** Card "Fora de entrega" da Organização: quanto, por categoria e por pessoa (top 8). */
+export function AiOutOfDeliveryWidget({ data }) {
+  const out = data.destination?.outOfDelivery;
+  return (
+    <Panel
+      eyebrow="destino"
+      title="Fora de entrega"
+      sources={["ia", "andromeda"]}
+      info="Uso de IA validado fora de work items (estudo, suporte, docs, reuniões e outros), com as pessoas que mais lançaram. O que aguarda aprovação ainda está em A validar."
+      table={out ? outOfDeliveryTable(out) : undefined}
+    >
+      {out ? (
+        <>
+          <p className="mono text-fg m-0 mb-4 text-[13px] tabular-nums">
+            {fmtUsd(out.usd)}
+            {data.destination.totalUsd > 0 ? (
+              <span className="text-fg-muted ml-2 font-normal">
+                {fmtShare((out.usd / data.destination.totalUsd) * 100, out.usd)} do custo de IA
+              </span>
+            ) : null}
+          </p>
+          <OutOfDeliveryLists out={out} peopleLimit={8} columns={1} />
+        </>
+      ) : (
+        <p data-out-of-delivery-empty="" className="text-fg-muted m-0 text-[13px]">
+          Sem dados de fora de entrega neste período.
+        </p>
+      )}
     </Panel>
   );
 }

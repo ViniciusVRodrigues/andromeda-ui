@@ -122,7 +122,7 @@ test("AI table filters, nested work item edit and allocation refresh", async ({ 
   await page.mouse.move(0, 0);
   await expect(allocation).toHaveScreenshot("allocation-modal.png");
   await page.getByRole("button", { name: "Confirmar alocação →" }).click();
-  await expect(page.getByRole("dialog")).toContainText("Work items alocados");
+  await expect(page.getByRole("dialog")).toContainText("Para onde foi");
   await expect(page.getByRole("dialog")).toContainText("Confirmado");
   await page.keyboard.press("Escape");
   await page.getByLabel("Situação", { exact: true }).selectOption("confirmed");

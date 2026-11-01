@@ -12,11 +12,8 @@ import { orgRoute } from "../../lib/orgRoutes.js";
 import { useOrganization } from "../organization/hooks.js";
 import { PersonPicker, UsoIaPage } from "./UsoIaPage.jsx";
 import { AiPricingTab } from "./components/AiPricingTab.jsx";
-
-const USO_IA_SUB_TABS = [
-  { id: "consumo", label: "Consumo" },
-  { id: "precificacao", label: "Precificação" },
-];
+import { AprovacoesPage } from "./aprovacoes/AprovacoesPage.jsx";
+import { useApprovalQueue } from "./aprovacoes/hooks.js";
 
 export function UsoIaLayout() {
   const { can, orgSlug } = useIdentity();
@@ -28,6 +25,27 @@ export function UsoIaLayout() {
   const segs = location.pathname.split("/").filter(Boolean);
   const activeId = segs[2] || "consumo";
   const personRef = React.useRef(null);
+  const canApprove = can("uso-ia-approve");
+  const canPrice = can("uso-ia-pricing");
+  /* O contador é a própria fila (mesmo cache da página); só consulta quem pode aprovar. */
+  const { data: queue } = useApprovalQueue(canApprove);
+  const pending = canApprove && Array.isArray(queue) ? queue.length : 0;
+  const tabs = [
+    { id: "consumo", label: "Consumo" },
+    ...(canPrice ? [{ id: "precificacao", label: "Precificação" }] : []),
+    ...(canApprove
+      ? [
+          {
+            id: "aprovacoes",
+            label: pending > 0 ? `Aprovações · ${pending}` : "Aprovações",
+            ariaLabel:
+              pending > 0
+                ? `Aprovações, ${pending} ${pending === 1 ? "pedido" : "pedidos"}`
+                : undefined,
+          },
+        ]
+      : []),
+  ];
   const showPerson = activeId === "consumo" && can("uso-ia-team");
 
   return (
@@ -38,9 +56,9 @@ export function UsoIaLayout() {
         watchRef={personRef}
         compact={showPerson ? <PersonPicker label="Trocar pessoa" /> : null}
       />
-      {can("uso-ia-pricing") && (
+      {tabs.length > 1 && (
         <SubTabs
-          tabs={USO_IA_SUB_TABS}
+          tabs={tabs}
           activeId={activeId}
           onSelect={(id) =>
             navigate(orgRoute(orgSlug, `uso-ia${id === "consumo" ? "" : "/" + id}`))
@@ -56,6 +74,18 @@ export function UsoIaLayout() {
               initialEntries={Array.isArray(orgData.aiPrices) ? orgData.aiPrices : []}
               initialSubscriptionCost={orgData.subscriptionCostPerUserUsd ?? null}
             />
+          }
+        />
+        <Route
+          path="aprovacoes"
+          element={
+            canApprove ? (
+              <AprovacoesPage />
+            ) : (
+              <p role="alert" className="text-fg-muted">
+                Você não tem permissão para aprovar uso de IA.
+              </p>
+            )
           }
         />
       </Routes>

@@ -65,7 +65,7 @@ function validBody(body) {
 }
 
 /**
- * Tira de um payload os campos que só o ms novo manda (contrato da dashboards-ia-entrega):
+ * Tira de um payload os campos que só o ms novo manda (contrato da dashboards-ia-entrega e, para `ai.destination`/`kind`, da uso-ia-fora-de-entrega):
  * `aiTokens` no histórico da Equipe e nas sprints do Projeto, `complexity` nos itens,
  * `doraSeries` no overview e `aiCostUsd`/`aiTokens`/`itemsWithAi` na calibração do roadmap.
  */
@@ -83,8 +83,25 @@ export function legacyShape(name, o) {
   const drop = (rows, ...keys) => (rows || []).forEach((r) => keys.forEach((k) => delete r[k]));
   if (name.startsWith("individual__")) drop(o.items, "complexity");
   if (name.startsWith("team__")) {
+    delete o.ai?.destination;
     drop(o.history, "aiTokens");
     drop(o.agingItems, "complexity");
+  }
+  if (name.startsWith("organization__") && o.ai) {
+    /* uso-ia-fora-de-entrega: sem `destination` nem `kind`; "Fora de entrega" + "A validar" voltam a ser a linha única */
+    delete o.ai.destination;
+    const rows = o.ai.costByProject || [];
+    const tail = rows.filter((c) => c.kind === "OUT_OF_DELIVERY" || c.kind === "TO_VALIDATE");
+    if (tail.length)
+      o.ai.costByProject = [
+        ...rows.filter((c) => !tail.includes(c)),
+        {
+          projectId: null,
+          name: "Não alocado a work items",
+          costUsd: tail.reduce((sum, c) => sum + c.costUsd, 0),
+        },
+      ];
+    drop(o.ai.costByProject, "kind");
   }
   if (name.startsWith("overview__")) {
     drop(o.sprints, "aiTokens");

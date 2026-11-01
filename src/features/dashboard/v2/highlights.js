@@ -206,16 +206,30 @@ export function organizationHighlights(d) {
       text: `Gasto com IA ${moved(cost)} vs o período anterior (${fmtUsd(d.previous.aiCostUsd)} → ${fmtUsd(d.kpis.aiCostUsd)}); custo por ponto ${fmtUsd(d.previous.aiCostPerPoint)} → ${fmtUsd(d.kpis.aiCostPerPoint)}.`,
     });
   }
-  const unalloc = (d.ai.costByProject || []).find((c) => c.projectId == null);
-  /* aiCostUsd é só o alocado; o total é alocado + não alocado (a linha só vem para quem vê tudo) */
-  const unallocCost = unalloc?.costUsd ?? 0;
-  const aiTotal = (d.kpis.aiCostUsd ?? 0) + unallocCost;
-  const unallocPct = aiTotal > 0 ? (unallocCost / aiTotal) * 100 : 0;
-  if (unallocPct >= T.unallocatedAiPct) {
-    out.push({
-      tone: "warn",
-      text: `${fmtPct(unallocPct)} do custo de IA (${fmtUsd(unalloc.costUsd)}) não está alocado a nenhum work item — o custo por projeto está subestimado.`,
-    });
+  const byProject = d.ai.costByProject || [];
+  const toValidate = byProject.find((c) => c.kind === "TO_VALIDATE");
+  if (toValidate) {
+    /* uso-ia-fora-de-entrega: as linhas fecham o total (projetos + fora de entrega + a validar) */
+    const aiTotal = byProject.reduce((s, c) => s + (Number(c.costUsd) || 0), 0);
+    const pct = aiTotal > 0 ? (toValidate.costUsd / aiTotal) * 100 : 0;
+    if (pct >= T.unallocatedAiPct) {
+      out.push({
+        tone: "warn",
+        text: `${fmtPct(pct)} do custo de IA (${fmtUsd(toValidate.costUsd)}) ainda está a validar — o custo por projeto está subestimado até os dias serem confirmados.`,
+      });
+    }
+  } else {
+    const unalloc = byProject.find((c) => c.projectId == null);
+    /* aiCostUsd é só o alocado; o total é alocado + não alocado (a linha só vem para quem vê tudo) */
+    const unallocCost = unalloc?.costUsd ?? 0;
+    const aiTotal = (d.kpis.aiCostUsd ?? 0) + unallocCost;
+    const unallocPct = aiTotal > 0 ? (unallocCost / aiTotal) * 100 : 0;
+    if (unallocPct >= T.unallocatedAiPct) {
+      out.push({
+        tone: "warn",
+        text: `${fmtPct(unallocPct)} do custo de IA (${fmtUsd(unalloc.costUsd)}) não está alocado a nenhum work item — o custo por projeto está subestimado.`,
+      });
+    }
   }
   if (out.length < 3 && d.ai.subscription.usersAboveSubscription > 0) {
     out.push({

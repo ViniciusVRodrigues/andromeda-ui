@@ -16,10 +16,20 @@ import Slider from "../../../core/ui/Slider.jsx";
  *   disabled?: boolean,
  *   tokensLabel?: string  // absolute share of the day's tokens, e.g. "0,277M tokens"
  *   wi?: { type?: string, externalId?: string }  // metadata joined by the parent
+ *   children?: React.ReactNode  // campos extras sob o slider (linha Fora de entrega)
  * }} props
  */
-export function AllocationSlider({ item, onChange, onRemove, disabled, tokensLabel, wi }) {
-  const label = item.workItemTitle || item.workItemId;
+export function AllocationSlider({
+  item,
+  onChange,
+  onRemove,
+  disabled,
+  tokensLabel,
+  wi,
+  children,
+}) {
+  const outOfDelivery = item.kind === "OUT_OF_DELIVERY";
+  const label = outOfDelivery ? "Fora de entrega" : item.workItemTitle || item.workItemId;
   return (
     <div
       style={{
@@ -63,7 +73,7 @@ export function AllocationSlider({ item, onChange, onRemove, disabled, tokensLab
             whiteSpace: "nowrap",
           }}
         >
-          <WorkItemLink id={item.workItemId}>{label}</WorkItemLink>
+          {outOfDelivery ? label : <WorkItemLink id={item.workItemId}>{label}</WorkItemLink>}
         </span>
         <span
           className="mono"
@@ -112,6 +122,7 @@ export function AllocationSlider({ item, onChange, onRemove, disabled, tokensLab
           ariaLabel={`Percentual para ${label}`}
         />
       </div>
+      {children}
     </div>
   );
 }

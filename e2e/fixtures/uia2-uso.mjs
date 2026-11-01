@@ -133,20 +133,49 @@ const json = (status, body) => ({
  * Serve o Uso de IA com os dados do mes de outubro de 2026 (por cima da camada replay).
  * `confirm`: { failAt: indice (0-based) da chamada a POST /confirm que responde 500,
  * forceReview: dias que o servidor passa a tratar como NEEDS_REVIEW (entram em `skipped`) }.
+ * `confirm.awaiting`: { dia: motivos de approval } que o servidor manda para aprovação (entram em
+ * `awaitingApproval` e passam a vir como AWAITING_APPROVAL nos pendentes).
  * Devolve `seen.confirms` (corpos, na ordem) e `seen.manuals` (corpos de POST /manual).
  */
 export async function routeUsoIa(
   page,
-  { ownId, pending = PENDING, history = [], daily = DAILY, summary = SUMMARY, confirm = {} } = {},
+  {
+    ownId,
+    pending = PENDING,
+    history = [],
+    daily = DAILY,
+    summary = SUMMARY,
+    confirm = {},
+    candidates = [],
+    preview = null, // (body) => { needsApproval, reasons } ; null = livre; "404" = servidor antigo
+    budget = "404", // objeto do saldo do teto | "404" | "500"
+    manual = null, // { status, approval } do POST /manual; "204" = servidor antigo (sem corpo)
+  } = {},
 ) {
-  const seen = { confirms: [], manuals: [] };
+  const seen = { confirms: [], manuals: [], previews: [], budgets: [] };
   const done = new Set(); // dias confirmados: saem dos pendentes e entram no historico
   const forceReview = new Set(confirm.forceReview || []);
   const forced = new Set(); // dias que o servidor passou a tratar como NEEDS_REVIEW
+  const awaitingMap = confirm.awaiting || {};
+  const waiting = new Set(); // dias que foram para AWAITING_APPROVAL pelo /confirm
   const members = MEMBERS.map((m) => (m.id === "__own__" ? { ...m, id: ownId } : m));
   const visible = () =>
     pending
       .filter((b) => !done.has(b.day))
+      .map((b) =>
+        waiting.has(b.day)
+          ? {
+              ...b,
+              review: {
+                state: "AWAITING_APPROVAL",
+                source: "AGENT",
+                reasons: [],
+                details: [],
+                approval: { reasons: awaitingMap[b.day], requestedAt: "2026-10-29T15:00:00Z" },
+              },
+            }
+          : b,
+      )
       .map((b) =>
         forced.has(b.day) && !b.review.reasons.length
           ? {
@@ -171,10 +200,14 @@ export async function routeUsoIa(
       if (call === confirm.failAt) return fulfill(500, { code: "INTERNAL_ERROR" });
       const confirmed = [];
       const skipped = [];
+      const awaitingApproval = [];
       for (const day of body.days) {
         if (forceReview.has(day) && !body.includeReview) forced.add(day);
         const row = visible().find((b) => b.day === day);
-        if (!row) skipped.push({ day, reason: "NOTHING_PENDING" });
+        if (awaitingMap[day] && row) {
+          waiting.add(day);
+          awaitingApproval.push(day);
+        } else if (!row) skipped.push({ day, reason: "NOTHING_PENDING" });
         else if (row.review.reasons.length && !body.includeReview)
           skipped.push({ day, reason: "NEEDS_REVIEW" });
         else {
@@ -182,15 +215,31 @@ export async function routeUsoIa(
           confirmed.push(day);
         }
       }
-      return fulfill(200, { confirmed, skipped });
+      return fulfill(
+        200,
+        confirm.old ? { confirmed, skipped } : { confirmed, skipped, awaitingApproval },
+      );
     }
     if (path.endsWith("/allocations/manual") && request.method() === "POST") {
       const body = request.postDataJSON();
       seen.manuals.push(body);
       done.add(body.day);
-      return fulfill(200, {});
+      if (manual === "204") return route.fulfill({ status: 204 });
+      return fulfill(200, manual ? { allocationId: "alloc-new", approval: null, ...manual } : {});
     }
-    if (path.endsWith("/candidates")) return fulfill(200, []);
+    if (path.endsWith("/allocations/preview") && request.method() === "POST") {
+      const body = request.postDataJSON();
+      seen.previews.push(body);
+      if (preview === "404") return fulfill(404, { code: "NOT_FOUND" });
+      return fulfill(200, preview ? preview(body) : { needsApproval: false, reasons: [] });
+    }
+    if (path.endsWith("/allocations/out-of-delivery-budget")) {
+      seen.budgets.push(new URL(request.url()).searchParams.get("month"));
+      if (budget === "404") return fulfill(404, { code: "NOT_FOUND" });
+      if (budget === "500") return fulfill(500, { code: "INTERNAL_ERROR" });
+      return fulfill(200, budget);
+    }
+    if (path.endsWith("/candidates")) return fulfill(200, candidates);
     if (path.endsWith("/usage/summary")) return fulfill(200, summary);
     if (path.endsWith("/usage/daily")) return fulfill(200, daily);
     if (path.endsWith("/allocations/pending-batches")) return fulfill(200, visible());
