@@ -155,7 +155,7 @@ test("fila com os dois motivos, contador na sub-aba e textos do pedido", async (
   expect(t).toContain("US$ 8,67 · 1,8M tokens");
   expect(t).toContain("Foi para: Fora de entrega · Estudo — “curso de RAG da AWS”");
   expect(t).toContain("O repositório andromeda-ms é do projeto Andromeda.");
-  expect(t).toContain("Fora de entrega da pessoa no mês chegaria a 22% (teto 15% de US$ 310,00).");
+  expect(t).toContain("Fora de entrega de Ana no mês chegaria a 22% (teto 15% de US$ 310,00).");
   expect(t).toContain("Repositório andromeda-ms · branch feature/rag-estudo");
   const caio = norm(await pedido(page, "Caio Mendes").innerText());
   expect(caio).toContain("AB#900 Tela de faturas · 30%");

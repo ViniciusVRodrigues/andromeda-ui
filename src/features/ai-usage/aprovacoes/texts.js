@@ -40,20 +40,22 @@ export function destinationItems(item) {
   });
 }
 
-export function reasonText(reason) {
+export function reasonText(reason, userName) {
   if (reason.code === "REPO_OTHER_PROJECT") {
     const where = reason.projectName ? `do projeto ${reason.projectName}` : "de outro projeto";
     return `O repositório ${reason.repository || "do uso"} é ${where}.`;
   }
   if (reason.code === "OUT_OF_DELIVERY_OVER_CAP") {
     const cap = usd(reason.baseUsd);
-    return `Fora de entrega da pessoa no mês chegaria a ${reason.afterPercent}% (teto ${reason.capPercent}% de ${cap}).`;
+    const first = (userName || "").trim().split(/\s+/)[0];
+    const who = first ? `de ${first}` : "da pessoa";
+    return `Fora de entrega ${who} no mês chegaria a ${reason.afterPercent}% (teto ${reason.capPercent}% de ${cap}).`;
   }
   return null;
 }
 
 export function reasonItems(item) {
-  const out = (item.reasons || []).map(reasonText).filter(Boolean);
+  const out = (item.reasons || []).map((r) => reasonText(r, item.userName)).filter(Boolean);
   return [...new Set(out)];
 }
 

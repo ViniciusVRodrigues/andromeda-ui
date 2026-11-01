@@ -40,7 +40,7 @@ export function outOfDeliveryRows(out, limit) {
       label: CATEGORY_LABEL[c.category] || c.category,
       value: c.usd,
       display: fmtUsd(c.usd),
-      sub: `${fmtShare(c.sharePct, c.usd)} do fora de entrega`,
+      sub: `${fmtShare(c.sharePct, c.usd)}`,
       color: OUT_OF_DELIVERY_COLOR,
     })),
     people: byPerson.slice(0, limit).map((p) => ({
@@ -48,7 +48,7 @@ export function outOfDeliveryRows(out, limit) {
       label: p.name,
       value: p.usd,
       display: fmtUsd(p.usd),
-      sub: `${fmtShare(p.sharePct, p.usd)} do custo da pessoa`,
+      sub: `${fmtShare(p.sharePct, p.usd)} do custo`,
       color: OUT_OF_DELIVERY_COLOR,
     })),
     hidden: Math.max(0, byPerson.length - limit),

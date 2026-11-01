@@ -74,7 +74,7 @@ test("equipe: Para onde foi o custo de IA soma neste projeto + outros + fora de 
   ).toBeVisible();
   for (const c of ["Estudo", "Suporte ou incidente", "Docs ou reunião", "Outro"])
     await expect(card.getByText(c, { exact: true })).toBeVisible();
-  await expect(card.getByText(/\d+% do custo da pessoa/)).toHaveCount(5);
+  await expect(card.getByText(/\d+% do custo$/)).toHaveCount(5);
   await expect(card.getByText(/e mais \d+ pessoas?, na tabela/)).toBeVisible();
   await expect(card.getByText(/\d+ de \d+ pessoas usaram IA na sprint/)).toBeVisible();
 
@@ -201,7 +201,7 @@ test("organização: card Fora de entrega com categorias, top 8 pessoas e tabela
   await card.scrollIntoViewIfNeeded();
   await expect(card.getByRole("heading", { name: "Fora de entrega", level: 3 })).toBeVisible();
   await expect(card.getByText(/% do custo de IA/)).toBeVisible();
-  await expect(card.getByText(/\d+% do custo da pessoa/)).toHaveCount(8);
+  await expect(card.getByText(/\d+% do custo$/)).toHaveCount(8);
   await card.getByRole("button", { name: "Tabela" }).click();
   await expect(card.getByRole("columnheader", { name: "% do custo da pessoa" })).toBeVisible();
   expect(await card.getByRole("row").count()).toBeGreaterThan(9);
