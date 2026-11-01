@@ -6,7 +6,7 @@
 import React from "react";
 
 /**
- * @param {{ id: string, label: string }[]} tabs
+ * @param {{ id: string, label: string, ariaLabel?: string }[]} tabs
  * @param {string} activeId
  * @param {(id: string) => void} onSelect
  */
@@ -19,6 +19,7 @@ function SubTabs({ tabs, activeId, onSelect }) {
           type="button"
           role="tab"
           aria-selected={activeId === t.id}
+          aria-label={t.ariaLabel}
           className={"sub-tabs-item" + (activeId === t.id ? " is-active" : "")}
           onClick={() => onSelect(t.id)}
         >

@@ -65,7 +65,7 @@ test("equipe: Para onde foi o custo de IA soma neste projeto + outros + fora de 
     /Neste projeto.*Fora de entrega.*A validar/,
   );
 
-  /* listas: categoria (4) e pessoa (top 5), com "% do custo dela" */
+  /* listas: categoria (4) e pessoa (top 5), com "% do custo da pessoa" */
   await expect(
     card.getByRole("heading", { name: "Fora de entrega por categoria", level: 4 }),
   ).toBeVisible();
@@ -74,7 +74,7 @@ test("equipe: Para onde foi o custo de IA soma neste projeto + outros + fora de 
   ).toBeVisible();
   for (const c of ["Estudo", "Suporte ou incidente", "Docs ou reunião", "Outro"])
     await expect(card.getByText(c, { exact: true })).toBeVisible();
-  await expect(card.getByText(/\d+% do custo dela/)).toHaveCount(5);
+  await expect(card.getByText(/\d+% do custo da pessoa/)).toHaveCount(5);
   await expect(card.getByText(/e mais \d+ pessoas?, na tabela/)).toBeVisible();
   await expect(card.getByText(/\d+ de \d+ pessoas usaram IA na sprint/)).toBeVisible();
 
@@ -82,7 +82,7 @@ test("equipe: Para onde foi o custo de IA soma neste projeto + outros + fora de 
   await card.getByRole("button", { name: "Tabela" }).click();
   await expect(card.getByRole("columnheader", { name: "Pessoa" })).toBeVisible();
   await expect(card.getByRole("columnheader", { name: "Fora de entrega" })).toBeVisible();
-  await expect(card.getByRole("columnheader", { name: "% do custo dela" })).toBeVisible();
+  await expect(card.getByRole("columnheader", { name: "% do custo da pessoa" })).toBeVisible();
   await expect(card.getByRole("row")).toHaveCount(7); // cabeçalho + 6 pessoas
 });
 
@@ -201,9 +201,9 @@ test("organização: card Fora de entrega com categorias, top 8 pessoas e tabela
   await card.scrollIntoViewIfNeeded();
   await expect(card.getByRole("heading", { name: "Fora de entrega", level: 3 })).toBeVisible();
   await expect(card.getByText(/% do custo de IA/)).toBeVisible();
-  await expect(card.getByText(/\d+% do custo dela/)).toHaveCount(8);
+  await expect(card.getByText(/\d+% do custo da pessoa/)).toHaveCount(8);
   await card.getByRole("button", { name: "Tabela" }).click();
-  await expect(card.getByRole("columnheader", { name: "% do custo dela" })).toBeVisible();
+  await expect(card.getByRole("columnheader", { name: "% do custo da pessoa" })).toBeVisible();
   expect(await card.getByRole("row").count()).toBeGreaterThan(9);
 });
 

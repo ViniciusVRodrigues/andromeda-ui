@@ -48,14 +48,14 @@ export function outOfDeliveryRows(out, limit) {
       label: p.name,
       value: p.usd,
       display: fmtUsd(p.usd),
-      sub: `${fmtShare(p.sharePct, p.usd)} do custo dela`,
+      sub: `${fmtShare(p.sharePct, p.usd)} do custo da pessoa`,
       color: OUT_OF_DELIVERY_COLOR,
     })),
     hidden: Math.max(0, byPerson.length - limit),
   };
 }
 
-/** Tabela gêmea (Pessoa | Fora de entrega | % do custo dela [| A validar]) com todas as pessoas. */
+/** Tabela gêmea (Pessoa | Fora de entrega | % do custo da pessoa [| A validar]) com todas as pessoas. */
 export function outOfDeliveryTable(out) {
   const rows = [...(out.byPerson || [])].sort((a, b) => b.usd - a.usd);
   const columns = [
@@ -63,7 +63,7 @@ export function outOfDeliveryTable(out) {
     { key: "usd", label: "Fora de entrega", align: "right", format: fmtUsd },
     {
       key: "sharePct",
-      label: "% do custo dela",
+      label: "% do custo da pessoa",
       align: "right",
       format: (v) => fmtShare(v),
     },

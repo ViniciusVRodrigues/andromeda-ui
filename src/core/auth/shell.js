@@ -131,8 +131,12 @@ export function canSee(identity, tab) {
       anywhere("REPOS_READ") ||
       identity.isAdmin
     );
-  if (tab === "uso-ia") return p.includes("AI_READ_OWN") || anywhere("AI_READ_ALL");
+  if (tab === "uso-ia")
+    return (
+      p.includes("AI_READ_OWN") || anywhere("AI_READ_ALL") || anywhere("AI_ALLOCATION_APPROVE")
+    );
   if (tab === "uso-ia-team") return anywhere("DASHBOARD_TEAM") || anywhere("AI_READ_ALL");
+  if (tab === "uso-ia-approve") return anywhere("AI_ALLOCATION_APPROVE");
   if (tab === "uso-ia-pricing") return p.includes("PRICE_TABLE_MANAGE") || identity.isAdmin;
   if (tab === "perfil") return true;
   return identity.isAdmin; // roles, seniority, org
