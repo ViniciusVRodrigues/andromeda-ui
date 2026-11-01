@@ -122,17 +122,14 @@ test("Geral: erro do servidor no PUT aparece como alerta", async ({ page }) => {
   await expect(c.getByRole("alert")).toContainText("Não foi possível salvar");
 });
 
-test("Geral: sem USER_MANAGE o cartão é só leitura", async ({ page }) => {
+/* A aba Organização exige USER_MANAGE e ROLE_MANAGE (isAdmin em core/auth/shell.js):
+ * sem USER_MANAGE a pessoa nem chega ao cartão, e o PUT continua barrado no servidor. */
+test("Geral: sem USER_MANAGE a Organização (e o cartão do teto) não aparece", async ({ page }) => {
   await installPolicy(page, { outOfDeliveryCapPercent: 25 });
   await withoutManage(page);
   const { orgSlug } = await loginAsAdmin(page);
   await gotoSection(page, orgSlug, "organizacao");
 
-  const c = card(page);
-  await expect(c).toBeVisible();
-  await expect(c.getByText("Teto sem aprovação")).toBeVisible();
-  await expect(c.getByText("25%")).toBeVisible();
-  await expect(c.getByText(/Acima do teto, cada lançamento/)).toBeVisible();
-  await expect(c.getByRole("spinbutton")).toHaveCount(0);
-  await expect(c.getByRole("button", { name: "Salvar" })).toHaveCount(0);
+  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  await expect(card(page)).toHaveCount(0);
 });

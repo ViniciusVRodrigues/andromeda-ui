@@ -80,7 +80,7 @@ test("equipe: Para onde foi o custo de IA soma neste projeto + outros + fora de 
 
   /* tabela gêmea com todas as pessoas */
   await card.getByRole("button", { name: "Tabela" }).click();
-  await expect(card.getByRole("columnheader", { name: "Pessoa" })).toBeVisible();
+  await expect(card.getByRole("columnheader", { name: "Pessoa", exact: true })).toBeVisible();
   await expect(card.getByRole("columnheader", { name: "Fora de entrega" })).toBeVisible();
   await expect(card.getByRole("columnheader", { name: "% do custo da pessoa" })).toBeVisible();
   await expect(card.getByRole("row")).toHaveCount(7); // cabeçalho + 6 pessoas

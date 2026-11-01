@@ -1,0 +1,6 @@
+{
+  "request": "GET /api/v1/organizations/me/allocation-policy",
+  "status": 200,
+  "contentType": "application/json",
+  "body": "{\"outOfDeliveryCapPercent\":15}"
+}
