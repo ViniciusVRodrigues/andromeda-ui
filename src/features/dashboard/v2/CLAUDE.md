@@ -8,11 +8,11 @@ casca) ou `onLogout` (modo só-dashboard: botão Sair, página rola na `.page-la
 
 ## Permissões → telas e sub-abas (`DashboardsPage.jsx`)
 
-| Permissão | O que aparece | Sub-abas (`?aba=`) |
-|---|---|---|
-| `DASHBOARD_INDIVIDUAL` | Tela 1 — projetos **da pessoa** (`memberIds` do `GET /v1/projects` contém o `userId` do /me), visão **Individual** | Resumo |
-| + `DASHBOARD_TEAM` | Tela 2 — **Individual \| Equipe** nos projetos com o código | Equipe: Resumo · Fluxo e qualidade |
-| `DASHBOARD_STRATEGIC` | Tela 3 — **Organização · visão geral** (código em algum projeto) + os projetos com o código na visão **Projeto** | Projeto: Resumo · Roadmap e backlog · Qualidade. Organização: Visão geral · Integrações e identidades* |
+| Permissão              | O que aparece                                                                                                      | Sub-abas (`?aba=`)                                                                                     |
+| ---------------------- | ------------------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------ |
+| `DASHBOARD_INDIVIDUAL` | Tela 1 — projetos **da pessoa** (`memberIds` do `GET /v1/projects` contém o `userId` do /me), visão **Individual** | Resumo                                                                                                 |
+| + `DASHBOARD_TEAM`     | Tela 2 — **Individual \| Equipe** nos projetos com o código                                                        | Equipe: Resumo · Fluxo e qualidade                                                                     |
+| `DASHBOARD_STRATEGIC`  | Tela 3 — **Organização · visão geral** (código em algum projeto) + os projetos com o código na visão **Projeto**   | Projeto: Resumo · Roadmap e backlog · Qualidade. Organização: Visão geral · Integrações e identidades* |
 
 \* "Integrações e identidades" para admin ou `AZURE_CONFIGURE`/`REPOS_CONFIGURE`/`USER_MANAGE` (a mesma regra do
 `GET /v1/dashboards/integrations`; mostra e-mails do Azure e a situação dos tokens; nunca segredos). As permissões
@@ -79,6 +79,15 @@ Estado na URL: `?escopo=org|<projectId>&visao=individual|equipe|projeto&aba=&spr
   repositórios vinculados, commits sem usuário por login do provedor (`byLogin`), execuções de sync
   (`AZURE_DEVOPS`/`GITHUB`, erro só com código e HTTP).
 
+**Destino do custo de IA** (`uso-ia-fora-de-entrega`): `adaptDestination` (`api.js`) normaliza `ai.destination`
+(`totalUsd`, `itemsUsd`, `outOfDelivery{usd, byCategory[], byPerson[]}`, `toValidate{usd, awaitingUsd}`; também lê o
+bloco do design `outOfDelivery` + `toValidateCostUsd`) ou devolve `null` (ms antigo: os cards mostram o estado sem
+dado). Equipe: card `equipe.custo-destino` "Para onde foi o custo de IA" (alias do antigo `equipe.dias-uso`):
+Neste projeto (= KPI `aiCostUsd`) + Outros projetos + Fora de entrega + A validar = `totalUsd`. Organização:
+`costByProject[].kind` (`PROJECT`/`OUT_OF_DELIVERY`/`TO_VALIDATE`; sem `kind` = ms antigo, a linha sem projeto segue
+"Não alocado a work items"), com as duas linhas novas sempre no fim, e o card `org.fora-de-entrega`. Peças comuns em
+`kit/AiDestination.jsx`. Fixtures: `node scripts/patch-dashboards-v2-destination.mjs` (não regenera o resto).
+
 **Fora até existir a coleta** (decisão 4; removidos do catálogo **e** das sub-abas fixas): quadro por coluna,
 horas restantes, trocas de responsável, escopo (entrou/saiu/transbordou), bugs por severidade, fila por revisor,
 entregue por área, matriz e tempo por severidade, motivo de fechamento, issues de bug, rate limit e a
@@ -113,7 +122,7 @@ vale para toda visão que tiver seções no catálogo e desenhar o Resumo com `D
   empilhada = 2º ao lado, 3º embaixo inteiro). Widgets das sub-abas ficam fora do padrão, em seções próprias
   (vazias no padrão) ou nas do Resumo.
 - **Payload composto** (`catalog/sources.js`): Equipe recebe `{ resumo, fluxo }` e Projeto `{ resumo, roadmap,
-  qualidade }`; cada widget declara `source` e o `select` do catálogo lê `p[source]` (os `select*` dos arquivos de
+qualidade }`; cada widget declara `source` e o `select` do catálogo lê `p[source]` (os `select*` dos arquivos de
   widget recebem o payload da fonte, e as sub-abas fixas os chamam direto). A view só busca uma fonte secundária
   quando o layout resolvido tem widget dela (`layoutSources`) e não desenha o grid antes de todas chegarem.
   Individual e Org recebem o payload direto.
@@ -124,7 +133,7 @@ vale para toda visão que tiver seções no catálogo e desenhar o Resumo com `D
 - As perguntas das seções são fixas no catálogo (antes Projeto/Org/Qualidade interpolavam nome e período).
 
 - `catalog.js` — `CATALOG = { sections, widgets }`. Widget: `{ id, viewKey, section, title, sizes, defaultSize,
-  default, skeletonHeight, aliases, select, Component }`. Ids `<viewKey>.<nome>`
+default, skeletonHeight, aliases, select, Component }`. Ids `<viewKey>.<nome>`
   (`^[a-z0-9-]+\.[a-z0-9-]+$`), opacos e estáveis — renomear = pôr o antigo em `aliases`. Seções fixas por visão
   (`id` `^[a-z0-9-]+$`, `domId` para a `SectionNav`, `title`, `question`). `select(payload)` tira a fatia do
   payload da visão (widget nunca busca dado); `Component({ data, ctx })` só desenha (`ctx.onNavigate`). Tamanhos
@@ -215,7 +224,7 @@ vale para toda visão que tiver seções no catálogo e desenhar o Resumo com `D
   observar a lista ou a faixa perde o alargamento das abas quando a fonte troca (era o flake de
   `dashboards-a11y.spec.js` "sub-abas em 360/390px").
 - **Gráficos** (`kit/chartSummary.js`): o `Panel` dá id ao `h3` e um contexto; cada gráfico é `<figure
-  aria-labelledby>` e o SVG do Recharts recebe `role="img"` + `aria-label` "Título: resumo" gerado do dado
+aria-labelledby>` e o SVG do Recharts recebe `role="img"` + `aria-label` "Título: resumo" gerado do dado
   (`trendSummary`, `columnSummary`, `burndownSummary` — "restam X de Y pontos de complexidade no dia N de M; ideal Z"). Prop
   `summary` sobrescreve.
 - **Contraste**: nenhum texto em `--fg-dim` (vale para widgets novos: use `text-fg-muted`). Texto de status
@@ -231,6 +240,7 @@ vale para toda visão que tiver seções no catálogo e desenhar o Resumo com `D
 ### Biblioteca de arrasto (spike 3.1, 2026-10-11): `@dnd-kit/core` 6.3.1 + `@dnd-kit/sortable` 10.0.0
 
 Spike numa grade de 12 colunas com tamanhos mistos (4/8/6/6/4/4/4/12), `KeyboardSensor`, Chromium:
+
 - **Clássica com os padrões** (`rectSortingStrategy` + `sortableKeyboardCoordinates`): o teclado anda pela
   geometria — uma seta → para a direita levou o item da posição 1 para a 6. `rectSortingStrategy` desloca os vizinhos
   para os retângulos uns dos outros, o que com larguras diferentes sobrepõe cartões.

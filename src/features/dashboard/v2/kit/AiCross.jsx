@@ -84,7 +84,13 @@ export function aiConsumptionOf(viewKey, payload) {
     };
   if (viewKey === "equipe")
     return {
-      usd: Math.max(alloc + (Number(k.unallocatedAiCostUsd) || 0), sumUsd(ai.byModel)),
+      /* com `ai.destination` o total do time já vem fechado (itens + fora de entrega + a validar): não soma o KPI de novo */
+      usd: Math.max(
+        ai.destination
+          ? Number(ai.destination.totalUsd) || 0
+          : alloc + (Number(k.unallocatedAiCostUsd) || 0),
+        sumUsd(ai.byModel),
+      ),
       scope: "time",
     };
   if (viewKey === "individual")

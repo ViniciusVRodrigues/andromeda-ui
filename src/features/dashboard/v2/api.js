@@ -135,6 +135,74 @@ export function adaptIndividual(raw) {
   };
 }
 
+/* ── destino do custo de IA (uso-ia-fora-de-entrega, U4) ──────────────── */
+
+const num = (v) => (Number.isFinite(Number(v)) ? Number(v) : 0);
+const pctOf = (share, part, whole) =>
+  share != null && Number.isFinite(Number(share))
+    ? Number(share) * 100
+    : whole > 0
+      ? (part / whole) * 100
+      : 0;
+
+/**
+ * `ai.destination` do servidor → `{ totalUsd, itemsUsd, otherProjectsUsd, outOfDelivery: { usd, byCategory[], byPerson[] },
+ * toValidate: { usd, awaitingUsd } }` com percentuais em 0..100, ou `null` quando o ms não manda (ms antigo:
+ * os cartões mostram o estado de sem dado). Aceita também o bloco do design (`outOfDelivery` + `toValidateCostUsd`,
+ * dentro de `ai` ou na raiz), com `share` em 0..1.
+ */
+export function adaptDestination(d) {
+  const ai = d?.ai || {};
+  const dest = ai.destination;
+  const flat = dest ? null : (ai.outOfDelivery ?? d?.outOfDelivery);
+  if (!dest && !flat) return null;
+  const out = dest ? dest.outOfDelivery || {} : flat;
+  const outUsd = num(out.usd ?? out.costUsd);
+  const toVal = dest
+    ? dest.toValidate || {}
+    : {
+        usd: ai.toValidateCostUsd ?? d?.toValidateCostUsd,
+        awaitingUsd: out.awaitingApprovalCostUsd,
+      };
+  const toValidateUsd = num(toVal.usd);
+  const itemsUsd = dest ? dest.itemsUsd : null;
+  const otherProjectsUsd = num(dest?.otherProjectsUsd);
+  const totalUsd = num(
+    dest?.totalUsd ??
+      (itemsUsd != null ? num(itemsUsd) + otherProjectsUsd + outUsd + toValidateUsd : null),
+  );
+  return {
+    totalUsd,
+    /* validado nos itens deste projeto (equipe/projeto) ou de qualquer projeto (estratégico) */
+    itemsUsd: itemsUsd == null ? null : num(itemsUsd),
+    /* validado em itens de outros projetos ou sem projeto: vem do servidor, o ui não deriva */
+    otherProjectsUsd,
+    outOfDelivery: {
+      usd: outUsd,
+      byCategory: (out.byCategory || []).map((c) => ({
+        category: c.category,
+        usd: num(c.usd ?? c.costUsd),
+        sharePct: pctOf(c.share, num(c.usd ?? c.costUsd), outUsd),
+      })),
+      byPerson: (out.byPerson || []).map((p) => {
+        const usd = num(p.usd ?? p.costUsd);
+        return {
+          userId: p.userId,
+          name: p.name ?? "",
+          usd,
+          /* % do custo de IA da própria pessoa (`sharePct` 0..100 ou `share` 0..1) */
+          sharePct: p.sharePct != null ? num(p.sharePct) : pctOf(p.share, usd, num(p.totalCostUsd)),
+          toValidateUsd: p.toValidateUsd == null ? null : num(p.toValidateUsd),
+        };
+      }),
+    },
+    toValidate: { usd: toValidateUsd, awaitingUsd: num(toVal.awaitingUsd) },
+  };
+}
+
+/** `ai` de uma visão com o destino normalizado (`destination: null` quando o ms não manda). */
+const withDestination = (d, ai) => ({ ...ai, destination: adaptDestination(d) });
+
 export function adaptTeam(raw) {
   const d = msTimestamps(raw);
   return {
@@ -154,6 +222,7 @@ export function adaptTeam(raw) {
       repo: r.displayName ?? r.repo,
     })),
     agingItems: d.agingItems ? mapNew(withComplexity(d.agingItems), K_ITEM) : d.agingItems,
+    ai: d.ai && withDestination(d, d.ai),
     history: (d.history || []).map((h) =>
       withNew(withAiTokens(flatDs(h, [["cycleTimeHours", "avgCycleTimeHours"]])), [
         ...K_SPRINT_FIG,
@@ -223,6 +292,7 @@ export function adaptProjectOverview(raw) {
     ai: d.ai && {
       ...withNew(d.ai, ["tokensPerPoint", "tokensPerHour", "costPerPoint"]),
       costByBucket: spreadMap(d.ai.costByBucket, "byModel"),
+      destination: adaptDestination(d),
     },
   };
 }
@@ -372,7 +442,16 @@ export function adaptOrganization(raw) {
         flatDs(r, [["prCycleTimeHours", "avgCycleTimeHours"]]),
       ),
     },
-    ai: d.ai && { ...d.ai, costByBucket: spreadMap(d.ai.costByBucket, "byModel") },
+    ai: d.ai && {
+      ...d.ai,
+      costByBucket: spreadMap(d.ai.costByBucket, "byModel"),
+      /* `kind`: PROJECT | OUT_OF_DELIVERY | TO_VALIDATE; ms antigo: sem `kind`, a linha sem projeto é a "não alocada" */
+      costByProject: (d.ai.costByProject || []).map((c) => ({
+        ...c,
+        kind: c.kind ?? (c.projectId ? "PROJECT" : "UNALLOCATED"),
+      })),
+      destination: adaptDestination(d),
+    },
     sprintHistory: adaptSprintHistory(d.sprintHistory),
   };
 }

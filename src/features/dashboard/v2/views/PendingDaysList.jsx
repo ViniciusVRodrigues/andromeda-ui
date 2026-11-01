@@ -15,6 +15,7 @@
 
 import React from "react";
 import { AllocationModal } from "../../../ai-usage/components/AllocationModal.jsx";
+import { OOD_CATEGORIES } from "../../../ai-usage/components/OutOfDelivery.jsx";
 import { useAllocateDay } from "../../../ai-usage/hooks/useAllocateDay.js";
 import { fmtUsd } from "../format.js";
 import { wholePercents } from "../../../../core/allocationMath.js";
@@ -25,6 +26,22 @@ export const dd = (iso) => {
   const [, m, d] = String(iso).split("-");
   return `${d}/${m}`;
 };
+
+/** "29/09/2026" (mensagem de envio para aprovação) */
+const dayDate = (iso) => {
+  const [y, m, d] = String(iso).split("-");
+  return `${d}/${m}/${y}`;
+};
+
+/** Rótulo da linha: título do item ou "Fora de entrega · <categoria>". */
+const splitTitle = (s) =>
+  s.kind === "OUT_OF_DELIVERY"
+    ? `Fora de entrega${
+        OOD_CATEGORIES.find((c) => c.value === s.category)
+          ? ` · ${OOD_CATEGORIES.find((c) => c.value === s.category).label}`
+          : ""
+      }`
+    : s.title;
 
 /** "ter 29/09" */
 export function dayLabel(iso) {
@@ -88,6 +105,9 @@ export function rowsFromBatches(batches) {
           externalId: s.externalId ?? null,
           title: s.workItemTitle ?? s.title ?? "",
           percentage: Number(s.percentage) || 0,
+          ...(s.kind === "OUT_OF_DELIVERY"
+            ? { kind: "OUT_OF_DELIVERY", category: s.category ?? null, note: s.note ?? "" }
+            : {}),
         })),
       };
     })
@@ -206,10 +226,17 @@ export function useDayActions(sourceRows, { fallbackFocus = null, sprintItems = 
     setModalBusy(true);
     setModalError("");
     try {
-      if (row.allocationId) await alloc.adjust(row.allocationId, splits);
-      else await alloc.allocateDay(row.day, splits);
+      const result = row.allocationId
+        ? await alloc.adjust(row.allocationId, splits)
+        : await alloc.allocateDay(row.day, splits);
       setModal(null);
-      settle(row, "done", `${dd(row.day)} alocado.`);
+      settle(
+        row,
+        "done",
+        result?.status === "AWAITING_APPROVAL"
+          ? `Dia ${dayDate(row.day)} enviado para aprovação.`
+          : `${dd(row.day)} alocado.`,
+      );
     } catch (e) {
       if (isGone(e)) {
         setModal(null);
@@ -237,6 +264,9 @@ export function useDayActions(sourceRows, { fallbackFocus = null, sprintItems = 
           workItemId: s.workItemId,
           workItemTitle: s.title,
           percentage: wholePercents(modal.splits)[i] / 100,
+          ...(s.kind === "OUT_OF_DELIVERY"
+            ? { kind: "OUT_OF_DELIVERY", category: s.category, note: s.note }
+            : {}),
         })),
       }}
       sprintItems={sprintItems}
@@ -261,11 +291,11 @@ function Chips({ row }) {
       {row.splits.map((s, i) => (
         <span
           key={`${s.workItemId ?? s.externalId ?? i}`}
-          title={`${s.externalId ? `#${s.externalId} ` : ""}${s.title} ${pcts[i]}%`}
+          title={`${s.externalId ? `#${s.externalId} ` : ""}${splitTitle(s)} ${pcts[i]}%`}
           className="border-line text-fg mono inline-flex max-w-full items-baseline gap-[6px] rounded-[var(--radius-sm)] border px-[8px] py-[3px] text-[12px] leading-tight font-normal"
         >
           {s.externalId ? <span className="text-fg-muted shrink-0">#{s.externalId}</span> : null}
-          <span className="max-w-[28ch] truncate min-[1280px]:max-w-[40ch]">{s.title}</span>
+          <span className="max-w-[28ch] truncate min-[1280px]:max-w-[40ch]">{splitTitle(s)}</span>
           <span className="shrink-0 tabular-nums">{pcts[i]}%</span>
         </span>
       ))}
@@ -279,7 +309,7 @@ function DayRow({ row, state, readOnly, actions }) {
   const label = dd(row.day);
   const pcts = wholePercents(row.splits);
   const suggestionName = row.splits
-    .map((s, i) => `${s.externalId ? `#${s.externalId} ` : ""}${s.title} ${pcts[i]}%`)
+    .map((s, i) => `${s.externalId ? `#${s.externalId} ` : ""}${splitTitle(s)} ${pcts[i]}%`)
     .join(", ");
   /* alvo de 44 px de altura; a pílula visível é o span (como o "Gráfico/Tabela" do Panel) */
   const btn =

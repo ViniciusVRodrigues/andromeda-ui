@@ -271,11 +271,13 @@ export const widgets = [
     select: selectAiByModel,
     Component: AiCostByModelWidget,
   }),
-  widget("dias-uso", "ia", "Dias de uso nos itens", {
+  widget("custo-destino", "ia", "Para onde foi o custo de IA", {
+    /* era "Dias de uso nos itens" (`equipe.dias-uso`): layouts salvos com o id antigo continuam valendo */
+    aliases: ["equipe.dias-uso"],
     sizes: ALL,
     size: "I",
     default: true,
-    height: 200,
+    height: 420,
     select: selectAiAllocation,
     Component: AiAllocationWidget,
   }),

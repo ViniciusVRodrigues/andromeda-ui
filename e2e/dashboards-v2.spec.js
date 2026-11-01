@@ -82,8 +82,8 @@ test("todo gráfico tem a alternativa em tabela (byModel{} do servidor vira colu
   page,
 }) => {
   await openAs(page, ["DASHBOARD_STRATEGIC"], "?periodo=90");
-  const panel = page.locator("#org-ia");
-  await panel.getByRole("button", { name: "Tabela" }).first().click();
+  const panel = page.locator("[data-widget-id='org.custo-ia-modelo']");
+  await panel.getByRole("button", { name: "Tabela" }).click();
   await expect(panel.getByRole("columnheader", { name: /claude-sonnet/ }).first()).toBeVisible();
 });
 
@@ -793,16 +793,15 @@ test("fonte do Fluxo com erro: só o widget mostra o erro e Tentar de novo recup
   expect(errors).toEqual([]);
 });
 
-test("destaque de IA não alocada usa o total (alocado + não alocado) e nunca passa de 100%", async ({
-  page,
-}) => {
+test("destaque de IA a validar usa o total das linhas e nunca passa de 100%", async ({ page }) => {
   const { readFixture } = await import("./dashboards-v2-api.mjs");
   const org = readFixture("organization__90");
-  /* mais custo sem alocação do que alocado: antes virava "251%" (não alocado ÷ alocado) */
-  org.kpis.aiCostUsd = 6.5;
-  org.ai.costByProject = org.ai.costByProject.map((c) =>
-    c.projectId == null ? { ...c, costUsd: 16.3 } : c,
-  );
+  /* mais custo a validar do que em projetos: a base é a soma de TODAS as linhas, não só os projetos */
+  org.ai.costByProject = org.ai.costByProject.map((c) => {
+    if (c.kind === "TO_VALIDATE") return { ...c, costUsd: 16.3 };
+    if (c.kind === "PROJECT") return { ...c, costUsd: 0.5 };
+    return { ...c, costUsd: 0 };
+  });
   await installDashboardsApi(page, { permissions: ["DASHBOARD_STRATEGIC"] });
   await page
     .context()
@@ -810,9 +809,38 @@ test("destaque de IA não alocada usa o total (alocado + não alocado) e nunca p
       route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(org) }),
     );
   await gotoDashboard(page, "?escopo=org&periodo=90");
-  const alert = page.getByText(/do custo de IA .* não está alocado/);
+  const alert = page.getByText(/do custo de IA .* ainda está a validar/);
   await expect(alert).toBeVisible();
-  /* 16,30 ÷ (6,50 + 16,30) = 71% */
-  await expect(alert).toContainText("71");
-  await expect(page.getByText(/\b(1\d\d|[2-9]\d\d)\s?% do custo de IA/)).toHaveCount(0);
+  /* 16,30 ÷ (5 × 0,50 + 16,30) = 87% */
+  await expect(alert).toContainText("87");
+  await expect(alert).not.toContainText(/\b(1\d\d|[2-9]\d\d)\s?%/);
+});
+
+test("ms antigo (sem kind): a linha sem projeto continua como não alocada no destaque", async ({
+  page,
+}) => {
+  const { readFixture } = await import("./dashboards-v2-api.mjs");
+  const org = readFixture("organization__90");
+  org.kpis.aiCostUsd = 6.5;
+  delete org.ai.destination;
+  org.ai.costByProject = [
+    ...org.ai.costByProject.filter((c) => c.kind === "PROJECT").map(({ kind, ...c }) => c),
+    { projectId: null, name: "Não alocado a work items", costUsd: 16.3 },
+  ];
+  await installDashboardsApi(page, { permissions: ["DASHBOARD_STRATEGIC"] });
+  await page
+    .context()
+    .route("**/api/v1/dashboards/organization*", (route) =>
+      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(org) }),
+    );
+  await gotoDashboard(page, "?escopo=org&periodo=90");
+  await expect(page.getByText(/do custo de IA .* não está alocado/)).toBeVisible();
+  const custo = page.locator("[data-widget-id='org.custo-ia-projeto']");
+  await expect(custo.getByText("Não alocado a work items")).toBeVisible();
+  /* sem `destination`, o card novo não inventa número */
+  await expect(
+    page
+      .locator("[data-widget-id='org.fora-de-entrega']")
+      .getByText("Sem dados de fora de entrega"),
+  ).toBeVisible();
 });
