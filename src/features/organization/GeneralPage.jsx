@@ -13,6 +13,7 @@ import { orgUrlLabel } from "../../lib/appUrl.js";
 import SectionHeader from "../../core/ui/SectionHeader.jsx";
 import { SyncSettingsForm } from "./SyncSettingsForm.jsx";
 import { RemediationRulesForm } from "./RemediationRulesForm.jsx";
+import { AllocationPolicyForm } from "./AllocationPolicyForm.jsx";
 import { WorkItemPatternsCard } from "./WorkItemPatternsCard.jsx";
 import { DeleteOrganizationSection } from "./DeleteOrganizationSection.jsx";
 
@@ -54,6 +55,7 @@ export function GeneralPage() {
       </section>
       <SyncSettingsForm />
       <RemediationRulesForm />
+      <AllocationPolicyForm className="min-[1100px]:col-span-2" />
       <WorkItemPatternsCard className="min-[1100px]:col-span-2" />
       <DeleteOrganizationSection name={orgData.name} slug={orgData.slug} />
     </div>
