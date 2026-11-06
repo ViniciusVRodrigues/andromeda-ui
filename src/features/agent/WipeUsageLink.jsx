@@ -4,6 +4,7 @@
 import React from "react";
 import { ConfirmDialog } from "../../core/ui/Modal.jsx";
 import { useWipeAiUsageData } from "../integrations/hooks.js";
+import { apiErrorMessage } from "../../core/api/errorMessages.js";
 
 export default function WipeUsageLink({ hasOrg }) {
   const wipe = useWipeAiUsageData();
@@ -21,7 +22,7 @@ export default function WipeUsageLink({ hasOrg }) {
       setOpen(false);
       setDone(true);
     } catch (err) {
-      setError(err?.message || "Falha ao executar a ação.");
+      setError(apiErrorMessage(err, "Falha ao executar a ação."));
     } finally {
       setBusy(false);
     }

@@ -264,10 +264,13 @@ function SignupScreen({ onCancel, onDone }) {
       funnel.complete();
     } catch (err) {
       funnel.submitError(submitErrorValue(err));
-      const msg = err?.message || "";
-      if (msg.includes("SLUG") || msg.includes("409")) {
+      const code = err?.body?.code;
+      if (
+        code === "ORG_SLUG_CONFLICT" ||
+        (err?.status === 409 && code !== "USER_EMAIL_CONFLICT" && code !== "USER_CONFLICT")
+      ) {
         setSubmitError("Já existe uma organização com esse identificador. Tente outro.");
-      } else if (msg.includes("email") || msg.includes("409")) {
+      } else if (code === "USER_EMAIL_CONFLICT" || code === "USER_CONFLICT") {
         setSubmitError("Este e-mail já está em uso. Tente outro ou faça login.");
       } else {
         setSubmitError("Erro ao criar organização. Tente novamente.");

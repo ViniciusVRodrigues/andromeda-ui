@@ -15,6 +15,7 @@ import api from "../../../core/api/client.js";
 import Checkbox from "../../../core/ui/Checkbox.jsx";
 import Disclosure from "../../../core/ui/Disclosure.jsx";
 import { useUnpricedModels, UNPRICED_MODELS_KEY } from "../hooks/useUnpricedModels.js";
+import { apiErrorMessage } from "../../../core/api/errorMessages.js";
 
 /* Presets = tabela oficial vigente por MILHÃO de tokens (unidade que os
  * provedores publicam), IDs validados contra o que a ingestão realmente
@@ -646,7 +647,7 @@ export function AiPricingTab({ initialEntries = [], initialSubscriptionCost = nu
       queryClient.invalidateQueries({ queryKey: UNPRICED_MODELS_KEY });
       queryClient.invalidateQueries({ queryKey: ["organizations", "me"] });
     } catch (err) {
-      setFeedback({ type: "error", at, text: err.message || "Erro ao salvar preços." });
+      setFeedback({ type: "error", at, text: apiErrorMessage(err, "Erro ao salvar preços.") });
     } finally {
       setSaving(false);
     }
@@ -662,7 +663,10 @@ export function AiPricingTab({ initialEntries = [], initialSubscriptionCost = nu
         text: `${result.updatedRecords} registros recalculados.`,
       });
     } catch (err) {
-      setRecalcFeedback({ type: "error", text: err.message || "Erro ao recalcular custos." });
+      setRecalcFeedback({
+        type: "error",
+        text: apiErrorMessage(err, "Erro ao recalcular custos."),
+      });
     } finally {
       setRecalcSaving(false);
     }
@@ -682,7 +686,10 @@ export function AiPricingTab({ initialEntries = [], initialSubscriptionCost = nu
       });
       setSubFeedback({ type: "success", text: "Custo de assinatura salvo." });
     } catch (err) {
-      setSubFeedback({ type: "error", text: err.message || "Erro ao salvar custo de assinatura." });
+      setSubFeedback({
+        type: "error",
+        text: apiErrorMessage(err, "Erro ao salvar custo de assinatura."),
+      });
     } finally {
       setSubSaving(false);
     }

@@ -819,8 +819,7 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
       // is ever rejected for wiping non-empty mappings to empty. Should be
       // unreachable given 10.5 (draft state is never empty here), but the
       // error can still occur from stale state (e.g. concurrent edit elsewhere).
-      const message = err?.message || "";
-      if (message.includes("AZURE_WORKFLOW_CONFIG_MAPPINGS_EMPTY")) {
+      if (err?.body?.code === "AZURE_WORKFLOW_CONFIG_MAPPINGS_EMPTY") {
         setSaveError(
           "Os mapeamentos de tipo/status não podem ficar vazios para um projeto já configurado. " +
             "Volte às etapas anteriores e confirme os mapeamentos antes de salvar novamente.",
@@ -888,8 +887,7 @@ export function AzureFieldMappingWizard({ bindingId, onDone, onSkip, initialStep
       );
       onSkip();
     } catch (err) {
-      const message = err?.message || "";
-      if (message.includes("AZURE_WORKFLOW_CONFIG_MAPPINGS_EMPTY")) {
+      if (err?.body?.code === "AZURE_WORKFLOW_CONFIG_MAPPINGS_EMPTY") {
         setSaveError(
           "Os mapeamentos de tipo/status não podem ficar vazios para um projeto já configurado. " +
             "Volte às etapas anteriores e confirme os mapeamentos antes de salvar.",

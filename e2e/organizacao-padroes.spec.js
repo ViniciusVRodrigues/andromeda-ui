@@ -357,9 +357,9 @@ test.describe("a 1280 px", () => {
     const items = list(c).getByRole("listitem");
     await items.nth(1).getByRole("textbox").fill("((\\d+)");
     await c.getByRole("button", { name: "Salvar" }).click();
-    await expect(items.nth(1)).toContainText("Parêntese sem par.");
+    await expect(items.nth(1)).toContainText("Padrão inválido. Confira a expressão.");
     await expect(items.nth(1).getByRole("textbox")).toHaveAttribute("aria-invalid", "true");
-    await expect(items.nth(0)).not.toContainText("Parêntese sem par.");
+    await expect(items.nth(0)).not.toContainText("Padrão inválido. Confira a expressão.");
     await expect(c.getByRole("button", { name: "Salvar" })).toBeDisabled();
   });
 
@@ -377,7 +377,7 @@ test.describe("a 1280 px", () => {
     await c.getByRole("button", { name: "Personalizado" }).click();
     const items = list(c).getByRole("listitem");
     await items.nth(1).getByRole("textbox").fill("(\\d+)[a-");
-    await expect(items.nth(1)).toContainText("Classe sem fechar.");
+    await expect(items.nth(1)).toContainText("Padrão inválido. Confira a expressão.");
   });
 
   test("DETECTED com candidatos e Confirmar (21)", async ({ page }) => {

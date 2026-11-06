@@ -8,6 +8,7 @@ import React from "react";
 import { Link } from "react-router-dom";
 import { Wordmark } from "../../components/Wordmark.jsx";
 import { requestPasswordReset } from "./api.js";
+import { isRateLimited } from "../../core/api/rateLimit.js";
 
 export function ForgotPasswordScreen() {
   const [email, setEmail] = React.useState("");
@@ -25,7 +26,7 @@ export function ForgotPasswordScreen() {
       setSent(true);
     } catch (err) {
       setError(
-        /\(429\)|TOO_MANY/.test(err?.message || "")
+        isRateLimited(err)
           ? "Muitas tentativas. Aguarde alguns minutos e tente novamente."
           : "Não foi possível concluir agora. Tente novamente em instantes.",
       );

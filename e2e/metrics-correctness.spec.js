@@ -206,7 +206,7 @@ test("organização: regras de remediação validam, salvam e mostram o 422", as
   await expect(section).toHaveScreenshot("org-remediation-rules.png");
 
   await salvar.click();
-  await expect(section.getByRole("alert")).toContainText("Prefixo de branch inválido.");
+  await expect(section.getByRole("alert")).toContainText("Regras inválidas");
 
   await salvar.click();
   await expect(section.getByRole("status")).toContainText("Regras salvas.");
