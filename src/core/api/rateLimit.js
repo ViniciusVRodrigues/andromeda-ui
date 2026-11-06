@@ -1,9 +1,8 @@
 /* Limite de requisições (HTTP 429) — texto de espera para as telas públicas.
- * O client expõe `err.status` e `err.retryAfter` (segundos); a checagem por mensagem
- * cobre erros que chegam sem esses campos. */
+ * O client expõe `err.status`, `err.retryAfter` (segundos) e `err.body.code`. */
 
 export function isRateLimited(err) {
-  return err?.status === 429 || /\(429\)|TOO_MANY/.test(err?.message || "");
+  return err?.status === 429 || err?.body?.code === "TOO_MANY_ATTEMPTS";
 }
 
 /** "30 segundos" até 59; "9 minutos" (arredonda para cima) a partir de 60; sem valor, "alguns minutos". */

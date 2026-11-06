@@ -9,6 +9,7 @@
 
 import React from "react";
 import { ConfirmDialog } from "../../core/ui/Modal.jsx";
+import { apiErrorMessage } from "../../core/api/errorMessages.js";
 
 /**
  * @param {object} props
@@ -45,7 +46,7 @@ export function IntegrationDataActions({
       setConfirmando(null);
       setResultado({ tipo: "ok", texto: mensagemOk });
     } catch (err) {
-      setResultado({ tipo: "erro", texto: err?.message || "Falha ao executar a ação." });
+      setResultado({ tipo: "erro", texto: apiErrorMessage(err, "Falha ao executar a ação.") });
     } finally {
       setOcupado(false);
     }

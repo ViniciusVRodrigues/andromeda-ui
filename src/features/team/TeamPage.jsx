@@ -132,7 +132,7 @@ export function TeamPage() {
        * O texto e neutro de proposito — dizer "pertence a outra organizacao"
        * confirmaria a existencia do e-mail em outro tenant. */
       setInviteError(
-        /\(409\)/.test(err?.message || "")
+        err?.status === 409
           ? "Este e-mail já está vinculado a uma organização no Andrômeda."
           : "Não foi possível enviar o convite. Tente novamente.",
       );

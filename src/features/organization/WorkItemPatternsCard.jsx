@@ -49,13 +49,20 @@ const fromServer = (p) => ({
 
 const pct = (x) => `${Math.round((Number(x) || 0) * 100)}%`;
 
-/** Mensagens do 422 `WORK_ITEM_PATTERN_INVALID` por índice. */
+const PATTERN_MESSAGES = {
+  PATTERN_INVALID: "Padrão inválido. Confira a expressão.",
+  PATTERN_NO_GROUP: "O padrão precisa de pelo menos um grupo de captura.",
+  PATTERN_TOO_LONG: "O padrão é longo demais.",
+  PATTERN_TOO_MANY: "Há padrões demais. Remova os que passam do limite.",
+};
+
+/** Frases do 422 `WORK_ITEM_PATTERN_INVALID` por índice (pelo código, nunca pelo texto do servidor). */
 function errorsByIndex(err) {
   const out = {};
   const list = err?.body?.errors;
   if (err?.status === 422 && Array.isArray(list)) {
     for (const e of list) {
-      if (Number.isInteger(e?.index)) out[e.index] = e.message || "Padrão inválido.";
+      if (Number.isInteger(e?.index)) out[e.index] = PATTERN_MESSAGES[e.code] || "Padrão inválido.";
     }
   }
   return out;

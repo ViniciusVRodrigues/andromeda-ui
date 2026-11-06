@@ -79,7 +79,7 @@ function useManualSync({ integration, trigger, onFinished, showToast, setSeconds
       if (data?.syncId) setSyncId(data.syncId);
       showToast("success", "Sincronização iniciada.");
     } catch (err) {
-      if (err?.status === 429 || err?.message?.includes("(429)")) {
+      if (err?.status === 429) {
         setSecondsLeft(err.retryAfter ?? 30);
         showToast("error", "Sincronização em cooldown. Aguarde antes de tentar novamente.");
       } else if (err?.status === 403) {
@@ -518,7 +518,7 @@ function AzureIntegrationCard({ onStatusChange }) {
       setConnection(data);
       setStatus(data.status);
     } catch (err) {
-      if (err.message && err.message.includes("(404)")) {
+      if (err?.status === 404) {
         setStatus("DISCONNECTED");
         setAuthMethod(null);
       } else {
@@ -983,7 +983,7 @@ function GithubIntegrationCard({ onStatusChange }) {
       setConnection(data);
       setStatus(data.status);
     } catch (err) {
-      if (err.message && err.message.includes("(404)")) {
+      if (err?.status === 404) {
         setStatus("DISCONNECTED");
         setShowPatForm(false);
       } else {

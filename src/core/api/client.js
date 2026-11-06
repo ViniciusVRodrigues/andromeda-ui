@@ -7,6 +7,8 @@
  * As funções de domínio NÃO vivem aqui: cada feature tem seu features/<x>/api.js
  * delegando a este client. services/api.js é um barrel de transição (deprecated). */
 
+import { friendlyMessage } from "./errorMessages.js";
+
 export const BASE_URL = import.meta.env.VITE_API_BASE_URL || "/api";
 
 // Absolute base for connector URLs shared with external tools (e.g. VS Code extension).
@@ -85,6 +87,20 @@ function parseRetryAfter(value) {
   return Number.isFinite(seconds) && seconds >= 0 ? Math.ceil(seconds) : null;
 }
 
+/* `message` é SEMPRE a frase em pt-BR para a tela. O texto técnico (método, rota,
+ * status, corpo) vai para `detail` e para o console. Quem precisa decidir algo
+ * lê `status`, `body.code` e `retryAfter`, nunca o `message`. */
+function buildError({ method, path, status, detail, body, retryAfter = null }) {
+  const code = typeof body?.code === "string" ? body.code : null;
+  const err = new Error(friendlyMessage(status, code, retryAfter));
+  err.status = status;
+  err.retryAfter = retryAfter;
+  err.body = body;
+  err.detail = `API ${method} ${path} falhou (${status}): ${detail}`;
+  console.warn(err.detail);
+  return err;
+}
+
 async function request(path, { method = "GET", body, headers, telemetry, ...rest } = {}) {
   const token = getToken();
   let res;
@@ -100,8 +116,9 @@ async function request(path, { method = "GET", body, headers, telemetry, ...rest
       ...rest,
     });
   } catch (e) {
-    if (telemetry !== false && e?.name !== "AbortError") notifyApiError(0, "NETWORK_ERROR");
-    throw e;
+    if (e?.name === "AbortError") throw e;
+    if (telemetry !== false) notifyApiError(0, "NETWORK_ERROR");
+    throw buildError({ method, path, status: 0, detail: String(e?.message || e), body: null });
   }
 
   if (res.status === 401) {
@@ -109,22 +126,25 @@ async function request(path, { method = "GET", body, headers, telemetry, ...rest
     if (path !== "/v1/auth/login") {
       _authExpiredCallback?.();
     }
-    throw new Error(`API ${method} ${path} falhou (401): não autorizado`);
+    throw buildError({ method, path, status: 401, detail: "não autorizado", body: null });
   }
 
   if (!res.ok) {
     const detail = await res.text().catch(() => "");
-    /* A mensagem mantém o formato "(status)" de sempre — há chamadores que
-     * testam `message.includes("(429)")`. Os campos extras são para quem
-     * precisa do header (Retry-After) ou do código de erro do corpo. */
-    const err = new Error(`API ${method} ${path} falhou (${res.status}): ${detail}`);
-    err.status = res.status;
-    err.retryAfter = parseRetryAfter(res.headers?.get?.("Retry-After"));
+    let body = null;
     try {
-      err.body = detail ? JSON.parse(detail) : null;
+      body = detail ? JSON.parse(detail) : null;
     } catch (_) {
-      err.body = null;
+      body = null;
     }
+    const err = buildError({
+      method,
+      path,
+      status: res.status,
+      detail,
+      body,
+      retryAfter: parseRetryAfter(res.headers?.get?.("Retry-After")),
+    });
     if (telemetry !== false) {
       const code = typeof err.body?.code === "string" ? err.body.code : `HTTP_${res.status}`;
       notifyApiError(res.status, code);

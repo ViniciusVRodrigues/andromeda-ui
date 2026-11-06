@@ -5,6 +5,7 @@
 
 import React from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { isRateLimited } from "../../core/api/rateLimit.js";
 import { Wordmark } from "../../components/Wordmark.jsx";
 import { confirmPasswordReset } from "./api.js";
 
@@ -53,15 +54,15 @@ export function ResetPasswordScreen() {
       await confirmPasswordReset(token, password);
       setDone(true);
     } catch (err) {
-      const msg = err?.message || "";
+      const code = err?.body?.code;
       setError(
         /* Casa pelo CODIGO do erro, não pelo status: o handler responde 422
          * para regra de negócio, não 400. */
-        /PASSWORD_RESET_TOKEN_INVALID/.test(msg)
+        code === "PASSWORD_RESET_TOKEN_INVALID"
           ? "Este link de redefinição não é mais válido. Solicite um novo."
-          : /PASSWORD_TOO_WEAK/.test(msg)
+          : code === "PASSWORD_TOO_WEAK"
             ? "A senha precisa ter ao menos 6 caracteres, uma letra maiúscula e um caractere especial."
-            : /TOO_MANY_ATTEMPTS/.test(msg)
+            : code === "TOO_MANY_ATTEMPTS" || isRateLimited(err)
               ? "Muitas tentativas. Aguarde alguns minutos e tente novamente."
               : "Não foi possível redefinir agora. Tente novamente em instantes.",
       );

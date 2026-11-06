@@ -31,6 +31,7 @@ import {
   weekRange,
   weeksOfMonth,
 } from "./lib.js";
+import { apiErrorMessage } from "../../core/api/errorMessages.js";
 
 /** Dia do agente: confirmado pelo agente ou com sugestão vinda dele (o aviso da faixa). */
 const isAgentRow = (row) =>
@@ -337,7 +338,7 @@ export function UsoIaPage({ can, personRef }) {
         )}
         {mutation.isError && !selected && (
           <p role="alert" className="text-bad mb-3">
-            {mutation.error.message}
+            {apiErrorMessage(mutation.error)}
           </p>
         )}
         {loading ? (
@@ -581,7 +582,7 @@ export function UsoIaPage({ can, personRef }) {
           )}
           {mutation.isError && (
             <p role="alert" className="text-bad mt-3">
-              {mutation.error.message}
+              {apiErrorMessage(mutation.error)}
             </p>
           )}
         </Modal>
@@ -608,11 +609,11 @@ export function UsoIaPage({ can, personRef }) {
             }}
             onConfirm={save}
             loading={mutation.isPending}
-            error={mutation.error?.message}
+            error={mutation.isError ? apiErrorMessage(mutation.error) : null}
           />
           {mutation.isError && (
             <p role="alert" className="text-bad">
-              {mutation.error.message}
+              {apiErrorMessage(mutation.error)}
             </p>
           )}
         </>

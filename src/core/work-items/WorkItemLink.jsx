@@ -5,6 +5,7 @@ import { useIdentity } from "../auth/IdentityContext.jsx";
 import Modal from "../ui/Modal.jsx";
 import { trackAction } from "../telemetry/index.js";
 import { ACTIONS } from "../telemetry/actions.js";
+import { apiErrorMessage } from "../api/errorMessages.js";
 
 const display = (value) => (value == null || value === "" ? "Não informado" : value);
 const date = (value) => (value ? new Date(value).toLocaleDateString("pt-BR") : "Não informado");
@@ -95,7 +96,7 @@ function FieldEditor({ itemId, field, detail, editable, onUpdated }) {
         ))}
       {mutation.isError && (
         <p role="alert" className="text-bad mt-2">
-          {mutation.error.message || "Não foi possível salvar."}
+          {apiErrorMessage(mutation.error, "Não foi possível salvar.")}
         </p>
       )}
     </section>

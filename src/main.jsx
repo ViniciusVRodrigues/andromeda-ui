@@ -24,7 +24,7 @@ const queryClient = new QueryClient({
     queries: {
       staleTime: 60_000,
       refetchOnWindowFocus: false,
-      retry: (count, err) => !/\(4[0-9]{2}\)/.test(String(err?.message)) && count < 2,
+      retry: (count, err) => !(err?.status >= 400 && err.status < 500) && count < 2,
     },
   },
 });

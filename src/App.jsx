@@ -57,6 +57,7 @@ import { RequireTab } from "./core/auth/RequireTab.jsx";
 import { ErrorBoundary } from "./core/ui/ErrorBoundary.jsx";
 import { PrivacyPage } from "./features/privacidade/PrivacyPage.jsx";
 import { OAuthReturnPage } from "./features/oauth/OAuthReturnPage.jsx";
+import { isRateLimited } from "./core/api/rateLimit.js";
 import { ShellLayout } from "./app/ShellLayout.jsx";
 import { PairRedirect, takePostLoginPath } from "./features/agent/PairRedirect.jsx";
 import {
@@ -598,11 +599,10 @@ function LoginScreenWrapper({ enterApp, onHome }) {
       const meData = await api.get("/v1/auth/me");
       enterApp(meData);
     } catch (err) {
-      const msg = err?.message || "";
       setLoginError(
-        /\(429\)|TOO_MANY/.test(msg)
+        isRateLimited(err)
           ? "Muitas tentativas. Aguarde alguns minutos e tente de novo."
-          : msg.includes("401")
+          : err?.status === 401
             ? "E-mail ou senha incorretos."
             : "Erro ao conectar. Tente novamente.",
       );

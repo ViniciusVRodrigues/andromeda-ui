@@ -42,7 +42,7 @@ function sameList(a, b) {
 function saveErrorMessage(error) {
   if (error?.status === 403) return "Você não tem permissão para alterar as regras de remediação.";
   if (error?.status === 422 || error?.body?.code === "METRIC_SETTINGS_INVALID") {
-    return error?.body?.message || "Regras inválidas. Revise os prefixos e tente de novo.";
+    return "Regras inválidas. Revise os prefixos e tente de novo.";
   }
   return "Não foi possível salvar. Tente novamente.";
 }
